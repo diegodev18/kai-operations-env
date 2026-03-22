@@ -34,10 +34,19 @@ async function seed() {
   }
 
   const email = emailRaw.toLowerCase();
+  const operationsRole = email === "admin@talktokai.com" ? "admin" : "member";
 
   const existing = await getUserIdByEmail(email);
   if (existing) {
-    console.log(`Usuario ya existía: ${email}`);
+    if (email === "admin@talktokai.com") {
+      await db
+        .update(user)
+        .set({ role: "admin", updatedAt: new Date() })
+        .where(eq(user.email, email));
+      console.log(`Usuario ya existía; rol actualizado a admin: ${email}`);
+    } else {
+      console.log(`Usuario ya existía: ${email}`);
+    }
     process.exit(0);
   }
 
@@ -54,6 +63,7 @@ async function seed() {
         email,
         emailVerified: false,
         image: null,
+        role: operationsRole,
         createdAt: now,
         updatedAt: now,
       });

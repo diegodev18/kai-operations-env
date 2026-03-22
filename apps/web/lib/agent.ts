@@ -11,6 +11,11 @@ export type AgentBilling = {
   paymentAlert: boolean;
 };
 
+export type GrowerRef = {
+  name: string;
+  email: string;
+};
+
 export interface Agent {
   id: string;
   name: string;
@@ -19,12 +24,11 @@ export interface Agent {
   enabled?: boolean;
   model?: string;
   temperature?: number;
+  growers?: GrowerRef[];
 }
 
 export interface AgentWithOperations extends Agent {
   operationalStatus: AgentOperationalStatus;
-  growerId?: string | null;
-  growerName?: string | null;
   billing: AgentBilling;
   industry?: string | null;
 }
@@ -46,8 +50,7 @@ export function toAgentWithOperations(
     ...raw,
     operationalStatus,
     billing,
-    growerId: raw.growerId ?? null,
-    growerName: raw.growerName ?? null,
+    growers: Array.isArray(raw.growers) ? raw.growers : [],
     industry: raw.industry ?? null,
   };
 }

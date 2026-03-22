@@ -21,4 +21,14 @@ export const auth = betterAuth({
   },
   secret: BETTER_AUTH_SECRET,
   trustedOrigins: [WEB_ORIGIN, BETTER_AUTH_URL],
+  user: {
+    additionalFields: {
+      role: {
+        type: "string",
+        required: false,
+        defaultValue: "member",
+        input: false,
+      },
+    },
+  },
 });

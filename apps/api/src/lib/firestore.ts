@@ -5,6 +5,7 @@ import admin from "firebase-admin";
 import {
   FieldValue,
   Timestamp,
+  initializeFirestore,
   type Firestore,
 } from "firebase-admin/firestore";
 
@@ -44,6 +45,13 @@ function loadServiceAccount(): admin.ServiceAccount | null {
 
 let firestoreInstance: Firestore | null = null;
 
+/** Bun + gRPC de Firestore suele fallar; REST evita @grpc/grpc-js. Desactiva con FIRESTORE_PREFER_REST=0. */
+function shouldPreferFirestoreRest(): boolean {
+  if (process.env.FIRESTORE_PREFER_REST === "0") return false;
+  if (process.env.FIRESTORE_PREFER_REST === "1") return true;
+  return typeof process.versions.bun === "string";
+}
+
 /**
  * Firestore de producción (lazy). Credenciales: env JSON o `src/tokens/firebase.production.json`.
  */
@@ -65,6 +73,9 @@ export function getFirestore(): Firestore {
     );
   }
 
-  firestoreInstance = admin.app(FIREBASE_APP_NAME).firestore();
+  const firebaseApp = admin.app(FIREBASE_APP_NAME);
+  firestoreInstance = shouldPreferFirestoreRest()
+    ? initializeFirestore(firebaseApp, { preferRest: true })
+    : firebaseApp.firestore();
   return firestoreInstance;
 }

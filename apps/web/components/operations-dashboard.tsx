@@ -170,12 +170,20 @@ export function OperationsDashboard(props: {
     let list = agents;
     const q = search.trim().toLowerCase();
     if (q) {
-      list = list.filter(
-        (a) =>
+      list = list.filter((a) => {
+        if (
           a.name.toLowerCase().includes(q) ||
           a.owner.toLowerCase().includes(q) ||
-          (a.industry ?? "").toLowerCase().includes(q),
-      );
+          (a.industry ?? "").toLowerCase().includes(q)
+        ) {
+          return true;
+        }
+        return (a.growers ?? []).some(
+          (g) =>
+            g.name.toLowerCase().includes(q) ||
+            g.email.toLowerCase().includes(q),
+        );
+      });
     }
     if (statusFilter !== "all") {
       list = list.filter((a) => a.operationalStatus === statusFilter);
@@ -338,7 +346,7 @@ export function OperationsDashboard(props: {
                       <th className="p-3 text-left font-medium">Agente</th>
                       <th className="p-3 text-left font-medium">Industria</th>
                       <th className="p-3 text-left font-medium">Estatus</th>
-                      <th className="p-3 text-left font-medium">Grower</th>
+                      <th className="p-3 text-left font-medium">Growers</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -357,7 +365,32 @@ export function OperationsDashboard(props: {
                           </Badge>
                         </td>
                         <td className="p-3 text-muted-foreground">
-                          {agent.growerName ?? agent.owner ?? "—"}
+                          {agent.growers && agent.growers.length > 0 ? (
+                            <span className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
+                              {agent.growers.map((g, i) => (
+                                <span key={`${g.email}-${i}`} className="inline-flex items-center">
+                                  {i > 0 ? (
+                                    <span className="mr-1 text-muted-foreground/60">
+                                      ,
+                                    </span>
+                                  ) : null}
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        type="button"
+                                        className="cursor-default border-0 bg-transparent p-0 text-left text-inherit underline-offset-2 hover:underline"
+                                      >
+                                        {g.name}
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>{g.email}</TooltipContent>
+                                  </Tooltip>
+                                </span>
+                              ))}
+                            </span>
+                          ) : (
+                            "—"
+                          )}
                         </td>
                       </tr>
                     ))}
