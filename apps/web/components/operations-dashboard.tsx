@@ -17,6 +17,14 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Tooltip,
@@ -188,24 +196,45 @@ export function OperationsDashboard(props: {
           <LayoutDashboardIcon className="size-5" />
           Operaciones
         </div>
-        <div className="flex items-center gap-2">
-          <div
-            className="flex size-9 items-center justify-center rounded-full border border-border bg-muted text-xs font-medium text-foreground"
-            title={props.userEmail ?? props.userName ?? "Usuario"}
-          >
-            {avatarLabel}
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className="text-muted-foreground"
-            onClick={() => props.onSignOut()}
-            aria-label="Cerrar sesión"
-          >
-            <LogOutIcon className="size-4" />
-          </Button>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-xs font-medium text-foreground outline-none transition-colors hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              aria-label="Menú de usuario"
+            >
+              {avatarLabel}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-48">
+            <DropdownMenuLabel className="font-normal">
+              <div className="flex flex-col gap-0.5">
+                {props.userName ? (
+                  <span className="text-sm font-medium text-foreground">
+                    {props.userName}
+                  </span>
+                ) : null}
+                {props.userEmail ? (
+                  <span className="text-xs text-muted-foreground">
+                    {props.userEmail}
+                  </span>
+                ) : (
+                  <span className="text-sm text-muted-foreground">Usuario</span>
+                )}
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              variant="destructive"
+              onSelect={() => {
+                props.onSignOut();
+              }}
+            >
+              <LogOutIcon className="size-4" />
+              Cerrar sesión
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
