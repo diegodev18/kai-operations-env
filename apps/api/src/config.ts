@@ -2,9 +2,20 @@
 export const {
   NODE_ENV = "development",
   PORT = "3001",
+  BETTER_AUTH_SECRET,
+  DATABASE_URL,
+  BETTER_AUTH_URL = "http://localhost:3000",
+  WEB_ORIGIN = "http://localhost:3000",
 } = process.env;
 
 const parsedPort = Number.parseInt(PORT, 10);
 
 export const PORT_NUMBER =
   Number.isFinite(parsedPort) && parsedPort > 0 ? parsedPort : 3001;
+
+export const CORS_OPTIONS = {
+  allowHeaders: ["Content-Type", "Cookie", "Authorization"],
+  allowMethods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  credentials: true,
+  origin: WEB_ORIGIN,
+} as const;
