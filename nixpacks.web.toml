@@ -1,0 +1,27 @@
+# Nixpacks config for Next.js web app (Dokploy). Use with NIXPACKS_CONFIG_FILE=nixpacks.web.toml
+# Contexto de build: raíz del monorepo (bun.lock en la raíz).
+# La app en apps/web es Next.js: build = next build (salida .next/), start = next start (servidor Node).
+# No es Vite: no hay "Publish Directory" tipo apps/web/dist para NGINX estático salvo que uses output: 'export'.
+# Variables de build típicas: NEXT_PUBLIC_* para el cliente. Si el hosting no expone el puerto, define PORT (y si hace falta HOSTNAME=0.0.0.0) en el panel o aquí en [variables].
+# Instala Bun en la fase install porque el servidor no lo tiene disponible por defecto.
+
+[phases.setup]
+nixPkgs = ["curl", "unzip", "bash", "nodejs_22"]
+env = { NODE_ENV = "production" }
+
+[phases.install]
+cmds = ["""
+  curl -fsSL https://bun.sh/install | bash -s -- bun-v1.2.22 && \
+  mv /root/.bun/bin/bun /usr/bin/bun && \
+  chmod +x /usr/bin/bun
+  """, "bun install --frozen-lockfile"]
+
+[phases.build]
+cmds = ["bun run --filter web build"]
+
+[start]
+cmd = "cd apps/web && bun run start"
+
+[variables]
+NIXPACKS_PATH = "/app"
+NODE_ENV = "production"

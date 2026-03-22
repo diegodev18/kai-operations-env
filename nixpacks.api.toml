@@ -1,0 +1,25 @@
+# Nixpacks config for API app (Dokploy). Use with NIXPACKS_CONFIG_FILE=nixpacks.api.toml
+# Contexto de build: raíz del monorepo (bun.lock en la raíz).
+# Instala Bun en la fase install porque el servidor no lo tiene disponible por defecto.
+# La fase build de la API es un no-op intencional: Bun ejecuta TypeScript nativo (start = bun src/app.ts).
+
+[phases.setup]
+nixPkgs = ["curl", "unzip", "bash", "nodejs_22"]
+env = { NODE_ENV = "production" }
+
+[phases.install]
+cmds = ["""
+  curl -fsSL https://bun.sh/install | bash -s -- bun-v1.2.22 && \
+  mv /root/.bun/bin/bun /usr/bin/bun && \
+  chmod +x /usr/bin/bun
+  """, "bun install --frozen-lockfile"]
+
+[phases.build]
+cmds = ["bun run --filter api build"]
+
+[start]
+cmd = "cd apps/api && bun run start"
+
+[variables]
+NIXPACKS_PATH = "/app"
+NODE_ENV = "production"

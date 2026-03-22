@@ -173,3 +173,6 @@ dist
 
 # Finder (MacOS) folder config
 .DS_Store
+
+# Monorepo: salida de `bun run --filter api build` (también cubierta por la regla `dist` más arriba)
+apps/api/dist

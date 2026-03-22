@@ -1,11 +1,16 @@
 {
   "name": "kai-operations-env",
-  "module": "index.ts",
-  "type": "module",
-  "devDependencies": {
-    "@types/bun": "latest"
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "engines": { "node": ">=20" },
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "build": "bun run --filter web --filter api build",
+    "dev": "bun run --filter web --filter api dev",
+    "start": "bun run --filter web --filter api start"
   },
-  "peerDependencies": {
-    "typescript": "^5.0.0"
-  }
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }
