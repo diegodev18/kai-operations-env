@@ -10,10 +10,7 @@ import {
 } from "@/lib/invitations";
 import { changeMemberRole, removeMember } from "@/lib/organizationMembers";
 import { generateInvitationPlainToken } from "@/utils/invitationToken";
-
-function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-}
+import { isValidEmail } from "@/utils/validation";
 
 export const getOrganizationMe = async (
   c: Context,

@@ -1,38 +1,50 @@
-import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 
 import { getAgentsInfo } from "@/controllers/agents.controller";
-import type { AgentsInfoAuthContext } from "@/types/agents";
-import { db } from "@/db/client";
-import { user } from "@/db/schema/auth";
-import { auth } from "@/lib/auth";
+import {
+  deleteAgentGrower,
+  getAgentGrowers,
+  postAgentGrower,
+} from "@/controllers/agents-growers.controller";
+import { resolveAgentsAuthContext } from "@/routes/agents-auth";
 
 const agentsRouter = new Hono();
 
 agentsRouter.get("/info", async (c) => {
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  if (!session?.user) {
-    return c.json({ error: "No autorizado" }, 401);
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  return await getAgentsInfo(c, ctx.authCtx);
+});
+
+agentsRouter.get("/:agentId/growers", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim();
+  if (!agentId) {
+    return c.json({ error: "Agente no encontrado" }, 404);
   }
-  const u = session.user as {
-    id?: string;
-    email?: string | null;
-    role?: string | null;
-  };
-  let userRole = u.role ?? undefined;
-  if (userRole == null && u.id) {
-    const rows = await db
-      .select({ role: user.role })
-      .from(user)
-      .where(eq(user.id, u.id))
-      .limit(1);
-    userRole = rows[0]?.role ?? undefined;
+  return getAgentGrowers(c, ctx.authCtx, agentId);
+});
+
+agentsRouter.post("/:agentId/growers", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim();
+  if (!agentId) {
+    return c.json({ error: "Agente no encontrado" }, 404);
   }
-  const authCtx: AgentsInfoAuthContext = {
-    userEmail: u.email ?? undefined,
-    userRole,
-  };
-  return await getAgentsInfo(c, authCtx);
+  return postAgentGrower(c, ctx.authCtx, agentId);
+});
+
+agentsRouter.delete("/:agentId/growers/:growerEmail", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim();
+  const growerEmail = c.req.param("growerEmail");
+  if (!agentId || growerEmail == null || growerEmail === "") {
+    return c.json({ error: "Agente o grower no encontrado" }, 404);
+  }
+  return deleteAgentGrower(c, ctx.authCtx, agentId, growerEmail);
 });
 
 export default agentsRouter;

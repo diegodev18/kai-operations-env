@@ -1,4 +1,5 @@
 export { buildLightAgent } from "./buildLightAgent";
+export { userCanAddGrowerToAgent } from "./growerAccess";
 export { isGrowerCursor } from "./growersCursor";
 export {
   fetchGrowersForAgent,

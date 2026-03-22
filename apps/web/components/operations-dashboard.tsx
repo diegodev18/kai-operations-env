@@ -19,6 +19,15 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,7 +43,18 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { AgentOperationalStatus, AgentWithOperations } from "@/lib/agent";
-import { AGENTS_PAGE_SIZE, fetchAgentsPage } from "@/lib/agents-api";
+import {
+  AGENTS_PAGE_SIZE,
+  type AgentGrowerRow,
+  deleteAgentGrower,
+  fetchAgentGrowers,
+  fetchAgentsPage,
+  postAgentGrower,
+} from "@/lib/agents-api";
+import {
+  fetchOrganizationUsers,
+  type OrganizationUser,
+} from "@/lib/organization-api";
 
 const STATUS_LABELS: Record<AgentOperationalStatus, string> = {
   active: "Activo",
@@ -80,6 +100,17 @@ export function OperationsDashboard(props: {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isLoadingAll, setIsLoadingAll] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null | undefined>(undefined);
+  const [growerTarget, setGrowerTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [orgUsers, setOrgUsers] = useState<OrganizationUser[]>([]);
+  const [orgUsersLoading, setOrgUsersLoading] = useState(false);
+  const [dialogGrowers, setDialogGrowers] = useState<AgentGrowerRow[]>([]);
+  const [dialogGrowersLoading, setDialogGrowersLoading] = useState(false);
+  const [addingGrowerUserId, setAddingGrowerUserId] = useState<string | null>(
+    null,
+  );
 
   const fetchPage = useCallback(
     async (cursor: string | undefined) => {
@@ -115,6 +146,43 @@ export function OperationsDashboard(props: {
   useEffect(() => {
     void fetchAgents();
   }, [fetchAgents]);
+
+  useEffect(() => {
+    if (!growerTarget) {
+      setOrgUsers([]);
+      setDialogGrowers([]);
+      return;
+    }
+    let cancelled = false;
+    setOrgUsersLoading(true);
+    setDialogGrowersLoading(true);
+    void (async () => {
+      const [usersRes, growersRes] = await Promise.all([
+        fetchOrganizationUsers(),
+        fetchAgentGrowers(growerTarget.id),
+      ]);
+      if (cancelled) return;
+      setOrgUsersLoading(false);
+      setDialogGrowersLoading(false);
+      if (usersRes?.users) {
+        setOrgUsers(usersRes.users);
+      } else {
+        setOrgUsers([]);
+        toast.error("No se pudieron cargar los usuarios de la organización");
+      }
+      if (growersRes === null) {
+        setDialogGrowers([]);
+        toast.error("No se pudieron cargar los growers del agente");
+      } else {
+        setDialogGrowers(
+          Array.isArray(growersRes.growers) ? growersRes.growers : [],
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [growerTarget]);
 
   const loadMore = useCallback(async () => {
     if (
@@ -167,6 +235,127 @@ export function OperationsDashboard(props: {
       setIsLoadingAll(false);
     }
   }, [fetchPage, nextCursor, isLoadingMore, isLoadingAll]);
+
+  const agentGrowersRow = useMemo(() => {
+    if (!growerTarget) return [];
+    return agents.find((a) => a.id === growerTarget.id)?.growers ?? [];
+  }, [agents, growerTarget]);
+
+  /** API + fila en tabla: evita desfase si una fuente trae growers y la otra no. */
+  const mergedGrowersList = useMemo(() => {
+    const byEmail = new Map<string, AgentGrowerRow>();
+    for (const g of dialogGrowers) {
+      const e = g.email.trim().toLowerCase();
+      if (e) byEmail.set(e, { email: e, name: g.name });
+    }
+    for (const g of agentGrowersRow) {
+      const e = g.email.trim().toLowerCase();
+      if (e && !byEmail.has(e)) {
+        byEmail.set(e, { email: e, name: g.name });
+      }
+    }
+    return [...byEmail.values()];
+  }, [dialogGrowers, agentGrowersRow]);
+
+  const growerEmailsForUi = useMemo(() => {
+    return new Set(mergedGrowersList.map((g) => g.email.trim().toLowerCase()));
+  }, [mergedGrowersList]);
+
+  const checkIsGrower = useCallback(
+    (u: OrganizationUser) => {
+      const e = u.email.trim().toLowerCase();
+      if (growerEmailsForUi.has(e)) return true;
+      const un = u.name.trim().toLowerCase();
+      if (!un) return false;
+      return mergedGrowersList.some(
+        (g) => g.name.trim().toLowerCase() === un,
+      );
+    },
+    [growerEmailsForUi, mergedGrowersList],
+  );
+
+  const onCheckAddGrower = useCallback(
+    async (orgUser: OrganizationUser) => {
+      if (!growerTarget) return;
+      const emailNorm = orgUser.email.trim().toLowerCase();
+      if (checkIsGrower(orgUser)) return;
+      setAddingGrowerUserId(orgUser.id);
+      try {
+        const displayName = orgUser.name.trim() || orgUser.email.trim();
+        const result = await postAgentGrower(growerTarget.id, {
+          email: orgUser.email.trim(),
+          name: displayName,
+        });
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success(`${displayName} agregado como grower`);
+        const row: AgentGrowerRow = { email: emailNorm, name: displayName };
+        setDialogGrowers((prev) =>
+          prev.some((g) => g.email.trim().toLowerCase() === emailNorm)
+            ? prev
+            : [...prev, row],
+        );
+        setAgents((prev) =>
+          prev.map((a) => {
+            if (a.id !== growerTarget.id) return a;
+            const growers = [...(a.growers ?? [])];
+            if (growers.some((g) => g.email.trim().toLowerCase() === emailNorm)) {
+              return a;
+            }
+            growers.push(row);
+            return { ...a, growers };
+          }),
+        );
+      } finally {
+        setAddingGrowerUserId(null);
+      }
+    },
+    [growerTarget, checkIsGrower],
+  );
+
+  const onUncheckRemoveGrower = useCallback(
+    async (orgUser: OrganizationUser) => {
+      if (!growerTarget) return;
+      const emailNorm = orgUser.email.trim().toLowerCase();
+      if (!checkIsGrower(orgUser)) return;
+      setAddingGrowerUserId(orgUser.id);
+      try {
+        const result = await deleteAgentGrower(growerTarget.id, orgUser.email);
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success("Grower quitado");
+        setDialogGrowers((prev) =>
+          prev.filter((g) => g.email.trim().toLowerCase() !== emailNorm),
+        );
+        setAgents((prev) =>
+          prev.map((a) => {
+            if (a.id !== growerTarget.id) return a;
+            return {
+              ...a,
+              growers: (a.growers ?? []).filter(
+                (g) => g.email.trim().toLowerCase() !== emailNorm,
+              ),
+            };
+          }),
+        );
+      } finally {
+        setAddingGrowerUserId(null);
+      }
+    },
+    [growerTarget, checkIsGrower],
+  );
+
+  const sortedOrgUsers = useMemo(() => {
+    return [...orgUsers].sort((a, b) =>
+      a.name.localeCompare(b.name, "es", { sensitivity: "base" }),
+    );
+  }, [orgUsers]);
+
+  const growerPickerLoading = orgUsersLoading || dialogGrowersLoading;
 
   const filteredAgents = useMemo(() => {
     let list = agents;
@@ -377,32 +566,58 @@ export function OperationsDashboard(props: {
                           </Badge>
                         </td>
                         <td className="p-3 text-muted-foreground">
-                          {agent.growers && agent.growers.length > 0 ? (
-                            <span className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
-                              {agent.growers.map((g, i) => (
-                                <span key={`${g.email}-${i}`} className="inline-flex items-center">
-                                  {i > 0 ? (
-                                    <span className="mr-1 text-muted-foreground/60">
-                                      ,
+                          <div className="flex flex-wrap items-center gap-2">
+                            <div className="min-w-0 flex-1">
+                              {agent.growers && agent.growers.length > 0 ? (
+                                <span className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
+                                  {agent.growers.map((g, i) => (
+                                    <span
+                                      key={`${g.email}-${i}`}
+                                      className="inline-flex items-center"
+                                    >
+                                      {i > 0 ? (
+                                        <span className="mr-1 text-muted-foreground/60">
+                                          ,
+                                        </span>
+                                      ) : null}
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <button
+                                            type="button"
+                                            className="cursor-default border-0 bg-transparent p-0 text-left text-inherit underline-offset-2 hover:underline"
+                                          >
+                                            {g.name}
+                                          </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>{g.email}</TooltipContent>
+                                      </Tooltip>
                                     </span>
-                                  ) : null}
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <button
-                                        type="button"
-                                        className="cursor-default border-0 bg-transparent p-0 text-left text-inherit underline-offset-2 hover:underline"
-                                      >
-                                        {g.name}
-                                      </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>{g.email}</TooltipContent>
-                                  </Tooltip>
+                                  ))}
                                 </span>
-                              ))}
-                            </span>
-                          ) : (
-                            "—"
-                          )}
+                              ) : (
+                                <span>—</span>
+                              )}
+                            </div>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon-sm"
+                                  aria-label="Gestionar growers"
+                                  onClick={() => {
+                                    setGrowerTarget({
+                                      id: agent.id,
+                                      name: agent.name,
+                                    });
+                                  }}
+                                >
+                                  <PlusIcon className="size-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Gestionar growers</TooltipContent>
+                            </Tooltip>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -448,6 +663,89 @@ export function OperationsDashboard(props: {
           )}
         </div>
       </div>
+
+      <Dialog
+        open={growerTarget != null}
+        onOpenChange={(open) => {
+          if (!open) setGrowerTarget(null);
+        }}
+      >
+        <DialogContent showClose className="max-h-[min(90vh,32rem)]">
+          <DialogHeader>
+            <DialogTitle>Gestionar growers</DialogTitle>
+            <DialogDescription>
+              Agente:{" "}
+              <span className="font-medium text-foreground">
+                {growerTarget?.name}
+              </span>
+              . Los usuarios de la organización aparecen con un tick si ya son
+              growers; marca para añadir o desmarca para quitar (nombre y correo
+              de su cuenta).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-hidden py-2">
+            {growerPickerLoading ? (
+              <div className="flex items-center justify-center gap-2 py-10 text-muted-foreground">
+                <Loader2Icon className="size-5 animate-spin" />
+                <span>Cargando usuarios y growers…</span>
+              </div>
+            ) : sortedOrgUsers.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                No hay usuarios en la organización.
+              </p>
+            ) : (
+              <ul className="max-h-64 space-y-1 overflow-y-auto pr-1">
+                {sortedOrgUsers.map((u) => {
+                  const already = checkIsGrower(u);
+                  const busy = addingGrowerUserId === u.id;
+                  return (
+                    <li key={u.id}>
+                      <label className="flex cursor-pointer items-center gap-3 rounded-md border border-transparent px-2 py-2 hover:bg-muted/50">
+                        <Checkbox
+                          checked={already}
+                          disabled={busy || growerPickerLoading || !growerTarget}
+                          onCheckedChange={(v) => {
+                            if (v === true) void onCheckAddGrower(u);
+                            else void onUncheckRemoveGrower(u);
+                          }}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium">
+                            {u.name}
+                          </div>
+                          <div className="truncate text-xs text-muted-foreground">
+                            {u.email}
+                            {u.role === "admin" ? (
+                              <span className="ml-2 text-foreground/80">
+                                · admin
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                        {busy ? (
+                          <Loader2Icon
+                            className="size-4 shrink-0 animate-spin text-muted-foreground"
+                            aria-hidden
+                          />
+                        ) : null}
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setGrowerTarget(null)}
+            >
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

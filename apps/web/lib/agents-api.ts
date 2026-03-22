@@ -47,3 +47,91 @@ export async function fetchAgentsPage(
     "nextCursor" in data ? (data.nextCursor ?? null) : null;
   return { agents: list, nextCursor };
 }
+
+export async function postAgentGrower(
+  agentId: string,
+  body: { email: string; name?: string },
+): Promise<
+  | { ok: true; grower: { email: string; name: string } }
+  | { ok: false; error: string }
+> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/growers`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    },
+  );
+  let data: {
+    ok?: boolean;
+    grower?: { email: string; name: string };
+    error?: string;
+  } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: data.error ?? "No se pudo agregar el grower",
+    };
+  }
+  if (data.ok && data.grower) {
+    return { ok: true, grower: data.grower };
+  }
+  return { ok: false, error: "Respuesta inválida del servidor" };
+}
+
+export type AgentGrowerRow = { email: string; name: string };
+
+export async function fetchAgentGrowers(
+  agentId: string,
+): Promise<{ growers: AgentGrowerRow[] } | null> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/growers`,
+    {
+      credentials: "include",
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) return null;
+  try {
+    return (await res.json()) as { growers: AgentGrowerRow[] };
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteAgentGrower(
+  agentId: string,
+  email: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const enc = encodeURIComponent(email.trim().toLowerCase());
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/growers/${enc}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+    },
+  );
+  let data: { ok?: boolean; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: data.error ?? "No se pudo quitar el grower",
+    };
+  }
+  if (data.ok) {
+    return { ok: true };
+  }
+  return { ok: false, error: "Respuesta inválida del servidor" };
+}
