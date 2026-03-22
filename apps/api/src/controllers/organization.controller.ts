@@ -8,6 +8,7 @@ import {
   listUsersForOrganization,
   normalizeInviteEmail,
 } from "@/lib/invitations";
+import { changeMemberRole, removeMember } from "@/lib/organizationMembers";
 import { generateInvitationPlainToken } from "@/utils/invitationToken";
 
 function isValidEmail(email: string): boolean {
@@ -97,4 +98,37 @@ export const getInvitationPreview = async (c: Context) => {
     return c.json({ error: "No encontrado" }, 404);
   }
   return c.json({ email: row.email });
+};
+
+export const patchOrganizationUser = async (
+  c: Context,
+  targetUserId: string,
+) => {
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "JSON inválido" }, 400);
+  }
+  const role = (body as { role?: unknown }).role;
+  if (role !== "admin" && role !== "member") {
+    return c.json({ error: "Rol inválido" }, 400);
+  }
+  const result = await changeMemberRole(targetUserId, role);
+  if (!result.ok) {
+    return c.json({ error: result.message }, result.status);
+  }
+  return c.json({ ok: true });
+};
+
+export const deleteOrganizationUser = async (
+  c: Context,
+  actorUserId: string,
+  targetUserId: string,
+) => {
+  const result = await removeMember(actorUserId, targetUserId);
+  if (!result.ok) {
+    return c.json({ error: result.message }, result.status);
+  }
+  return c.json({ ok: true });
 };

@@ -1,6 +1,13 @@
 "use client";
 
-import { ArrowLeftIcon, Building2Icon, Loader2Icon } from "lucide-react";
+import {
+  ArrowLeftIcon,
+  Building2Icon,
+  Loader2Icon,
+  ShieldOffIcon,
+  ShieldPlusIcon,
+  Trash2Icon,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -13,9 +20,11 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/auth";
 import {
   createOrganizationInvitation,
+  deleteOrganizationUser,
   fetchOrganizationInvitations,
   fetchOrganizationMe,
   fetchOrganizationUsers,
+  updateOrganizationUserRole,
   type OrganizationInvitation,
   type OrganizationUser,
 } from "@/lib/organization-api";
@@ -31,8 +40,10 @@ export default function OrganizationPage() {
   const [loading, setLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviting, setInviting] = useState(false);
+  const [rowActionId, setRowActionId] = useState<string | null>(null);
 
   const isAdmin = role === "admin";
+  const currentUserId = session?.user?.id as string | undefined;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -101,6 +112,47 @@ export default function OrganizationPage() {
     }
   }
 
+  async function onChangeRole(u: OrganizationUser, newRole: "admin" | "member") {
+    setRowActionId(u.id);
+    try {
+      const result = await updateOrganizationUserRole(u.id, newRole);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(
+        newRole === "admin"
+          ? `${u.name} es ahora administrador`
+          : "Rol actualizado a miembro",
+      );
+      await load();
+    } finally {
+      setRowActionId(null);
+    }
+  }
+
+  async function onDeleteUser(u: OrganizationUser) {
+    if (
+      !globalThis.confirm(
+        `¿Eliminar a ${u.name} (${u.email})? Esta acción no se puede deshacer.`,
+      )
+    ) {
+      return;
+    }
+    setRowActionId(u.id);
+    try {
+      const result = await deleteOrganizationUser(u.id);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Usuario eliminado");
+      await load();
+    } finally {
+      setRowActionId(null);
+    }
+  }
+
   if (isPending || (!session?.user && loading)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
@@ -166,26 +218,125 @@ export default function OrganizationPage() {
                       <th className="px-3 py-2 font-medium">Nombre</th>
                       <th className="px-3 py-2 font-medium">Correo</th>
                       <th className="px-3 py-2 font-medium">Rol</th>
+                      {isAdmin ? (
+                        <th className="px-3 py-2 font-medium text-right">
+                          Acciones
+                        </th>
+                      ) : null}
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map((u) => (
-                      <tr key={u.id} className="border-b border-border/60">
-                        <td className="px-3 py-2">{u.name}</td>
-                        <td className="px-3 py-2 text-muted-foreground">
-                          {u.email}
-                        </td>
-                        <td className="px-3 py-2">
-                          <Badge
-                            variant={
-                              u.role === "admin" ? "default" : "secondary"
-                            }
-                          >
-                            {u.role}
-                          </Badge>
-                        </td>
-                      </tr>
-                    ))}
+                    {users.map((u) => {
+                      const isSelf = Boolean(
+                        currentUserId && u.id === currentUserId,
+                      );
+                      const canDemoteAdmin =
+                        u.role === "admin" && admins.length >= 2;
+                      const busy = rowActionId === u.id;
+                      return (
+                        <tr key={u.id} className="border-b border-border/60">
+                          <td className="px-3 py-2">{u.name}</td>
+                          <td className="px-3 py-2 text-muted-foreground">
+                            {u.email}
+                          </td>
+                          <td className="px-3 py-2">
+                            <Badge
+                              variant={
+                                u.role === "admin" ? "default" : "secondary"
+                              }
+                            >
+                              {u.role}
+                            </Badge>
+                          </td>
+                          {isAdmin ? (
+                            <td className="px-3 py-2 text-right">
+                              {isSelf ? (
+                                u.role === "admin" && canDemoteAdmin ? (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="gap-1"
+                                    disabled={busy}
+                                    onClick={() => {
+                                      void onChangeRole(u, "member");
+                                    }}
+                                  >
+                                    {busy ? (
+                                      <Loader2Icon className="size-3.5 animate-spin" />
+                                    ) : (
+                                      <ShieldOffIcon className="size-3.5" />
+                                    )}
+                                    Quitar mi rol admin
+                                  </Button>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">
+                                    —
+                                  </span>
+                                )
+                              ) : (
+                                <div className="flex flex-wrap items-center justify-end gap-2">
+                                  {u.role === "member" ? (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="gap-1"
+                                      disabled={busy}
+                                      onClick={() => {
+                                        void onChangeRole(u, "admin");
+                                      }}
+                                    >
+                                      {busy ? (
+                                        <Loader2Icon className="size-3.5 animate-spin" />
+                                      ) : (
+                                        <ShieldPlusIcon className="size-3.5" />
+                                      )}
+                                      Hacer admin
+                                    </Button>
+                                  ) : canDemoteAdmin ? (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="gap-1"
+                                      disabled={busy}
+                                      onClick={() => {
+                                        void onChangeRole(u, "member");
+                                      }}
+                                    >
+                                      {busy ? (
+                                        <Loader2Icon className="size-3.5 animate-spin" />
+                                      ) : (
+                                        <ShieldOffIcon className="size-3.5" />
+                                      )}
+                                      Quitar admin
+                                    </Button>
+                                  ) : null}
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="gap-1 text-destructive hover:text-destructive"
+                                    disabled={busy}
+                                    onClick={() => {
+                                      void onDeleteUser(u);
+                                    }}
+                                  >
+                                    {busy ? (
+                                      <Loader2Icon className="size-3.5 animate-spin" />
+                                    ) : (
+                                      <Trash2Icon className="size-3.5" />
+                                    )}
+                                    Eliminar
+                                  </Button>
+                                </div>
+                              )}
+                            </td>
+                          ) : null}
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

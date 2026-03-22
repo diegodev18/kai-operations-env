@@ -78,3 +78,52 @@ export async function fetchInvitationPreview(
   );
   return parseJson<{ email: string }>(res);
 }
+
+export async function updateOrganizationUserRole(
+  userId: string,
+  role: "admin" | "member",
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const res = await fetch(
+    `/api/organization/users/${encodeURIComponent(userId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ role }),
+    },
+  );
+  if (res.ok) {
+    return { ok: true };
+  }
+  let error = "No se pudo actualizar el rol";
+  try {
+    const data = (await res.json()) as { error?: string };
+    if (data.error) error = data.error;
+  } catch {
+    /* empty */
+  }
+  return { ok: false, error };
+}
+
+export async function deleteOrganizationUser(
+  userId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const res = await fetch(
+    `/api/organization/users/${encodeURIComponent(userId)}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+    },
+  );
+  if (res.ok) {
+    return { ok: true };
+  }
+  let error = "No se pudo eliminar el usuario";
+  try {
+    const data = (await res.json()) as { error?: string };
+    if (data.error) error = data.error;
+  } catch {
+    /* empty */
+  }
+  return { ok: false, error };
+}

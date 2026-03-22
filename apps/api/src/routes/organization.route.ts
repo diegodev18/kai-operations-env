@@ -2,10 +2,12 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 
 import {
+  deleteOrganizationUser,
   getInvitationPreview,
   getOrganizationInvitations,
   getOrganizationMe,
   getOrganizationUsers,
+  patchOrganizationUser,
   postOrganizationInvitation,
 } from "@/controllers/organization.controller";
 import { auth } from "@/lib/auth";
@@ -36,6 +38,36 @@ organizationRouter.get("/users", async (c) => {
   const ctx = await requireSession(c);
   if ("error" in ctx) return ctx.error;
   return getOrganizationUsers(c);
+});
+
+organizationRouter.patch("/users/:userId", async (c) => {
+  const ctx = await requireSession(c);
+  if ("error" in ctx) return ctx.error;
+  if (!isOperationsAdmin(ctx.role)) {
+    return c.json({ error: "No autorizado" }, 403);
+  }
+  const targetUserId = c.req.param("userId");
+  if (!targetUserId) {
+    return c.json({ error: "Usuario no encontrado" }, 404);
+  }
+  return patchOrganizationUser(c, targetUserId);
+});
+
+organizationRouter.delete("/users/:userId", async (c) => {
+  const ctx = await requireSession(c);
+  if ("error" in ctx) return ctx.error;
+  if (!isOperationsAdmin(ctx.role)) {
+    return c.json({ error: "No autorizado" }, 403);
+  }
+  const targetUserId = c.req.param("userId");
+  if (!targetUserId) {
+    return c.json({ error: "Usuario no encontrado" }, 404);
+  }
+  const actorId = ctx.sessionUser.id;
+  if (!actorId) {
+    return c.json({ error: "No autorizado" }, 401);
+  }
+  return deleteOrganizationUser(c, actorId, targetUserId);
 });
 
 organizationRouter.get("/invitations", async (c) => {
