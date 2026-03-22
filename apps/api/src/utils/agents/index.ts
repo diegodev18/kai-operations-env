@@ -1,3 +1,5 @@
+export { buildLightAgent } from "./buildLightAgent";
+export { isGrowerCursor } from "./growersCursor";
 export {
   fetchGrowersForAgent,
   mapGrowerDocsToPayload,

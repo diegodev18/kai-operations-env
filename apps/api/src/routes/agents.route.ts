@@ -1,10 +1,8 @@
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 
-import {
-  getAgentsInfo,
-  type AgentsInfoAuthContext,
-} from "@/controllers/agents.controller";
+import { getAgentsInfo } from "@/controllers/agents.controller";
+import type { AgentsInfoAuthContext } from "@/types/agents";
 import { db } from "@/db/client";
 import { user } from "@/db/schema/auth";
 import { auth } from "@/lib/auth";
