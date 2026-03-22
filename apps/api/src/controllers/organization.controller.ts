@@ -9,13 +9,15 @@ import {
   normalizeInviteEmail,
 } from "@/lib/invitations";
 import { generateInvitationPlainToken } from "@/utils/invitationToken";
-import { isOperationsAdmin } from "@/utils/operations-access";
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 }
 
-export const getOrganizationMe = async (c: Context, userRole: string | undefined) => {
+export const getOrganizationMe = async (
+  c: Context,
+  userRole: string | undefined,
+) => {
   return c.json({ role: userRole ?? "member" });
 };
 
@@ -69,10 +71,7 @@ export const postOrganizationInvitation = async (
   } catch (e: unknown) {
     const code = (e as { code?: string }).code;
     const msg = e instanceof Error ? e.message : String(e);
-    if (
-      code === "23505" ||
-      /unique|duplicate/i.test(msg)
-    ) {
+    if (code === "23505" || /unique|duplicate/i.test(msg)) {
       return c.json(
         {
           error:
