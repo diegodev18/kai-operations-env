@@ -1,0 +1,70 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+import admin from "firebase-admin";
+import {
+  FieldValue,
+  Timestamp,
+  type Firestore,
+} from "firebase-admin/firestore";
+
+import { FIREBASE_APP_NAME } from "@/config";
+
+const TOKEN_FILE = "firebase.production.json";
+
+export { FieldValue, Timestamp };
+
+function getTokensDir(): string {
+  return typeof import.meta.dir !== "undefined"
+    ? join(import.meta.dir, "..", "tokens")
+    : join(process.cwd(), "src", "tokens");
+}
+
+function loadServiceAccount(): admin.ServiceAccount | null {
+  const envJson =
+    process.env.FIREBASE_SERVICE_ACCOUNT_JSON_PRODUCTION ??
+    process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (envJson) {
+    try {
+      return JSON.parse(envJson) as admin.ServiceAccount;
+    } catch {
+      return null;
+    }
+  }
+
+  const filePath = join(getTokensDir(), TOKEN_FILE);
+  try {
+    const raw = readFileSync(filePath, "utf-8");
+    if (!raw.trim()) return null;
+    return JSON.parse(raw) as admin.ServiceAccount;
+  } catch {
+    return null;
+  }
+}
+
+let firestoreInstance: Firestore | null = null;
+
+/**
+ * Firestore de producción (lazy). Credenciales: env JSON o `src/tokens/firebase.production.json`.
+ */
+export function getFirestore(): Firestore {
+  if (firestoreInstance) return firestoreInstance;
+
+  const serviceAccount = loadServiceAccount();
+  if (!serviceAccount) {
+    const msg =
+      "Credenciales Firebase no encontradas. Define FIREBASE_SERVICE_ACCOUNT_JSON_PRODUCTION o FIREBASE_SERVICE_ACCOUNT_JSON, o coloca el JSON de cuenta de servicio en src/tokens/firebase.production.json.";
+    console.error(`[firestore] ${msg}`);
+    throw new Error(msg);
+  }
+
+  if (!admin.apps.some((app) => app?.name === FIREBASE_APP_NAME)) {
+    admin.initializeApp(
+      { credential: admin.credential.cert(serviceAccount) },
+      FIREBASE_APP_NAME,
+    );
+  }
+
+  firestoreInstance = admin.app(FIREBASE_APP_NAME).firestore();
+  return firestoreInstance;
+}

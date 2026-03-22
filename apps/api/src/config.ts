@@ -6,6 +6,7 @@ export const {
   DATABASE_URL,
   BETTER_AUTH_URL = "http://localhost:3000",
   WEB_ORIGIN = "http://localhost:3000",
+  FIREBASE_APP_NAME = "kai-operations-firestore",
 } = process.env;
 
 const parsedPort = Number.parseInt(PORT, 10);
