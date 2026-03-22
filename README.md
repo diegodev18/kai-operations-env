@@ -6,10 +6,11 @@ To install dependencies:
 bun install
 ```
 
-To run:
+Desarrollo (web + API):
 
 ```bash
-bun run index.ts
+bun install
+bun run dev
 ```
 
-This project was created using `bun init` in bun v1.2.2. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
+La web usa rewrites a la API (`API_INTERNAL_URL`, ver `apps/web/.env.example`). Tras iniciar sesión, el dashboard lista agentes desde Firestore (`agent_configurations`) vía `GET /api/agents/info`.
