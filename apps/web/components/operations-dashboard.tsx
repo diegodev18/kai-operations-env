@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircleIcon,
+  Building2Icon,
   CheckCircleIcon,
   LayoutDashboardIcon,
   LayoutGridIcon,
@@ -13,6 +14,7 @@ import {
   PowerIcon,
   SearchIcon,
 } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -231,6 +233,16 @@ export function OperationsDashboard(props: {
                 )}
               </div>
             </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link
+                href="/organization"
+                className="flex cursor-pointer items-center gap-2"
+              >
+                <Building2Icon className="size-4" />
+                Organización
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               variant="destructive"

@@ -1,6 +1,7 @@
 "use client";
 
 import { ImageIcon, Loader2 } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -106,6 +107,15 @@ export function LoginPage() {
                   "Entrar"
                 )}
               </Button>
+              <p className="text-center text-sm text-zinc-400">
+                ¿Te invitaron?{" "}
+                <Link
+                  href="/register"
+                  className="text-white underline underline-offset-2 hover:text-zinc-200"
+                >
+                  Regístrate con enlace
+                </Link>
+              </p>
             </form>
           </div>
         </div>
