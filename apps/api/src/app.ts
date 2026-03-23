@@ -9,6 +9,20 @@ import api from "@/routes";
 
 const app = new Hono();
 
+// Log mínimo: si no ves líneas al pegarle al dominio, el proxy no enruta al contenedor
+app.use("*", async (c, next) => {
+  console.log(`[api] ${c.req.method} ${c.req.path}`);
+  await next();
+});
+
+app.get("/", (c) =>
+  c.json({
+    ok: true,
+    service: "kai-operations-api",
+    hint: "Si ves esto, Traefik llega al contenedor. Prueba también GET /health y GET /api/health.",
+  }),
+);
+
 app.get("/health", getHealth);
 
 app.use(
@@ -31,4 +45,6 @@ serve({
   hostname: "0.0.0.0",
 });
 
-console.log(`API listening on http://localhost:${PORT_NUMBER} (${NODE_ENV})`);
+console.log(
+  `[api] listening on http://0.0.0.0:${PORT_NUMBER} (${NODE_ENV}) — hit GET / or GET /health to verify routing`,
+);
