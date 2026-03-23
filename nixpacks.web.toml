@@ -25,3 +25,4 @@ cmd = "cd apps/web && bun run start"
 [variables]
 NIXPACKS_PATH = "/app"
 NODE_ENV = "production"
+HOSTNAME = "0.0.0.0"
