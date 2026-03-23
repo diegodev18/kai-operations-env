@@ -1,10 +1,27 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2Icon } from "lucide-react";
+import { CalendarIcon, Loader2Icon, UserPlus2Icon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { AgentGrowerRow, ImplementationTask } from "@/types/agents-api";
@@ -40,6 +57,8 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [assigneeEmails, setAssigneeEmails] = useState<string[]>([]);
+  const [createAssigneesDialogOpen, setCreateAssigneesDialogOpen] =
+    useState(false);
 
   const [taskDueDates, setTaskDueDates] = useState<Record<string, string>>({});
   const [taskAssignees, setTaskAssignees] = useState<Record<string, string[]>>({});
@@ -220,210 +239,256 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
   }
 
   return (
-    <div className="space-y-8">
-      <section className="space-y-4 rounded-md border p-4">
-        <h2 className="text-sm font-semibold text-foreground">Crear tarea</h2>
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="space-y-2 md:col-span-2">
-            <label htmlFor="task-title" className="text-sm font-medium">
-              Título
-            </label>
-            <Input
-              id="task-title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Ej. Publicar flujo de bienvenida"
-            />
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <label htmlFor="task-description" className="text-sm font-medium">
-              Descripción (opcional)
-            </label>
-            <Textarea
-              id="task-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              placeholder="Detalles de implementación"
-            />
-          </div>
-          <div className="space-y-2">
-            <label htmlFor="task-dueDate" className="text-sm font-medium">
-              Fecha de vencimiento
-            </label>
-            <Input
-              id="task-dueDate"
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Asignar growers</p>
-            <div className="max-h-28 overflow-y-auto rounded-md border p-2">
-              {growers.length === 0 ? (
-                <p className="text-xs text-muted-foreground">Sin growers disponibles.</p>
-              ) : (
-                <div className="space-y-1.5">
-                  {growers.map((g) => {
-                    const email = g.email.trim().toLowerCase();
-                    const checked = assigneeEmails.includes(email);
-                    return (
-                      <label key={email} className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(e) => toggleAssigneeForCreate(email, e.target.checked)}
-                          className="h-4 w-4 rounded border-input"
-                        />
-                        <span>{g.name}</span>
-                        <span className="text-xs text-muted-foreground">({email})</span>
-                      </label>
-                    );
-                  })}
+    <div className="space-y-4">
+      <h2 className="text-sm font-semibold text-foreground">Tareas</h2>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {sortedTasks.map((task) => {
+          const isSaving = savingTaskId === task.id;
+          const dueDateValue = taskDueDates[task.id] ?? "";
+          const selectedAssignees = taskAssignees[task.id] ?? [];
+          return (
+            <Card key={task.id} className="gap-4">
+              <CardHeader className="gap-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="space-y-1">
+                    <CardTitle className="line-clamp-2">{task.title}</CardTitle>
+                    <CardDescription>
+                      {task.description?.trim()
+                        ? task.description
+                        : "Sin descripción."}
+                    </CardDescription>
+                  </div>
+                  <Badge
+                    variant={task.status === "completed" ? "secondary" : "default"}
+                  >
+                    {task.status === "completed" ? "Completada" : "Pendiente"}
+                  </Badge>
                 </div>
-              )}
-            </div>
-          </div>
-        </div>
-        <Button type="button" disabled={savingCreate} onClick={() => void onCreateTask()}>
-          {savingCreate ? (
-            <>
-              <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
-              Creando...
-            </>
-          ) : (
-            "Crear tarea"
-          )}
-        </Button>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-foreground">Tareas</h2>
-        {sortedTasks.length === 0 ? (
-          <p className="rounded-md border p-4 text-sm text-muted-foreground">
-            No hay tareas todavía.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {sortedTasks.map((task) => {
-              const isSaving = savingTaskId === task.id;
-              const dueDateValue = taskDueDates[task.id] ?? "";
-              const selectedAssignees = taskAssignees[task.id] ?? [];
-              return (
-                <article key={task.id} className="space-y-3 rounded-md border p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0 space-y-1">
-                      <h3 className="font-medium text-foreground">{task.title}</h3>
-                      {task.description ? (
-                        <p className="text-sm text-muted-foreground">{task.description}</p>
-                      ) : null}
-                      <p className="text-xs text-muted-foreground">
-                        Estado: {task.status === "completed" ? "Completada" : "Pendiente"}
-                      </p>
-                    </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Vencimiento
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="date"
+                      value={dueDateValue}
+                      onChange={(e) =>
+                        setTaskDueDates((prev) => ({
+                          ...prev,
+                          [task.id]: e.target.value,
+                        }))
+                      }
+                    />
                     <Button
                       type="button"
-                      variant={task.status === "completed" ? "outline" : "default"}
+                      variant="outline"
                       size="sm"
                       disabled={isSaving}
-                      onClick={() => void onToggleTaskStatus(task)}
+                      onClick={() => void onSaveTaskDueDate(task.id)}
                     >
-                      {task.status === "completed" ? "Reabrir" : "Completar"}
+                      Guardar
                     </Button>
                   </div>
-
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium text-muted-foreground">
-                        Fecha de vencimiento
-                      </label>
-                      <div className="flex gap-2">
-                        <Input
-                          type="date"
-                          value={dueDateValue}
-                          onChange={(e) =>
-                            setTaskDueDates((prev) => ({
-                              ...prev,
-                              [task.id]: e.target.value,
-                            }))
-                          }
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={isSaving}
-                          onClick={() => void onSaveTaskDueDate(task.id)}
-                        >
-                          Guardar
-                        </Button>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Asignados
+                  </label>
+                  <div className="max-h-24 overflow-y-auto rounded-md border p-2">
+                    {growers.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        Sin growers disponibles.
+                      </p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {growers.map((g) => {
+                          const email = g.email.trim().toLowerCase();
+                          const checked = selectedAssignees.includes(email);
+                          return (
+                            <label
+                              key={`${task.id}-${email}`}
+                              className="flex items-center gap-2 text-sm"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(e) =>
+                                  onToggleTaskAssignee(task.id, email, e.target.checked)
+                                }
+                                className="h-4 w-4 rounded border-input"
+                              />
+                              <span className="truncate">{g.name}</span>
+                            </label>
+                          );
+                        })}
                       </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium text-muted-foreground">
-                        Asignados
-                      </label>
-                      <div className="max-h-28 overflow-y-auto rounded-md border p-2">
-                        {growers.length === 0 ? (
-                          <p className="text-xs text-muted-foreground">
-                            Sin growers disponibles.
-                          </p>
-                        ) : (
-                          <div className="space-y-1.5">
-                            {growers.map((g) => {
-                              const email = g.email.trim().toLowerCase();
-                              const checked = selectedAssignees.includes(email);
-                              return (
-                                <label
-                                  key={`${task.id}-${email}`}
-                                  className="flex items-center gap-2 text-sm"
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    onChange={(e) =>
-                                      onToggleTaskAssignee(task.id, email, e.target.checked)
-                                    }
-                                    className="h-4 w-4 rounded border-input"
-                                  />
-                                  <span>{g.name}</span>
-                                  <span className="text-xs text-muted-foreground">
-                                    ({email})
-                                  </span>
-                                </label>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={isSaving}
-                        onClick={() => void onSaveTaskAssignees(task.id)}
-                      >
-                        Guardar asignaciones
-                      </Button>
-                    </div>
+                    )}
                   </div>
-
-                  {selectedAssignees.length > 0 ? (
-                    <p className="text-xs text-muted-foreground">
-                      Asignados actuales:{" "}
-                      {selectedAssignees
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isSaving}
+                    onClick={() => void onSaveTaskAssignees(task.id)}
+                  >
+                    Guardar asignación
+                  </Button>
+                </div>
+              </CardContent>
+              <CardFooter className="justify-between gap-2">
+                <p className="text-xs text-muted-foreground">
+                  {selectedAssignees.length > 0
+                    ? selectedAssignees
                         .map((email) => growersByEmail.get(email) ?? email)
-                        .join(", ")}
-                    </p>
-                  ) : null}
-                </article>
-              );
-            })}
+                        .join(", ")
+                    : "Sin asignados"}
+                </p>
+                <Button
+                  type="button"
+                  variant={task.status === "completed" ? "outline" : "default"}
+                  size="sm"
+                  disabled={isSaving}
+                  onClick={() => void onToggleTaskStatus(task)}
+                >
+                  {task.status === "completed" ? "Reabrir" : "Completar"}
+                </Button>
+              </CardFooter>
+            </Card>
+          );
+        })}
+
+        <Card className="gap-4 border-dashed">
+          <CardHeader>
+            <CardTitle>Nueva task</CardTitle>
+            <CardDescription>
+              Crea una tarea de implementación y asígnala a growers.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-2">
+              <label htmlFor="task-title" className="text-sm font-medium">
+                Título
+              </label>
+              <Input
+                id="task-title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Ej. Publicar flujo de bienvenida"
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="task-description" className="text-sm font-medium">
+                Descripción
+              </label>
+              <Textarea
+                id="task-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                placeholder="Detalles de implementación"
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="task-dueDate" className="text-sm font-medium">
+                Fecha de vencimiento
+              </label>
+              <div className="flex items-center gap-2">
+                <CalendarIcon className="size-4 text-muted-foreground" />
+                <Input
+                  id="task-dueDate"
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCreateAssigneesDialogOpen(true)}
+                className="w-full justify-start gap-2"
+              >
+                <UserPlus2Icon className="size-4" />
+                Asignar growers
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                {assigneeEmails.length > 0
+                  ? `Seleccionados: ${assigneeEmails
+                      .map((email) => growersByEmail.get(email) ?? email)
+                      .join(", ")}`
+                  : "Sin growers seleccionados"}
+              </p>
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button
+              type="button"
+              className="w-full"
+              disabled={savingCreate}
+              onClick={() => void onCreateTask()}
+            >
+              {savingCreate ? (
+                <>
+                  <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                  Creando...
+                </>
+              ) : (
+                "Crear task"
+              )}
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+
+      <Dialog
+        open={createAssigneesDialogOpen}
+        onOpenChange={setCreateAssigneesDialogOpen}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Asignar growers</DialogTitle>
+            <DialogDescription>
+              Selecciona una o varias personas para la nueva task.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-64 space-y-2 overflow-y-auto rounded-md border p-3">
+            {growers.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Sin growers disponibles.</p>
+            ) : (
+              growers.map((g) => {
+                const email = g.email.trim().toLowerCase();
+                const checked = assigneeEmails.includes(email);
+                return (
+                  <label key={email} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) =>
+                        toggleAssigneeForCreate(email, e.target.checked)
+                      }
+                      className="h-4 w-4 rounded border-input"
+                    />
+                    <span className="font-medium">{g.name}</span>
+                    <span className="text-xs text-muted-foreground">({email})</span>
+                  </label>
+                );
+              })
+            )}
           </div>
-        )}
-      </section>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCreateAssigneesDialogOpen(false)}
+            >
+              Listo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
