@@ -61,7 +61,28 @@ type DraftState = {
   creation_step: "personality" | "business" | "tools" | "complete";
 };
 
-const BUSINESS_FLOW: Array<keyof DraftState> = [
+type BusinessFieldKey =
+  | "business_name"
+  | "owner_name"
+  | "industry"
+  | "description"
+  | "target_audience"
+  | "agent_description"
+  | "escalation_rules";
+
+type DraftTextKey =
+  | "agent_name"
+  | "agent_personality"
+  | "business_name"
+  | "owner_name"
+  | "industry"
+  | "description"
+  | "agent_description"
+  | "target_audience"
+  | "escalation_rules"
+  | "country";
+
+const BUSINESS_FLOW: BusinessFieldKey[] = [
   "business_name",
   "owner_name",
   "industry",
@@ -71,7 +92,7 @@ const BUSINESS_FLOW: Array<keyof DraftState> = [
   "escalation_rules",
 ];
 
-const BUSINESS_FIELD_GRAPH: Array<{ key: keyof DraftState; label: string }> = [
+const BUSINESS_FIELD_GRAPH: Array<{ key: BusinessFieldKey; label: string }> = [
   { key: "business_name", label: "Nombre" },
   { key: "owner_name", label: "Responsable" },
   { key: "industry", label: "Industria" },
@@ -690,7 +711,7 @@ export function AgentBuilderChatDiagram() {
     (patch: Record<string, unknown>) => {
       setDraftState((prev) => {
         const next = { ...prev };
-        const textKeys: Array<keyof DraftState> = [
+        const textKeys: DraftTextKey[] = [
           "agent_name",
           "agent_personality",
           "business_name",
