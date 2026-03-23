@@ -118,6 +118,41 @@ function ToolCallsBlock({ functionCalls }: { functionCalls: unknown[] }) {
   );
 }
 
+function AnalysisCards({
+  summary,
+  notes,
+}: {
+  summary?: string;
+  notes?: string;
+}) {
+  if (!summary && !notes) return null;
+
+  return (
+    <div className="mt-2 grid gap-2">
+      {summary && (
+        <div className="rounded-lg border border-border/70 bg-card/70 p-3">
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Summary
+          </p>
+          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+            {summary}
+          </p>
+        </div>
+      )}
+      {notes && (
+        <div className="rounded-lg border border-border/70 bg-card/70 p-3">
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Análisis
+          </p>
+          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+            {notes}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ResultEventCard({ event }: { event: SSEEvent }) {
   if (event.type === "start") {
     return (
@@ -128,27 +163,55 @@ function ResultEventCard({ event }: { event: SSEEvent }) {
   }
 
   if (event.type === "done") {
+    const conversationAnalysis =
+      typeof event.conversationAnalysis === "object" && event.conversationAnalysis !== null
+        ? (event.conversationAnalysis as { summary?: unknown; notes?: unknown })
+        : null;
+    const summary =
+      conversationAnalysis && typeof conversationAnalysis.summary === "string"
+        ? conversationAnalysis.summary
+        : undefined;
+    const notes =
+      conversationAnalysis && typeof conversationAnalysis.notes === "string"
+        ? conversationAnalysis.notes
+        : undefined;
+
     return (
-      <div className="inline-flex w-fit items-center gap-1.5 rounded-md border border-green-500/40 bg-green-500/10 px-2.5 py-1 text-xs font-medium text-green-700 dark:text-green-400">
-        <CheckCircle2Icon className="h-3.5 w-3.5" />
-        Fin de la conversación
+      <div>
+        <div className="inline-flex w-fit items-center gap-1.5 rounded-md border border-green-500/40 bg-green-500/10 px-2.5 py-1 text-xs font-medium text-green-700 dark:text-green-400">
+          <CheckCircle2Icon className="h-3.5 w-3.5" />
+          Fin de la conversación
+        </div>
+        <AnalysisCards summary={summary} notes={notes} />
       </div>
     );
   }
 
   if (event.type === "personality") {
+    const analysis =
+      typeof event.analisis === "object" && event.analisis !== null
+        ? (event.analisis as { summary?: unknown; notes?: unknown })
+        : null;
+    const summary =
+      analysis && typeof analysis.summary === "string" ? analysis.summary : undefined;
+    const notes = analysis && typeof analysis.notes === "string" ? analysis.notes : undefined;
+
     return (
-      <details className="group rounded-lg border border-border/70 bg-muted/20">
-        <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
-          <ChevronRightIcon className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
+      <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5">
+        <p className="text-xs font-medium text-muted-foreground">
           Evento de personalidad
-        </summary>
-        <div className="border-t px-3 py-2">
-          <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded bg-muted/40 p-2 text-[11px]">
+        </p>
+        <AnalysisCards summary={summary} notes={notes} />
+        <details className="group mt-2">
+          <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+            <ChevronRightIcon className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
+            Ver payload completo
+          </summary>
+          <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded bg-muted/40 p-2 text-[11px]">
             {JSON.stringify(event, null, 2)}
           </pre>
-        </div>
-      </details>
+        </details>
+      </div>
     );
   }
 
