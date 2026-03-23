@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,12 +21,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2Icon, PlayIcon, RotateCcwIcon } from "lucide-react";
-import { fetchAgentById, postAgentsTestingSimulate } from "@/lib/agents-api";
+import { postAgentsTestingSimulate } from "@/lib/agents-api";
 import type {
   SimulateBody,
   SimulatorMode,
   SSEEvent,
-  ValidatorMode,
 } from "@/types/integration-simulator";
 import { parseSSEStream } from "@/utils/integration-sse";
 
@@ -36,13 +35,9 @@ const MESSAGE_LIMIT_MAX = 25;
 
 export function AgentSimulator({
   agentId,
-  agentName,
 }: {
   agentId: string;
-  agentName?: string;
 }) {
-  const [token, setToken] = useState(DEFAULT_TOKEN);
-  const [phoneId, setPhoneId] = useState(DEFAULT_PHONE_ID);
   const [messageLimit, setMessageLimit] = useState<string>("1");
   const [prompt, setPrompt] = useState("");
   const [simulatorMode, setSimulatorMode] =
@@ -50,24 +45,10 @@ export function AgentSimulator({
   const [enableTools, setEnableTools] = useState(false);
   const [stream, setStream] = useState(true);
   const [testMode, setTestMode] = useState(false);
-  const [validatorMode, setValidatorMode] = useState<ValidatorMode>("agent");
 
   const [isSending, setIsSending] = useState(false);
   const [streamEvents, setStreamEvents] = useState<SSEEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const agent = await fetchAgentById(agentId);
-      if (!cancelled && agent?.prompt) {
-        setPrompt(agent.prompt);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [agentId]);
 
   const body = useMemo((): SimulateBody | null => {
     const agent: SimulateBody["agent"] = {};
@@ -83,28 +64,22 @@ export function AgentSimulator({
     return {
       config: {
         AGENT_DOC_ID: agentId,
-        AGENT_LONG_LIVED_TOKEN: token || DEFAULT_TOKEN,
-        AGENT_PHONE_NUMBER_ID: phoneId || DEFAULT_PHONE_ID,
+        AGENT_LONG_LIVED_TOKEN: DEFAULT_TOKEN,
+        AGENT_PHONE_NUMBER_ID: DEFAULT_PHONE_ID,
       },
       agent,
       enableTools,
       stream,
       testingMode: testMode,
-      ...(validatorMode !== "agent" && {
-        enableValidator: validatorMode === "on",
-      }),
     };
   }, [
     agentId,
-    token,
-    phoneId,
     messageLimit,
     prompt,
     simulatorMode,
     enableTools,
     stream,
     testMode,
-    validatorMode,
   ]);
 
   const sendRequest = useCallback(async () => {
@@ -152,44 +127,17 @@ export function AgentSimulator({
   };
 
   return (
-    <div className="space-y-6 max-w-4xl">
-      <div>
-        <h2 className="text-lg font-semibold">
-          Simulador — {agentName || agentId}
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Ejecuta una simulación contra el servicio de testing (requiere{" "}
-          <code className="text-xs">KAI_AGENTS_TESTING_URL</code> en el servidor).
-        </p>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
+    <div className="h-full w-full">
+      <div className="grid h-full w-full gap-4 md:grid-cols-2">
+        <Card className="flex h-full min-h-0 flex-col overflow-hidden">
           <CardHeader>
             <CardTitle className="text-base">Parámetros</CardTitle>
             <CardDescription>
-              Token y phone ID de prueba; límite de mensajes y modo del simulador.
+              Configura la simulación y, si quieres, agrega instrucciones
+              temporales para esta corrida.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="space-y-1">
-              <Label htmlFor="sim-token">Token largo (prueba)</Label>
-              <Input
-                id="sim-token"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                className="font-mono text-xs"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="sim-phone">Phone number ID (prueba)</Label>
-              <Input
-                id="sim-phone"
-                value={phoneId}
-                onChange={(e) => setPhoneId(e.target.value)}
-                className="font-mono text-xs"
-              />
-            </div>
+          <CardContent className="flex-1 min-h-0 space-y-3 overflow-y-auto">
             <div className="space-y-1">
               <Label htmlFor="sim-limit">Límite de mensajes (1–{MESSAGE_LIMIT_MAX})</Label>
               <Input
@@ -213,22 +161,6 @@ export function AgentSimulator({
                 <SelectContent>
                   <SelectItem value="questions_only">Solo preguntas</SelectItem>
                   <SelectItem value="full">Completo</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label>Validador</Label>
-              <Select
-                value={validatorMode}
-                onValueChange={(v) => setValidatorMode(v as ValidatorMode)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="on">Encendido</SelectItem>
-                  <SelectItem value="off">Apagado</SelectItem>
-                  <SelectItem value="agent">Según agente</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -257,13 +189,16 @@ export function AgentSimulator({
               Modo testing
             </label>
             <div className="space-y-1">
-              <Label htmlFor="sim-prompt">Prompt (opcional, sobrescribe carga)</Label>
+              <Label htmlFor="sim-prompt">
+                Prompt adicional de simulación (opcional)
+              </Label>
               <Textarea
                 id="sim-prompt"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 rows={4}
                 className="font-mono text-xs"
+                placeholder="Instrucciones temporales para esta prueba. No reemplaza el prompt base del agente."
               />
             </div>
             <div className="flex flex-wrap gap-2 pt-2">
@@ -294,14 +229,14 @@ export function AgentSimulator({
           </CardContent>
         </Card>
 
-        <Card className="min-h-[320px]">
+        <Card className="flex h-full min-h-0 flex-col overflow-hidden">
           <CardHeader>
             <CardTitle className="text-base">Resultado</CardTitle>
             <CardDescription>
               Eventos stream o respuesta (sin vista de body JSON crudo).
             </CardDescription>
           </CardHeader>
-          <CardContent className="min-h-[200px] max-h-[560px] overflow-y-auto text-sm">
+          <CardContent className="flex-1 min-h-0 overflow-y-auto text-sm">
             {error && (
               <p className="text-destructive whitespace-pre-wrap mb-2">{error}</p>
             )}
