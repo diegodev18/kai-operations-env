@@ -390,38 +390,41 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
                 placeholder="Detalles de implementación"
               />
             </div>
-            <div className="space-y-2">
-              <label htmlFor="task-dueDate" className="text-sm font-medium">
-                Fecha de vencimiento
-              </label>
-              <div className="flex items-center gap-2">
-                <CalendarIcon className="size-4 text-muted-foreground" />
-                <Input
-                  id="task-dueDate"
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                />
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-2">
+                <label htmlFor="task-dueDate" className="text-sm font-medium">
+                  Fecha de vencimiento
+                </label>
+                <div className="flex items-center gap-2">
+                  <CalendarIcon className="size-4 text-muted-foreground" />
+                  <Input
+                    id="task-dueDate"
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Growers</label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setCreateAssigneesDialogOpen(true)}
+                  className="w-full justify-start gap-2"
+                >
+                  <UserPlus2Icon className="size-4" />
+                  Asignar growers
+                </Button>
               </div>
             </div>
-            <div className="space-y-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setCreateAssigneesDialogOpen(true)}
-                className="w-full justify-start gap-2"
-              >
-                <UserPlus2Icon className="size-4" />
-                Asignar growers
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                {assigneeEmails.length > 0
-                  ? `Seleccionados: ${assigneeEmails
-                      .map((email) => growersByEmail.get(email) ?? email)
-                      .join(", ")}`
-                  : "Sin growers seleccionados"}
-              </p>
-            </div>
+            <p className="text-xs text-muted-foreground">
+              {assigneeEmails.length > 0
+                ? `Seleccionados: ${assigneeEmails
+                    .map((email) => growersByEmail.get(email) ?? email)
+                    .join(", ")}`
+                : "Sin growers seleccionados"}
+            </p>
           </CardContent>
           <CardFooter>
             <Button
