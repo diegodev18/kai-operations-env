@@ -28,5 +28,9 @@ export default function AgentPromptDesignPage() {
     );
   }
 
-  return <AgentPromptDesigner agentId={agentId} agentName={agentName} />;
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto">
+      <AgentPromptDesigner agentId={agentId} agentName={agentName} />
+    </div>
+  );
 }

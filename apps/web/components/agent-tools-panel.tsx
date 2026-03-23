@@ -9,7 +9,6 @@ import {
 } from "@/hooks/agent-tools";
 import { useToolsCatalog } from "@/hooks/use-tools-catalog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -29,7 +28,6 @@ import {
   Trash2Icon,
   WrenchIcon,
   PencilIcon,
-  TriangleAlertIcon,
 } from "lucide-react";
 
 const TOOL_TYPES: { value: AgentToolType; label: string }[] = [
@@ -38,54 +36,81 @@ const TOOL_TYPES: { value: AgentToolType; label: string }[] = [
   { value: "preset", label: "Preset" },
 ];
 
-function PropertiesNotice({ agentId }: { agentId?: string }) {
-  const href = agentId
-    ? `/agents/${encodeURIComponent(agentId)}/configuration`
-    : "/";
+function ToolListItem({
+  tool,
+  togglingToolId,
+  onToggleEnabled,
+  onEdit,
+  onDelete,
+}: {
+  tool: AgentTool;
+  togglingToolId: string | null;
+  onToggleEnabled: (tool: AgentTool, enabled: boolean) => void;
+  onEdit: (tool: AgentTool) => void;
+  onDelete: (tool: AgentTool) => void;
+}) {
   return (
-    <div
-      className="flex gap-3 rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200"
-      role="status"
-    >
-      <TriangleAlertIcon className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
-      <div>
-        <p className="font-medium">Propiedades del agente</p>
-        <p className="mt-0.5 text-muted-foreground">
-          Para que cada tool funcione correctamente, puede ser necesario configurar las
-          propiedades del agente.{" "}
-          <Link
-            href={href}
-            className="font-medium text-primary underline underline-offset-2 hover:no-underline"
-          >
-            Configúralas en Configuración
-          </Link>
-          .
+    <li className="flex items-center justify-between gap-2 rounded-lg border p-3">
+      <div className="min-w-0 flex-1">
+        <span className="inline-block rounded-md bg-muted px-1.5 py-0.5 text-xs font-mono text-muted-foreground">
+          {tool.name}
+        </span>
+        <p className="mt-1.5 font-medium">
+          {tool.displayName ?? tool.name}
         </p>
+        <p className="mt-0.5 text-sm text-muted-foreground whitespace-pre-wrap break-words">
+          {tool.description}
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground/80">
+          <span>Tipo: {tool.type}</span>
+          {tool.required_agent_properties?.length ? (
+            <>
+              <span aria-hidden>·</span>
+              <span>
+                Requiere: {tool.required_agent_properties.join(", ")}
+              </span>
+            </>
+          ) : null}
+        </div>
       </div>
-    </div>
+      <div className="flex items-center gap-1 shrink-0">
+        <input
+          type="checkbox"
+          checked={tool.enabled !== false}
+          disabled={togglingToolId === tool.id}
+          onChange={(e) => onToggleEnabled(tool, e.target.checked)}
+          aria-label={
+            tool.enabled !== false ? "Deshabilitar tool" : "Habilitar tool"
+          }
+          className="h-4 w-4 rounded border-input"
+        />
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onEdit(tool)}
+          aria-label="Editar tool"
+        >
+          <PencilIcon className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onDelete(tool)}
+          aria-label="Eliminar tool"
+        >
+          <Trash2Icon className="w-4 h-4 text-destructive" />
+        </Button>
+      </div>
+    </li>
   );
 }
 
-export function AgentToolsPanel({
-  agentId,
-  agentName,
-}: {
-  agentId: string;
-  agentName?: string;
-}) {
-  const agent = {
-    id: agentId,
-    name: agentName ?? agentId,
-  };
-  return <ToolsPanel agent={agent} />;
+export function AgentToolsPanel({ agentId }: { agentId: string }) {
+  return <ToolsPanel agentId={agentId} />;
 }
 
-function ToolsPanel({
-  agent,
-}: {
-  agent: { id: string; name: string };
-}) {
-  const { tools, isLoading, refetch } = useAgentTools(agent.id);
+function ToolsPanel({ agentId }: { agentId: string }) {
+  const { tools, isLoading, refetch } = useAgentTools(agentId);
   const [addOpen, setAddOpen] = useState(false);
   const [editTool, setEditTool] = useState<AgentTool | null>(null);
   const [deleteTool, setDeleteTool] = useState<AgentTool | null>(null);
@@ -93,11 +118,10 @@ function ToolsPanel({
 
   const handleToggleEnabled = useCallback(
     async (tool: AgentTool, newEnabled: boolean) => {
-      if (!agent) return;
       setTogglingToolId(tool.id);
       try {
         const updated = await updateAgentTool(
-          agent.id,
+          agentId,
           tool.id,
           { enabled: newEnabled },
         );
@@ -111,108 +135,79 @@ function ToolsPanel({
         setTogglingToolId(null);
       }
     },
-    [agent, refetch]
+    [agentId, refetch]
   );
 
+  const mid = Math.ceil(tools.length / 2);
+  const leftTools = tools.slice(0, mid);
+  const rightTools = tools.slice(mid);
+
   return (
-    <div className="space-y-4 min-h-0">
-        <div className="space-y-1">
-          <h3 className="text-base font-semibold">
-            Tools de {agent.name || agent.id}
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            Gestiona las tools asignadas a este agente.
-          </p>
+    <div className="min-h-0 space-y-4">
+      <div className="min-h-0 w-full space-y-6 overflow-y-auto">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-medium">Lista de tools</span>
+          <Button size="sm" onClick={() => setAddOpen(true)}>
+            <PlusIcon className="mr-1 h-4 w-4" />
+            Agregar tool
+          </Button>
         </div>
 
-        <div className="min-h-0 overflow-y-auto space-y-4 max-w-3xl">
-          <PropertiesNotice agentId={agent.id} />
-
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-medium">Lista de tools</span>
-            <Button size="sm" onClick={() => setAddOpen(true)}>
-              <PlusIcon className="w-4 h-4 mr-1" />
-              Agregar tool
-            </Button>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2Icon className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
-
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2Icon className="w-8 h-8 animate-spin text-muted-foreground" />
+        ) : tools.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            Este agente no tiene tools. Haz clic en &quot;Agregar tool&quot; para
+            añadir una.
+          </p>
+        ) : tools.length === 1 ? (
+          <ul className="space-y-2">
+            <ToolListItem
+              tool={tools[0]}
+              togglingToolId={togglingToolId}
+              onToggleEnabled={handleToggleEnabled}
+              onEdit={setEditTool}
+              onDelete={setDeleteTool}
+            />
+          </ul>
+        ) : (
+          <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:gap-0 lg:items-start">
+            <div className="min-w-0 space-y-2 lg:pr-8">
+              <ul className="space-y-2">
+                {leftTools.map((tool) => (
+                  <ToolListItem
+                    key={tool.id}
+                    tool={tool}
+                    togglingToolId={togglingToolId}
+                    onToggleEnabled={handleToggleEnabled}
+                    onEdit={setEditTool}
+                    onDelete={setDeleteTool}
+                  />
+                ))}
+              </ul>
             </div>
-          ) : tools.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">
-              Este agente no tiene tools. Haz clic en &quot;Agregar tool&quot; para añadir una.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {tools.map((tool) => (
-                <li
-                  key={tool.id}
-                  className="flex items-center justify-between gap-2 rounded-lg border p-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <span className="inline-block rounded-md bg-muted px-1.5 py-0.5 text-xs font-mono text-muted-foreground">
-                      {tool.name}
-                    </span>
-                    <p className="mt-1.5 font-medium">
-                      {tool.displayName ?? tool.name}
-                    </p>
-                    <p className="mt-0.5 text-sm text-muted-foreground whitespace-pre-wrap break-words">
-                      {tool.description}
-                    </p>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground/80">
-                      <span>Tipo: {tool.type}</span>
-                      {tool.required_agent_properties?.length ? (
-                        <>
-                          <span aria-hidden>·</span>
-                          <span>
-                            Requiere: {tool.required_agent_properties.join(", ")}
-                          </span>
-                        </>
-                      ) : null}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <input
-                      type="checkbox"
-                      checked={tool.enabled !== false}
-                      disabled={togglingToolId === tool.id}
-                      onChange={(e) =>
-                        handleToggleEnabled(tool, e.target.checked)
-                      }
-                      aria-label={
-                        tool.enabled !== false
-                          ? "Deshabilitar tool"
-                          : "Habilitar tool"
-                      }
-                      className="h-4 w-4 rounded border-input"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setEditTool(tool)}
-                      aria-label="Editar tool"
-                    >
-                      <PencilIcon className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setDeleteTool(tool)}
-                      aria-label="Eliminar tool"
-                    >
-                      <Trash2Icon className="w-4 h-4 text-destructive" />
-                    </Button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+            <div className="min-w-0 space-y-2 border-t border-border pt-12 lg:border-t-0 lg:border-l lg:border-border lg:pt-0 lg:pl-8">
+              <ul className="space-y-2">
+                {rightTools.map((tool) => (
+                  <ToolListItem
+                    key={tool.id}
+                    tool={tool}
+                    togglingToolId={togglingToolId}
+                    onToggleEnabled={handleToggleEnabled}
+                    onEdit={setEditTool}
+                    onDelete={setDeleteTool}
+                  />
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+      </div>
 
       <AddToolDialog
-        agentId={agent.id}
+        agentId={agentId}
         open={addOpen}
         onOpenChange={setAddOpen}
         onSuccess={() => {
@@ -223,7 +218,7 @@ function ToolsPanel({
 
       {editTool && (
         <EditToolDialog
-          agentId={agent.id}
+          agentId={agentId}
           tool={editTool}
           open={!!editTool}
           onOpenChange={(o) => !o && setEditTool(null)}
@@ -236,7 +231,7 @@ function ToolsPanel({
 
       {deleteTool && (
         <DeleteToolDialog
-          agentId={agent.id}
+          agentId={agentId}
           tool={deleteTool}
           open={!!deleteTool}
           onOpenChange={(o) => !o && setDeleteTool(null)}
@@ -357,7 +352,6 @@ function AddToolDialog({
           <DialogTitle>Agregar tool</DialogTitle>
         </DialogHeader>
         <div className="min-h-0 overflow-y-auto overflow-x-hidden space-y-4 py-2">
-          <PropertiesNotice agentId={agentId} />
           <div className="space-y-2">
             <Label htmlFor="add-tool-type">Tipo</Label>
             <select

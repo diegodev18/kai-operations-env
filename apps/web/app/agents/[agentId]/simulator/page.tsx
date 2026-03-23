@@ -28,5 +28,9 @@ export default function AgentSimulatorPage() {
     );
   }
 
-  return <AgentSimulator agentId={agentId} agentName={agentName} />;
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto">
+      <AgentSimulator agentId={agentId} agentName={agentName} />
+    </div>
+  );
 }

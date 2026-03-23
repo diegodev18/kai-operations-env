@@ -192,7 +192,9 @@ export default function AgentDetailLayout({
           ) : null}
         </div>
       </header>
-      <main className="min-h-0 flex-1 overflow-auto p-4">{children}</main>
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden p-4">
+        {children}
+      </main>
     </div>
   );
 }

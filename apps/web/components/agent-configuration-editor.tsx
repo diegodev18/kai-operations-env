@@ -171,11 +171,9 @@ function PendingChangesPanel({
 
 export function AgentConfigurationEditor({
   agentId,
-  agentName,
   onAgentUpdated,
 }: {
   agentId: string;
-  agentName?: string;
   onAgentUpdated?: () => void;
 }) {
   const { data, isLoading, refetch } = useAgentProperties(agentId);
@@ -236,13 +234,14 @@ export function AgentConfigurationEditor({
         if (!success) ok = false;
       }
       if (ok) {
-        toast.success("Propiedades guardadas");
+        toast.success("Cambios guardados");
         refetch();
+        await onAgentUpdated?.();
       }
     } finally {
       setSaving(false);
     }
-  }, [agentId, formState, data, refetch]);
+  }, [agentId, formState, data, refetch, onAgentUpdated]);
 
   const isEnabled = formState?.agent.enabled !== false;
 
@@ -270,27 +269,25 @@ export function AgentConfigurationEditor({
   if (!agentId) return null;
 
   return (
-    <div className="flex flex-col gap-4 w-full max-w-3xl mx-auto min-h-0">
-      <div className="shrink-0 space-y-1">
-        <h2 className="text-lg font-semibold">
-          Propiedades de {agentName || agentId}
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Editá los documentos de configuración. Guardá los cambios pendientes abajo.
-        </p>
-      </div>
-
-        <div className="min-h-0 overflow-hidden grid grid-rows-[1fr] max-h-[min(70vh,720px)] border rounded-lg">
-          <div className="min-h-0 overflow-y-auto overflow-x-hidden pr-2 space-y-4">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2Icon className="w-8 h-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : formState ? (
-            <>
+    <div
+      className="flex w-full min-h-0 flex-1 flex-col"
+      role="region"
+      aria-label="Configuración del agente"
+    >
+      {isLoading ? (
+        <div className="flex flex-1 items-center justify-center py-16">
+          <Loader2Icon className="size-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : formState ? (
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:gap-0 lg:items-start">
+          <div className="min-w-0 space-y-12 lg:pr-8">
               {/* Agent */}
-              <section className="space-y-3 rounded-lg border p-4">
-                <h3 className="font-medium">{DOCUMENT_LABELS.agent}</h3>
+              <section className="space-y-4">
+                <h3 className="text-sm font-semibold tracking-tight text-foreground">
+                  {DOCUMENT_LABELS.agent}
+                </h3>
                 <div className="grid gap-3">
                   {(
                     [
@@ -370,8 +367,10 @@ export function AgentConfigurationEditor({
               </section>
 
               {/* Answer */}
-              <section className="space-y-3 rounded-lg border p-4">
-                <h3 className="font-medium">{DOCUMENT_LABELS.answer}</h3>
+              <section className="space-y-4">
+                <h3 className="text-sm font-semibold tracking-tight text-foreground">
+                  {DOCUMENT_LABELS.answer}
+                </h3>
                 <div className="space-y-2">
                   <FieldLabel docId="answer" fieldKey="notSupport" id="answer-notSupport" />
                   <Input
@@ -389,8 +388,10 @@ export function AgentConfigurationEditor({
               </section>
 
               {/* AI (thinking) - model and temperature are source of truth here */}
-              <section className="space-y-3 rounded-lg border p-4">
-                <h3 className="font-medium">{DOCUMENT_LABELS.ai}</h3>
+              <section className="space-y-4">
+                <h3 className="text-sm font-semibold tracking-tight text-foreground">
+                  {DOCUMENT_LABELS.ai}
+                </h3>
                 <div className="space-y-3">
                   <div className="space-y-2">
                     <FieldLabel
@@ -569,8 +570,10 @@ export function AgentConfigurationEditor({
               </section>
 
               {/* Response */}
-              <section className="space-y-3 rounded-lg border p-4">
-                <h3 className="font-medium">{DOCUMENT_LABELS.response}</h3>
+              <section className="space-y-4">
+                <h3 className="text-sm font-semibold tracking-tight text-foreground">
+                  {DOCUMENT_LABELS.response}
+                </h3>
                 <div className="space-y-3">
                   <div className="space-y-2">
                     <FieldLabel docId="response" fieldKey="waitTime" id="response-waitTime" />
@@ -632,10 +635,13 @@ export function AgentConfigurationEditor({
                   )}
                 </div>
               </section>
-
+          </div>
+          <div className="min-w-0 space-y-12 border-t border-border pt-12 lg:border-t-0 lg:border-l lg:border-border lg:pt-0 lg:pl-8">
               {/* Time */}
-              <section className="space-y-3 rounded-lg border p-4">
-                <h3 className="font-medium">{DOCUMENT_LABELS.time}</h3>
+              <section className="space-y-4">
+                <h3 className="text-sm font-semibold tracking-tight text-foreground">
+                  {DOCUMENT_LABELS.time}
+                </h3>
                 <div className="space-y-2">
                   <FieldLabel docId="time" fieldKey="zone" id="time-zone" />
                   <Input
@@ -650,8 +656,10 @@ export function AgentConfigurationEditor({
               </section>
 
               {/* Prompt */}
-              <section className="space-y-3 rounded-lg border p-4">
-                <h3 className="font-medium">{DOCUMENT_LABELS.prompt}</h3>
+              <section className="space-y-4">
+                <h3 className="text-sm font-semibold tracking-tight text-foreground">
+                  {DOCUMENT_LABELS.prompt}
+                </h3>
                 <div className="space-y-3">
                   <div className="space-y-2">
                     <FieldLabel
@@ -722,8 +730,10 @@ export function AgentConfigurationEditor({
               </section>
 
               {/* Memory */}
-              <section className="space-y-3 rounded-lg border p-4">
-                <h3 className="font-medium">{DOCUMENT_LABELS.memory}</h3>
+              <section className="space-y-4">
+                <h3 className="text-sm font-semibold tracking-tight text-foreground">
+                  {DOCUMENT_LABELS.memory}
+                </h3>
                 <div className="space-y-2">
                   <FieldLabel docId="memory" fieldKey="limit" id="memory-limit" />
                   <Input
@@ -744,11 +754,13 @@ export function AgentConfigurationEditor({
               {/* MCP (Validador) - solo editable si isValidatorAgentEnable está activo */}
               <section
                 className={cn(
-                  "space-y-3 rounded-lg border p-4",
-                  !formState.agent.isValidatorAgentEnable && "opacity-60"
+                  "space-y-4",
+                  !formState.agent.isValidatorAgentEnable && "opacity-60",
                 )}
               >
-                <h3 className="font-medium">{DOCUMENT_LABELS.mcp}</h3>
+                <h3 className="text-sm font-semibold tracking-tight text-foreground">
+                  {DOCUMENT_LABELS.mcp}
+                </h3>
                 <div className="space-y-2">
                   <FieldLabel docId="mcp" fieldKey="maxRetries" id="mcp-maxRetries" />
                   <Input
@@ -776,64 +788,67 @@ export function AgentConfigurationEditor({
                   )}
                 </div>
               </section>
-            </>
-          ) : null}
           </div>
         </div>
-
-        {formState && (
-          <div className="min-h-0 flex flex-col gap-3 border-t pt-4">
-            <div className="flex items-center gap-2 shrink-0">
+          </div>
+          <div
+            className="shrink-0 flex flex-col gap-4 border-t border-border bg-background/95 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:flex-row sm:items-end sm:justify-between"
+            role="toolbar"
+            aria-label="Acciones de configuración"
+          >
+            <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
               <Button
                 type="button"
                 variant={isEnabled ? "outline" : "default"}
                 size="sm"
                 onClick={handleToggleEnabled}
                 disabled={saving}
+                className="w-fit shrink-0"
               >
                 {saving ? (
-                  <Loader2Icon className="w-4 h-4 animate-spin" />
+                  <Loader2Icon className="h-4 w-4 animate-spin" />
                 ) : isEnabled ? (
                   <>
-                    <PowerOffIcon className="w-4 h-4 mr-1.5" />
+                    <PowerOffIcon className="mr-1.5 h-4 w-4" />
                     Apagar agente
                   </>
                 ) : (
                   <>
-                    <PowerIcon className="w-4 h-4 mr-1.5" />
+                    <PowerIcon className="mr-1.5 h-4 w-4" />
                     Encender agente
                   </>
                 )}
               </Button>
+              {data ? (
+                <PendingChangesPanel
+                  formState={formState}
+                  originalData={data}
+                  className="min-w-0 flex-1"
+                />
+              ) : null}
             </div>
-            {data && (
-              <PendingChangesPanel
-                formState={formState}
-                originalData={data}
-                className="shrink-0"
-              />
-            )}
-            <div className="flex justify-end gap-2 shrink-0">
-              <Button
-                onClick={handleSave}
-                disabled={
-                  saving ||
-                  !data ||
-                  getPendingDocumentIds(formState, data).length === 0
-                }
-              >
-                {saving ? (
-                  <>
-                    <Loader2Icon className="w-4 h-4 animate-spin mr-2" />
-                    Guardando…
-                  </>
-                ) : (
-                  "Guardar todo"
-                )}
-              </Button>
-            </div>
+            <Button
+              type="button"
+              onClick={handleSave}
+              disabled={
+                saving ||
+                !data ||
+                getPendingDocumentIds(formState, data).length === 0
+              }
+              className="w-full shrink-0 sm:w-auto"
+            >
+              {saving ? (
+                <>
+                  <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                  Guardando…
+                </>
+              ) : (
+                "Guardar cambios"
+              )}
+            </Button>
           </div>
-        )}
+        </div>
+      ) : null}
     </div>
   );
 }
