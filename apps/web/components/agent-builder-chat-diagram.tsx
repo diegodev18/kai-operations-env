@@ -75,6 +75,16 @@ const BUSINESS_FLOW: Array<keyof DraftState> = [
   "escalation_rules",
 ];
 
+const BUSINESS_FIELD_GRAPH: Array<{ key: keyof DraftState; label: string }> = [
+  { key: "business_name", label: "Nombre" },
+  { key: "owner_name", label: "Responsable" },
+  { key: "industry", label: "Industria" },
+  { key: "description", label: "Descripción" },
+  { key: "target_audience", label: "Audiencia" },
+  { key: "agent_description", label: "Rol del agente" },
+  { key: "escalation_rules", label: "Escalamiento" },
+];
+
 const PROMPTS: Record<StepField, string> = {
   business_name: "Comencemos. ¿Cuál es el nombre del negocio?",
   owner_name: "¿Quién es la persona responsable o dueña del negocio?",
@@ -181,6 +191,10 @@ function withCardStyle(width: number) {
   };
 }
 
+function fieldNodeValue(value: string): string {
+  return value.trim().slice(0, 44);
+}
+
 function buildProgressiveGraph(
   state: DraftState,
   pendingTasks: DraftPendingTask[],
@@ -219,12 +233,36 @@ function buildProgressiveGraph(
       style: withCardStyle(220),
     });
     edges.push({ id: "e-root-business", source: "agentRoot", target: "business" });
+
+    BUSINESS_FIELD_GRAPH.forEach((field, index) => {
+      const rawValue = state[field.key];
+      if (!rawValue.trim()) return;
+      const row = Math.floor(index / 2);
+      const col = index % 2;
+      const x = 300 + col * 250;
+      const y = 250 + row * 86;
+      const value = fieldNodeValue(rawValue);
+      const fieldNodeId = `business-${field.key}`;
+      nodes.push({
+        id: fieldNodeId,
+        position: { x, y },
+        data: {
+          label: `${field.label}: ${value}`,
+        },
+        style: withCardStyle(230),
+      });
+      edges.push({
+        id: `e-business-${field.key}`,
+        source: "business",
+        target: fieldNodeId,
+      });
+    });
   }
 
   if (toolsVisible) {
     nodes.push({
       id: "tools",
-      position: { x: 560, y: 120 },
+      position: { x: 830, y: 120 },
       data: { label: `Tools (${state.selected_tools.length})` },
       style: withCardStyle(200),
     });
@@ -234,7 +272,7 @@ function buildProgressiveGraph(
   if (personalityVisible) {
     nodes.push({
       id: "personality",
-      position: { x: 790, y: 120 },
+      position: { x: 1060, y: 120 },
       data: {
         label: `${isPersonalityComplete(state) ? "Completado" : "En progreso"} · Personalidad`,
       },
@@ -247,7 +285,7 @@ function buildProgressiveGraph(
     const openTasks = pendingTasks.filter((task) => task.status === "pending").length;
     nodes.push({
       id: "tasks",
-      position: { x: 560, y: 280 },
+      position: { x: 830, y: 520 },
       data: { label: `Tareas pendientes (${openTasks})` },
       style: withCardStyle(230),
     });
@@ -259,7 +297,7 @@ function buildProgressiveGraph(
   if (completeVisible) {
     nodes.push({
       id: "complete",
-      position: { x: 1040, y: 120 },
+      position: { x: 1300, y: 120 },
       data: { label: state.creation_step === "complete" ? "Builder finalizado" : "Confirmación" },
       style: withCardStyle(210),
     });
