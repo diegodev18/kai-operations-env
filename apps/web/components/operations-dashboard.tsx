@@ -452,9 +452,11 @@ export function OperationsDashboard(props: {
             <h1 className="text-2xl font-semibold tracking-tight">
               Dashboard de Operaciones
             </h1>
-            <Button type="button" className="gap-2">
-              <PlusIcon className="size-4" />
-              Crear nuevo agente
+            <Button type="button" className="gap-2" asChild>
+              <Link href="/agents/new">
+                <PlusIcon className="size-4" />
+                Crear nuevo agente
+              </Link>
             </Button>
           </div>
 

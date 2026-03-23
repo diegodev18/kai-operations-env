@@ -135,3 +135,166 @@ export async function deleteAgentGrower(
   }
   return { ok: false, error: "Respuesta inválida del servidor" };
 }
+
+// --- Agent drafts (admin, colección agent_drafts) ---
+
+export type ToolsCatalogItem = {
+  id: string;
+  name: string;
+  displayName: string;
+  description: string;
+  path: string;
+  type: string;
+  category: string;
+};
+
+export async function fetchToolsCatalog(): Promise<
+  ToolsCatalogItem[] | null
+> {
+  const res = await fetch("/api/agents/tools-catalog", {
+    credentials: "include",
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  try {
+    const data = (await res.json()) as { tools?: ToolsCatalogItem[] };
+    return Array.isArray(data.tools) ? data.tools : [];
+  } catch {
+    return null;
+  }
+}
+
+export async function postAgentDraft(body: {
+  agent_name: string;
+  agent_personality: string;
+}): Promise<
+  | { ok: true; id: string; creation_step?: string }
+  | { ok: false; error: string }
+> {
+  const res = await fetch("/api/agents/drafts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(body),
+  });
+  let data: {
+    id?: string;
+    creation_step?: string;
+    error?: string;
+  } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: data.error ?? "No se pudo crear el borrador",
+    };
+  }
+  if (data.id) {
+    return {
+      ok: true,
+      id: data.id,
+      creation_step: data.creation_step,
+    };
+  }
+  return { ok: false, error: "Respuesta inválida del servidor" };
+}
+
+export type AgentDraftPatchBody =
+  | {
+      step: "personality";
+      agent_name: string;
+      agent_personality: string;
+    }
+  | {
+      step: "business";
+      business_name: string;
+      owner_name: string;
+      industry: string;
+      description: string;
+      agent_description: string;
+      target_audience: string;
+      escalation_rules: string;
+      country?: string;
+      phone_number_id?: string;
+      whatsapp_token?: string;
+    }
+  | { step: "tools"; selected_tools: string[] }
+  | { step: "complete" };
+
+export async function patchAgentDraft(
+  draftId: string,
+  body: AgentDraftPatchBody,
+): Promise<
+  | { ok: true; creation_step?: string; selected_tools?: string[] }
+  | { ok: false; error: string; invalid_ids?: string[] }
+> {
+  const res = await fetch(
+    `/api/agents/drafts/${encodeURIComponent(draftId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    },
+  );
+  let data: {
+    creation_step?: string;
+    selected_tools?: string[];
+    error?: string;
+    invalid_ids?: string[];
+  } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: data.error ?? "No se pudo actualizar el borrador",
+      invalid_ids: data.invalid_ids,
+    };
+  }
+  return {
+    ok: true,
+    creation_step: data.creation_step,
+    selected_tools: data.selected_tools,
+  };
+}
+
+export type AgentDraftClient = Record<string, unknown>;
+
+export async function fetchAgentDraft(
+  draftId: string,
+): Promise<
+  | { ok: true; id: string; draft: AgentDraftClient }
+  | { ok: false; error: string }
+> {
+  const res = await fetch(
+    `/api/agents/drafts/${encodeURIComponent(draftId)}`,
+    {
+      credentials: "include",
+      cache: "no-store",
+    },
+  );
+  let data: { id?: string; draft?: AgentDraftClient; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: data.error ?? "No se pudo cargar el borrador",
+    };
+  }
+  if (data.id && data.draft && typeof data.draft === "object") {
+    return { ok: true, id: data.id, draft: data.draft };
+  }
+  return { ok: false, error: "Respuesta inválida del servidor" };
+}
