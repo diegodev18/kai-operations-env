@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -26,10 +27,14 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  CheckIcon,
+  ArrowUpIcon,
+  ImageIcon,
+  ListChecksIcon,
   Loader2Icon,
   RotateCcwIcon,
-  XIcon,
+  ShieldCheckIcon,
+  SparklesIcon,
+  TerminalIcon,
 } from "lucide-react";
 import { fetchAgentById } from "@/lib/agents-api";
 import type { Agent } from "@/lib/agent";
@@ -48,15 +53,13 @@ import {
   type PromptMode,
 } from "@/hooks/prompt-chat";
 import PromptDiffView from "@/components/prompt-diff-view";
-import {
-  buildTextWithRevertedHunks,
-  computeDiffLines,
-} from "@/utils/prompt-diff";
 
 const PROMPT_STORAGE_KEY = "operations-prompt-designer";
 
 const OPTIMIZE =
   "Optimiza este prompt: hazlo más claro, consistente y efectivo, sin cambiar su intención. Devuelve el prompt completo optimizado.";
+const FIX_CONTRADICTIONS =
+  "Revisa este prompt y corrige contradicciones, ambiguedades y conflictos entre instrucciones. Devuelve una version consolidada y coherente, manteniendo la intencion original.";
 
 const chatMarkdownComponents: import("react-markdown").Components = {
   p: ({ children }) => (
@@ -131,7 +134,7 @@ export function AgentPromptDesigner({
       return "agent";
     }
   });
-  const [includeToolsContext, setIncludeToolsContext] = useState(false);
+  const [includeToolsContext] = useState(false);
 
   const { models: promptModels, isLoading: modelsLoading } = usePromptModels();
   const isAuthEnabled = propertiesData?.agent?.isAuthEnable === true;
@@ -302,51 +305,6 @@ export function AgentPromptDesigner({
       ? suggestedPrompt ?? undefined
       : undefined);
 
-  const suggestionDiffLines = useMemo(() => {
-    if (!showSuggestion || hasMulti || suggestedPrompt == null) return [];
-    const ref =
-      primaryTarget === "auth"
-        ? editingAuthPrompt
-        : primaryTarget === "unauth"
-          ? editingUnauthPrompt
-          : editingPrompt;
-    return computeDiffLines(ref, suggestedPrompt);
-  }, [
-    showSuggestion,
-    hasMulti,
-    suggestedPrompt,
-    primaryTarget,
-    editingPrompt,
-    editingAuthPrompt,
-    editingUnauthPrompt,
-  ]);
-
-  const handleApplySuggestion = () => {
-    if (hasMulti && suggestedPrompts) {
-      if (suggestedPrompts.base != null) setEditingPrompt(suggestedPrompts.base);
-      if (suggestedPrompts.unauth != null)
-        setEditingUnauthPrompt(suggestedPrompts.unauth);
-      if (suggestedPrompts.auth != null)
-        setEditingAuthPrompt(suggestedPrompts.auth);
-      clearSuggestion();
-      setRejectedSuggestionHunkIds(new Set());
-      return;
-    }
-    if (suggestedPrompt == null) return;
-    const textToApply =
-      suggestionDiffLines.length > 0
-        ? buildTextWithRevertedHunks(suggestionDiffLines, rejectedSuggestionHunkIds)
-        : suggestedPrompt;
-    const targets = suggestedTarget?.length ? suggestedTarget : ["base"];
-    for (const t of targets) {
-      if (t === "base") setEditingPrompt(textToApply);
-      else if (t === "auth") setEditingAuthPrompt(textToApply);
-      else if (t === "unauth") setEditingUnauthPrompt(textToApply);
-    }
-    clearSuggestion();
-    setRejectedSuggestionHunkIds(new Set());
-  };
-
   const formatToolsBlock = useCallback(() => {
     if (!agentTools.length) return "Lista de tools: (ninguna).";
     const lines: string[] = ["Tools del agente:"];
@@ -378,107 +336,9 @@ export function AgentPromptDesigner({
   }
 
   return (
-    <div className="flex flex-col gap-4 min-h-0">
-      <div className="flex flex-wrap gap-2 items-center">
-        <Label className="text-xs">Modelo</Label>
-        <Select
-          value={promptModel}
-          onValueChange={(v) => setPromptModel(v as PromptModelId)}
-        >
-          <SelectTrigger className="w-[200px] h-8 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {promptModels.map((m) => (
-              <SelectItem key={m.id} value={m.id} disabled={!m.available}>
-                {m.name}
-                {!m.available ? " (no disponible)" : ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Label className="text-xs">Modo</Label>
-        <Select
-          value={promptMode}
-          onValueChange={(v) => setPromptMode(v as PromptMode)}
-        >
-          <SelectTrigger className="w-[160px] h-8 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="agent">Editar prompt</SelectItem>
-            <SelectItem value="questions">Solo preguntas</SelectItem>
-          </SelectContent>
-        </Select>
-        <label className="flex items-center gap-1.5 text-xs">
-          <input
-            type="checkbox"
-            checked={includeToolsContext}
-            onChange={(e) => setIncludeToolsContext(e.target.checked)}
-          />
-          Incluir tools en contexto
-        </label>
-      </div>
-
-      <div className="flex min-h-[min(80vh,720px)] border rounded-lg overflow-hidden">
+    <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden rounded-lg border">
         <div className="flex-1 min-w-0 flex flex-col min-h-0">
-          <div className="flex items-center justify-between gap-2 px-3 py-2 border-b bg-muted/30">
-            <span className="text-sm font-medium">Prompt principal</span>
-            <div className="flex flex-wrap gap-1">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => sendMessage(OPTIMIZE)}
-                disabled={chatLoading}
-              >
-                Optimizar
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => {
-                  void sendMessage(
-                    `Contexto de tools:\n${formatToolsBlock()}\n\nResume qué hace cada tool.`,
-                  );
-                }}
-                disabled={chatLoading}
-              >
-                Resumir tools
-              </Button>
-              {hasChanges && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={() => setDiffViewRequested((v) => !v)}
-                >
-                  {editorViewMode === "diff" ? "Editar" : "Ver cambios"}
-                </Button>
-              )}
-              {showSuggestion && (
-                <>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearSuggestion}
-                  >
-                    <XIcon className="w-3 h-3 mr-1" />
-                    Descartar
-                  </Button>
-                  <Button type="button" size="sm" onClick={handleApplySuggestion}>
-                    <CheckIcon className="w-3 h-3 mr-1" />
-                    Aplicar
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
           <div className="flex-1 min-h-0 p-3">
             {showSuggestion &&
             suggestedForBase != null &&
@@ -611,7 +471,7 @@ export function AgentPromptDesigner({
                 </Tooltip>
               </div>
             </CardHeader>
-            <CardContent className="flex-1 flex flex-col min-h-0 overflow-hidden px-3 pb-3">
+            <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden px-3 pb-1">
               <div className="flex-1 overflow-y-auto space-y-2 mb-2 pr-1">
                 {messages.map((message: ChatMessage, index: number) => {
                   const isLast = index === messages.length - 1;
@@ -648,13 +508,114 @@ export function AgentPromptDesigner({
                   );
                 })}
               </div>
-              <div className="flex gap-2 shrink-0">
+              <div className="shrink-0 flex flex-col gap-2">
+                <div className="mt-auto flex items-center gap-2 pt-1">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8 rounded-lg"
+                          disabled={!editingPrompt.trim() || chatLoading}
+                          onClick={() => void sendMessage(OPTIMIZE)}
+                          aria-label="Optimizar prompt"
+                        >
+                          <SparklesIcon className="h-4 w-4" />
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>Optimizar prompt</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8 rounded-lg"
+                          disabled={!editingPrompt.trim() || chatLoading}
+                          onClick={() => void sendMessage(FIX_CONTRADICTIONS)}
+                          aria-label="Corregir contradicciones"
+                        >
+                          <ShieldCheckIcon className="h-4 w-4" />
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>Corregir contradicciones</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8 rounded-lg"
+                          disabled={!editingPrompt.trim() || chatLoading}
+                          onClick={() => {
+                            void sendMessage(
+                              `Contexto de tools:\n${formatToolsBlock()}\n\nResume qué hace cada tool.`,
+                            );
+                          }}
+                          aria-label="Resumir tools"
+                        >
+                          <ListChecksIcon className="h-4 w-4" />
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>Resumir tools</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8 rounded-lg"
+                          disabled={!editingPrompt.trim() || chatLoading}
+                          aria-label="Extraer comandos"
+                        >
+                          <TerminalIcon className="h-4 w-4" />
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>Extraer comandos</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8 rounded-lg"
+                          disabled={chatLoading}
+                          onClick={() => {
+                            toast.info("Carga de imagen/PDF en esta vista: proximamente.");
+                          }}
+                          aria-label="Subir imagen"
+                        >
+                          <ImageIcon className="h-4 w-4" />
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>Subir imagen o PDF</TooltipContent>
+                  </Tooltip>
+                </div>
+                <Label htmlFor="prompt-chat-input" className="text-xs font-semibold">
+                  Pide ayuda al asistente
+                </Label>
                 <Textarea
+                  id="prompt-chat-input"
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   placeholder="Escribe un mensaje…"
-                  rows={2}
-                  className="text-xs min-h-0"
+                  rows={3}
+                  className="min-h-[92px] resize-none rounded-xl text-sm"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
@@ -662,15 +623,38 @@ export function AgentPromptDesigner({
                     }
                   }}
                 />
-                <Button
-                  type="button"
-                  size="sm"
-                  className="shrink-0"
-                  onClick={() => void handleSendChat()}
-                  disabled={chatLoading || !chatInput.trim()}
-                >
-                  Enviar
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={promptMode}
+                    onValueChange={(v) => setPromptMode(v as PromptMode)}
+                  >
+                    <SelectTrigger className="h-8 w-fit min-w-[108px] rounded-full border px-2.5 text-xs">
+                      <span className="inline-flex items-center gap-2">
+                        <SparklesIcon className="h-3.5 w-3.5" />
+                        <SelectValue />
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="agent">Agente</SelectItem>
+                      <SelectItem value="questions">Preguntas</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="ml-auto h-8 w-8 rounded-lg"
+                    onClick={() => void handleSendChat()}
+                    disabled={chatLoading || !chatInput.trim()}
+                    aria-label="Enviar"
+                  >
+                    {chatLoading ? (
+                      <Loader2Icon className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <ArrowUpIcon className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
