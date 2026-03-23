@@ -952,7 +952,11 @@ export function AgentBuilderChatDiagram() {
             </p>
           </header>
           <div className="flex-1 space-y-3 overflow-y-auto p-4">
-            {chatMessages.map((message) => (
+            {chatMessages.map((message, messageIndex) => {
+              const isLatestInThread = messageIndex === chatMessages.length - 1;
+              /** Solo el último mensaje del hilo puede tener UI activa; tras enviar o elegir opción, queda bloqueada. */
+              const uiInteractive = isLatestInThread && !isThinking;
+              return (
               <div
                 key={message.id}
                 className={cn(
@@ -975,12 +979,13 @@ export function AgentBuilderChatDiagram() {
                 typingMessageId !== message.id ? (
                   <BuilderChatUiBlock
                     ui={message.ui}
-                    disabled={isThinking}
+                    disabled={!uiInteractive}
                     onSend={(payload, displayText) => void sendUserText(payload, displayText)}
                   />
                 ) : null}
               </div>
-            ))}
+              );
+            })}
             {isThinking ? (
               <div className="max-w-[92%] px-1 py-1 text-sm text-muted-foreground">
                 <div className="relative inline-block">

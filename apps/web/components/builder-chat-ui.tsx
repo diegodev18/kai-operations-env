@@ -18,6 +18,7 @@ import type {
   BuilderChatUIForm,
   BuilderChatUIOptions,
 } from "@/types/agents-api";
+import { cn } from "@/lib/utils";
 
 const MAX_OPTIONS = 8;
 const MAX_FORM_FIELDS = 12;
@@ -41,7 +42,12 @@ function BuilderChatUIOptionsBlock({
 }) {
   const opts = ui.options.slice(0, MAX_OPTIONS);
   return (
-    <div className="mt-3 space-y-2 border-t border-border/60 pt-3">
+    <div
+      className={cn(
+        "mt-3 space-y-2 border-t border-border/60 pt-3",
+        disabled && "pointer-events-none opacity-60",
+      )}
+    >
       {ui.title ? (
         <p className="text-xs font-medium text-muted-foreground">{ui.title}</p>
       ) : null}
@@ -50,9 +56,16 @@ function BuilderChatUIOptionsBlock({
           <Button
             key={opt.id}
             type="button"
-            variant="secondary"
+            variant="outline"
             size="sm"
-            className="h-auto max-w-full whitespace-normal py-1.5 text-left text-xs"
+            className={cn(
+              "h-auto max-w-full whitespace-normal py-2 text-left text-xs",
+              "border-border bg-card shadow-xs transition-all duration-150",
+              "hover:border-primary hover:bg-primary/12 hover:text-foreground hover:shadow-md",
+              "active:scale-[0.99]",
+              "dark:hover:bg-primary/20",
+              "disabled:pointer-events-none disabled:opacity-50",
+            )}
             disabled={disabled}
             onClick={() => {
               void onSend(
@@ -128,7 +141,10 @@ function BuilderChatUIFormBlock({
 
   return (
     <form
-      className="mt-3 space-y-3 border-t border-border/60 pt-3"
+      className={cn(
+        "mt-3 space-y-3 border-t border-border/60 pt-3",
+        disabled && "pointer-events-none opacity-60",
+      )}
       onSubmit={handleSubmit}
     >
       {ui.title ? (
