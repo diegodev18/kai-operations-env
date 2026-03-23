@@ -10,6 +10,7 @@ import type {
   ToolsCatalogItem,
   BuilderChatDraftPatch,
   BuilderChatMessage,
+  BuilderChatUI,
 } from "@/types/agents-api";
 
 export type {
@@ -22,9 +23,10 @@ export type {
   ToolsCatalogItem,
   BuilderChatDraftPatch,
   BuilderChatMessage,
+  BuilderChatUI,
 };
 
-/** Tamaño de cada página al listar agentes (carga perezosa: primero solo esta cantidad). */
+/** Tama?o de cada p?gina al listar agentes (carga perezosa: primero solo esta cantidad). */
 export const AGENTS_PAGE_SIZE = 15;
 
 function agentsInfoUrl(
@@ -106,7 +108,7 @@ export async function postAgentGrower(
   if (data.ok && data.grower) {
     return { ok: true, grower: data.grower };
   }
-  return { ok: false, error: "Respuesta inválida del servidor" };
+  return { ok: false, error: "Respuesta inv?lida del servidor" };
 }
 
 export async function fetchAgentGrowers(
@@ -154,10 +156,10 @@ export async function deleteAgentGrower(
   if (data.ok) {
     return { ok: true };
   }
-  return { ok: false, error: "Respuesta inválida del servidor" };
+  return { ok: false, error: "Respuesta inv?lida del servidor" };
 }
 
-// --- Agent drafts (colección agent_drafts; miembros y admins; grower creador en POST) ---
+// --- Agent drafts (colecci?n agent_drafts; miembros y admins; grower creador en POST) ---
 
 export async function fetchToolsCatalog(): Promise<
   ToolsCatalogItem[] | null
@@ -211,7 +213,7 @@ export async function postAgentDraft(body: {
       creation_step: data.creation_step,
     };
   }
-  return { ok: false, error: "Respuesta inválida del servidor" };
+  return { ok: false, error: "Respuesta inv?lida del servidor" };
 }
 
 export async function patchAgentDraft(
@@ -283,7 +285,7 @@ export async function fetchAgentDraft(
   if (data.id && data.draft && typeof data.draft === "object") {
     return { ok: true, id: data.id, draft: data.draft };
   }
-  return { ok: false, error: "Respuesta inválida del servidor" };
+  return { ok: false, error: "Respuesta inv?lida del servidor" };
 }
 
 export async function fetchDraftPendingTasks(
@@ -326,7 +328,7 @@ export async function createDraftPendingTask(
   if (!res.ok) {
     return { ok: false, error: data.error ?? "No se pudo crear la tarea" };
   }
-  if (!data.task) return { ok: false, error: "Respuesta inválida del servidor" };
+  if (!data.task) return { ok: false, error: "Respuesta inv?lida del servidor" };
   return { ok: true, task: data.task };
 }
 
@@ -353,7 +355,7 @@ export async function patchDraftPendingTask(
   if (!res.ok) {
     return { ok: false, error: data.error ?? "No se pudo actualizar la tarea" };
   }
-  if (!data.task) return { ok: false, error: "Respuesta inválida del servidor" };
+  if (!data.task) return { ok: false, error: "Respuesta inv?lida del servidor" };
   return { ok: true, task: data.task };
 }
 
@@ -371,7 +373,7 @@ export async function fetchAgentById(agentId: string): Promise<Agent | null> {
   }
 }
 
-/** Proxy de simulación (POST /api/agents-testing/simulate). */
+/** Proxy de simulaci?n (POST /api/agents-testing/simulate). */
 export async function postAgentsTestingSimulate(
   body: Record<string, unknown>,
 ): Promise<Response> {
@@ -406,7 +408,7 @@ export async function postAgentBuilderChat(body: {
   draftState: Record<string, unknown>;
   pendingTasksCount?: number;
 }): Promise<
-  | { ok: true; assistantMessage: string; draftPatch: BuilderChatDraftPatch }
+  | { ok: true; assistantMessage: string; draftPatch: BuilderChatDraftPatch; ui?: BuilderChatUI }
   | { ok: false; error: string }
 > {
   const res = await fetch("/api/agents/builder/chat", {
@@ -415,7 +417,12 @@ export async function postAgentBuilderChat(body: {
     credentials: "include",
     body: JSON.stringify(body),
   });
-  let data: { assistantMessage?: string; draftPatch?: BuilderChatDraftPatch; error?: string } = {};
+  let data: {
+    assistantMessage?: string;
+    draftPatch?: BuilderChatDraftPatch;
+    ui?: BuilderChatUI;
+    error?: string;
+  } = {};
   try {
     data = (await res.json()) as typeof data;
   } catch {
@@ -425,12 +432,13 @@ export async function postAgentBuilderChat(body: {
     return { ok: false, error: data.error ?? "No se pudo consultar el chat del builder" };
   }
   if (!data.assistantMessage) {
-    return { ok: false, error: "Respuesta inválida del servidor" };
+    return { ok: false, error: "Respuesta inv?lida del servidor" };
   }
   return {
     ok: true,
     assistantMessage: data.assistantMessage,
     draftPatch: data.draftPatch ?? {},
+    ...(data.ui ? { ui: data.ui } : {}),
   };
 }
 
@@ -466,7 +474,7 @@ export async function createImplementationTask(
       error: data.error ?? "No se pudo crear la tarea",
     };
   }
-  if (!data.task) return { ok: false, error: "Respuesta inválida del servidor" };
+  if (!data.task) return { ok: false, error: "Respuesta inv?lida del servidor" };
   return { ok: true, task: data.task };
 }
 
@@ -502,6 +510,6 @@ export async function patchImplementationTask(
       error: data.error ?? "No se pudo actualizar la tarea",
     };
   }
-  if (!data.task) return { ok: false, error: "Respuesta inválida del servidor" };
+  if (!data.task) return { ok: false, error: "Respuesta inv?lida del servidor" };
   return { ok: true, task: data.task };
 }

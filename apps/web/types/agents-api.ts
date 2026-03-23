@@ -72,6 +72,34 @@ export type BuilderChatMessage = {
   text: string;
 };
 
+/** UI interactiva opcional emitida por el builder (un bloque por turno). */
+export type BuilderChatUIOptions = {
+  type: "options";
+  uiId: string;
+  title?: string;
+  options: Array<{ id: string; label: string; value: string }>;
+};
+
+export type BuilderChatUIFormField = {
+  key: string;
+  label: string;
+  kind: "text" | "textarea" | "select";
+  required?: boolean;
+  placeholder?: string;
+  options?: Array<{ value: string; label: string }>;
+};
+
+export type BuilderChatUIForm = {
+  type: "form";
+  uiId: string;
+  formId: string;
+  title?: string;
+  fields: BuilderChatUIFormField[];
+  submitLabel?: string;
+};
+
+export type BuilderChatUI = BuilderChatUIOptions | BuilderChatUIForm;
+
 export type BuilderChatDraftPatch = Partial<{
   agent_name: string;
   agent_personality: string;

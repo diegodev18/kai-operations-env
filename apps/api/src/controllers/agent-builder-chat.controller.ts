@@ -71,8 +71,115 @@ const bodySchema = z.object({
   pendingTasksCount: z.number().int().min(0).optional().default(0),
 });
 
-const responseSchema = z.object({
-  assistantMessage: z.string().min(1),
+/** Límites UX para bloques UI emitidos por el modelo (sanitización en servidor). */
+const UI_MAX_OPTIONS = 8;
+const UI_MAX_FORM_FIELDS = 12;
+const UI_MAX_OPTION_LABEL = 120;
+const UI_MAX_OPTION_VALUE = 500;
+const UI_MAX_TITLE = 180;
+const UI_MAX_FIELD_KEY = 64;
+const UI_MAX_SELECT_OPTIONS = 24;
+
+const uiOptionItemSchema = z.object({
+  id: z.string().min(1).max(80),
+  label: z.string().min(1).max(UI_MAX_OPTION_LABEL),
+  value: z.string().min(1).max(UI_MAX_OPTION_VALUE),
+});
+
+const uiOptionsSchema = z.object({
+  type: z.literal("options"),
+  uiId: z.string().min(1).max(80),
+  title: z.string().max(UI_MAX_TITLE).optional(),
+  options: z.array(uiOptionItemSchema).min(1).max(UI_MAX_OPTIONS),
+});
+
+const formFieldSelectOptionSchema = z.object({
+  value: z.string().min(1).max(200),
+  label: z.string().min(1).max(UI_MAX_OPTION_LABEL),
+});
+
+const formFieldSchema = z
+  .object({
+    key: z.string().min(1).max(UI_MAX_FIELD_KEY),
+    label: z.string().min(1).max(UI_MAX_OPTION_LABEL),
+    kind: z.enum(["text", "textarea", "select"]),
+    required: z.boolean().optional(),
+    placeholder: z.string().max(200).optional(),
+    options: z.array(formFieldSelectOptionSchema).max(UI_MAX_SELECT_OPTIONS).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.kind === "select") {
+      if (!data.options?.length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "select fields require options",
+        });
+      }
+    }
+  });
+
+const uiFormSchema = z.object({
+  type: z.literal("form"),
+  uiId: z.string().min(1).max(80),
+  formId: z.string().min(1).max(80),
+  title: z.string().max(UI_MAX_TITLE).optional(),
+  fields: z.array(formFieldSchema).min(1).max(UI_MAX_FORM_FIELDS),
+  submitLabel: z.string().max(64).optional(),
+});
+
+const uiSchema = z.discriminatedUnion("type", [uiOptionsSchema, uiFormSchema]);
+
+type BuilderChatUi = z.infer<typeof uiSchema>;
+
+function sanitizeUi(raw: BuilderChatUi): BuilderChatUi {
+  if (raw.type === "options") {
+    const options = raw.options.slice(0, UI_MAX_OPTIONS).map((o) => ({
+      id: o.id.trim(),
+      label: o.label.trim(),
+      value: o.value.trim(),
+    }));
+    return {
+      type: "options",
+      uiId: raw.uiId.trim(),
+      ...(raw.title?.trim() ? { title: raw.title.trim().slice(0, UI_MAX_TITLE) } : {}),
+      options,
+    };
+  }
+  const fields = raw.fields.slice(0, UI_MAX_FORM_FIELDS).map((f) => {
+    const base = {
+      key: f.key.trim(),
+      label: f.label.trim(),
+      kind: f.kind,
+      ...(typeof f.required === "boolean" ? { required: f.required } : {}),
+      ...(f.placeholder?.trim()
+        ? { placeholder: f.placeholder.trim().slice(0, 200) }
+        : {}),
+    };
+    if (f.kind === "select" && f.options?.length) {
+      return {
+        ...base,
+        options: f.options.map((o) => ({
+          value: o.value.trim(),
+          label: o.label.trim(),
+        })),
+      };
+    }
+    return base;
+  });
+  return {
+    type: "form",
+    uiId: raw.uiId.trim(),
+    formId: raw.formId.trim(),
+    ...(raw.title?.trim() ? { title: raw.title.trim().slice(0, UI_MAX_TITLE) } : {}),
+    fields,
+    ...(raw.submitLabel?.trim()
+      ? { submitLabel: raw.submitLabel.trim().slice(0, 64) }
+      : {}),
+  };
+}
+
+const responseBaseSchema = z.object({
+  assistantMessage: z.string().min(1).max(12000),
   draftPatch: z
     .object({
       agent_name: z.string().optional(),
@@ -88,6 +195,7 @@ const responseSchema = z.object({
       selected_tools: z.array(z.string()).optional(),
     })
     .optional(),
+  ui: z.unknown().optional(),
 });
 
 let aiInstance: GoogleGenAI | null = null;
@@ -253,6 +361,16 @@ CRITICAL: Never use first-person identity as the built agent (e.g. "Hola soy..."
 Always speak in builder mode: explain, ask for missing configuration data, propose improvements, and summarize changes.
 You must not repeat fixed scripts. Be concise, warm, and dynamic.
 If user asks about tools, capabilities, or tool recommendations, call function search_tools_docs first.
+
+The UI may send structured user messages from buttons or forms:
+- UI_VALUE:<uiId>:<value> — user picked an option; value may be URI-encoded.
+- UI_FORM:<formId>:<json> — user submitted a form; <json> is a JSON object of string keys to string values (field keys from form).
+When you receive these, interpret them and map values into draftPatch fields (and selected_tools IDs when relevant).
+
+Optional interactive UI: you may include at most ONE "ui" block per turn to help the user fill the draft without typing.
+- type "options": { "type":"options", "uiId": "short unique id", "title"?: string, "options": [{ "id", "label", "value" }] } — max ${String(UI_MAX_OPTIONS)} options.
+- type "form": { "type":"form", "uiId", "formId", "title"?: string, "fields": [{ "key", "label", "kind": "text"|"textarea"|"select", "required"?: boolean, "placeholder"?: string, "options"?: [{ "value", "label" }] }], "submitLabel"?: string } — max ${String(UI_MAX_FORM_FIELDS)} fields; "select" fields MUST include "options".
+
 Always output STRICT JSON only with this shape:
 {
   "assistantMessage": "string",
@@ -268,13 +386,15 @@ Always output STRICT JSON only with this shape:
     "agent_personality"?: "string",
     "country"?: "string",
     "selected_tools"?: ["toolId1","toolId2"]
-  }
+  },
+  "ui"?: { ... } | omitted
 }
 Rules:
 - Only include draftPatch keys if new reliable info appears in the latest user message or direct context.
 - selected_tools must contain ONLY valid tool IDs from catalog.
 - If user asks for tools recommendation, use File Search evidence and suggest tools by IDs in selected_tools.
-- assistantMessage must include one next question when useful.`;
+- assistantMessage must include one next question when useful when appropriate.
+- Omit "ui" if free-form chat is enough.`;
 
   const userContext = [
     "Current draft state:",
@@ -379,13 +499,21 @@ Rules:
     });
   }
 
-  const validated = responseSchema.safeParse(parsedJson);
+  const validated = responseBaseSchema.safeParse(parsedJson);
   if (!validated.success) {
     return c.json({
       assistantMessage:
         "No pude estructurar bien la respuesta del modelo. Probemos con otra pregunta.",
       draftPatch: {},
     });
+  }
+
+  let ui: BuilderChatUi | undefined;
+  if (validated.data.ui !== undefined && validated.data.ui !== null) {
+    const uiParsed = uiSchema.safeParse(validated.data.ui);
+    if (uiParsed.success) {
+      ui = sanitizeUi(uiParsed.data);
+    }
   }
 
   const draftPatch = trimPatchStrings((validated.data.draftPatch ?? {}) as Record<string, unknown>);
@@ -399,6 +527,7 @@ Rules:
   return c.json({
     assistantMessage: validated.data.assistantMessage,
     draftPatch,
+    ...(ui ? { ui } : {}),
   });
 }
 

@@ -34,9 +34,16 @@ import {
   type DraftPendingTask,
   type ToolsCatalogItem,
 } from "@/lib/agents-api";
+import { BuilderChatUiBlock } from "@/components/builder-chat-ui";
+import type { BuilderChatUI } from "@/types/agents-api";
 import { cn } from "@/lib/utils";
 
-type ChatMessage = { id: string; role: "assistant" | "user"; text: string };
+type ChatMessage = {
+  id: string;
+  role: "assistant" | "user";
+  text: string;
+  ui?: BuilderChatUI;
+};
 const THINKING_LABELS = [
   "Construyendo agente...",
   "Refinando agente...",
@@ -373,22 +380,39 @@ export function AgentBuilderChatDiagram() {
     return THINKING_LABELS[index] ?? THINKING_LABELS[0];
   }, []);
 
-  const addAssistantMessageProgressive = useCallback(async (fullText: string) => {
-    const id = nowId();
-    const normalized = fullText.trim();
-    setTypingMessageId(id);
-    setChatMessages((prev) => [...prev, { id, role: "assistant", text: "" }]);
-    if (!normalized) return;
-    const step = normalized.length > 420 ? 5 : normalized.length > 220 ? 4 : 3;
-    for (let index = step; index <= normalized.length + step; index += step) {
-      const partial = normalized.slice(0, Math.min(index, normalized.length));
+  const addAssistantMessageProgressive = useCallback(
+    async (fullText: string, ui?: BuilderChatUI) => {
+      const id = nowId();
+      const normalized = fullText.trim();
+      setTypingMessageId(id);
+      setChatMessages((prev) => [...prev, { id, role: "assistant", text: "" }]);
+      if (!normalized) {
+        setTypingMessageId((current) => (current === id ? null : current));
+        return;
+      }
+      const step = normalized.length > 420 ? 5 : normalized.length > 220 ? 4 : 3;
+      for (let index = step; index <= normalized.length + step; index += step) {
+        const partial = normalized.slice(0, Math.min(index, normalized.length));
+        setChatMessages((prev) =>
+          prev.map((message) => (message.id === id ? { ...message, text: partial } : message)),
+        );
+        await new Promise((resolve) => setTimeout(resolve, 16));
+      }
       setChatMessages((prev) =>
-        prev.map((message) => (message.id === id ? { ...message, text: partial } : message)),
+        prev.map((message) =>
+          message.id === id
+            ? {
+                ...message,
+                text: normalized,
+                ...(ui ? { ui } : {}),
+              }
+            : message,
+        ),
       );
-      await new Promise((resolve) => setTimeout(resolve, 16));
-    }
-    setTypingMessageId((current) => (current === id ? null : current));
-  }, []);
+      setTypingMessageId((current) => (current === id ? null : current));
+    },
+    [],
+  );
 
   const updateStepFromState = useCallback(
     (state: DraftState): DraftState => {
@@ -741,61 +765,71 @@ export function AgentBuilderChatDiagram() {
     [updateStepFromState],
   );
 
+  const sendUserText = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed || isThinking) return;
+
+      addMessage("user", trimmed);
+      await handleDeferredTask(trimmed);
+
+      if (trimmed.toLowerCase() === "confirmar") {
+        if (!readyToConfirm) {
+          addMessage(
+            "assistant",
+            "Aún faltan datos por completar (negocio, tools o personalidad). Continuemos.",
+          );
+          return;
+        }
+        setConfirmedSummary(true);
+        const nextState = updateStepFromState({ ...draftState, creation_step: "complete" });
+        setDraftState(nextState);
+        await persistState(nextState, true);
+        addMessage("assistant", "Builder finalizado correctamente.");
+        toast.success("Builder completado");
+        return;
+      }
+
+      setThinkingLabel(pickThinkingLabel());
+      setIsThinking(true);
+      try {
+        const llmRes = await postAgentBuilderChat({
+          messages: [...chatMessages, { role: "user", text: trimmed }],
+          draftState,
+          pendingTasksCount: pendingTasks.length,
+        });
+        if (!llmRes.ok) {
+          addMessage("assistant", `No pude responder en este momento: ${llmRes.error}`);
+          return;
+        }
+        applyDraftPatch(llmRes.draftPatch as Record<string, unknown>);
+        await addAssistantMessageProgressive(llmRes.assistantMessage, llmRes.ui);
+      } finally {
+        setIsThinking(false);
+      }
+    },
+    [
+      addAssistantMessageProgressive,
+      applyDraftPatch,
+      addMessage,
+      chatMessages,
+      draftState,
+      handleDeferredTask,
+      isThinking,
+      pendingTasks.length,
+      persistState,
+      readyToConfirm,
+      updateStepFromState,
+      pickThinkingLabel,
+    ],
+  );
+
   const handleSend = useCallback(async () => {
     const text = chatInput.trim();
     if (!text) return;
     setChatInput("");
-    addMessage("user", text);
-    await handleDeferredTask(text);
-
-    if (text.toLowerCase() === "confirmar") {
-      if (!readyToConfirm) {
-        addMessage(
-          "assistant",
-          "Aún faltan datos por completar (negocio, tools o personalidad). Continuemos.",
-        );
-        return;
-      }
-      setConfirmedSummary(true);
-      const nextState = updateStepFromState({ ...draftState, creation_step: "complete" });
-      setDraftState(nextState);
-      await persistState(nextState, true);
-      addMessage("assistant", "Builder finalizado correctamente.");
-      toast.success("Builder completado");
-      return;
-    }
-
-    setThinkingLabel(pickThinkingLabel());
-    setIsThinking(true);
-    try {
-      const llmRes = await postAgentBuilderChat({
-        messages: [...chatMessages, { role: "user", text }],
-        draftState,
-        pendingTasksCount: pendingTasks.length,
-      });
-      if (!llmRes.ok) {
-        addMessage("assistant", `No pude responder en este momento: ${llmRes.error}`);
-        return;
-      }
-      applyDraftPatch(llmRes.draftPatch as Record<string, unknown>);
-      await addAssistantMessageProgressive(llmRes.assistantMessage);
-    } finally {
-      setIsThinking(false);
-    }
-  }, [
-    addAssistantMessageProgressive,
-    applyDraftPatch,
-    addMessage,
-    chatInput,
-    chatMessages,
-    draftState,
-    handleDeferredTask,
-    pendingTasks.length,
-    persistState,
-    readyToConfirm,
-    updateStepFromState,
-    pickThinkingLabel,
-  ]);
+    await sendUserText(text);
+  }, [chatInput, sendUserText]);
 
   useEffect(() => {
     if (!hasHydratedDraftRef.current) return;
@@ -892,6 +926,15 @@ export function AgentBuilderChatDiagram() {
                   <span className="ml-0.5 inline-block animate-pulse align-baseline font-mono">
                     ▍
                   </span>
+                ) : null}
+                {message.role === "assistant" &&
+                message.ui &&
+                typingMessageId !== message.id ? (
+                  <BuilderChatUiBlock
+                    ui={message.ui}
+                    disabled={isThinking}
+                    onSend={(t) => void sendUserText(t)}
+                  />
                 ) : null}
               </div>
             ))}
