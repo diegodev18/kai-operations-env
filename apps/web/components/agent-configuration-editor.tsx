@@ -23,6 +23,13 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Loader2Icon,
   ChevronDownIcon,
   ChevronRightIcon,
@@ -32,6 +39,7 @@ import {
 } from "lucide-react";
 import { PROPERTY_DESCRIPTIONS, PROPERTY_TITLES } from "@/lib/property-descriptions";
 import { cn } from "@/lib/utils";
+import { fetchAgentById } from "@/lib/agents-api";
 
 const DOCUMENT_IDS: PropertyDocumentId[] = [
   "agent",
@@ -181,6 +189,9 @@ export function AgentConfigurationEditor({
     null
   );
   const [saving, setSaving] = useState(false);
+  const [agentNameForConfirm, setAgentNameForConfirm] = useState("");
+  const [isDisableDialogOpen, setIsDisableDialogOpen] = useState(false);
+  const [disableConfirmInput, setDisableConfirmInput] = useState("");
 
   useEffect(() => {
     if (data) {
@@ -202,6 +213,23 @@ export function AgentConfigurationEditor({
       setFormState(next);
     } else setFormState(null);
   }, [data]);
+
+  useEffect(() => {
+    if (!agentId) return;
+    let cancelled = false;
+    (async () => {
+      const agent = await fetchAgentById(agentId);
+      if (cancelled) return;
+      const resolvedName =
+        (typeof agent?.agentName === "string" && agent.agentName.trim() !== ""
+          ? agent.agentName
+          : agent?.name) ?? agentId;
+      setAgentNameForConfirm(resolvedName);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [agentId]);
 
   const update = useCallback(
     <K extends keyof AgentPropertiesResponse>(
@@ -245,8 +273,8 @@ export function AgentConfigurationEditor({
 
   const isEnabled = formState?.agent.enabled !== false;
 
-  const handleToggleEnabled = useCallback(async () => {
-    if (!agentId || !formState) return;
+  const handleToggleEnabled = useCallback(async (): Promise<boolean> => {
+    if (!agentId || !formState) return false;
     const newEnabled = !isEnabled;
     setSaving(true);
     try {
@@ -260,11 +288,30 @@ export function AgentConfigurationEditor({
         refetch();
         await onAgentUpdated?.();
         toast.success(newEnabled ? "Agente encendido" : "Agente apagado");
+        return true;
       }
+      return false;
     } finally {
       setSaving(false);
     }
   }, [agentId, formState, isEnabled, update, refetch, onAgentUpdated]);
+
+  const expectedDisableName = agentNameForConfirm.trim() || agentId;
+  const canConfirmDisable =
+    disableConfirmInput.trim() === expectedDisableName && !saving;
+
+  const handleDisableDialogOpenChange = useCallback((open: boolean) => {
+    setIsDisableDialogOpen(open);
+    if (!open) setDisableConfirmInput("");
+  }, []);
+
+  const handleToggleClick = useCallback(() => {
+    if (isEnabled) {
+      setIsDisableDialogOpen(true);
+      return;
+    }
+    void handleToggleEnabled();
+  }, [isEnabled, handleToggleEnabled]);
 
   if (!agentId) return null;
 
@@ -801,7 +848,7 @@ export function AgentConfigurationEditor({
                 type="button"
                 variant={isEnabled ? "outline" : "default"}
                 size="sm"
-                onClick={handleToggleEnabled}
+                onClick={handleToggleClick}
                 disabled={saving}
                 className="w-fit shrink-0"
               >
@@ -847,6 +894,58 @@ export function AgentConfigurationEditor({
               )}
             </Button>
           </div>
+          <Dialog open={isDisableDialogOpen} onOpenChange={handleDisableDialogOpenChange}>
+            <DialogContent className="max-w-md" showClose>
+              <DialogHeader>
+                <DialogTitle>Confirmar apagado del agente</DialogTitle>
+                <p className="text-sm text-muted-foreground">
+                  Para apagar el agente, escribe su nombre exactamente:
+                  {" "}
+                  <span className="font-semibold text-foreground">
+                    {expectedDisableName}
+                  </span>
+                </p>
+              </DialogHeader>
+              <div className="space-y-2">
+                <Label htmlFor="confirm-disable-agent-name">Nombre del agente</Label>
+                <Input
+                  id="confirm-disable-agent-name"
+                  value={disableConfirmInput}
+                  onChange={(e) => setDisableConfirmInput(e.target.value)}
+                  placeholder={expectedDisableName}
+                  autoComplete="off"
+                />
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => handleDisableDialogOpenChange(false)}
+                  disabled={saving}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={!canConfirmDisable}
+                  onClick={async () => {
+                    const toggled = await handleToggleEnabled();
+                    if (toggled) handleDisableDialogOpenChange(false);
+                  }}
+                >
+                  {saving ? (
+                    <>
+                      <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                      Apagando…
+                    </>
+                  ) : (
+                    "Apagar agente"
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       ) : null}
     </div>
