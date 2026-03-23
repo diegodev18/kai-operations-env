@@ -48,6 +48,10 @@ export const PROPERTY_DEFAULTS = {
   time: {
     zone: "America/Mexico_City",
   },
+  limitation: {
+    allowedUsers: [] as string[],
+    userLimitation: false,
+  },
 } as const;
 
 export const PROPERTY_DOC_IDS = [
@@ -59,6 +63,7 @@ export const PROPERTY_DOC_IDS = [
   "prompt",
   "memory",
   "mcp",
+  "limitation",
 ] as const;
 
 export type PropertyDocId = (typeof PROPERTY_DOC_IDS)[number];

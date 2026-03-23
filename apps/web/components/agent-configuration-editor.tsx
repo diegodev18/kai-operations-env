@@ -50,6 +50,7 @@ const DOCUMENT_IDS: PropertyDocumentId[] = [
   "prompt",
   "memory",
   "mcp",
+  "limitation",
 ];
 
 const DEFAULT_LLM_MODEL = "gemini-2.5-flash";
@@ -77,6 +78,7 @@ const DOCUMENT_LABELS: Record<PropertyDocumentId, string> = {
   prompt: "Prompts y LLM",
   memory: "Memoria",
   mcp: "Validador (MCP)",
+  limitation: "Acceso (lista blanca)",
 };
 
 function FieldLabel({
@@ -210,6 +212,12 @@ export function AgentConfigurationEditor({
                 ? Number(data.prompt.temperature)
                 : getDefaultTemperatureForModel(next.ai.model ?? DEFAULT_LLM_MODEL));
       }
+      next.limitation = {
+        userLimitation: !!next.limitation?.userLimitation,
+        allowedUsers: Array.isArray(next.limitation?.allowedUsers)
+          ? next.limitation.allowedUsers
+          : [],
+      };
       setFormState(next);
     } else setFormState(null);
   }, [data]);
@@ -407,6 +415,57 @@ export function AgentConfigurationEditor({
                       }
                       placeholder="Un número por línea"
                       rows={3}
+                      className="font-mono text-sm"
+                    />
+                  </div>
+                </div>
+              </section>
+
+              {/* Limitación: lista blanca (MCP-KAI-AGENTS properties/limitation) */}
+              <section className="space-y-4">
+                <h3 className="text-sm font-semibold tracking-tight text-foreground">
+                  {DOCUMENT_LABELS.limitation}
+                </h3>
+                <div className="grid gap-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="limitation-userLimitation"
+                      checked={!!formState.limitation.userLimitation}
+                      onChange={(e) =>
+                        update("limitation", (prev) => ({
+                          ...prev,
+                          userLimitation: e.target.checked,
+                        }))
+                      }
+                      className="h-4 w-4 rounded border-input"
+                    />
+                    <FieldLabel
+                      docId="limitation"
+                      fieldKey="userLimitation"
+                      id="limitation-userLimitation"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <FieldLabel
+                      docId="limitation"
+                      fieldKey="allowedUsers"
+                      id="limitation-allowedUsers"
+                    />
+                    <Textarea
+                      id="limitation-allowedUsers"
+                      value={(formState.limitation.allowedUsers ?? []).join("\n")}
+                      onChange={(e) =>
+                        update("limitation", (prev) => ({
+                          ...prev,
+                          allowedUsers: e.target.value
+                            .split("\n")
+                            .map((s) => s.trim())
+                            .filter(Boolean),
+                        }))
+                      }
+                      placeholder="Un número por línea (mismo formato que phoneNumber en Firestore)"
+                      rows={4}
                       className="font-mono text-sm"
                     />
                   </div>
@@ -1021,6 +1080,11 @@ function buildPayloadForDocument(
       return { limit: formState.memory.limit ?? 15 };
     case "mcp":
       return { maxRetries: formState.mcp.maxRetries ?? 1 };
+    case "limitation":
+      return {
+        userLimitation: formState.limitation.userLimitation ?? false,
+        allowedUsers: formState.limitation.allowedUsers ?? [],
+      };
     default:
       return {};
   }

@@ -8,6 +8,7 @@ export interface AgentPropertiesResponse {
   prompt: PromptPropertyDoc;
   memory: MemoryPropertyDoc;
   mcp: McpPropertyDoc;
+  limitation: LimitationPropertyDoc;
 }
 
 export interface AgentPropertyDoc {
@@ -62,6 +63,12 @@ export interface McpPropertyDoc {
   maxRetries?: number;
 }
 
+/** Lista blanca de números (MCP-KAI-AGENTS: properties/limitation). */
+export interface LimitationPropertyDoc {
+  allowedUsers?: string[];
+  userLimitation?: boolean;
+}
+
 export type PropertyDocumentId =
   | "agent"
   | "ai"
@@ -70,4 +77,5 @@ export type PropertyDocumentId =
   | "time"
   | "prompt"
   | "memory"
-  | "mcp";
+  | "mcp"
+  | "limitation";

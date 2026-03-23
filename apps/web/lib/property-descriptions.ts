@@ -14,6 +14,10 @@ export const PROPERTY_TITLES: Record<string, Record<string, string>> = {
     isValidatorAgentEnable: "Activar agente validador",
     excludedNumbers: "Números de WhatsApp excluidos (uno por línea)",
   },
+  limitation: {
+    userLimitation: "Solo responder a números de la lista permitida",
+    allowedUsers: "Números permitidos (uno por línea)",
+  },
   ai: {
     model: "Modelo de Vertex AI",
     temperature: "Temperatura del LLM (0–1)",
@@ -74,6 +78,12 @@ export const PROPERTY_DESCRIPTIONS: Record<
       "Si está en true, se activa el agente validador. El backend usa además el documento mcp (campo maxRetries) para el máximo de reintentos si el validador marca la respuesta como inválida.",
     excludedNumbers:
       "Lista de números de WhatsApp (IDs) que quedan excluidos del agente: no se procesan sus mensajes ni se envía respuesta. Un número por línea.",
+  },
+  limitation: {
+    userLimitation:
+      "Si está activado, solo se atienden los números listados en «Números permitidos». Deben coincidir con el formato guardado en el usuario (phoneNumber), p. ej. sin +.",
+    allowedUsers:
+      "Lista blanca: un número por línea. Solo aplica si «Solo responder a números de la lista permitida» está activo. Quien no esté en la lista recibe error y el agente no responde.",
   },
   ai: {
     model:
