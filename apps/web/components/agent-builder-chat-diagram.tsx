@@ -814,34 +814,42 @@ export function AgentBuilderChatDiagram() {
       </div>
       <style jsx>{`
         .shine-text {
-          color: rgba(255, 255, 255, 0.34);
-          background-image: linear-gradient(
-            110deg,
-            rgba(255, 255, 255, 0.08) 0%,
-            rgba(255, 255, 255, 0.08) 42%,
-            rgba(255, 255, 255, 0.72) 50%,
-            rgba(255, 255, 255, 0.08) 58%,
-            rgba(255, 255, 255, 0.08) 100%
-          );
-          background-size: 220px 100%;
-          background-repeat: no-repeat;
+          color: rgba(255, 255, 255, 0.36);
+          background-image:
+            linear-gradient(rgba(255, 255, 255, 0.36), rgba(255, 255, 255, 0.36)),
+            linear-gradient(
+              110deg,
+              rgba(255, 255, 255, 0) 0%,
+              rgba(255, 255, 255, 0) 42%,
+              rgba(255, 255, 255, 0.7) 50%,
+              rgba(255, 255, 255, 0) 58%,
+              rgba(255, 255, 255, 0) 100%
+            );
+          background-size:
+            100% 100%,
+            220px 100%;
+          background-repeat:
+            no-repeat,
+            no-repeat;
+          background-position:
+            0 0,
+            -220px 0;
           background-clip: text;
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
-          animation: subtle-shine 5s ease-in-out infinite;
+          animation: subtle-shine 2.8s linear infinite;
         }
 
         @keyframes subtle-shine {
-          0%,
-          12% {
-            background-position: -220px 0;
+          0% {
+            background-position:
+              0 0,
+              -220px 0;
           }
-          45% {
-            background-position: 40% 0;
-          }
-          88%,
           100% {
-            background-position: calc(100% + 220px) 0;
+            background-position:
+              0 0,
+              calc(100% + 220px) 0;
           }
         }
       `}</style>
