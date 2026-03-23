@@ -26,7 +26,8 @@ const MAX_FIELD_VALUE_LEN = 4000;
 export type BuilderChatUiBlockProps = {
   ui: BuilderChatUI;
   disabled?: boolean;
-  onSend: (text: string) => void | Promise<void>;
+  /** `payload` va al API; `displayText` es lo que ve el usuario en la burbuja. */
+  onSend: (payload: string, displayText?: string) => void | Promise<void>;
 };
 
 function BuilderChatUIOptionsBlock({
@@ -36,7 +37,7 @@ function BuilderChatUIOptionsBlock({
 }: {
   ui: BuilderChatUIOptions;
   disabled?: boolean;
-  onSend: (text: string) => void | Promise<void>;
+  onSend: (payload: string, displayText?: string) => void | Promise<void>;
 }) {
   const opts = ui.options.slice(0, MAX_OPTIONS);
   return (
@@ -54,7 +55,10 @@ function BuilderChatUIOptionsBlock({
             className="h-auto max-w-full whitespace-normal py-1.5 text-left text-xs"
             disabled={disabled}
             onClick={() => {
-              void onSend(`UI_VALUE:${ui.uiId}:${encodeURIComponent(opt.value)}`);
+              void onSend(
+                `UI_VALUE:${ui.uiId}:${encodeURIComponent(opt.value)}`,
+                opt.label.trim() || opt.value,
+              );
             }}
           >
             {opt.label}
@@ -81,7 +85,7 @@ function BuilderChatUIFormBlock({
 }: {
   ui: BuilderChatUIForm;
   disabled?: boolean;
-  onSend: (text: string) => void | Promise<void>;
+  onSend: (payload: string, displayText?: string) => void | Promise<void>;
 }) {
   const fields = ui.fields.slice(0, MAX_FORM_FIELDS);
 
@@ -104,7 +108,20 @@ function BuilderChatUIFormBlock({
         }
       }
       const payload = buildFormPayload(values);
-      void onSend(`UI_FORM:${ui.formId}:${payload}`);
+      let displayText = "Formulario enviado";
+      try {
+        const obj = JSON.parse(payload) as Record<string, string>;
+        const parts = Object.entries(obj)
+          .filter(([, v]) => v.trim())
+          .slice(0, 3)
+          .map(([, v]) => v.trim());
+        if (parts.length > 0) {
+          displayText = parts.join(" · ");
+        }
+      } catch {
+        /* keep default */
+      }
+      void onSend(`UI_FORM:${ui.formId}:${payload}`, displayText);
     },
     [fields, onSend, ui.formId, values],
   );

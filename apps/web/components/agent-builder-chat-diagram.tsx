@@ -41,9 +41,39 @@ import { cn } from "@/lib/utils";
 type ChatMessage = {
   id: string;
   role: "assistant" | "user";
+  /** Texto enviado al API (puede ser UI_VALUE / UI_FORM). */
   text: string;
+  /** Texto mostrado en la burbuja del usuario (legible). */
+  displayText?: string;
   ui?: BuilderChatUI;
 };
+
+/** Texto legible para burbujas de usuario cuando no hay displayText (p. ej. mensajes antiguos). */
+function formatUserBubbleText(raw: string): string {
+  const valueMatch = /^UI_VALUE:([^:]+):([\s\S]+)$/.exec(raw);
+  if (valueMatch) {
+    try {
+      return decodeURIComponent(valueMatch[2]);
+    } catch {
+      return valueMatch[2];
+    }
+  }
+  const formMatch = /^UI_FORM:([^:]+):([\s\S]+)$/.exec(raw);
+  if (formMatch) {
+    try {
+      const obj = JSON.parse(formMatch[2]) as Record<string, string>;
+      const entries = Object.entries(obj).filter(([, v]) => String(v).trim());
+      if (entries.length === 0) return "Formulario enviado";
+      return entries
+        .slice(0, 5)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(" · ");
+    } catch {
+      return "Formulario enviado";
+    }
+  }
+  return raw;
+}
 const THINKING_LABELS = [
   "Construyendo agente...",
   "Refinando agente...",
@@ -371,9 +401,20 @@ export function AgentBuilderChatDiagram() {
   });
   const hasHydratedDraftRef = useRef(false);
 
-  const addMessage = useCallback((role: ChatMessage["role"], text: string) => {
-    setChatMessages((prev) => [...prev, { id: nowId(), role, text }]);
-  }, []);
+  const addMessage = useCallback(
+    (role: ChatMessage["role"], text: string, displayText?: string) => {
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: nowId(),
+          role,
+          text,
+          ...(displayText != null && displayText !== "" ? { displayText } : {}),
+        },
+      ]);
+    },
+    [],
+  );
 
   const pickThinkingLabel = useCallback(() => {
     const index = Math.floor(Math.random() * THINKING_LABELS.length);
@@ -766,11 +807,11 @@ export function AgentBuilderChatDiagram() {
   );
 
   const sendUserText = useCallback(
-    async (text: string) => {
+    async (text: string, displayText?: string) => {
       const trimmed = text.trim();
       if (!trimmed || isThinking) return;
 
-      addMessage("user", trimmed);
+      addMessage("user", trimmed, displayText);
       await handleDeferredTask(trimmed);
 
       if (trimmed.toLowerCase() === "confirmar") {
@@ -921,7 +962,9 @@ export function AgentBuilderChatDiagram() {
                     : "ml-auto bg-primary text-primary-foreground",
                 )}
               >
-                {message.text}
+                {message.role === "user"
+                  ? (message.displayText ?? formatUserBubbleText(message.text))
+                  : message.text}
                 {typingMessageId === message.id ? (
                   <span className="ml-0.5 inline-block animate-pulse align-baseline font-mono">
                     ▍
@@ -933,7 +976,7 @@ export function AgentBuilderChatDiagram() {
                   <BuilderChatUiBlock
                     ui={message.ui}
                     disabled={isThinking}
-                    onSend={(t) => void sendUserText(t)}
+                    onSend={(payload, displayText) => void sendUserText(payload, displayText)}
                   />
                 ) : null}
               </div>
