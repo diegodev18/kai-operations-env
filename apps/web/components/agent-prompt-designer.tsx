@@ -1,9 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -28,6 +27,7 @@ import {
 } from "@/components/ui/tooltip";
 import {
   ArrowUpIcon,
+  FileTextIcon,
   ImageIcon,
   ListChecksIcon,
   Loader2Icon,
@@ -35,6 +35,7 @@ import {
   ShieldCheckIcon,
   SparklesIcon,
   TerminalIcon,
+  XIcon,
 } from "lucide-react";
 import { fetchAgentById } from "@/lib/agents-api";
 import type { Agent } from "@/lib/agent";
@@ -49,6 +50,8 @@ import {
   usePromptModels,
   isChatStatusMessage,
   type ChatMessage,
+  type ChatMessageImage,
+  type ChatMessagePdf,
   type PromptModelId,
   type PromptMode,
 } from "@/hooks/prompt-chat";
@@ -60,6 +63,69 @@ const OPTIMIZE =
   "Optimiza este prompt: hazlo más claro, consistente y efectivo, sin cambiar su intención. Devuelve el prompt completo optimizado.";
 const FIX_CONTRADICTIONS =
   "Revisa este prompt y corrige contradicciones, ambiguedades y conflictos entre instrucciones. Devuelve una version consolidada y coherente, manteniendo la intencion original.";
+const MAX_CHAT_IMAGES = 4;
+const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const PDF_MIME_TYPE = "application/pdf";
+const MAX_PDF_BYTES = 20 * 1024 * 1024;
+
+function isAllowedImageType(type: string): boolean {
+  return ALLOWED_IMAGE_TYPES.includes(type);
+}
+
+function fileToImageData(file: File): Promise<ChatMessageImage | null> {
+  if (!isAllowedImageType(file.type) || file.size > MAX_IMAGE_BYTES) {
+    return Promise.resolve(null);
+  }
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result !== "string" || !result.startsWith("data:")) {
+        resolve(null);
+        return;
+      }
+      const base64 = result.split(",")[1];
+      if (!base64) {
+        resolve(null);
+        return;
+      }
+      resolve({ mimeType: file.type, data: base64 });
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
+}
+
+type PendingPdf = ChatMessagePdf & { name: string };
+
+function fileToPdfData(file: File): Promise<PendingPdf | null> {
+  if (file.type !== PDF_MIME_TYPE || file.size > MAX_PDF_BYTES) {
+    return Promise.resolve(null);
+  }
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result !== "string" || !result.startsWith("data:")) {
+        resolve(null);
+        return;
+      }
+      const base64 = result.split(",")[1];
+      if (!base64) {
+        resolve(null);
+        return;
+      }
+      resolve({
+        mimeType: PDF_MIME_TYPE,
+        data: base64,
+        name: file.name || "documento.pdf",
+      });
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
+}
 
 const chatMarkdownComponents: import("react-markdown").Components = {
   p: ({ children }) => (
@@ -109,6 +175,9 @@ export function AgentPromptDesigner({
   const [editingUnauthPrompt, setEditingUnauthPrompt] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [chatInput, setChatInput] = useState("");
+  const [pendingImages, setPendingImages] = useState<ChatMessageImage[]>([]);
+  const [pendingPdf, setPendingPdf] = useState<PendingPdf | null>(null);
+  const chatFileInputRef = useRef<HTMLInputElement>(null);
   const [chatWidth, setChatWidth] = useState(340);
   const [diffViewRequested, setDiffViewRequested] = useState(false);
   const [rejectedSuggestionHunkIds, setRejectedSuggestionHunkIds] = useState<
@@ -317,9 +386,42 @@ export function AgentPromptDesigner({
   const handleSendChat = async () => {
     const content = chatInput.trim();
     if (!content) return;
+    const imagesToSend = pendingImages.length > 0 ? pendingImages : undefined;
+    const pdfToSend =
+      pendingPdf != null
+        ? { mimeType: pendingPdf.mimeType, data: pendingPdf.data }
+        : undefined;
     setChatInput("");
-    await sendMessage(content);
+    setPendingImages([]);
+    setPendingPdf(null);
+    await sendMessage(content, imagesToSend, pdfToSend ?? null);
   };
+
+  const addFilesFromFileList = useCallback(
+    async (files: FileList | null, currentImageCount?: number) => {
+      if (!files?.length) return;
+      const maxImages = MAX_CHAT_IMAGES - (currentImageCount ?? 0);
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (!file?.type) continue;
+        if (file.type === PDF_MIME_TYPE) {
+          const pdf = await fileToPdfData(file);
+          if (pdf) setPendingPdf(pdf);
+          continue;
+        }
+        if (maxImages > 0 && isAllowedImageType(file.type) && file.size <= MAX_IMAGE_BYTES) {
+          const img = await fileToImageData(file);
+          if (img) {
+            setPendingImages((p) => {
+              if (p.length >= MAX_CHAT_IMAGES) return p;
+              return [...p, img];
+            });
+          }
+        }
+      }
+    },
+    [],
+  );
 
   const effectiveRejected: Set<number> =
     showSuggestion && !hasMulti
@@ -594,9 +696,7 @@ export function AgentPromptDesigner({
                           size="icon"
                           className="h-8 w-8 rounded-lg"
                           disabled={chatLoading}
-                          onClick={() => {
-                            toast.info("Carga de imagen/PDF en esta vista: proximamente.");
-                          }}
+                          onClick={() => chatFileInputRef.current?.click()}
                           aria-label="Subir imagen"
                         >
                           <ImageIcon className="h-4 w-4" />
@@ -609,6 +709,68 @@ export function AgentPromptDesigner({
                 <Label htmlFor="prompt-chat-input" className="text-xs font-semibold">
                   Pide ayuda al asistente
                 </Label>
+                <input
+                  ref={chatFileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+                  multiple
+                  className="hidden"
+                  aria-hidden
+                  onChange={(e) => {
+                    void addFilesFromFileList(e.target.files ?? null, pendingImages.length);
+                    e.target.value = "";
+                  }}
+                />
+                {(pendingImages.length > 0 || pendingPdf) &&
+                  promptModel !== "gemini-3-flash" &&
+                  promptModel !== "gemini-3.1-pro" && (
+                    <p className="text-xs text-amber-600 dark:text-amber-500">
+                      Las imágenes y el PDF solo se envían con modelos Gemini.
+                    </p>
+                  )}
+                {pendingPdf != null && (
+                  <div className="flex items-center gap-2 rounded-md border border-border bg-muted px-2 py-1.5 text-xs">
+                    <FileTextIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span className="flex-1 truncate" title={pendingPdf.name}>
+                      {pendingPdf.name}
+                    </span>
+                    <button
+                      type="button"
+                      className="rounded p-0.5 text-muted-foreground hover:bg-muted-foreground/20 hover:text-foreground"
+                      onClick={() => setPendingPdf(null)}
+                      aria-label="Quitar PDF"
+                    >
+                      <XIcon className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
+                {pendingImages.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {pendingImages.map((img, i) => (
+                      <div
+                        key={`${img.mimeType}-${i}`}
+                        className="relative overflow-hidden rounded border border-border bg-muted"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={`data:${img.mimeType};base64,${img.data}`}
+                          alt=""
+                          className="h-14 w-14 object-cover"
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-0.5 top-0.5 rounded-full bg-black/60 p-0.5 text-white hover:bg-black/80"
+                          onClick={() =>
+                            setPendingImages((p) => p.filter((_, j) => j !== i))
+                          }
+                          aria-label="Quitar imagen"
+                        >
+                          <XIcon className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <Textarea
                   id="prompt-chat-input"
                   value={chatInput}
@@ -620,6 +782,22 @@ export function AgentPromptDesigner({
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
                       void handleSendChat();
+                    }
+                  }}
+                  onPaste={(e) => {
+                    const files = e.clipboardData?.files;
+                    if (files?.length && pendingImages.length < MAX_CHAT_IMAGES) {
+                      let hasImage = false;
+                      for (let i = 0; i < files.length; i++) {
+                        if (files[i]?.type && isAllowedImageType(files[i].type)) {
+                          hasImage = true;
+                          break;
+                        }
+                      }
+                      if (hasImage) {
+                        e.preventDefault();
+                        void addFilesFromFileList(files, pendingImages.length);
+                      }
                     }
                   }}
                 />
