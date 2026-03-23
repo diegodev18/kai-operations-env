@@ -306,7 +306,8 @@ function NewAgentWizardContent() {
           </h1>
           <p className="text-sm text-muted-foreground">
             Tres pasos: personalidad, datos del negocio y herramientas. Se
-            guarda en <code className="text-xs">agent_drafts</code>.
+            guarda en <code className="text-xs">agent_drafts</code>. Con tu
+            cuenta quedas como grower del borrador (mismo email de sesión).
           </p>
         </div>
       </div>

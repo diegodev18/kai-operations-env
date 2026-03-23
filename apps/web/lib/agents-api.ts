@@ -136,7 +136,7 @@ export async function deleteAgentGrower(
   return { ok: false, error: "Respuesta inválida del servidor" };
 }
 
-// --- Agent drafts (admin, colección agent_drafts) ---
+// --- Agent drafts (colección agent_drafts; miembros y admins; grower creador en POST) ---
 
 export type ToolsCatalogItem = {
   id: string;

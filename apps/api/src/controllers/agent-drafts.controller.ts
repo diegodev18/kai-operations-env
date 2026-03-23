@@ -63,12 +63,43 @@ const patchDraftBodySchema = z.discriminatedUnion("step", [
   patchCompleteSchema,
 ]);
 
-function requireAdmin(
+function canAccessDraft(
+  authCtx: AgentsInfoAuthContext,
+  draftData: Record<string, unknown>,
+): boolean {
+  if (isOperationsAdmin(authCtx.userRole)) return true;
+  const hasLegacy =
+    draftData.creator_email == null &&
+    draftData.creator_user_id == null;
+  if (hasLegacy) return false;
+  const email = authCtx.userEmail?.toLowerCase().trim();
+  const uid = authCtx.userId;
+  const ce =
+    typeof draftData.creator_email === "string"
+      ? draftData.creator_email.toLowerCase().trim()
+      : "";
+  const cid =
+    typeof draftData.creator_user_id === "string"
+      ? draftData.creator_user_id
+      : "";
+  if (uid && cid && uid === cid) return true;
+  if (email && ce && email === ce) return true;
+  return false;
+}
+
+function requireEmailForGrower(
   c: Context,
   authCtx: AgentsInfoAuthContext,
 ): Response | null {
-  if (!isOperationsAdmin(authCtx.userRole)) {
-    return c.json({ error: "Solo administradores pueden gestionar borradores." }, 403);
+  const email = authCtx.userEmail?.trim().toLowerCase() ?? "";
+  if (!email.includes("@")) {
+    return c.json(
+      {
+        error:
+          "Tu cuenta debe tener un email para crear un agente y asignarte como grower.",
+      },
+      400,
+    );
   }
   return null;
 }
@@ -100,8 +131,8 @@ export async function postAgentDraft(
   c: Context,
   authCtx: AgentsInfoAuthContext,
 ) {
-  const denied = requireAdmin(c, authCtx);
-  if (denied) return denied;
+  const emailDenied = requireEmailForGrower(c, authCtx);
+  if (emailDenied) return emailDenied;
 
   let raw: unknown;
   try {
@@ -122,11 +153,20 @@ export async function postAgentDraft(
     const db = getFirestore();
     const draftRef = db.collection(AGENT_DRAFTS).doc();
     const ts = serverTimestampField();
-    await draftRef.set({
+    const creatorEmail = authCtx.userEmail!.trim().toLowerCase();
+    const nameFromProfile = authCtx.userName?.trim();
+    const growerName =
+      nameFromProfile && nameFromProfile.length > 0
+        ? nameFromProfile
+        : creatorEmail;
+
+    const draftPayload: Record<string, unknown> = {
       agent_name,
       agent_personality,
       creation_step: "personality",
       selected_tools: [],
+      creator_user_id: authCtx.userId ?? null,
+      creator_email: creatorEmail,
       mcp_configuration: {
         agent_personalization: {
           agent_name,
@@ -136,7 +176,15 @@ export async function postAgentDraft(
       },
       created_at: ts,
       updated_at: ts,
+    };
+
+    const batch = db.batch();
+    batch.set(draftRef, draftPayload);
+    batch.set(draftRef.collection("growers").doc(creatorEmail), {
+      email: creatorEmail,
+      name: growerName,
     });
+    await batch.commit();
 
     return c.json({
       id: draftRef.id,
@@ -155,9 +203,6 @@ export async function getAgentDraft(
   authCtx: AgentsInfoAuthContext,
   draftId: string,
 ) {
-  const denied = requireAdmin(c, authCtx);
-  if (denied) return denied;
-
   try {
     const db = getFirestore();
     const snap = await db.collection(AGENT_DRAFTS).doc(draftId).get();
@@ -165,6 +210,9 @@ export async function getAgentDraft(
       return c.json({ error: "Borrador no encontrado" }, 404);
     }
     const data = snap.data() ?? {};
+    if (!canAccessDraft(authCtx, data)) {
+      return c.json({ error: "No autorizado" }, 403);
+    }
     return c.json({
       id: snap.id,
       draft: serializeDraftForClient(data),
@@ -180,9 +228,6 @@ export async function patchAgentDraft(
   authCtx: AgentsInfoAuthContext,
   draftId: string,
 ) {
-  const denied = requireAdmin(c, authCtx);
-  if (denied) return denied;
-
   let raw: unknown;
   try {
     raw = await c.req.json();
@@ -202,6 +247,10 @@ export async function patchAgentDraft(
     const snap = await draftRef.get();
     if (!snap.exists) {
       return c.json({ error: "Borrador no encontrado" }, 404);
+    }
+    const existingDraft = snap.data() ?? {};
+    if (!canAccessDraft(authCtx, existingDraft)) {
+      return c.json({ error: "No autorizado" }, 403);
     }
 
     const body = parsed.data;
@@ -250,11 +299,13 @@ export async function patchAgentDraft(
       if (body.country !== undefined && body.country !== "") {
         updatePayload.country = body.country;
       }
-      if (body.phone_number_id !== undefined && body.phone_number_id !== "") {
-        updatePayload.phone_number_id = body.phone_number_id;
-      }
-      if (body.whatsapp_token !== undefined && body.whatsapp_token !== "") {
-        updatePayload.whatsappToken = body.whatsapp_token;
+      if (isOperationsAdmin(authCtx.userRole)) {
+        if (body.phone_number_id !== undefined && body.phone_number_id !== "") {
+          updatePayload.phone_number_id = body.phone_number_id;
+        }
+        if (body.whatsapp_token !== undefined && body.whatsapp_token !== "") {
+          updatePayload.whatsappToken = body.whatsapp_token;
+        }
       }
 
       await draftRef.update(updatePayload);
@@ -308,10 +359,7 @@ export async function patchAgentDraft(
   }
 }
 
-export async function getToolsCatalog(c: Context, authCtx: AgentsInfoAuthContext) {
-  const denied = requireAdmin(c, authCtx);
-  if (denied) return denied;
-
+export async function getToolsCatalog(c: Context, _authCtx: AgentsInfoAuthContext) {
   try {
     const db = getFirestore();
     const snap = await db.collection(TOOLS_CATALOG).get();

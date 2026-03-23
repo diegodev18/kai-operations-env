@@ -5,6 +5,10 @@ import type { GrowerPayload } from "@/utils/agents";
 export type AgentsInfoAuthContext = {
   userEmail?: string;
   userRole?: string;
+  /** Better Auth user id (para ownership de borradores). */
+  userId?: string;
+  /** Nombre visible del usuario (growers / UI). */
+  userName?: string;
 };
 
 export type AgentDocument = QueryDocumentSnapshot;

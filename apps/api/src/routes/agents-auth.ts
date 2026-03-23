@@ -20,21 +20,28 @@ export async function resolveAgentsAuthContext(
     id?: string;
     email?: string | null;
     role?: string | null;
+    name?: string | null;
   };
   let userRole = u.role ?? undefined;
+  let userName = typeof u.name === "string" ? u.name.trim() : undefined;
   if (userRole == null && u.id) {
     const rows = await db
-      .select({ role: user.role })
+      .select({ role: user.role, name: user.name })
       .from(user)
       .where(eq(user.id, u.id))
       .limit(1);
     userRole = rows[0]?.role ?? undefined;
+    if (!userName && rows[0]?.name) {
+      userName = rows[0].name.trim();
+    }
   }
   return {
     ok: true,
     authCtx: {
       userEmail: u.email ?? undefined,
       userRole,
+      userId: u.id,
+      userName,
     },
   };
 }
