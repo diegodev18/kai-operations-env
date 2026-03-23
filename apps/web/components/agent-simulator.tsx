@@ -22,18 +22,17 @@ import {
 } from "@/components/ui/select";
 import { Loader2Icon, PlayIcon, RotateCcwIcon } from "lucide-react";
 import { fetchAgentById, postAgentsTestingSimulate } from "@/lib/agents-api";
-import {
-  parseSSEStream,
-  type SimulateBody,
-  type SimulatorMode,
-  type SSEEvent,
-} from "@/lib/integration-simulator";
+import type {
+  SimulateBody,
+  SimulatorMode,
+  SSEEvent,
+  ValidatorMode,
+} from "@/types/integration-simulator";
+import { parseSSEStream } from "@/utils/integration-sse";
 
 const DEFAULT_TOKEN = "test-whatsapp-token";
 const DEFAULT_PHONE_ID = "test-phone-number-id";
 const MESSAGE_LIMIT_MAX = 25;
-
-type ValidatorMode = "on" | "off" | "agent";
 
 export function AgentSimulator({
   agentId,

@@ -12,14 +12,13 @@ import {
 import { PlusIcon, Trash2Icon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  schemaToEditorState,
-  editorStateToSchema,
   EMPTY_SCHEMA,
   SCHEMA_TYPES,
-  type EditorState,
   type EditorProperty,
+  type EditorState,
   type SchemaType,
-} from "@/lib/parameter-schema-editor-state";
+} from "@/types/parameter-schema";
+import { editorStateToSchema, schemaToEditorState } from "@/utils/parameter-schema-editor";
 
 const DEFAULT_PROPERTY = (): EditorProperty => ({
   id: crypto.randomUUID(),

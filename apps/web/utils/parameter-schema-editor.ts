@@ -1,16 +1,12 @@
 /**
- * Conversion between OpenAPI-style parameter schema and editor state for ParameterSchemaEditor.
- * Exported for tests and reuse; the editor component imports from here.
+ * Conversión entre schema estilo OpenAPI y estado del ParameterSchemaEditor.
  */
-
-export const SCHEMA_TYPES = [
-  "string",
-  "number",
-  "boolean",
-  "array",
-  "object",
-] as const;
-export type SchemaType = (typeof SCHEMA_TYPES)[number];
+import type {
+  EditorProperty,
+  EditorState,
+  SchemaType,
+} from "@/types/parameter-schema";
+import { SCHEMA_TYPES } from "@/types/parameter-schema";
 
 function normalizeType(t: unknown): SchemaType {
   if (typeof t !== "string") return "string";
@@ -27,7 +23,6 @@ function normalizeType(t: unknown): SchemaType {
   return map[upper] ?? "string";
 }
 
-/** API/backend expects types in uppercase: STRING, NUMBER, BOOLEAN, ARRAY, OBJECT */
 const SCHEMA_TYPE_TO_API: Record<SchemaType, string> = {
   string: "STRING",
   number: "NUMBER",
@@ -40,42 +35,18 @@ function toApiType(t: SchemaType): string {
   return SCHEMA_TYPE_TO_API[t];
 }
 
-export interface EditorProperty {
-  id: string;
-  name: string;
-  type: SchemaType;
-  description: string;
-  required: boolean;
-  enum?: string[];
-  format?: string;
-  /** For type === 'object' */
-  properties?: EditorProperty[];
-  requiredSub?: string[];
-  /** For type === 'array' */
-  itemsType?: SchemaType;
-  itemsProperties?: EditorProperty[];
-}
-
-export interface EditorState {
-  properties: EditorProperty[];
-  required: string[];
-}
-
-export const EMPTY_SCHEMA: Record<string, unknown> = {
-  type: "OBJECT",
-  properties: {},
-  required: [],
-};
-
 function parseProperty(
   key: string,
   prop: Record<string, unknown>,
   requiredSet: Set<string>,
-  idPrefix: string
+  idPrefix: string,
 ): EditorProperty {
-  const type = normalizeType(prop.type ?? (prop.properties ? "object" : "string"));
+  const type = normalizeType(
+    prop.type ?? (prop.properties ? "object" : "string"),
+  );
   const required = requiredSet.has(key);
-  const description = typeof prop.description === "string" ? prop.description : "";
+  const description =
+    typeof prop.description === "string" ? prop.description : "";
   const enumArr = Array.isArray(prop.enum)
     ? (prop.enum.filter((e): e is string => typeof e === "string") as string[])
     : undefined;
@@ -99,7 +70,12 @@ function parseProperty(
     const properties =
       inner && typeof inner === "object"
         ? Object.entries(inner).map(([k, v], i) =>
-            parseProperty(k, (v as Record<string, unknown>) ?? {}, innerReqSet, `${id}.${i}-${k}`)
+            parseProperty(
+              k,
+              (v as Record<string, unknown>) ?? {},
+              innerReqSet,
+              `${id}.${i}-${k}`,
+            ),
           )
         : [];
     base.properties = properties;
@@ -109,7 +85,9 @@ function parseProperty(
   if (type === "array") {
     const items = prop.items as Record<string, unknown> | undefined;
     if (items && typeof items === "object") {
-      const itemType = normalizeType(items.type ?? (items.properties ? "object" : "string"));
+      const itemType = normalizeType(
+        items.type ?? (items.properties ? "object" : "string"),
+      );
       base.itemsType = itemType;
       if (itemType === "object") {
         const inner = items.properties as Record<string, unknown> | undefined;
@@ -118,7 +96,12 @@ function parseProperty(
         base.itemsProperties =
           inner && typeof inner === "object"
             ? Object.entries(inner).map(([k, v], i) =>
-                parseProperty(k, (v as Record<string, unknown>) ?? {}, innerReqSet, `${id}.items.${i}-${k}`)
+                parseProperty(
+                  k,
+                  (v as Record<string, unknown>) ?? {},
+                  innerReqSet,
+                  `${id}.items.${i}-${k}`,
+                ),
               )
             : [];
       }
@@ -131,7 +114,7 @@ function parseProperty(
 }
 
 export function schemaToEditorState(
-  schema: Record<string, unknown> | null | undefined
+  schema: Record<string, unknown> | null | undefined,
 ): EditorState {
   if (!schema || typeof schema !== "object") {
     return { properties: [], required: [] };
@@ -146,7 +129,12 @@ export function schemaToEditorState(
   const properties =
     propertiesObj && typeof propertiesObj === "object"
       ? Object.entries(propertiesObj).map(([k, v], i) =>
-          parseProperty(k, (v as Record<string, unknown>) ?? {}, requiredSet, `root.${i}-${k}`)
+          parseProperty(
+            k,
+            (v as Record<string, unknown>) ?? {},
+            requiredSet,
+            `root.${i}-${k}`,
+          ),
         )
       : [];
   return { properties, required: requiredList };

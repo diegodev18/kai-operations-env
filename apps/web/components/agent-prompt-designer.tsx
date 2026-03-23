@@ -47,10 +47,11 @@ import {
   type PromptModelId,
   type PromptMode,
 } from "@/hooks/prompt-chat";
-import PromptDiffView, {
+import PromptDiffView from "@/components/prompt-diff-view";
+import {
   buildTextWithRevertedHunks,
   computeDiffLines,
-} from "@/components/prompt-diff-view";
+} from "@/utils/prompt-diff";
 
 const PROMPT_STORAGE_KEY = "operations-prompt-designer";
 

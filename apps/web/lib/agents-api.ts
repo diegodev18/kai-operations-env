@@ -1,5 +1,18 @@
 import type { Agent } from "@/lib/agent";
 import { toAgentWithOperations, type AgentWithOperations } from "@/lib/agent";
+import type {
+  AgentDraftClient,
+  AgentDraftPatchBody,
+  AgentGrowerRow,
+  ToolsCatalogItem,
+} from "@/types/agents-api";
+
+export type {
+  AgentDraftClient,
+  AgentDraftPatchBody,
+  AgentGrowerRow,
+  ToolsCatalogItem,
+};
 
 /** Tamaño de cada página al listar agentes (carga perezosa: primero solo esta cantidad). */
 export const AGENTS_PAGE_SIZE = 15;
@@ -86,8 +99,6 @@ export async function postAgentGrower(
   return { ok: false, error: "Respuesta inválida del servidor" };
 }
 
-export type AgentGrowerRow = { email: string; name: string };
-
 export async function fetchAgentGrowers(
   agentId: string,
 ): Promise<{ growers: AgentGrowerRow[] } | null> {
@@ -137,18 +148,6 @@ export async function deleteAgentGrower(
 }
 
 // --- Agent drafts (colección agent_drafts; miembros y admins; grower creador en POST) ---
-
-export type ToolsCatalogItem = {
-  id: string;
-  name: string;
-  displayName: string;
-  description: string;
-  path: string;
-  type: string;
-  category: string;
-  /** Schema JSON para el LLM (opcional). */
-  parameters?: Record<string, unknown>;
-};
 
 export async function fetchToolsCatalog(): Promise<
   ToolsCatalogItem[] | null
@@ -205,28 +204,6 @@ export async function postAgentDraft(body: {
   return { ok: false, error: "Respuesta inválida del servidor" };
 }
 
-export type AgentDraftPatchBody =
-  | {
-      step: "personality";
-      agent_name: string;
-      agent_personality: string;
-    }
-  | {
-      step: "business";
-      business_name: string;
-      owner_name: string;
-      industry: string;
-      description: string;
-      agent_description: string;
-      target_audience: string;
-      escalation_rules: string;
-      country?: string;
-      phone_number_id?: string;
-      whatsapp_token?: string;
-    }
-  | { step: "tools"; selected_tools: string[] }
-  | { step: "complete" };
-
 export async function patchAgentDraft(
   draftId: string,
   body: AgentDraftPatchBody,
@@ -267,8 +244,6 @@ export async function patchAgentDraft(
     selected_tools: data.selected_tools,
   };
 }
-
-export type AgentDraftClient = Record<string, unknown>;
 
 export async function fetchAgentDraft(
   draftId: string,

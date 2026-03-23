@@ -1,155 +1,13 @@
 import { useMemo } from "react";
-import { diffLines, diffWordsWithSpace, type Change } from "diff";
 import { Button } from "@/components/ui/button";
 import { CheckIcon, Undo2Icon } from "lucide-react";
-
-interface PromptDiffViewProps {
-  oldText: string;
-  newText: string;
-  /** Modo "guardado vs actual": al rechazar una sección se aplica el nuevo texto al editor. */
-  onRevertHunk?: (newText: string) => void;
-  /** Modo "sugerencia": IDs de hunks que el usuario ha rechazado (no se aplicarán al aceptar). */
-  rejectedSuggestionHunkIds?: Set<number>;
-  /** Modo "sugerencia": llamar cuando el usuario rechaza una sección de la sugerencia. */
-  onRejectSuggestionHunk?: (hunkId: number) => void;
-  /** Modo "sugerencia": llamar cuando el usuario vuelve a aceptar una sección rechazada. */
-  onAcceptSuggestionHunk?: (hunkId: number) => void;
-}
-
-interface DiffLine {
-  type: "added" | "removed" | "unchanged";
-  content: string;
-  oldLineNo: number | null;
-  newLineNo: number | null;
-  hunkId: number | null;
-}
-
-export function computeDiffLines(oldText: string, newText: string): DiffLine[] {
-  const changes: Change[] = diffLines(oldText, newText);
-  const lines: DiffLine[] = [];
-  let oldLine = 1;
-  let newLine = 1;
-
-  for (const change of changes) {
-    const content = change.value.endsWith("\n")
-      ? change.value.slice(0, -1)
-      : change.value;
-    const parts = content.split("\n");
-
-    for (const part of parts) {
-      if (change.added) {
-        lines.push({
-          type: "added",
-          content: part,
-          oldLineNo: null,
-          newLineNo: newLine++,
-          hunkId: null,
-        });
-      } else if (change.removed) {
-        lines.push({
-          type: "removed",
-          content: part,
-          oldLineNo: oldLine++,
-          newLineNo: null,
-          hunkId: null,
-        });
-      } else {
-        lines.push({
-          type: "unchanged",
-          content: part,
-          oldLineNo: oldLine++,
-          newLineNo: newLine++,
-          hunkId: null,
-        });
-      }
-    }
-  }
-
-  let hunkId = -1;
-  let inHunk = false;
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (line.type === "removed" || line.type === "added") {
-      if (!inHunk) {
-        hunkId += 1;
-        inHunk = true;
-      }
-      line.hunkId = hunkId;
-    } else {
-      inHunk = false;
-      line.hunkId = null;
-    }
-  }
-
-  return lines;
-}
-
-export function buildTextWithRevertedHunks(
-  lines: DiffLine[],
-  revertedHunkIds: Set<number>
-): string {
-  const parts: string[] = [];
-  for (const line of lines) {
-    if (line.type === "unchanged") {
-      parts.push(line.content);
-      continue;
-    }
-    if (line.type === "removed" && line.hunkId != null && revertedHunkIds.has(line.hunkId)) {
-      parts.push(line.content);
-    }
-    if (line.type === "added" && (line.hunkId == null || !revertedHunkIds.has(line.hunkId))) {
-      parts.push(line.content);
-    }
-  }
-  return parts.join("\n");
-}
-
-/** Segmento de una línea cuando se hace diff por palabras (solo una línea: old o new). */
-type WordSegment = { type: "removed" | "added" | "unchanged"; text: string };
-
-function getWordDiffSegments(
-  oldLine: string,
-  newLine: string
-): { oldSegments: WordSegment[]; newSegments: WordSegment[] } {
-  const changes = diffWordsWithSpace(oldLine, newLine);
-  const oldSegments: WordSegment[] = [];
-  const newSegments: WordSegment[] = [];
-  for (const c of changes) {
-    if (c.removed) {
-      oldSegments.push({ type: "removed", text: c.value });
-    } else if (c.added) {
-      newSegments.push({ type: "added", text: c.value });
-    } else {
-      oldSegments.push({ type: "unchanged", text: c.value });
-      newSegments.push({ type: "unchanged", text: c.value });
-    }
-  }
-  return { oldSegments, newSegments };
-}
-
-/** Para cada índice de línea, contenido de la línea "pareja" con la que hacer word-diff (si existe). */
-function buildPairedContentMap(lines: DiffLine[]): Map<number, string> {
-  const map = new Map<number, string>();
-  const byHunk = new Map<number, { removed: number[]; added: number[] }>();
-  lines.forEach((line, i) => {
-    if (line.hunkId == null) return;
-    let entry = byHunk.get(line.hunkId);
-    if (!entry) {
-      entry = { removed: [], added: [] };
-      byHunk.set(line.hunkId, entry);
-    }
-    if (line.type === "removed") entry.removed.push(i);
-    if (line.type === "added") entry.added.push(i);
-  });
-  byHunk.forEach(({ removed, added }) => {
-    const n = Math.min(removed.length, added.length);
-    for (let j = 0; j < n; j++) {
-      map.set(removed[j], lines[added[j]].content);
-      map.set(added[j], lines[removed[j]].content);
-    }
-  });
-  return map;
-}
+import type { DiffLine, PromptDiffViewProps } from "@/types/prompt-diff";
+import {
+  buildPairedContentMap,
+  buildTextWithRevertedHunks,
+  computeDiffLines,
+  getWordDiffSegments,
+} from "@/utils/prompt-diff";
 
 const lineStyles: Record<DiffLine["type"], string> = {
   removed:
@@ -178,11 +36,11 @@ export default function PromptDiffView({
 
   const maxOldLine = lines.reduce(
     (max, l) => (l.oldLineNo != null && l.oldLineNo > max ? l.oldLineNo : max),
-    0
+    0,
   );
   const maxNewLine = lines.reduce(
     (max, l) => (l.newLineNo != null && l.newLineNo > max ? l.newLineNo : max),
-    0
+    0,
   );
   const gutterWidth = Math.max(String(maxOldLine).length, String(maxNewLine).length, 2);
 
@@ -204,8 +62,9 @@ export default function PromptDiffView({
           const isFirstLineOfHunk =
             showHunkActions &&
             line.hunkId != null &&
-            (i === 0 || lines[i - 1].hunkId !== line.hunkId);
-          const isRejected = isFirstLineOfHunk && rejectedSuggestionHunkIds.has(line.hunkId!);
+            (i === 0 || lines[i - 1]!.hunkId !== line.hunkId);
+          const isRejected =
+            isFirstLineOfHunk && rejectedSuggestionHunkIds.has(line.hunkId!);
 
           return (
             <div key={i}>
@@ -265,7 +124,7 @@ export default function PromptDiffView({
                     if (paired != null && (line.type === "removed" || line.type === "added")) {
                       const { oldSegments, newSegments } = getWordDiffSegments(
                         line.type === "removed" ? line.content : paired,
-                        line.type === "added" ? line.content : paired
+                        line.type === "added" ? line.content : paired,
                       );
                       const segments = line.type === "removed" ? oldSegments : newSegments;
                       return (

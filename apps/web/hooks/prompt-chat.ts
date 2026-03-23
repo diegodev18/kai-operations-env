@@ -1,13 +1,33 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import type {
+  ChatMessage,
+  ChatMessageImage,
+  ChatMessagePdf,
+  PromptModelInfo,
+  PromptTarget,
+  SuggestedPrompts,
+  UsePromptChatParams,
+} from "@/types/prompt-chat";
+import {
+  CHAT_STATUS_LOADING_MESSAGES,
+  isChatStatusMessage,
+  parseSuggestedPrompts,
+  parseSuggestedTarget,
+  pickRandom,
+} from "@/utils/prompt-chat-helpers";
 
-export type PromptModelId = "gemini-3-flash" | "gemini-3.1-pro";
+export type {
+  ChatMessage,
+  ChatMessageImage,
+  ChatMessagePdf,
+  PromptModelId,
+  PromptModelInfo,
+  PromptMode,
+  PromptTarget,
+  SuggestedPrompts,
+} from "@/types/prompt-chat";
 
-export type PromptModelInfo = {
-  id: string;
-  name: string;
-  provider: "gemini";
-  available: boolean;
-};
+export { isChatStatusMessage };
 
 export function usePromptModels() {
   const [models, setModels] = useState<PromptModelInfo[]>([]);
@@ -32,83 +52,6 @@ export function usePromptModels() {
 
   return { models, isLoading };
 }
-
-export type PromptMode = "questions" | "agent";
-
-const CHAT_STATUS_LOADING_MESSAGES = [
-  "✨ Perfeccionando tu prompt...",
-  "🔧 Puliendo las instrucciones...",
-  "📝 Analizando el prompt...",
-  "✨ Ajustando el texto...",
-  "🛠️ Mejorando la redacción...",
-];
-
-function pickRandom<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-export function isChatStatusMessage(content: string): boolean {
-  return CHAT_STATUS_LOADING_MESSAGES.includes(content);
-}
-
-export type ChatMessageImage = {
-  mimeType: string;
-  data: string;
-};
-
-export type ChatMessagePdf = {
-  mimeType: "application/pdf";
-  data: string;
-};
-
-export type ChatMessage = {
-  role: "user" | "model";
-  content: string;
-  images?: ChatMessageImage[];
-};
-
-export type PromptTarget = "base" | "auth" | "unauth";
-
-export type SuggestedPrompts = {
-  base?: string;
-  unauth?: string;
-  auth?: string;
-};
-
-const VALID_TARGETS: PromptTarget[] = ["base", "auth", "unauth"];
-
-function parseSuggestedTarget(raw: unknown): PromptTarget[] {
-  if (!Array.isArray(raw) || raw.length === 0) return ["base"];
-  const filtered = raw.filter(
-    (t): t is PromptTarget =>
-      typeof t === "string" && VALID_TARGETS.includes(t as PromptTarget),
-  );
-  return filtered.length > 0 ? filtered : ["base"];
-}
-
-function parseSuggestedPrompts(raw: unknown): SuggestedPrompts | null {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-  const o = raw as Record<string, unknown>;
-  const result: SuggestedPrompts = {};
-  if (typeof o.base === "string" && o.base.trim()) result.base = o.base.trim();
-  if (typeof o.unauth === "string" && o.unauth.trim())
-    result.unauth = o.unauth.trim();
-  if (typeof o.auth === "string" && o.auth.trim()) result.auth = o.auth.trim();
-  return Object.keys(result).length > 0 ? result : null;
-}
-
-type UsePromptChatParams = {
-  agentName?: string;
-  getCurrentPrompt: () => string;
-  model?: PromptModelId;
-  mode?: PromptMode;
-  includeToolsContext?: boolean;
-  agentId?: string;
-  initialMessages?: ChatMessage[];
-  isAuthEnabled?: boolean;
-  getCurrentPromptUnauth?: () => string;
-  getCurrentPromptAuth?: () => string;
-};
 
 export const usePromptChat = ({
   agentName,
