@@ -3,10 +3,13 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 
 import { CORS_OPTIONS, NODE_ENV, PORT_NUMBER } from "@/config";
+import { getHealth } from "@/controllers/health.controller";
 import { auth } from "@/lib/auth";
 import api from "@/routes";
 
 const app = new Hono();
+
+app.get("/health", getHealth);
 
 app.use(
   "*",
@@ -25,8 +28,7 @@ app.route("/api", api);
 serve({
   fetch: app.fetch,
   port: PORT_NUMBER,
+  hostname: "0.0.0.0",
 });
 
-console.log(
-  `API listening on http://localhost:${PORT_NUMBER} (${NODE_ENV})`,
-);
+console.log(`API listening on http://localhost:${PORT_NUMBER} (${NODE_ENV})`);
