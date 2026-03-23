@@ -15,6 +15,7 @@ import {
   SearchIcon,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -92,6 +93,7 @@ export function OperationsDashboard(props: {
   userEmail: string | null | undefined;
   onSignOut: () => void;
 }) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [billingAlertOnly, setBillingAlertOnly] = useState(false);
@@ -556,9 +558,22 @@ export function OperationsDashboard(props: {
                     {filteredAgents.map((agent) => (
                       <tr
                         key={agent.id}
-                        className="border-b border-border transition-colors hover:bg-muted/50"
+                        className="border-b border-border transition-colors hover:bg-muted/50 cursor-pointer"
+                        onClick={() =>
+                          router.push(
+                            `/agents/${encodeURIComponent(agent.id)}/configuration`,
+                          )
+                        }
                       >
-                        <td className="p-3 font-medium">{agent.name}</td>
+                        <td className="p-3 font-medium">
+                          <Link
+                            href={`/agents/${encodeURIComponent(agent.id)}/configuration`}
+                            className="text-primary hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {agent.name}
+                          </Link>
+                        </td>
                         <td className="p-3 text-muted-foreground">
                           {agent.industry ?? "—"}
                         </td>
@@ -607,7 +622,8 @@ export function OperationsDashboard(props: {
                                   variant="outline"
                                   size="icon-sm"
                                   aria-label="Gestionar growers"
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setGrowerTarget({
                                       id: agent.id,
                                       name: agent.name,

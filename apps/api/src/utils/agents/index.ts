@@ -1,3 +1,4 @@
+export { userCanAccessAgent } from "./agentAccess";
 export { buildLightAgent } from "./buildLightAgent";
 export { userCanAddGrowerToAgent } from "./growerAccess";
 export { isGrowerCursor } from "./growersCursor";
@@ -6,4 +7,7 @@ export {
   mapGrowerDocsToPayload,
   type GrowerPayload,
 } from "./growers";
-export { parseAgentDoc, type ParsedAgentDoc } from "./parseAgentDoc";
+export {
+  parseAgentDoc,
+  type ParsedAgentDoc,
+} from "./parseAgentDoc";

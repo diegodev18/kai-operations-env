@@ -146,6 +146,8 @@ export type ToolsCatalogItem = {
   path: string;
   type: string;
   category: string;
+  /** Schema JSON para el LLM (opcional). */
+  parameters?: Record<string, unknown>;
 };
 
 export async function fetchToolsCatalog(): Promise<
@@ -297,4 +299,30 @@ export async function fetchAgentDraft(
     return { ok: true, id: data.id, draft: data.draft };
   }
   return { ok: false, error: "Respuesta inválida del servidor" };
+}
+
+/** Detalle del agente (GET /api/agents/:id). */
+export async function fetchAgentById(agentId: string): Promise<Agent | null> {
+  const res = await fetch(`/api/agents/${encodeURIComponent(agentId)}`, {
+    credentials: "include",
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  try {
+    return (await res.json()) as Agent;
+  } catch {
+    return null;
+  }
+}
+
+/** Proxy de simulación (POST /api/agents-testing/simulate). */
+export async function postAgentsTestingSimulate(
+  body: Record<string, unknown>,
+): Promise<Response> {
+  return fetch("/api/agents-testing/simulate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(body),
+  });
 }

@@ -15,6 +15,14 @@ const nextConfig: NextConfig = {
         destination: `${API_INTERNAL_URL}/api/agents/:path*`,
       },
       {
+        source: "/api/agents-testing/:path*",
+        destination: `${API_INTERNAL_URL}/api/agents-testing/:path*`,
+      },
+      {
+        source: "/api/prompt/:path*",
+        destination: `${API_INTERNAL_URL}/api/prompt/:path*`,
+      },
+      {
         source: "/api/organization/:path*",
         destination: `${API_INTERNAL_URL}/api/organization/:path*`,
       },

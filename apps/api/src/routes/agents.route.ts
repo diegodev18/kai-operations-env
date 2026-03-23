@@ -8,6 +8,18 @@ import {
 } from "@/controllers/agent-drafts.controller";
 import { getAgentsInfo } from "@/controllers/agents.controller";
 import {
+  getAgentById,
+  getAgentProperties,
+  updateAgentPrompt,
+  updateAgentPropertyDocument,
+} from "@/controllers/agent-detail.controller";
+import {
+  createAgentTool,
+  deleteAgentTool,
+  getAgentTools,
+  updateAgentTool,
+} from "@/controllers/agent-tools.controller";
+import {
   deleteAgentGrower,
   getAgentGrowers,
   postAgentGrower,
@@ -15,6 +27,11 @@ import {
 import { resolveAgentsAuthContext } from "@/routes/agents-auth";
 
 const agentsRouter = new Hono();
+
+/** Evita que `drafts`, `info`, etc. se interpreten como ID de agente. */
+function isReservedAgentPathSegment(id: string): boolean {
+  return id === "drafts" || id === "info" || id === "tools-catalog";
+}
 
 agentsRouter.get("/info", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
@@ -50,11 +67,94 @@ agentsRouter.patch("/drafts/:draftId", async (c) => {
   return patchAgentDraft(c, ctx.authCtx, draftId);
 });
 
+agentsRouter.get("/:agentId/properties", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return getAgentProperties(c, ctx.authCtx, agentId);
+});
+
+agentsRouter.patch("/:agentId/properties/:documentId", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  const documentId = c.req.param("documentId")?.trim() ?? "";
+  if (!agentId || !documentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente o documento no encontrado" }, 404);
+  }
+  return updateAgentPropertyDocument(c, ctx.authCtx, agentId, documentId);
+});
+
+agentsRouter.get("/:agentId/tools", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return getAgentTools(c, ctx.authCtx, agentId);
+});
+
+agentsRouter.post("/:agentId/tools", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return createAgentTool(c, ctx.authCtx, agentId);
+});
+
+agentsRouter.patch("/:agentId/tools/:toolId", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  const toolId = c.req.param("toolId")?.trim() ?? "";
+  if (!agentId || !toolId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente o tool no encontrado" }, 404);
+  }
+  return updateAgentTool(c, ctx.authCtx, agentId, toolId);
+});
+
+agentsRouter.delete("/:agentId/tools/:toolId", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  const toolId = c.req.param("toolId")?.trim() ?? "";
+  if (!agentId || !toolId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente o tool no encontrado" }, 404);
+  }
+  return deleteAgentTool(c, ctx.authCtx, agentId, toolId);
+});
+
+agentsRouter.patch("/:agentId/prompt", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return updateAgentPrompt(c, ctx.authCtx, agentId);
+});
+
+agentsRouter.get("/:agentId", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return getAgentById(c, ctx.authCtx, agentId);
+});
+
 agentsRouter.get("/:agentId/growers", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim();
-  if (!agentId) {
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
     return c.json({ error: "Agente no encontrado" }, 404);
   }
   return getAgentGrowers(c, ctx.authCtx, agentId);
@@ -64,7 +164,7 @@ agentsRouter.post("/:agentId/growers", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim();
-  if (!agentId) {
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
     return c.json({ error: "Agente no encontrado" }, 404);
   }
   return postAgentGrower(c, ctx.authCtx, agentId);
@@ -75,7 +175,12 @@ agentsRouter.delete("/:agentId/growers/:growerEmail", async (c) => {
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim();
   const growerEmail = c.req.param("growerEmail");
-  if (!agentId || growerEmail == null || growerEmail === "") {
+  if (
+    !agentId ||
+    growerEmail == null ||
+    growerEmail === "" ||
+    isReservedAgentPathSegment(agentId)
+  ) {
     return c.json({ error: "Agente o grower no encontrado" }, 404);
   }
   return deleteAgentGrower(c, ctx.authCtx, agentId, growerEmail);
