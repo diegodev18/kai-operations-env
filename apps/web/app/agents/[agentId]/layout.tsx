@@ -3,8 +3,11 @@
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Home } from "lucide-react";
+import { CheckCircleIcon, Home, PowerIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { UserMenu } from "@/components/user-menu";
+import { useAuth } from "@/hooks/auth";
 import { cn } from "@/lib/utils";
 import { fetchAgentById } from "@/lib/agents-api";
 
@@ -55,6 +58,31 @@ function AgentHeaderTitle({
   );
 }
 
+function AgentEnabledBadge({ enabled }: { enabled: boolean | null }) {
+  if (enabled === null) {
+    return (
+      <span
+        className="inline-flex h-6 min-w-[4.5rem] animate-pulse rounded-full bg-muted"
+        aria-hidden
+      />
+    );
+  }
+  if (enabled) {
+    return (
+      <Badge variant="default" className="gap-1 font-medium">
+        <CheckCircleIcon className="size-3.5" />
+        Activo
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="secondary" className="gap-1 font-medium">
+      <PowerIcon className="size-3.5" />
+      Apagado
+    </Badge>
+  );
+}
+
 export default function AgentDetailLayout({
   children,
 }: {
@@ -63,10 +91,13 @@ export default function AgentDetailLayout({
   const params = useParams();
   const pathname = usePathname();
   const agentId = typeof params.agentId === "string" ? params.agentId : "";
+  const { session, isPending: authPending, signOut } = useAuth();
+
   const [headerNames, setHeaderNames] = useState<{
     agentName: string;
     businessName: string;
   } | null>(null);
+  const [enabled, setEnabled] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!agentId) return;
@@ -76,6 +107,7 @@ export default function AgentDetailLayout({
       if (cancelled) return;
       if (!a) {
         setHeaderNames({ agentName: "", businessName: "" });
+        setEnabled(false);
         return;
       }
       const business =
@@ -87,6 +119,7 @@ export default function AgentDetailLayout({
           ? a.agentName
           : "";
       setHeaderNames({ agentName: agent, businessName: business });
+      setEnabled(typeof a.enabled === "boolean" ? a.enabled : true);
     })();
     return () => {
       cancelled = true;
@@ -95,14 +128,14 @@ export default function AgentDetailLayout({
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
-      <header className="flex shrink-0 flex-wrap items-center gap-3 border-b px-4 py-3">
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/" aria-label="Volver al dashboard">
-            <Home className="size-5" />
-          </Link>
-        </Button>
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-lg leading-tight">
+      <header className="grid min-h-14 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 border-b px-3 py-2 sm:px-4 sm:py-3">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <Button variant="ghost" size="icon" asChild>
+            <Link href="/" aria-label="Volver al dashboard">
+              <Home className="size-5" />
+            </Link>
+          </Button>
+          <h1 className="min-w-0 truncate text-base leading-tight sm:text-lg">
             {headerNames ? (
               <AgentHeaderTitle
                 agentName={headerNames.agentName}
@@ -113,7 +146,11 @@ export default function AgentDetailLayout({
             )}
           </h1>
         </div>
-        <nav className="flex flex-wrap items-center gap-1 sm:ml-auto">
+
+        <nav
+          className="flex max-w-[100vw] flex-wrap items-center justify-center gap-0.5 px-1 sm:gap-1"
+          aria-label="Secciones del agente"
+        >
           {SECTIONS.map((s) => {
             const href = `/agents/${encodeURIComponent(agentId)}/${s.suffix}`;
             const active =
@@ -125,7 +162,7 @@ export default function AgentDetailLayout({
                 key={s.suffix}
                 href={href}
                 className={cn(
-                  "rounded-md px-3 py-1.5 text-sm transition-colors",
+                  "whitespace-nowrap rounded-md px-2 py-1.5 text-xs transition-colors sm:px-3 sm:text-sm",
                   active
                     ? "bg-muted font-medium"
                     : "text-muted-foreground hover:bg-muted/50",
@@ -136,6 +173,24 @@ export default function AgentDetailLayout({
             );
           })}
         </nav>
+
+        <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">
+          <AgentEnabledBadge enabled={enabled} />
+          {!authPending && session?.user ? (
+            <UserMenu
+              userName={session.user.name}
+              userEmail={session.user.email}
+              onSignOut={() => {
+                void signOut();
+              }}
+            />
+          ) : authPending ? (
+            <div
+              className="size-9 shrink-0 animate-pulse rounded-full bg-muted"
+              aria-hidden
+            />
+          ) : null}
+        </div>
       </header>
       <main className="min-h-0 flex-1 overflow-auto p-4">{children}</main>
     </div>

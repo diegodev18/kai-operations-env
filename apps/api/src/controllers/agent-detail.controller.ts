@@ -142,7 +142,10 @@ export async function getAgentById(
   try {
     const database = getFirestore();
     const docRef = database.collection("agent_configurations").doc(agentId);
-    const snapshot = await docRef.get();
+    const [snapshot, agentPropSnap] = await Promise.all([
+      docRef.get(),
+      docRef.collection("properties").doc("agent").get(),
+    ]);
     if (!snapshot.exists) {
       return c.json({ error: "Agente no encontrado" }, 404);
     }
@@ -150,7 +153,9 @@ export async function getAgentById(
     if (!agent) {
       return c.json({ error: "No se pudo leer el agente" }, 500);
     }
-    return c.json(agent);
+    const agentData = agentPropSnap.exists ? agentPropSnap.data() : undefined;
+    const enabled = (agentData?.enabled as boolean | undefined) !== false;
+    return c.json({ ...agent, enabled });
   } catch (error) {
     const r = handleFirestoreError(c, error, "[agents/:id GET]");
     return r ?? c.json({ error: "Error al leer agente" }, 500);
