@@ -27,10 +27,12 @@ import {
   createDraftPendingTask,
   fetchAgentDraft,
   fetchDraftPendingTasks,
+  fetchToolsCatalog,
   postAgentBuilderChat,
   patchAgentDraft,
   postAgentDraft,
   type DraftPendingTask,
+  type ToolsCatalogItem,
 } from "@/lib/agents-api";
 import { cn } from "@/lib/utils";
 
@@ -87,6 +89,27 @@ function str(v: unknown): string {
   return typeof v === "string" ? v : "";
 }
 
+function pickFirstString(
+  source: Record<string, unknown>,
+  paths: string[],
+): string {
+  for (const path of paths) {
+    const parts = path.split(".");
+    let current: unknown = source;
+    for (const part of parts) {
+      if (current == null || typeof current !== "object") {
+        current = undefined;
+        break;
+      }
+      current = (current as Record<string, unknown>)[part];
+    }
+    if (typeof current === "string" && current.trim()) {
+      return current.trim();
+    }
+  }
+  return "";
+}
+
 function detectDeferredIntent(text: string): boolean {
   const deferRegex =
     /\b(luego|despu[eé]s|m[aá]s tarde|otro d[ií]a|en otro momento)\b/i;
@@ -132,6 +155,7 @@ function fieldNodeValue(value: string): string {
 function buildProgressiveGraph(
   state: DraftState,
   pendingTasks: DraftPendingTask[],
+  catalogById: Map<string, ToolsCatalogItem>,
   confirmed: boolean,
 ): { nodes: Node[]; edges: Edge[] } {
   const nodes: Node[] = [
@@ -201,6 +225,25 @@ function buildProgressiveGraph(
       style: withCardStyle(200),
     });
     edges.push({ id: "e-root-tools", source: "agentRoot", target: "tools" });
+
+    state.selected_tools.slice(0, 8).forEach((toolId, index) => {
+      const tool = catalogById.get(toolId);
+      const label = tool?.displayName || tool?.name || toolId;
+      const col = index % 2;
+      const row = Math.floor(index / 2);
+      const nodeId = `tool-${toolId}`;
+      nodes.push({
+        id: nodeId,
+        position: { x: 560 + col * 260, y: 10 - row * 80 },
+        data: { label: label.slice(0, 46) },
+        style: withCardStyle(230),
+      });
+      edges.push({
+        id: `e-tools-${toolId}`,
+        source: "tools",
+        target: nodeId,
+      });
+    });
   }
 
   if (personalityVisible) {
@@ -261,12 +304,14 @@ export function AgentBuilderChatDiagram() {
   const [saving, setSaving] = useState(false);
   const [chatPanelWidth, setChatPanelWidth] = useState(430);
   const [chatInput, setChatInput] = useState("");
+  const [catalog, setCatalog] = useState<ToolsCatalogItem[]>([]);
   const [pendingTasks, setPendingTasks] = useState<DraftPendingTask[]>([]);
   const [queuedDeferredTexts, setQueuedDeferredTexts] = useState<string[]>([]);
   const [confirmedSummary, setConfirmedSummary] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [thinkingLabel, setThinkingLabel] = useState("Construyendo agente...");
   const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
+  const [isHydratingDraft, setIsHydratingDraft] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       id: nowId(),
@@ -296,6 +341,7 @@ export function AgentBuilderChatDiagram() {
     tools: "",
     complete: false,
   });
+  const hasHydratedDraftRef = useRef(false);
 
   const addMessage = useCallback((role: ChatMessage["role"], text: string) => {
     setChatMessages((prev) => [...prev, { id: nowId(), role, text }]);
@@ -363,9 +409,13 @@ export function AgentBuilderChatDiagram() {
     return Math.round((done / sections.length) * 100);
   }, [confirmedSummary, draftState]);
 
+  const catalogById = useMemo(() => {
+    return new Map(catalog.map((tool) => [tool.id, tool]));
+  }, [catalog]);
+
   const graph = useMemo(
-    () => buildProgressiveGraph(draftState, pendingTasks, confirmedSummary),
-    [draftState, pendingTasks, confirmedSummary],
+    () => buildProgressiveGraph(draftState, pendingTasks, catalogById, confirmedSummary),
+    [catalogById, draftState, pendingTasks, confirmedSummary],
   );
 
   const syncPendingTasks = useCallback(async (id: string) => {
@@ -495,46 +545,118 @@ export function AgentBuilderChatDiagram() {
   );
 
   useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const list = await fetchToolsCatalog();
+      if (cancelled) return;
+      if (list) setCatalog(list);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!draftFromUrl) {
+      hasHydratedDraftRef.current = true;
       setLoadingDraft(false);
       return;
     }
     let cancelled = false;
     setLoadingDraft(true);
+    setIsHydratingDraft(true);
     void (async () => {
       const res = await fetchAgentDraft(draftFromUrl);
       if (cancelled) return;
       setLoadingDraft(false);
       if (!res.ok) {
+        setIsHydratingDraft(false);
         toast.error(res.error);
         return;
       }
-      const d = res.draft;
+      const d = res.draft as Record<string, unknown>;
+      const creationStepRaw = str(d.creation_step);
+      const creationStep: DraftState["creation_step"] =
+        creationStepRaw === "business" ||
+        creationStepRaw === "tools" ||
+        creationStepRaw === "personality" ||
+        creationStepRaw === "complete"
+          ? creationStepRaw
+          : "personality";
       const nextState = updateStepFromState({
-        agent_name: str(d.agent_name),
-        agent_personality: str(d.agent_personality),
-        business_name: str(d.business_name),
-        owner_name: str(d.owner_name),
-        industry: str(d.industry),
-        description: str(d.description),
-        agent_description: str(d.agent_description),
-        target_audience: str(d.target_audience),
-        escalation_rules: str(d.escalation_rules),
-        country: str(d.country),
+        agent_name: pickFirstString(d, [
+          "agent_name",
+          "mcp_configuration.agent_personalization.agent_name",
+        ]),
+        agent_personality: pickFirstString(d, [
+          "agent_personality",
+          "mcp_configuration.agent_personalization.agent_personality",
+        ]),
+        business_name: pickFirstString(d, [
+          "business_name",
+          "mcp_configuration.agent_business_info.business_name",
+        ]),
+        owner_name: pickFirstString(d, [
+          "owner_name",
+          "mcp_configuration.agent_business_info.owner_name",
+        ]),
+        industry: pickFirstString(d, [
+          "industry",
+          "mcp_configuration.agent_business_info.industry",
+        ]),
+        description: pickFirstString(d, [
+          "description",
+          "mcp_configuration.agent_business_info.description",
+        ]),
+        agent_description: pickFirstString(d, [
+          "agent_description",
+          "mcp_configuration.agent_business_info.agent_description",
+        ]),
+        target_audience: pickFirstString(d, [
+          "target_audience",
+          "mcp_configuration.agent_business_info.target_audience",
+        ]),
+        escalation_rules: pickFirstString(d, [
+          "escalation_rules",
+          "mcp_configuration.agent_business_info.escalation_rules",
+        ]),
+        country: pickFirstString(d, [
+          "country",
+          "mcp_configuration.agent_business_info.country",
+        ]),
         selected_tools: Array.isArray(d.selected_tools)
           ? d.selected_tools.filter((x): x is string => typeof x === "string")
           : [],
-        creation_step:
-          str(d.creation_step) === "complete" ? "complete" : "personality",
+        creation_step: creationStep,
       });
       setDraftId(res.id);
       setDraftState(nextState);
       setConfirmedSummary(nextState.creation_step === "complete");
-      addMessage("assistant", "Borrador cargado. Continuemos desde tu avance actual.");
+      const contextLines = [
+        "Borrador cargado. Este es tu contexto actual:",
+        nextState.business_name.trim() ? `- Negocio: ${nextState.business_name}` : null,
+        nextState.industry.trim() ? `- Industria: ${nextState.industry}` : null,
+        nextState.target_audience.trim() ? `- Audiencia: ${nextState.target_audience}` : null,
+        nextState.agent_description.trim()
+          ? `- Rol del agente: ${nextState.agent_description}`
+          : null,
+        nextState.agent_name.trim() ? `- Nombre del agente: ${nextState.agent_name}` : null,
+        `- Tools seleccionadas: ${nextState.selected_tools.length}`,
+      ].filter((line): line is string => Boolean(line));
+      setChatMessages([
+        {
+          id: nowId(),
+          role: "assistant",
+          text: contextLines.join("\n"),
+        },
+      ]);
       await syncPendingTasks(res.id);
+      hasHydratedDraftRef.current = true;
+      setIsHydratingDraft(false);
     })();
     return () => {
       cancelled = true;
+      setIsHydratingDraft(false);
     };
   }, [addMessage, draftFromUrl, syncPendingTasks, updateStepFromState]);
 
@@ -655,8 +777,10 @@ export function AgentBuilderChatDiagram() {
   ]);
 
   useEffect(() => {
+    if (!hasHydratedDraftRef.current) return;
+    if (loadingDraft || isHydratingDraft) return;
     void persistState(draftState, false);
-  }, [draftState, persistState]);
+  }, [draftState, isHydratingDraft, loadingDraft, persistState]);
 
   useEffect(() => {
     const onMouseMove = (event: MouseEvent) => {
