@@ -79,7 +79,8 @@ export default function OrganizationPage() {
   }, []);
 
   useEffect(() => {
-    if (isPending) return;
+    // Esperar solo la carga inicial de sesión; no bloquear si hay usuario y la sesión se está refrescando.
+    if (isPending && !session?.user) return;
     if (!session?.user) {
       router.replace("/");
       return;
@@ -209,7 +210,7 @@ export default function OrganizationPage() {
     }
   }
 
-  if (isPending || (!session?.user && loading)) {
+  if ((isPending && !session?.user) || (!session?.user && loading)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
         <Loader2Icon className="size-8 animate-spin" />

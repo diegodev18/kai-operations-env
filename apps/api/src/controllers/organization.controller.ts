@@ -87,21 +87,50 @@ export const postOrganizationInvitation = async (
   return c.json({ inviteUrl });
 };
 
+async function issueInvitationLinkForId(c: Context, invitationId: string) {
+  try {
+    const rotated = await rotatePendingInvitationToken(invitationId);
+    if (!rotated.ok) {
+      return c.json(
+        { error: "Invitación no encontrada o ya fue utilizada" },
+        404,
+      );
+    }
+    const base = WEB_ORIGIN.replace(/\/$/, "");
+    const inviteUrl = `${base}/register?token=${encodeURIComponent(rotated.plainToken)}`;
+    return c.json({ inviteUrl });
+  } catch (err) {
+    console.error("[organization] issueInvitationLinkForId", err);
+    return c.json({ error: "No se pudo generar el enlace" }, 500);
+  }
+}
+
+/** Ruta alternativa con body JSON (evita proxies que fallan con `/invitations/:id/link`). */
+export const postOrganizationInvitationRefreshLink = async (c: Context) => {
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "JSON inválido" }, 400);
+  }
+  const invitationId =
+    typeof body === "object" &&
+    body !== null &&
+    typeof (body as { invitationId?: unknown }).invitationId === "string"
+      ? (body as { invitationId: string }).invitationId.trim()
+      : "";
+  if (!invitationId) {
+    return c.json({ error: "invitationId requerido" }, 400);
+  }
+  return issueInvitationLinkForId(c, invitationId);
+};
+
 export const postOrganizationInvitationLink = async (c: Context) => {
   const invitationId = c.req.param("invitationId")?.trim();
   if (!invitationId) {
     return c.json({ error: "Invitación no encontrada" }, 404);
   }
-  const rotated = await rotatePendingInvitationToken(invitationId);
-  if (!rotated.ok) {
-    return c.json(
-      { error: "Invitación no encontrada o ya fue utilizada" },
-      404,
-    );
-  }
-  const base = WEB_ORIGIN.replace(/\/$/, "");
-  const inviteUrl = `${base}/register?token=${encodeURIComponent(rotated.plainToken)}`;
-  return c.json({ inviteUrl });
+  return issueInvitationLinkForId(c, invitationId);
 };
 
 export const deleteOrganizationInvitation = async (c: Context) => {

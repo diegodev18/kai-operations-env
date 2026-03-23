@@ -5,4 +5,8 @@ const baseURL =
 
 export const authClient = createAuthClient({
   baseURL: baseURL.length > 0 ? baseURL : undefined,
+  /** Evita refetch al volver a la pestaña (visibility), que disparaba isPending y pantallas completas de carga. */
+  sessionOptions: {
+    refetchOnWindowFocus: false,
+  },
 });

@@ -22,6 +22,20 @@ async function parseJson<T>(res: Response): Promise<T | null> {
   }
 }
 
+/** Extrae mensaje de error de respuestas API (Hono usa `message`, nosotros `error`). */
+function errorMessageFromBody(
+  data: unknown,
+  fallback: string,
+  status: number,
+): string {
+  if (data && typeof data === "object") {
+    const o = data as { error?: unknown; message?: unknown };
+    if (typeof o.error === "string" && o.error.trim()) return o.error;
+    if (typeof o.message === "string" && o.message.trim()) return o.message;
+  }
+  return `${fallback} (HTTP ${status})`;
+}
+
 export async function fetchOrganizationMe(): Promise<{ role: string } | null> {
   const res = await fetch("/api/organization/me", {
     credentials: "include",
@@ -63,7 +77,13 @@ export async function createOrganizationInvitation(
     /* empty */
   }
   if (!res.ok) {
-    return { error: data.error ?? "No se pudo crear la invitación" };
+    return {
+      error: errorMessageFromBody(
+        data,
+        "No se pudo crear la invitación",
+        res.status,
+      ),
+    };
   }
   return { inviteUrl: data.inviteUrl };
 }
@@ -72,23 +92,29 @@ export async function createOrganizationInvitation(
 export async function copyOrganizationInvitationLink(
   invitationId: string,
 ): Promise<{ inviteUrl?: string; error?: string }> {
-  const res = await fetch(
-    `/api/organization/invitations/${encodeURIComponent(invitationId)}/link`,
-    {
-      method: "POST",
-      credentials: "include",
-    },
-  );
-  let data: { inviteUrl?: string; error?: string } = {};
+  const res = await fetch("/api/organization/invitations/refresh-link", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ invitationId }),
+  });
+  let data: unknown;
   try {
-    data = (await res.json()) as { inviteUrl?: string; error?: string };
+    data = await res.json();
   } catch {
-    /* empty */
+    data = null;
   }
   if (!res.ok) {
-    return { error: data.error ?? "No se pudo obtener el enlace" };
+    return {
+      error: errorMessageFromBody(
+        data,
+        "No se pudo obtener el enlace",
+        res.status,
+      ),
+    };
   }
-  return { inviteUrl: data.inviteUrl };
+  const ok = data as { inviteUrl?: string };
+  return { inviteUrl: ok.inviteUrl };
 }
 
 export async function deleteOrganizationInvitation(

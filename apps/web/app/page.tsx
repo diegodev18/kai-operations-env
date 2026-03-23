@@ -7,7 +7,8 @@ import { useAuth } from "@/hooks/auth";
 export default function Home() {
   const { session, isPending, signOut } = useAuth();
 
-  if (isPending) {
+  // Solo bloquear la UI en la primera resolución de sesión; no al refetch al volver a la pestaña.
+  if (isPending && !session?.user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
         Cargando…

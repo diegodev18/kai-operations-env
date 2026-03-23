@@ -11,6 +11,7 @@ import {
   patchOrganizationUser,
   postOrganizationInvitation,
   postOrganizationInvitationLink,
+  postOrganizationInvitationRefreshLink,
 } from "@/controllers/organization.controller";
 import { auth } from "@/lib/auth";
 import { isOperationsAdmin } from "@/utils/operations-access";
@@ -79,6 +80,15 @@ organizationRouter.get("/invitations", async (c) => {
     return c.json({ error: "No autorizado" }, 403);
   }
   return getOrganizationInvitations(c);
+});
+
+organizationRouter.post("/invitations/refresh-link", async (c) => {
+  const ctx = await requireSession(c);
+  if ("error" in ctx) return ctx.error;
+  if (!isOperationsAdmin(ctx.role)) {
+    return c.json({ error: "No autorizado" }, 403);
+  }
+  return postOrganizationInvitationRefreshLink(c);
 });
 
 organizationRouter.post("/invitations", async (c) => {

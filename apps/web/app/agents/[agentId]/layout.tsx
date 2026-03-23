@@ -185,7 +185,7 @@ export default function AgentDetailLayout({
                 void signOut();
               }}
             />
-          ) : authPending ? (
+          ) : authPending && !session?.user ? (
             <div
               className="size-7 shrink-0 animate-pulse rounded-full bg-muted"
               aria-hidden

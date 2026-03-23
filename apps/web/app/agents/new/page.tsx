@@ -9,7 +9,7 @@ import { useAuth } from "@/hooks/auth";
 function NewAgentPageInner() {
   const { session, isPending } = useAuth();
 
-  if (isPending) {
+  if (isPending && !session?.user) {
     return (
       <div className="flex min-h-screen items-center justify-center text-muted-foreground">
         Cargando...
