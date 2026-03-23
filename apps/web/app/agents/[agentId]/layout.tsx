@@ -162,9 +162,9 @@ export default function AgentDetailLayout({
                 key={s.suffix}
                 href={href}
                 className={cn(
-                  "whitespace-nowrap rounded-md px-2 py-1.5 text-xs transition-colors sm:px-3 sm:text-sm",
+                  "whitespace-nowrap rounded-md px-2 py-1.5 text-xs font-semibold transition-colors sm:px-3 sm:text-sm",
                   active
-                    ? "bg-muted font-medium"
+                    ? "bg-muted"
                     : "text-muted-foreground hover:bg-muted/50",
                 )}
               >
