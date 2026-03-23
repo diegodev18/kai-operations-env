@@ -20,7 +20,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2Icon, PlayIcon, RotateCcwIcon } from "lucide-react";
+import {
+  BotIcon,
+  CheckCircle2Icon,
+  ChevronRightIcon,
+  Loader2Icon,
+  PlayIcon,
+  RotateCcwIcon,
+  User2Icon,
+} from "lucide-react";
 import { postAgentsTestingSimulate } from "@/lib/agents-api";
 import type {
   SimulateBody,
@@ -32,6 +40,158 @@ import { parseSSEStream } from "@/utils/integration-sse";
 const DEFAULT_TOKEN = "test-whatsapp-token";
 const DEFAULT_PHONE_ID = "test-phone-number-id";
 const MESSAGE_LIMIT_MAX = 25;
+
+function getMessageContent(data: unknown): string {
+  if (typeof data === "string") return data;
+  if (Array.isArray(data)) return data.map((item) => String(item)).join("\n");
+  if (typeof data === "object" && data !== null && "content" in data) {
+    const content = (data as { content?: unknown }).content;
+    if (typeof content === "string") return content;
+    if (Array.isArray(content)) return content.map((item) => String(item)).join("\n");
+  }
+  return JSON.stringify(data, null, 2);
+}
+
+function formatValue(value: unknown): string {
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return JSON.stringify(value, null, 2);
+}
+
+function ToolCallsBlock({ functionCalls }: { functionCalls: unknown[] }) {
+  return (
+    <div className="mt-2 space-y-2">
+      {functionCalls.map((call, index) => {
+        const item = call as {
+          name?: string;
+          args?: Record<string, unknown>;
+          response?: unknown;
+        };
+        const name = typeof item?.name === "string" ? item.name : `Tool ${index + 1}`;
+        const args =
+          item?.args && typeof item.args === "object" && !Array.isArray(item.args)
+            ? item.args
+            : {};
+        const argEntries = Object.entries(args);
+        const hasResponse = item?.response !== undefined && item?.response !== null;
+
+        return (
+          <div key={index} className="rounded-lg border border-border/70 bg-card/70">
+            <div className="border-b border-border/60 px-3 py-2 text-xs font-medium text-foreground/90">
+              {name.replace(/_/g, " ")}
+            </div>
+            <div className="space-y-2 px-3 py-2">
+              {argEntries.length > 0 ? (
+                <div className="rounded-md border border-border/60 bg-muted/25">
+                  {argEntries.map(([key, value]) => (
+                    <div
+                      key={key}
+                      className="grid grid-cols-[120px_1fr] gap-2 border-b border-border/50 px-2.5 py-2 text-xs last:border-b-0"
+                    >
+                      <div className="text-muted-foreground">{key.replace(/_/g, " ")}</div>
+                      <div className="whitespace-pre-wrap break-words text-foreground/90">
+                        {formatValue(value)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">Sin argumentos</p>
+              )}
+              {hasResponse && (
+                <details className="group">
+                  <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+                    <ChevronRightIcon className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
+                    Ver respuesta de la tool
+                  </summary>
+                  <pre className="mt-2 max-h-36 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted/40 p-2 text-[11px]">
+                    {JSON.stringify(item.response, null, 2)}
+                  </pre>
+                </details>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ResultEventCard({ event }: { event: SSEEvent }) {
+  if (event.type === "start") {
+    return (
+      <div className="inline-flex w-fit items-center rounded-md border border-muted-foreground/30 bg-muted/30 px-2.5 py-1 text-xs font-medium text-muted-foreground">
+        Simulación iniciada
+      </div>
+    );
+  }
+
+  if (event.type === "done") {
+    return (
+      <div className="inline-flex w-fit items-center gap-1.5 rounded-md border border-green-500/40 bg-green-500/10 px-2.5 py-1 text-xs font-medium text-green-700 dark:text-green-400">
+        <CheckCircle2Icon className="h-3.5 w-3.5" />
+        Fin de la conversación
+      </div>
+    );
+  }
+
+  if (event.type === "personality") {
+    return (
+      <details className="group rounded-lg border border-border/70 bg-muted/20">
+        <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
+          <ChevronRightIcon className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
+          Evento de personalidad
+        </summary>
+        <div className="border-t px-3 py-2">
+          <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded bg-muted/40 p-2 text-[11px]">
+            {JSON.stringify(event, null, 2)}
+          </pre>
+        </div>
+      </details>
+    );
+  }
+
+  const role = event.data.role === "user" ? "user" : "assistant";
+  const content = getMessageContent(event.data);
+  const hasFunctionCalls =
+    Array.isArray(event.data.functionCalls) && event.data.functionCalls.length > 0;
+
+  return (
+    <div className="rounded-lg border border-border/70 bg-muted/15 px-3 py-2.5">
+      <div className="mb-2 flex items-center gap-1.5 text-xs">
+        <span
+          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${
+            role === "user"
+              ? "border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-300"
+              : "border-violet-500/40 bg-violet-500/10 text-violet-700 dark:text-violet-300"
+          }`}
+        >
+          {role === "user" ? (
+            <User2Icon className="h-3 w-3" />
+          ) : (
+            <BotIcon className="h-3 w-3" />
+          )}
+          {role === "user" ? "Usuario" : "Asistente"}
+        </span>
+      </div>
+
+      <div className="whitespace-pre-wrap break-words rounded-md border border-border/50 bg-card/70 px-3 py-2 text-sm leading-relaxed">
+        {content}
+      </div>
+
+      {hasFunctionCalls && (
+        <details className="group mt-2">
+          <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+            <ChevronRightIcon className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
+            Ver llamadas a tools ({event.data.functionCalls?.length})
+          </summary>
+          <ToolCallsBlock functionCalls={event.data.functionCalls ?? []} />
+        </details>
+      )}
+    </div>
+  );
+}
 
 export function AgentSimulator({
   agentId,
@@ -236,20 +396,19 @@ export function AgentSimulator({
               Eventos stream o respuesta (sin vista de body JSON crudo).
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex-1 min-h-0 overflow-y-auto text-sm">
+          <CardContent className="flex min-h-0 flex-1 flex-col overflow-y-auto text-sm">
             {error && (
-              <p className="text-destructive whitespace-pre-wrap mb-2">{error}</p>
+              <div className="mb-3 rounded-md bg-destructive/10 p-3 text-destructive">
+                <p className="whitespace-pre-wrap">{error}</p>
+              </div>
             )}
             {streamEvents.length === 0 && !error && !isSending ? (
               <p className="text-muted-foreground">Aún no hay resultados.</p>
             ) : (
               <ul className="space-y-3">
                 {streamEvents.map((ev, i) => (
-                  <li key={i} className="rounded-md border p-2 text-xs font-mono break-all">
-                    <span className="text-muted-foreground">{ev.type}</span>
-                    <pre className="mt-1 whitespace-pre-wrap text-[11px] leading-relaxed">
-                      {JSON.stringify(ev, null, 0)}
-                    </pre>
+                  <li key={i}>
+                    <ResultEventCard event={ev} />
                   </li>
                 ))}
               </ul>
