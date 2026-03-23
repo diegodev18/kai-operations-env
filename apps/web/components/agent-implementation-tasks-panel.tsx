@@ -24,6 +24,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { AgentGrowerRow, ImplementationTask } from "@/types/agents-api";
 import {
   createImplementationTask,
@@ -247,7 +253,7 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
           const dueDateValue = taskDueDates[task.id] ?? "";
           const selectedAssignees = taskAssignees[task.id] ?? [];
           return (
-            <Card key={task.id} className="gap-4">
+            <Card key={task.id} className="h-full gap-4">
               <CardHeader className="gap-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="space-y-1">
@@ -292,6 +298,8 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
                     </Button>
                   </div>
                 </div>
+              </CardContent>
+              <CardFooter className="mt-auto flex-col items-stretch gap-3">
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">
                     Asignados
@@ -302,30 +310,43 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
                         Sin growers disponibles.
                       </p>
                     ) : (
-                      <div className="space-y-1.5">
-                        {growers.map((g) => {
-                          const email = g.email.trim().toLowerCase();
-                          const checked = selectedAssignees.includes(email);
-                          return (
-                            <label
-                              key={`${task.id}-${email}`}
-                              className="flex items-center gap-2 text-sm"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={(e) =>
-                                  onToggleTaskAssignee(task.id, email, e.target.checked)
-                                }
-                                className="h-4 w-4 rounded border-input"
-                              />
-                              <span className="truncate">{g.name}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
+                      <TooltipProvider>
+                        <div className="space-y-1.5">
+                          {growers.map((g) => {
+                            const email = g.email.trim().toLowerCase();
+                            const checked = selectedAssignees.includes(email);
+                            return (
+                              <label
+                                key={`${task.id}-${email}`}
+                                className="flex items-center gap-2 text-sm"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={(e) =>
+                                    onToggleTaskAssignee(task.id, email, e.target.checked)
+                                  }
+                                  className="h-4 w-4 rounded border-input"
+                                />
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="truncate cursor-default">
+                                      {g.name}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent sideOffset={6}>
+                                    {email}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </TooltipProvider>
                     )}
                   </div>
+                </div>
+                <div className="flex items-center justify-start gap-2">
                   <Button
                     type="button"
                     variant="outline"
@@ -336,24 +357,17 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
                     Guardar asignación
                   </Button>
                 </div>
-              </CardContent>
-              <CardFooter className="justify-between gap-2">
-                <p className="text-xs text-muted-foreground">
-                  {selectedAssignees.length > 0
-                    ? selectedAssignees
-                        .map((email) => growersByEmail.get(email) ?? email)
-                        .join(", ")
-                    : "Sin asignados"}
-                </p>
-                <Button
-                  type="button"
-                  variant={task.status === "completed" ? "outline" : "default"}
-                  size="sm"
-                  disabled={isSaving}
-                  onClick={() => void onToggleTaskStatus(task)}
-                >
-                  {task.status === "completed" ? "Reabrir" : "Completar"}
-                </Button>
+                <div className="flex items-center justify-end">
+                  <Button
+                    type="button"
+                    variant={task.status === "completed" ? "outline" : "default"}
+                    size="sm"
+                    disabled={isSaving}
+                    onClick={() => void onToggleTaskStatus(task)}
+                  >
+                    {task.status === "completed" ? "Reabrir" : "Completar"}
+                  </Button>
+                </div>
               </CardFooter>
             </Card>
           );
