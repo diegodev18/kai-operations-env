@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/tooltip";
 import {
   ArrowUpIcon,
+  CheckIcon,
   FileTextIcon,
   ImageIcon,
   ListChecksIcon,
@@ -56,6 +57,10 @@ import {
   type PromptMode,
 } from "@/hooks/prompt-chat";
 import PromptDiffView from "@/components/prompt-diff-view";
+import {
+  buildTextWithRevertedHunks,
+  computeDiffLines,
+} from "@/utils/prompt-diff";
 
 const PROMPT_STORAGE_KEY = "operations-prompt-designer";
 
@@ -375,6 +380,39 @@ export function AgentPromptDesigner({
       ? suggestedPrompt ?? undefined
       : undefined);
 
+  const handleApplySuggestion = () => {
+    if (hasMulti && suggestedPrompts) {
+      if (suggestedPrompts.base != null) setEditingPrompt(suggestedPrompts.base);
+      if (suggestedPrompts.unauth != null) {
+        setEditingUnauthPrompt(suggestedPrompts.unauth);
+      }
+      if (suggestedPrompts.auth != null) setEditingAuthPrompt(suggestedPrompts.auth);
+      clearSuggestion();
+      setRejectedSuggestionHunkIds(new Set());
+      return;
+    }
+    if (suggestedPrompt == null) return;
+    const referenceText =
+      primaryTarget === "auth"
+        ? editingAuthPrompt
+        : primaryTarget === "unauth"
+          ? editingUnauthPrompt
+          : editingPrompt;
+    const suggestionDiffLines = computeDiffLines(referenceText, suggestedPrompt);
+    const textToApply =
+      suggestionDiffLines.length > 0
+        ? buildTextWithRevertedHunks(suggestionDiffLines, rejectedSuggestionHunkIds)
+        : suggestedPrompt;
+    const targets = suggestedTarget?.length ? suggestedTarget : ["base"];
+    for (const t of targets) {
+      if (t === "base") setEditingPrompt(textToApply);
+      else if (t === "auth") setEditingAuthPrompt(textToApply);
+      else if (t === "unauth") setEditingUnauthPrompt(textToApply);
+    }
+    clearSuggestion();
+    setRejectedSuggestionHunkIds(new Set());
+  };
+
   const formatToolsBlock = useCallback(() => {
     if (!agentTools.length) return "Lista de tools: (ninguna).";
     const lines: string[] = ["Tools del agente:"];
@@ -538,6 +576,18 @@ export function AgentPromptDesigner({
             </div>
           )}
           <div className="flex justify-end gap-2 p-3 border-t">
+            {showSuggestion && (
+              <>
+                <Button type="button" variant="ghost" onClick={clearSuggestion}>
+                  <XIcon className="mr-1 h-3 w-3" />
+                  Descartar sugerencia
+                </Button>
+                <Button type="button" onClick={handleApplySuggestion}>
+                  <CheckIcon className="mr-1 h-3 w-3" />
+                  Aplicar sugerencia
+                </Button>
+              </>
+            )}
             <Button
               type="button"
               variant="outline"
