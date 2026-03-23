@@ -177,6 +177,7 @@ export function AgentPromptDesigner({
   const [chatInput, setChatInput] = useState("");
   const [pendingImages, setPendingImages] = useState<ChatMessageImage[]>([]);
   const [pendingPdf, setPendingPdf] = useState<PendingPdf | null>(null);
+  const [isDraggingOverChat, setIsDraggingOverChat] = useState(false);
   const chatFileInputRef = useRef<HTMLInputElement>(null);
   const [chatWidth, setChatWidth] = useState(340);
   const [diffViewRequested, setDiffViewRequested] = useState(false);
@@ -423,6 +424,40 @@ export function AgentPromptDesigner({
     [],
   );
 
+  const handleChatDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  }, []);
+
+  const handleChatDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDraggingOverChat(false);
+      const files = e.dataTransfer.files;
+      if (files?.length) {
+        void addFilesFromFileList(files, pendingImages.length);
+      }
+    },
+    [addFilesFromFileList, pendingImages.length],
+  );
+
+  const handleChatDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.dataTransfer.types.includes("Files")) {
+      setIsDraggingOverChat(true);
+    }
+  }, []);
+
+  const handleChatDragLeave = useCallback((e: React.DragEvent) => {
+    if (
+      e.relatedTarget != null &&
+      typeof (e.relatedTarget as Node).nodeType === "number" &&
+      !(e.currentTarget as Node).contains(e.relatedTarget as Node)
+    ) {
+      setIsDraggingOverChat(false);
+    }
+  }, []);
+
   const effectiveRejected: Set<number> =
     showSuggestion && !hasMulti
       ? rejectedSuggestionHunkIds
@@ -546,7 +581,27 @@ export function AgentPromptDesigner({
           }}
         />
 
-        <aside className="shrink-0 flex flex-col min-h-0 border-l" style={{ width: chatWidth }}>
+        <aside
+          className={`relative shrink-0 flex min-h-0 flex-col border-l transition-colors ${
+            isDraggingOverChat ? "bg-primary/10 ring-2 ring-inset ring-primary" : ""
+          }`}
+          style={{ width: chatWidth }}
+          onDragOver={handleChatDragOver}
+          onDrop={handleChatDrop}
+          onDragEnter={handleChatDragEnter}
+          onDragLeave={handleChatDragLeave}
+        >
+          {isDraggingOverChat && (
+            <div
+              className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 border-2 border-dashed border-primary bg-primary/5"
+              aria-hidden
+            >
+              <ImageIcon className="h-10 w-10 text-primary" />
+              <span className="text-sm font-medium text-primary">
+                Suelta la imagen o PDF aqui para adjuntarlo
+              </span>
+            </div>
+          )}
           <Card className="rounded-none border-0 shadow-none h-full flex flex-col min-h-0">
             <CardHeader className="pb-2">
               <div className="flex justify-between gap-2">
