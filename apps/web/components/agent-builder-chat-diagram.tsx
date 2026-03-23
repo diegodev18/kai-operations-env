@@ -226,7 +226,7 @@ function buildProgressiveGraph(
   if (businessVisible) {
     nodes.push({
       id: "business",
-      position: { x: 300, y: 120 },
+      position: { x: 340, y: 110 },
       data: {
         label: `${isBusinessComplete(state) ? "Completado" : "En progreso"} · Negocio`,
       },
@@ -239,8 +239,8 @@ function buildProgressiveGraph(
       if (!rawValue.trim()) return;
       const row = Math.floor(index / 2);
       const col = index % 2;
-      const x = 300 + col * 250;
-      const y = 250 + row * 86;
+      const x = 260 + col * 250;
+      const y = 240 + row * 86;
       const value = fieldNodeValue(rawValue);
       const fieldNodeId = `business-${field.key}`;
       nodes.push({
@@ -262,23 +262,27 @@ function buildProgressiveGraph(
   if (toolsVisible) {
     nodes.push({
       id: "tools",
-      position: { x: 830, y: 120 },
+      position: { x: 760, y: 110 },
       data: { label: `Tools (${state.selected_tools.length})` },
       style: withCardStyle(200),
     });
-    edges.push({ id: "e-business-tools", source: "business", target: "tools" });
+    edges.push({ id: "e-root-tools", source: "agentRoot", target: "tools" });
   }
 
   if (personalityVisible) {
     nodes.push({
       id: "personality",
-      position: { x: 1060, y: 120 },
+      position: { x: 1030, y: 110 },
       data: {
         label: `${isPersonalityComplete(state) ? "Completado" : "En progreso"} · Personalidad`,
       },
       style: withCardStyle(220),
     });
-    edges.push({ id: "e-tools-personality", source: "tools", target: "personality" });
+    edges.push({
+      id: "e-root-personality",
+      source: "agentRoot",
+      target: "personality",
+    });
   }
 
   if (tasksVisible) {
@@ -297,13 +301,13 @@ function buildProgressiveGraph(
   if (completeVisible) {
     nodes.push({
       id: "complete",
-      position: { x: 1300, y: 120 },
+      position: { x: 1320, y: 110 },
       data: { label: state.creation_step === "complete" ? "Builder finalizado" : "Confirmación" },
       style: withCardStyle(210),
     });
     edges.push({
-      id: "e-personality-complete",
-      source: "personality",
+      id: "e-root-complete",
+      source: "agentRoot",
       target: "complete",
     });
   }
