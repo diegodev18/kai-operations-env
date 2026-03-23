@@ -21,6 +21,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   BotIcon,
   CheckCircle2Icon,
   ChevronRightIcon,
@@ -103,7 +108,7 @@ function ToolCallsBlock({ functionCalls }: { functionCalls: unknown[] }) {
                 <details className="group">
                   <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
                     <ChevronRightIcon className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
-                    Ver respuesta de la tool
+                    Ver resultado de esta función
                   </summary>
                   <pre className="mt-2 max-h-36 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted/40 p-2 text-[11px]">
                     {JSON.stringify(item.response, null, 2)}
@@ -132,7 +137,7 @@ function AnalysisCards({
       {summary && (
         <div className="rounded-lg border border-border/70 bg-card/70 p-3">
           <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Summary
+            Resumen
           </p>
           <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
             {summary}
@@ -199,13 +204,13 @@ function ResultEventCard({ event }: { event: SSEEvent }) {
     return (
       <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5">
         <p className="text-xs font-medium text-muted-foreground">
-          Evento de personalidad
+          Análisis de la conversación
         </p>
         <AnalysisCards summary={summary} notes={notes} />
         <details className="group mt-2">
           <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
             <ChevronRightIcon className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
-            Ver payload completo
+            Ver detalle completo
           </summary>
           <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded bg-muted/40 p-2 text-[11px]">
             {JSON.stringify(event, null, 2)}
@@ -247,7 +252,7 @@ function ResultEventCard({ event }: { event: SSEEvent }) {
         <details className="group mt-2">
           <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
             <ChevronRightIcon className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
-            Ver llamadas a tools ({event.data.functionCalls?.length})
+            Ver funciones usadas ({event.data.functionCalls?.length})
           </summary>
           <ToolCallsBlock functionCalls={event.data.functionCalls ?? []} />
         </details>
@@ -356,13 +361,15 @@ export function AgentSimulator({
           <CardHeader>
             <CardTitle className="text-base">Parámetros</CardTitle>
             <CardDescription>
-              Configura la simulación y, si quieres, agrega instrucciones
-              temporales para esta corrida.
+              Elige cómo quieres hacer la prueba. También puedes agregar una
+              instrucción extra solo para esta ejecución.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex-1 min-h-0 space-y-3 overflow-y-auto">
             <div className="space-y-1">
-              <Label htmlFor="sim-limit">Límite de mensajes (1–{MESSAGE_LIMIT_MAX})</Label>
+              <Label htmlFor="sim-limit">
+                Cantidad máxima de mensajes (1–{MESSAGE_LIMIT_MAX})
+              </Label>
               <Input
                 id="sim-limit"
                 type="number"
@@ -371,9 +378,12 @@ export function AgentSimulator({
                 value={messageLimit}
                 onChange={(e) => setMessageLimit(e.target.value)}
               />
+              <p className="text-xs text-muted-foreground">
+                Define hasta cuántos mensajes se usarán en la simulación.
+              </p>
             </div>
             <div className="space-y-1">
-              <Label>Modo simulador</Label>
+              <Label>Tipo de simulación</Label>
               <Select
                 value={simulatorMode}
                 onValueChange={(v) => setSimulatorMode(v as SimulatorMode)}
@@ -383,9 +393,13 @@ export function AgentSimulator({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="questions_only">Solo preguntas</SelectItem>
-                  <SelectItem value="full">Completo</SelectItem>
+                  <SelectItem value="full">Conversación completa</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                “Solo preguntas” hace una prueba breve. “Conversación completa”
+                intenta una prueba más amplia.
+              </p>
             </div>
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -393,7 +407,16 @@ export function AgentSimulator({
                 checked={enableTools}
                 onChange={(e) => setEnableTools(e.target.checked)}
               />
-              Habilitar tools
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-help">
+                    Permitir uso de funciones (el agente puede ejecutar acciones durante la prueba)
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Habilitar tools</p>
+                </TooltipContent>
+              </Tooltip>
             </label>
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -401,7 +424,16 @@ export function AgentSimulator({
                 checked={stream}
                 onChange={(e) => setStream(e.target.checked)}
               />
-              Stream (SSE)
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-help">
+                    Ver respuestas en tiempo real (se muestran a medida que van llegando)
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Stream (SSE)</p>
+                </TooltipContent>
+              </Tooltip>
             </label>
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -409,11 +441,20 @@ export function AgentSimulator({
                 checked={testMode}
                 onChange={(e) => setTestMode(e.target.checked)}
               />
-              Modo testing
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-help">
+                    Modo de prueba segura (evita acciones reales y usa entorno de prueba)
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Modo testing</p>
+                </TooltipContent>
+              </Tooltip>
             </label>
             <div className="space-y-1">
               <Label htmlFor="sim-prompt">
-                Prompt adicional de simulación (opcional)
+                Instrucción adicional para esta prueba (opcional)
               </Label>
               <Textarea
                 id="sim-prompt"
@@ -421,8 +462,12 @@ export function AgentSimulator({
                 onChange={(e) => setPrompt(e.target.value)}
                 rows={4}
                 className="font-mono text-xs"
-                placeholder="Instrucciones temporales para esta prueba. No reemplaza el prompt base del agente."
+                placeholder="Mensaje extra para esta prueba. No cambia la forma habitual en que responde el agente."
               />
+              <p className="text-xs text-muted-foreground">
+                Úsalo para guiar esta ejecución puntual. Es temporal y no guarda
+                cambios en el agente.
+              </p>
             </div>
             <div className="flex flex-wrap gap-2 pt-2">
               <Button
@@ -456,7 +501,8 @@ export function AgentSimulator({
           <CardHeader>
             <CardTitle className="text-base">Resultado</CardTitle>
             <CardDescription>
-              Eventos stream o respuesta (sin vista de body JSON crudo).
+              Aquí ves el paso a paso de la prueba: mensajes, funciones usadas y
+              el resumen final.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex min-h-0 flex-1 flex-col overflow-y-auto text-sm">
