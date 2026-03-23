@@ -8,6 +8,8 @@ import type {
   ImplementationTask,
   ImplementationTaskStatus,
   ToolsCatalogItem,
+  BuilderChatDraftPatch,
+  BuilderChatMessage,
 } from "@/types/agents-api";
 
 export type {
@@ -18,6 +20,8 @@ export type {
   ImplementationTask,
   ImplementationTaskStatus,
   ToolsCatalogItem,
+  BuilderChatDraftPatch,
+  BuilderChatMessage,
 };
 
 /** Tamaño de cada página al listar agentes (carga perezosa: primero solo esta cantidad). */
@@ -395,6 +399,39 @@ export async function fetchImplementationTasks(
   } catch {
     return null;
   }
+}
+
+export async function postAgentBuilderChat(body: {
+  messages: BuilderChatMessage[];
+  draftState: Record<string, unknown>;
+  pendingTasksCount?: number;
+}): Promise<
+  | { ok: true; assistantMessage: string; draftPatch: BuilderChatDraftPatch }
+  | { ok: false; error: string }
+> {
+  const res = await fetch("/api/agents/builder/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(body),
+  });
+  let data: { assistantMessage?: string; draftPatch?: BuilderChatDraftPatch; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return { ok: false, error: data.error ?? "No se pudo consultar el chat del builder" };
+  }
+  if (!data.assistantMessage) {
+    return { ok: false, error: "Respuesta inválida del servidor" };
+  }
+  return {
+    ok: true,
+    assistantMessage: data.assistantMessage,
+    draftPatch: data.draftPatch ?? {},
+  };
 }
 
 export async function createImplementationTask(

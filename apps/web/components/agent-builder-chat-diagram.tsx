@@ -27,11 +27,10 @@ import {
   createDraftPendingTask,
   fetchAgentDraft,
   fetchDraftPendingTasks,
-  fetchToolsCatalog,
+  postAgentBuilderChat,
   patchAgentDraft,
   postAgentDraft,
   type DraftPendingTask,
-  type ToolsCatalogItem,
 } from "@/lib/agents-api";
 import { cn } from "@/lib/utils";
 
@@ -52,19 +51,6 @@ type DraftState = {
   creation_step: "personality" | "business" | "tools" | "complete";
 };
 
-type StepField =
-  | "business_name"
-  | "owner_name"
-  | "industry"
-  | "description"
-  | "target_audience"
-  | "agent_description"
-  | "escalation_rules"
-  | "selected_tools"
-  | "agent_name"
-  | "agent_personality"
-  | "confirm";
-
 const BUSINESS_FLOW: Array<keyof DraftState> = [
   "business_name",
   "owner_name",
@@ -84,23 +70,6 @@ const BUSINESS_FIELD_GRAPH: Array<{ key: keyof DraftState; label: string }> = [
   { key: "agent_description", label: "Rol del agente" },
   { key: "escalation_rules", label: "Escalamiento" },
 ];
-
-const PROMPTS: Record<StepField, string> = {
-  business_name: "Comencemos. ¿Cuál es el nombre del negocio?",
-  owner_name: "¿Quién es la persona responsable o dueña del negocio?",
-  industry: "¿En qué industria opera el negocio?",
-  description: "Describe brevemente qué hace el negocio.",
-  target_audience: "¿Quién es su audiencia objetivo?",
-  agent_description: "¿Qué rol y tareas tendrá el agente?",
-  escalation_rules: "¿Qué reglas de escalamiento debe seguir?",
-  selected_tools:
-    "Escribe el nombre de una o varias tools (separadas por coma) para seleccionarlas.",
-  agent_name: "Perfecto. Ahora define el nombre público del agente.",
-  agent_personality:
-    "Describe la personalidad del agente (tono, estilo, formalidad).",
-  confirm:
-    "Resumen listo. Escribe 'confirmar' para finalizar o edita cualquier nodo del mapa.",
-};
 
 function nowId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -126,25 +95,6 @@ function deriveDeferredTaskTitle(text: string): string {
   return (cleaned || text.trim() || "Seguimiento pendiente").slice(0, 90);
 }
 
-function pickToolIdsFromText(text: string, catalog: ToolsCatalogItem[]): string[] {
-  const rawParts = text
-    .split(",")
-    .map((p) => p.trim().toLowerCase())
-    .filter(Boolean);
-  if (rawParts.length === 0) return [];
-  const ids = new Set<string>();
-  for (const part of rawParts) {
-    for (const tool of catalog) {
-      const name = tool.name.toLowerCase();
-      const display = tool.displayName.toLowerCase();
-      if (name.includes(part) || display.includes(part) || part.includes(name)) {
-        ids.add(tool.id);
-      }
-    }
-  }
-  return [...ids];
-}
-
 function isBusinessComplete(state: DraftState) {
   return BUSINESS_FLOW.every((f) => !!state[f].trim());
 }
@@ -155,30 +105,6 @@ function isPersonalityComplete(state: DraftState) {
 
 function hasAnyBusinessValue(state: DraftState) {
   return BUSINESS_FLOW.some((f) => !!state[f].trim());
-}
-
-function getCurrentStep(state: DraftState, confirmed: boolean): StepField {
-  for (const field of BUSINESS_FLOW) {
-    if (!state[field].trim()) return field as StepField;
-  }
-  if (state.selected_tools.length === 0) return "selected_tools";
-  if (!state.agent_name.trim()) return "agent_name";
-  if (!state.agent_personality.trim()) return "agent_personality";
-  if (!confirmed) return "confirm";
-  return "confirm";
-}
-
-function summarize(state: DraftState, pendingCount: number): string {
-  return [
-    "Resumen del agente:",
-    `- Negocio: ${state.business_name}`,
-    `- Industria: ${state.industry}`,
-    `- Audiencia: ${state.target_audience}`,
-    `- Rol del agente: ${state.agent_description}`,
-    `- Tools seleccionadas: ${state.selected_tools.length}`,
-    `- Nombre del agente: ${state.agent_name}`,
-    `- Tareas pendientes: ${pendingCount}`,
-  ].join("\n");
 }
 
 function withCardStyle(width: number) {
@@ -324,16 +250,15 @@ export function AgentBuilderChatDiagram() {
   const [loadingDraft, setLoadingDraft] = useState(Boolean(draftFromUrl));
   const [saving, setSaving] = useState(false);
   const [chatInput, setChatInput] = useState("");
-  const [catalog, setCatalog] = useState<ToolsCatalogItem[]>([]);
   const [pendingTasks, setPendingTasks] = useState<DraftPendingTask[]>([]);
   const [queuedDeferredTexts, setQueuedDeferredTexts] = useState<string[]>([]);
   const [confirmedSummary, setConfirmedSummary] = useState(false);
-  const [focusOverride, setFocusOverride] = useState<StepField | null>(null);
+  const [isThinking, setIsThinking] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       id: nowId(),
       role: "assistant",
-      text: "Empezamos en modo conversacional. El mapa arranca vacío y se irá completando con cada paso. ¿Cuál es el nombre del negocio?",
+      text: "Empezamos en modo conversacional con IA. Cuéntame sobre tu negocio y el agente que quieres construir.",
     },
   ]);
 
@@ -384,9 +309,12 @@ export function AgentBuilderChatDiagram() {
     [],
   );
 
-  const currentStep = useMemo(
-    () => focusOverride ?? getCurrentStep(draftState, confirmedSummary),
-    [draftState, confirmedSummary, focusOverride],
+  const readyToConfirm = useMemo(
+    () =>
+      isBusinessComplete(draftState) &&
+      draftState.selected_tools.length > 0 &&
+      isPersonalityComplete(draftState),
+    [draftState],
   );
 
   const completion = useMemo(() => {
@@ -532,22 +460,6 @@ export function AgentBuilderChatDiagram() {
   );
 
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const list = await fetchToolsCatalog();
-      if (cancelled) return;
-      if (list === null) {
-        toast.error("No se pudo cargar el catálogo de herramientas");
-        return;
-      }
-      setCatalog(list);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
     if (!draftFromUrl) {
       setLoadingDraft(false);
       return;
@@ -583,7 +495,7 @@ export function AgentBuilderChatDiagram() {
       setDraftId(res.id);
       setDraftState(nextState);
       setConfirmedSummary(nextState.creation_step === "complete");
-      addMessage("assistant", "Borrador cargado. El mapa se reconstruyó según tu avance.");
+      addMessage("assistant", "Borrador cargado. Continuemos desde tu avance actual.");
       await syncPendingTasks(res.id);
     })();
     return () => {
@@ -617,6 +529,40 @@ export function AgentBuilderChatDiagram() {
     [addMessage, draftId],
   );
 
+  const applyDraftPatch = useCallback(
+    (patch: Record<string, unknown>) => {
+      setDraftState((prev) => {
+        const next = { ...prev };
+        const textKeys: Array<keyof DraftState> = [
+          "agent_name",
+          "agent_personality",
+          "business_name",
+          "owner_name",
+          "industry",
+          "description",
+          "agent_description",
+          "target_audience",
+          "escalation_rules",
+          "country",
+        ];
+        for (const key of textKeys) {
+          const value = patch[key];
+          if (typeof value === "string") next[key] = value.trim();
+        }
+        if (Array.isArray(patch.selected_tools)) {
+          const incoming = patch.selected_tools.filter(
+            (x): x is string => typeof x === "string" && x.trim().length > 0,
+          );
+          if (incoming.length > 0) {
+            next.selected_tools = [...new Set([...next.selected_tools, ...incoming])];
+          }
+        }
+        return updateStepFromState(next);
+      });
+    },
+    [updateStepFromState],
+  );
+
   const handleSend = useCallback(async () => {
     const text = chatInput.trim();
     if (!text) return;
@@ -624,9 +570,12 @@ export function AgentBuilderChatDiagram() {
     addMessage("user", text);
     await handleDeferredTask(text);
 
-    if (currentStep === "confirm") {
-      if (text.toLowerCase() !== "confirmar") {
-        addMessage("assistant", "Para cerrar este flujo escribe exactamente: confirmar");
+    if (text.toLowerCase() === "confirmar") {
+      if (!readyToConfirm) {
+        addMessage(
+          "assistant",
+          "Aún faltan datos por completar (negocio, tools o personalidad). Continuemos.",
+        );
         return;
       }
       setConfirmedSummary(true);
@@ -638,68 +587,38 @@ export function AgentBuilderChatDiagram() {
       return;
     }
 
-    if (currentStep === "selected_tools") {
-      const picked = pickToolIdsFromText(text, catalog);
-      if (picked.length === 0) {
-        const suggestions = catalog
-          .slice(0, 6)
-          .map((tool) => tool.displayName || tool.name)
-          .join(", ");
-        addMessage(
-          "assistant",
-          `No encontré tools con ese texto. Ejemplos disponibles: ${suggestions}`,
-        );
+    setIsThinking(true);
+    try {
+      const llmRes = await postAgentBuilderChat({
+        messages: [...chatMessages, { role: "user", text }],
+        draftState,
+        pendingTasksCount: pendingTasks.length,
+      });
+      if (!llmRes.ok) {
+        addMessage("assistant", `No pude responder en este momento: ${llmRes.error}`);
         return;
       }
-      const merged = [...new Set([...draftState.selected_tools, ...picked])];
-      const nextState = updateStepFromState({
-        ...draftState,
-        selected_tools: merged,
-      });
-      setDraftState(nextState);
-      await persistState(nextState, false);
-      const nextStep = getCurrentStep(nextState, confirmedSummary);
-      addMessage("assistant", PROMPTS[nextStep]);
-      return;
+      applyDraftPatch(llmRes.draftPatch as Record<string, unknown>);
+      addMessage("assistant", llmRes.assistantMessage);
+    } finally {
+      setIsThinking(false);
     }
-
-    const updated = updateStepFromState({
-      ...draftState,
-      [currentStep]: text,
-    });
-    setDraftState(updated);
-    setFocusOverride(null);
-    await persistState(updated, false);
-
-    const nextStep = getCurrentStep(updated, confirmedSummary);
-    if (nextStep === "confirm") {
-      addMessage("assistant", summarize(updated, pendingTasks.length));
-      addMessage("assistant", PROMPTS.confirm);
-      return;
-    }
-    addMessage("assistant", PROMPTS[nextStep]);
   }, [
+    applyDraftPatch,
     addMessage,
-    catalog,
     chatInput,
-    confirmedSummary,
-    currentStep,
+    chatMessages,
     draftState,
     handleDeferredTask,
     pendingTasks.length,
     persistState,
+    readyToConfirm,
     updateStepFromState,
   ]);
 
-  const onNodeClick = useCallback((nodeId: string) => {
-    const map: Partial<Record<string, StepField>> = {
-      business: "business_name",
-      tools: "selected_tools",
-      personality: "agent_name",
-      complete: "confirm",
-    };
-    setFocusOverride(map[nodeId] ?? null);
-  }, []);
+  useEffect(() => {
+    void persistState(draftState, false);
+  }, [draftState, persistState]);
 
   if (loadingDraft) {
     return (
@@ -735,7 +654,7 @@ export function AgentBuilderChatDiagram() {
               void handleSend();
             });
           }}
-          disabled={saving || currentStep !== "confirm"}
+          disabled={saving || !readyToConfirm}
         >
           {saving ? <Loader2Icon className="size-4 animate-spin" /> : <CheckIcon />}
           Confirmar y finalizar
@@ -766,7 +685,13 @@ export function AgentBuilderChatDiagram() {
             ))}
           </div>
           <div className="space-y-2 border-t border-border p-3">
-            <p className="text-xs text-muted-foreground">Siguiente objetivo: {PROMPTS[currentStep]}</p>
+            <p className="text-xs text-muted-foreground">
+              {isThinking
+                ? "La IA está analizando tu mensaje..."
+                : readyToConfirm
+                  ? "Listo para confirmar cuando quieras."
+                  : "Sigue conversando para completar negocio, tools y personalidad."}
+            </p>
             <div className="flex gap-2">
               <Input
                 value={chatInput}
@@ -779,7 +704,7 @@ export function AgentBuilderChatDiagram() {
                 }}
                 placeholder="Escribe un mensaje..."
               />
-              <Button size="icon" onClick={() => void handleSend()}>
+              <Button size="icon" onClick={() => void handleSend()} disabled={isThinking}>
                 <SendIcon className="size-4" />
               </Button>
             </div>
@@ -794,7 +719,6 @@ export function AgentBuilderChatDiagram() {
               fitView
               minZoom={0.3}
               maxZoom={1.8}
-              onNodeClick={(_, node) => onNodeClick(node.id)}
             >
               <Background />
             </ReactFlow>

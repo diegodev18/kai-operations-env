@@ -66,3 +66,22 @@ export type DraftPendingTask = {
   updated_at?: string | null;
   completed_at?: string | null;
 };
+
+export type BuilderChatMessage = {
+  role: "assistant" | "user";
+  text: string;
+};
+
+export type BuilderChatDraftPatch = Partial<{
+  agent_name: string;
+  agent_personality: string;
+  business_name: string;
+  owner_name: string;
+  industry: string;
+  description: string;
+  agent_description: string;
+  target_audience: string;
+  escalation_rules: string;
+  country: string;
+  selected_tools: string[];
+}>;

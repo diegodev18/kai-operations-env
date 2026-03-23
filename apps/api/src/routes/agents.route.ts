@@ -9,6 +9,7 @@ import {
   postDraftPendingTask,
   postAgentDraft,
 } from "@/controllers/agent-drafts.controller";
+import { postAgentBuilderChat } from "@/controllers/agent-builder-chat.controller";
 import { getAgentsInfo } from "@/controllers/agents.controller";
 import {
   getAgentById,
@@ -51,6 +52,12 @@ agentsRouter.get("/tools-catalog", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   return getToolsCatalog(c, ctx.authCtx);
+});
+
+agentsRouter.post("/builder/chat", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  return postAgentBuilderChat(c, ctx.authCtx);
 });
 
 agentsRouter.post("/drafts", async (c) => {
