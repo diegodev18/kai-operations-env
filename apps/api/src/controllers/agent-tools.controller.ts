@@ -63,6 +63,7 @@ function parseToolDoc(
   id: string;
   name: string;
   parameters?: unknown;
+  properties?: unknown;
   path?: string;
   required_agent_properties?: string[];
   type: string;
@@ -80,6 +81,7 @@ function parseToolDoc(
     id,
     name: typeof data.name === "string" ? data.name : "",
     parameters: data.parameters,
+    properties: data.properties,
     path:
       typeof data.path === "string" && data.path.trim()
         ? data.path.trim()
@@ -166,6 +168,12 @@ export async function createAgentTool(
     !Array.isArray(b.parameters)
       ? b.parameters
       : undefined;
+  const properties =
+    b.properties != null &&
+    typeof b.properties === "object" &&
+    !Array.isArray(b.properties)
+      ? b.properties
+      : undefined;
 
   const rawRequired = b.required_agent_properties;
   const required_agent_properties =
@@ -204,6 +212,9 @@ export async function createAgentTool(
     if (pathValue) toolData.path = pathValue;
     if (parameters) {
       toolData.parameters = parameters;
+    }
+    if (properties) {
+      toolData.properties = properties;
     }
     if (required_agent_properties?.length) {
       toolData.required_agent_properties = required_agent_properties;
@@ -256,6 +267,14 @@ export async function updateAgentTool(
       typeof b.parameters === "object" &&
       !Array.isArray(b.parameters)
         ? b.parameters
+        : null;
+  }
+  if (b.properties !== undefined) {
+    updates.properties =
+      b.properties != null &&
+      typeof b.properties === "object" &&
+      !Array.isArray(b.properties)
+        ? b.properties
         : null;
   }
   if (b.required_agent_properties !== undefined) {

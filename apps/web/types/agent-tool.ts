@@ -11,9 +11,9 @@ export interface AgentTool {
     properties?: Record<string, unknown>;
     required?: string[];
   };
+  properties?: Record<string, unknown>;
   path?: string;
   type: AgentToolType;
-  required_agent_properties?: string[];
 }
 
 export interface CreateAgentToolBody {
@@ -22,9 +22,9 @@ export interface CreateAgentToolBody {
   type?: AgentToolType;
   enabled?: boolean;
   parameters?: Record<string, unknown>;
+  properties?: Record<string, unknown>;
   displayName?: string;
   path?: string;
-  required_agent_properties?: string[];
 }
 
 export interface UpdateAgentToolBody {
@@ -32,8 +32,8 @@ export interface UpdateAgentToolBody {
   description?: string;
   type?: AgentToolType;
   parameters?: Record<string, unknown> | null;
+  properties?: Record<string, unknown> | null;
   displayName?: string | null;
   path?: string | null;
-  required_agent_properties?: string[] | null;
   enabled?: boolean;
 }

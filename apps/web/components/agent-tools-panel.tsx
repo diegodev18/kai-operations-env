@@ -36,6 +36,61 @@ const TOOL_TYPES: { value: AgentToolType; label: string }[] = [
   { value: "preset", label: "Preset" },
 ];
 
+type JsonRecord = Record<string, unknown>;
+
+function normalizeObjectSchema(schema: unknown): JsonRecord | null {
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) return null;
+  const typed = schema as JsonRecord;
+  const type = typeof typed.type === "string" ? typed.type.toUpperCase() : "OBJECT";
+  if (type !== "OBJECT") return null;
+  const properties = typed.properties;
+  if (!properties || typeof properties !== "object" || Array.isArray(properties)) return null;
+  return typed;
+}
+
+function getDocSchemasFromToolSchema(schema: unknown): Record<string, JsonRecord> {
+  const normalized = normalizeObjectSchema(schema);
+  if (!normalized) return {};
+  const rootProps = normalized.properties as JsonRecord;
+  const entries = Object.entries(rootProps).filter(([, value]) => {
+    const item = normalizeObjectSchema(value);
+    return !!item;
+  });
+  return Object.fromEntries(entries.map(([k, v]) => [k, v as JsonRecord]));
+}
+
+async function fetchAgentPropertiesMap(agentId: string): Promise<JsonRecord | null> {
+  try {
+    const res = await fetch(`/api/agents/${encodeURIComponent(agentId)}/properties`, {
+      credentials: "include",
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as unknown;
+    return json && typeof json === "object" && !Array.isArray(json)
+      ? (json as JsonRecord)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+async function patchAgentPropertyDoc(
+  agentId: string,
+  docId: string,
+  payload: JsonRecord
+): Promise<boolean> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/properties/${encodeURIComponent(docId)}`,
+    {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+  return res.ok;
+}
+
 function ToolListItem({
   tool,
   togglingToolId,
@@ -63,14 +118,6 @@ function ToolListItem({
         </p>
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground/80">
           <span>Tipo: {tool.type}</span>
-          {tool.required_agent_properties?.length ? (
-            <>
-              <span aria-hidden>·</span>
-              <span>
-                Requiere: {tool.required_agent_properties.join(", ")}
-              </span>
-            </>
-          ) : null}
         </div>
       </div>
       <div className="flex items-center gap-1 shrink-0">
@@ -260,7 +307,9 @@ function AddToolDialog({
   const [description, setDescription] = useState("");
   const [type, setType] = useState<AgentToolType>("custom");
   const [parameters, setParameters] = useState<Record<string, unknown>>({});
-  const [requiredPropertiesText, setRequiredPropertiesText] = useState("");
+  const [toolPropertiesSchema, setToolPropertiesSchema] = useState<Record<string, unknown> | null>(null);
+  const [agentPropertiesValues, setAgentPropertiesValues] = useState<Record<string, JsonRecord>>({});
+  const [loadingAgentProperties, setLoadingAgentProperties] = useState(false);
   const [saving, setSaving] = useState(false);
   const [catalogDropdownOpen, setCatalogDropdownOpen] = useState(false);
   const catalogDropdownRef = useRef<HTMLDivElement>(null);
@@ -285,6 +334,7 @@ function AddToolDialog({
       description: string;
       displayName?: string;
       parameters?: Record<string, unknown>;
+      properties?: Record<string, unknown>;
       path?: string;
     }) => {
       setName(tool.name);
@@ -296,10 +346,50 @@ function AddToolDialog({
           ? (tool.parameters as Record<string, unknown>)
           : {}
       );
+      setToolPropertiesSchema(
+        tool.properties && typeof tool.properties === "object"
+          ? (tool.properties as Record<string, unknown>)
+          : null
+      );
       setCatalogDropdownOpen(false);
     },
     []
   );
+
+  const propertyDocSchemas = useMemo(
+    () => (type === "default" ? getDocSchemasFromToolSchema(toolPropertiesSchema) : {}),
+    [toolPropertiesSchema, type]
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    const docIds = Object.keys(propertyDocSchemas);
+    if (docIds.length === 0) {
+      setAgentPropertiesValues({});
+      return;
+    }
+    let cancelled = false;
+    setLoadingAgentProperties(true);
+    void fetchAgentPropertiesMap(agentId)
+      .then((current) => {
+        if (cancelled) return;
+        const next: Record<string, JsonRecord> = {};
+        for (const docId of docIds) {
+          const value = current?.[docId];
+          next[docId] =
+            value && typeof value === "object" && !Array.isArray(value)
+              ? (value as JsonRecord)
+              : {};
+        }
+        setAgentPropertiesValues(next);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingAgentProperties(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, agentId, propertyDocSchemas]);
 
   const handleSubmit = useCallback(async () => {
     if (!name.trim()) {
@@ -310,10 +400,6 @@ function AddToolDialog({
       toast.error("La descripción es obligatoria");
       return;
     }
-    const required_agent_properties = requiredPropertiesText
-      .split(/\n/)
-      .map((s) => s.trim())
-      .filter(Boolean);
     setSaving(true);
     try {
       const body: CreateAgentToolBody = {
@@ -322,25 +408,50 @@ function AddToolDialog({
         type,
       };
       if (parameters && Object.keys(parameters).length > 0) body.parameters = parameters;
-      if (required_agent_properties.length) body.required_agent_properties = required_agent_properties;
       if (displayName.trim()) body.displayName = displayName.trim();
       if (path.trim()) body.path = path.trim();
       const created = await createAgentTool(agentId, body);
       if (created) {
+        const docsToSave = Object.keys(propertyDocSchemas);
+        if (docsToSave.length > 0) {
+          for (const docId of docsToSave) {
+            const ok = await patchAgentPropertyDoc(
+              agentId,
+              docId,
+              agentPropertiesValues[docId] ?? {}
+            );
+            if (!ok) {
+              toast.error(`No se pudo guardar la propiedad "${docId}"`);
+              break;
+            }
+          }
+        }
         toast.success("Tool creada");
         setName("");
         setDescription("");
         setDisplayName("");
         setPath("");
         setParameters({});
-        setRequiredPropertiesText("");
+        setToolPropertiesSchema(null);
+        setAgentPropertiesValues({});
         setType("custom");
         onSuccess();
       }
     } finally {
       setSaving(false);
     }
-  }, [agentId, name, description, type, displayName, path, parameters, requiredPropertiesText, onSuccess]);
+  }, [
+    agentId,
+    name,
+    description,
+    type,
+    displayName,
+    path,
+    parameters,
+    propertyDocSchemas,
+    agentPropertiesValues,
+    onSuccess,
+  ]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -357,7 +468,14 @@ function AddToolDialog({
             <select
               id="add-tool-type"
               value={type}
-              onChange={(e) => setType(e.target.value as AgentToolType)}
+              onChange={(e) => {
+                const nextType = e.target.value as AgentToolType;
+                setType(nextType);
+                if (nextType !== "default") {
+                  setToolPropertiesSchema(null);
+                  setAgentPropertiesValues({});
+                }
+              }}
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
             >
               {TOOL_TYPES.map((t) => (
@@ -383,6 +501,8 @@ function AddToolDialog({
                     value={name}
                     onChange={(e) => {
                       setName(e.target.value);
+                      setToolPropertiesSchema(null);
+                      setAgentPropertiesValues({});
                       setCatalogDropdownOpen(true);
                     }}
                     onFocus={() => setCatalogDropdownOpen(true)}
@@ -414,6 +534,7 @@ function AddToolDialog({
                               description: tool.description,
                               displayName: tool.displayName,
                               parameters: tool.parameters,
+                              properties: tool.properties,
                               path: tool.path,
                             });
                           }}
@@ -470,21 +591,16 @@ function AddToolDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="add-tool-required-props">
-              Propiedades del agente requeridas
-            </Label>
-            <p className="text-xs text-muted-foreground">
-              Documentos de properties que esta tool usa (uno por línea). Ej: prompt, agent,
-              scheduling, notifications.
-            </p>
-            <Textarea
-              id="add-tool-required-props"
-              value={requiredPropertiesText}
-              onChange={(e) => setRequiredPropertiesText(e.target.value)}
-              placeholder="prompt&#10;scheduling&#10;notifications"
-              rows={3}
-              className="font-mono text-sm min-w-0 w-full"
-            />
+            {Object.keys(propertyDocSchemas).length > 0 ? (
+              <AgentPropertiesByToolSchemaForm
+                title="Propiedades del agente"
+                description="Configura valores para los documentos requeridos por esta tool, usando el schema definido en toolsCatalog."
+                docSchemas={propertyDocSchemas}
+                values={agentPropertiesValues}
+                onChange={setAgentPropertiesValues}
+                isLoading={loadingAgentProperties}
+              />
+            ) : null}
           </div>
         </div>
         <DialogFooter className="shrink-0">
@@ -518,6 +634,7 @@ function EditToolDialog({
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
 }) {
+  const { tools: catalogTools } = useToolsCatalog();
   const [name, setName] = useState(tool.name);
   const [displayName, setDisplayName] = useState(tool.displayName ?? "");
   const [description, setDescription] = useState(tool.description);
@@ -526,10 +643,21 @@ function EditToolDialog({
   const [parameters, setParameters] = useState<Record<string, unknown>>(
     () => (tool.parameters && typeof tool.parameters === "object" ? (tool.parameters as Record<string, unknown>) : {})
   );
-  const [requiredPropertiesText, setRequiredPropertiesText] = useState(
-    () => (tool.required_agent_properties ?? []).join("\n")
-  );
+  const [agentPropertiesValues, setAgentPropertiesValues] = useState<Record<string, JsonRecord>>({});
+  const [loadingAgentProperties, setLoadingAgentProperties] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const catalogTool = useMemo(
+    () =>
+      catalogTools.find((item) =>
+        (path.trim() && item.path === path.trim()) || item.name === name.trim()
+      ),
+    [catalogTools, path, name]
+  );
+  const propertyDocSchemas = useMemo(
+    () => (type === "default" ? getDocSchemasFromToolSchema(catalogTool?.properties) : {}),
+    [catalogTool?.properties, type]
+  );
 
   // Sync form when tool changes
   useEffect(() => {
@@ -544,9 +672,39 @@ function EditToolDialog({
           ? (tool.parameters as Record<string, unknown>)
           : {}
       );
-      setRequiredPropertiesText((tool.required_agent_properties ?? []).join("\n"));
+      setAgentPropertiesValues({});
     }
   }, [tool]);
+
+  useEffect(() => {
+    if (!open) return;
+    const docIds = Object.keys(propertyDocSchemas);
+    if (docIds.length === 0) {
+      setAgentPropertiesValues({});
+      return;
+    }
+    let cancelled = false;
+    setLoadingAgentProperties(true);
+    void fetchAgentPropertiesMap(agentId)
+      .then((current) => {
+        if (cancelled) return;
+        const next: Record<string, JsonRecord> = {};
+        for (const docId of docIds) {
+          const value = current?.[docId];
+          next[docId] =
+            value && typeof value === "object" && !Array.isArray(value)
+              ? (value as JsonRecord)
+              : {};
+        }
+        setAgentPropertiesValues(next);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingAgentProperties(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, agentId, propertyDocSchemas]);
 
   const handleSubmit = useCallback(async () => {
     if (!name.trim()) {
@@ -557,10 +715,6 @@ function EditToolDialog({
       toast.error("La descripción es obligatoria");
       return;
     }
-    const required_agent_properties = requiredPropertiesText
-      .split(/\n/)
-      .map((s) => s.trim())
-      .filter(Boolean);
     setSaving(true);
     try {
       const updated = await updateAgentTool(
@@ -573,11 +727,23 @@ function EditToolDialog({
           parameters: parameters && Object.keys(parameters).length > 0 ? parameters : null,
           displayName: displayName.trim() || null,
           path: path.trim() || null,
-          required_agent_properties:
-            required_agent_properties.length > 0 ? required_agent_properties : null,
         },
       );
       if (updated) {
+        const docsToSave = Object.keys(propertyDocSchemas);
+        if (docsToSave.length > 0) {
+          for (const docId of docsToSave) {
+            const ok = await patchAgentPropertyDoc(
+              agentId,
+              docId,
+              agentPropertiesValues[docId] ?? {}
+            );
+            if (!ok) {
+              toast.error(`No se pudo guardar la propiedad "${docId}"`);
+              break;
+            }
+          }
+        }
         toast.success("Tool actualizada");
         onSuccess();
       }
@@ -592,7 +758,8 @@ function EditToolDialog({
     type,
     path,
     parameters,
-    requiredPropertiesText,
+    propertyDocSchemas,
+    agentPropertiesValues,
     displayName,
     onSuccess,
   ]);
@@ -671,20 +838,16 @@ function EditToolDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="edit-tool-required-props">
-              Propiedades del agente requeridas
-            </Label>
-            <p className="text-xs text-muted-foreground">
-              Documentos de properties que esta tool usa (uno por línea).
-            </p>
-            <Textarea
-              id="edit-tool-required-props"
-              value={requiredPropertiesText}
-              onChange={(e) => setRequiredPropertiesText(e.target.value)}
-              placeholder="prompt&#10;scheduling"
-              rows={3}
-              className="font-mono text-sm min-w-0 w-full"
-            />
+            {Object.keys(propertyDocSchemas).length > 0 ? (
+              <AgentPropertiesByToolSchemaForm
+                title="Propiedades del agente"
+                description="Configura valores para los documentos requeridos por esta tool, usando el schema definido en toolsCatalog."
+                docSchemas={propertyDocSchemas}
+                values={agentPropertiesValues}
+                onChange={setAgentPropertiesValues}
+                isLoading={loadingAgentProperties}
+              />
+            ) : null}
           </div>
         </div>
         <DialogFooter className="shrink-0">
@@ -700,6 +863,193 @@ function EditToolDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function getSchemaType(schema: unknown): string {
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) return "string";
+  const type = (schema as JsonRecord).type;
+  return typeof type === "string" ? type.toLowerCase() : "string";
+}
+
+function getSchemaDescription(schema: unknown): string {
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) return "";
+  const raw = (schema as JsonRecord).description;
+  if (typeof raw === "string") return raw;
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    const es = (raw as JsonRecord).es;
+    return typeof es === "string" ? es : "";
+  }
+  return "";
+}
+
+function getObjectProperties(schema: unknown): JsonRecord {
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) return {};
+  const props = (schema as JsonRecord).properties;
+  if (!props || typeof props !== "object" || Array.isArray(props)) return {};
+  return props as JsonRecord;
+}
+
+function getNestedValue(obj: JsonRecord, path: string[]): unknown {
+  let current: unknown = obj;
+  for (const key of path) {
+    if (!current || typeof current !== "object" || Array.isArray(current)) return undefined;
+    current = (current as JsonRecord)[key];
+  }
+  return current;
+}
+
+function setNestedValue(obj: JsonRecord, path: string[], value: unknown): JsonRecord {
+  if (path.length === 0) return obj;
+  const [head, ...rest] = path;
+  const next = { ...obj };
+  if (rest.length === 0) {
+    next[head] = value;
+    return next;
+  }
+  const currentChild =
+    next[head] && typeof next[head] === "object" && !Array.isArray(next[head])
+      ? (next[head] as JsonRecord)
+      : {};
+  next[head] = setNestedValue(currentChild, rest, value);
+  return next;
+}
+
+function AgentPropertiesByToolSchemaForm({
+  title,
+  description,
+  docSchemas,
+  values,
+  onChange,
+  isLoading,
+}: {
+  title: string;
+  description: string;
+  docSchemas: Record<string, JsonRecord>;
+  values: Record<string, JsonRecord>;
+  onChange: (next: Record<string, JsonRecord>) => void;
+  isLoading: boolean;
+}) {
+  const setDocValue = useCallback(
+    (docId: string, path: string[], value: unknown) => {
+      const currentDoc = values[docId] ?? {};
+      const nextDoc = setNestedValue(currentDoc, path, value);
+      onChange({ ...values, [docId]: nextDoc });
+    },
+    [values, onChange]
+  );
+
+  return (
+    <div className="space-y-3 rounded-lg border p-3">
+      <div className="space-y-1">
+        <Label>{title}</Label>
+        <p className="text-xs text-muted-foreground">{description}</p>
+      </div>
+      {isLoading ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2Icon className="h-4 w-4 animate-spin" />
+          Cargando propiedades actuales del agente...
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {Object.entries(docSchemas).map(([docId, schema]) => (
+            <div key={docId} className="space-y-2 rounded-md border bg-muted/20 p-3">
+              <p className="text-sm font-medium">{docId}</p>
+              <SchemaObjectFields
+                schema={schema}
+                docId={docId}
+                docValue={values[docId] ?? {}}
+                pathPrefix={[]}
+                onValueChange={setDocValue}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SchemaObjectFields({
+  schema,
+  docId,
+  docValue,
+  pathPrefix,
+  onValueChange,
+}: {
+  schema: JsonRecord;
+  docId: string;
+  docValue: JsonRecord;
+  pathPrefix: string[];
+  onValueChange: (docId: string, path: string[], value: unknown) => void;
+}) {
+  const properties = getObjectProperties(schema);
+  const entries = Object.entries(properties);
+  if (entries.length === 0) {
+    return <p className="text-xs text-muted-foreground">Sin campos configurables.</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {entries.map(([fieldName, fieldSchema]) => {
+        const fieldType = getSchemaType(fieldSchema);
+        const desc = getSchemaDescription(fieldSchema);
+        const path = [...pathPrefix, fieldName];
+        const current = getNestedValue(docValue, path);
+
+        if (fieldType === "object") {
+          const nestedSchema =
+            fieldSchema && typeof fieldSchema === "object" && !Array.isArray(fieldSchema)
+              ? (fieldSchema as JsonRecord)
+              : { type: "object", properties: {} };
+          return (
+            <div key={path.join(".")} className="space-y-2 rounded-md border p-2">
+              <p className="text-xs font-medium">{path.join(".")}</p>
+              {desc ? <p className="text-xs text-muted-foreground">{desc}</p> : null}
+              <SchemaObjectFields
+                schema={nestedSchema}
+                docId={docId}
+                docValue={docValue}
+                pathPrefix={path}
+                onValueChange={onValueChange}
+              />
+            </div>
+          );
+        }
+
+        return (
+          <div key={path.join(".")} className="space-y-1">
+            <Label className="text-xs">{path.join(".")}</Label>
+            {desc ? <p className="text-xs text-muted-foreground">{desc}</p> : null}
+            {fieldType === "boolean" ? (
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={Boolean(current)}
+                  onChange={(e) => onValueChange(docId, path, e.target.checked)}
+                  className="h-4 w-4 rounded border-input"
+                />
+                Activado
+              </label>
+            ) : fieldType === "number" ? (
+              <Input
+                type="number"
+                value={typeof current === "number" ? current : current == null ? "" : String(current)}
+                onChange={(e) => {
+                  const next = e.target.value.trim();
+                  onValueChange(docId, path, next === "" ? null : Number(next));
+                }}
+              />
+            ) : (
+              <Input
+                value={typeof current === "string" ? current : current == null ? "" : String(current)}
+                onChange={(e) => onValueChange(docId, path, e.target.value)}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 

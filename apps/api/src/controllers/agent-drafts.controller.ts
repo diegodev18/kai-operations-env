@@ -378,6 +378,18 @@ export async function getToolsCatalog(c: Context, _authCtx: AgentsInfoAuthContex
           path: typeof d.path === "string" ? d.path : "",
           type: typeof d.type === "string" ? d.type : "default",
           category: typeof d.category === "string" ? d.category : "",
+          parameters:
+            d.parameters != null &&
+            typeof d.parameters === "object" &&
+            !Array.isArray(d.parameters)
+              ? d.parameters
+              : undefined,
+          properties:
+            d.properties != null &&
+            typeof d.properties === "object" &&
+            !Array.isArray(d.properties)
+              ? d.properties
+              : undefined,
         };
       })
       .filter((t): t is NonNullable<typeof t> => t !== null && t.name.length > 0);

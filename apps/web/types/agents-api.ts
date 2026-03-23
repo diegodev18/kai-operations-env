@@ -12,6 +12,8 @@ export type ToolsCatalogItem = {
   category: string;
   /** Schema JSON para el LLM (opcional). */
   parameters?: Record<string, unknown>;
+  /** Schema OpenAPI de propiedades del agente (opcional). */
+  properties?: Record<string, unknown>;
 };
 
 export type AgentDraftPatchBody =

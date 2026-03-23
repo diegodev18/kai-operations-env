@@ -189,6 +189,12 @@ export async function getAgentProperties(
         data as Record<string, unknown> | undefined,
       );
     }
+    // Include dynamic property documents used by tools (e.g. delivery, restaurant).
+    const allPropsSnap = await propertiesRef.get();
+    for (const doc of allPropsSnap.docs) {
+      if (result[doc.id] !== undefined) continue;
+      result[doc.id] = doc.data();
+    }
 
     const promptMerged = result.prompt as Record<string, unknown>;
     const aiMerged = result.ai as Record<string, unknown> | undefined;
@@ -245,9 +251,9 @@ export async function updateAgentPropertyDocument(
   const denied = await requireAgentAccess(c, authCtx, agentId);
   if (denied) return denied;
 
-  if (
-    !PROPERTY_DOC_IDS.includes(documentId as PropertyDocId)
-  ) {
+  const isKnownDoc = PROPERTY_DOC_IDS.includes(documentId as PropertyDocId);
+  const isValidDynamicDoc = /^[a-zA-Z0-9_-]{1,64}$/.test(documentId);
+  if (!isKnownDoc && !isValidDynamicDoc) {
     return c.json({ error: "documentId inválido" }, 400);
   }
 
