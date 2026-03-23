@@ -245,10 +245,13 @@ export function AgentBuilderChatDiagram() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const draftFromUrl = searchParams.get("draft")?.trim() ?? "";
+  const layoutRef = useRef<HTMLDivElement | null>(null);
+  const resizingRef = useRef(false);
 
   const [draftId, setDraftId] = useState(draftFromUrl);
   const [loadingDraft, setLoadingDraft] = useState(Boolean(draftFromUrl));
   const [saving, setSaving] = useState(false);
+  const [chatPanelWidth, setChatPanelWidth] = useState(430);
   const [chatInput, setChatInput] = useState("");
   const [pendingTasks, setPendingTasks] = useState<DraftPendingTask[]>([]);
   const [queuedDeferredTexts, setQueuedDeferredTexts] = useState<string[]>([]);
@@ -620,6 +623,27 @@ export function AgentBuilderChatDiagram() {
     void persistState(draftState, false);
   }, [draftState, persistState]);
 
+  useEffect(() => {
+    const onMouseMove = (event: MouseEvent) => {
+      if (!resizingRef.current || !layoutRef.current) return;
+      const rect = layoutRef.current.getBoundingClientRect();
+      const nextWidth = event.clientX - rect.left;
+      const min = 320;
+      const max = Math.min(760, rect.width - 280);
+      const clamped = Math.max(min, Math.min(max, nextWidth));
+      setChatPanelWidth(clamped);
+    };
+    const onMouseUp = () => {
+      resizingRef.current = false;
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, []);
+
   if (loadingDraft) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center gap-2 text-muted-foreground">
@@ -661,8 +685,11 @@ export function AgentBuilderChatDiagram() {
         </Button>
       </div>
 
-      <div className="grid flex-1 gap-3 lg:grid-cols-[minmax(320px,500px)_1fr]">
-        <section className="flex h-[calc(100vh-110px)] min-h-[700px] flex-col rounded-xl border border-border bg-card">
+      <div ref={layoutRef} className="flex flex-1 flex-col gap-3 lg:flex-row lg:gap-1">
+        <section
+          className="flex h-[calc(100vh-110px)] min-h-[700px] flex-col rounded-xl border border-border bg-card lg:shrink-0"
+          style={{ width: `${chatPanelWidth}px` }}
+        >
           <header className="border-b border-border px-4 py-3">
             <p className="flex items-center gap-2 text-sm font-medium">
               <MessageSquareIcon className="size-4" />
@@ -711,7 +738,17 @@ export function AgentBuilderChatDiagram() {
           </div>
         </section>
 
-        <section className="h-[calc(100vh-110px)] min-h-[700px] rounded-xl border border-border bg-card p-3">
+        <div
+          className="hidden w-px cursor-col-resize bg-border/50 transition-colors hover:bg-primary/40 lg:block"
+          onMouseDown={() => {
+            resizingRef.current = true;
+          }}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Redimensionar panel del chat"
+        />
+
+        <section className="h-[calc(100vh-110px)] min-h-[700px] flex-1 rounded-xl border border-border bg-card p-3">
           <div className="h-full overflow-hidden rounded-lg border border-border">
             <ReactFlow
               nodes={graph.nodes}
