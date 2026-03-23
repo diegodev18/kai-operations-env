@@ -1,8 +1,7 @@
 import type { Context } from "hono";
 
 import { GoogleGenAI } from "@google/genai";
-import { existsSync, mkdtempSync, writeFileSync } from "fs";
-import { tmpdir } from "os";
+import { existsSync } from "fs";
 import { dirname, join } from "path";
 
 import { getAgentToolsContext } from "@/lib/agent-tools";
@@ -12,67 +11,50 @@ import logger, { formatError } from "@/lib/logger";
 const {
   FIREBASE_SERVICE_ACCOUNT_JSON,
   FIREBASE_SERVICE_ACCOUNT_JSON_PRODUCTION,
-  GEMINI_API_KEY,
   GOOGLE_APPLICATION_CREDENTIALS,
   VERTEX_AI_LOCATION,
   VERTEX_AI_PROJECT,
 } = process.env;
 
-/** Ruta al JSON de la cuenta de servicio (Firebase). Usado para Vertex AI si no hay GOOGLE_APPLICATION_CREDENTIALS. */
+/** Ruta al JSON de la cuenta de servicio (Firebase). */
 const defaultCredsPath =
   typeof import.meta.dir !== "undefined"
     ? join(import.meta.dir, "..", "tokens", "firestore.json")
     : join(process.cwd(), "src", "tokens", "firestore.json");
 
-/** Ruta a firestore.production.json (mismo directorio que firestore.json). */
+/** Ruta a firebase.production.json (mismo directorio que firestore.json). */
 const productionCredsPath = defaultCredsPath
-  ? join(dirname(defaultCredsPath), "firestore.production.json")
+  ? join(dirname(defaultCredsPath), "firebase.production.json")
   : null;
 
 /**
  * Devuelve la ruta de credenciales para Vertex AI.
- * Orden: GOOGLE_APPLICATION_CREDENTIALS → firestore.json → firestore.production.json → JSON en env (temp).
+ * Requisito del proyecto: usar firebase.production.json.
  */
 function getVertexCredsPath(): null | string {
-  if (GOOGLE_APPLICATION_CREDENTIALS && existsSync(GOOGLE_APPLICATION_CREDENTIALS)) {
-    return GOOGLE_APPLICATION_CREDENTIALS;
-  }
-  if (defaultCredsPath && existsSync(defaultCredsPath)) {
-    return defaultCredsPath;
-  }
   if (productionCredsPath && existsSync(productionCredsPath)) {
     return productionCredsPath;
-  }
-  const productionJson =
-    FIREBASE_SERVICE_ACCOUNT_JSON_PRODUCTION ?? FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (productionJson) {
-    try {
-      JSON.parse(productionJson);
-      const dir = mkdtempSync(join(tmpdir(), "kai-vertex-creds-"));
-      const file = join(dir, "credentials.json");
-      writeFileSync(file, productionJson, "utf-8");
-      return file;
-    } catch {
-      logger.warn("Invalid FIREBASE_SERVICE_ACCOUNT_JSON_PRODUCTION/JSON; Vertex AI may fail.");
-      return null;
-    }
   }
   return null;
 }
 
 const genAI = (() => {
-  if (GEMINI_API_KEY) {
-    return new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-  }
   if (VERTEX_AI_PROJECT && VERTEX_AI_LOCATION) {
     const credsPath = getVertexCredsPath();
     if (credsPath) {
       process.env.GOOGLE_APPLICATION_CREDENTIALS = credsPath;
+      return new GoogleGenAI({
+        location: VERTEX_AI_LOCATION,
+        project: VERTEX_AI_PROJECT,
+        vertexai: true,
+      });
     }
-    return new GoogleGenAI({
-      location: VERTEX_AI_LOCATION,
-      project: VERTEX_AI_PROJECT,
-      vertexai: true,
+    logger.error("Vertex AI credentials file not found", {
+      expectedPath: productionCredsPath,
+      fallbackPath: defaultCredsPath,
+      GOOGLE_APPLICATION_CREDENTIALS,
+      hasEnvJson:
+        !!(FIREBASE_SERVICE_ACCOUNT_JSON_PRODUCTION ?? FIREBASE_SERVICE_ACCOUNT_JSON),
     });
   }
   return null;
@@ -93,9 +75,19 @@ export const PROMPT_MODELS: Record<string, ModelConfig> = {
     name: "Gemini 2.5 Flash",
     provider: "gemini",
   },
+  "gemini-3-flash-preview": {
+    apiModelId: "gemini-2.5-flash",
+    name: "Gemini 2.5 Flash",
+    provider: "gemini",
+  },
   "gemini-3.1-pro": {
     apiModelId: "gemini-2.5-pro",
     name: "Gemini 2.5 Pro",
+    provider: "gemini",
+  },
+  "gemini-3.1-flash-lite-preview": {
+    apiModelId: "gemini-2.5-flash",
+    name: "Gemini 2.5 Flash Lite",
     provider: "gemini",
   },
 } as const;
@@ -146,10 +138,9 @@ export function getAvailableModels(): {
 
 function getProviderApiKey(provider: Provider): string | undefined {
   if (provider === "gemini") {
-    return (
-      GEMINI_API_KEY ??
-      (VERTEX_AI_PROJECT && VERTEX_AI_LOCATION ? "vertex" : undefined)
-    );
+    return VERTEX_AI_PROJECT && VERTEX_AI_LOCATION && getVertexCredsPath()
+      ? "vertex"
+      : undefined;
   }
   return undefined;
 }
@@ -573,8 +564,8 @@ export const promptChat = async (c: Context) => {
 
   try {
     if (!genAI) {
-      logger.error("Gemini not configured", {
-        hint: "Set GEMINI_API_KEY or VERTEX_AI_PROJECT + VERTEX_AI_LOCATION (and optionally GOOGLE_APPLICATION_CREDENTIALS)",
+      logger.error("Vertex AI not configured", {
+        hint: "Set VERTEX_AI_PROJECT + VERTEX_AI_LOCATION and ensure src/tokens/firebase.production.json exists",
       });
       return c.json({ error: "LLM is not configured on the server" }, 500);
     }
