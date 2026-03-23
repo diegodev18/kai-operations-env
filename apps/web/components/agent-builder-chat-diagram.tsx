@@ -707,7 +707,7 @@ export function AgentBuilderChatDiagram() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-[1450px] flex-col gap-4 p-4 pb-10">
+    <div className="mx-auto flex min-h-screen w-full max-w-[1450px] flex-col gap-3 px-4 pt-3 pb-3">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Button variant="outline" size="icon" asChild>
@@ -738,8 +738,8 @@ export function AgentBuilderChatDiagram() {
         </Button>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(320px,500px)_1fr]">
-        <section className="flex h-[calc(100vh-170px)] min-h-[620px] flex-col rounded-xl border border-border bg-card">
+      <div className="grid flex-1 gap-3 lg:grid-cols-[minmax(320px,500px)_1fr]">
+        <section className="flex h-[calc(100vh-110px)] min-h-[700px] flex-col rounded-xl border border-border bg-card">
           <header className="border-b border-border px-4 py-3">
             <p className="flex items-center gap-2 text-sm font-medium">
               <MessageSquareIcon className="size-4" />
@@ -782,7 +782,7 @@ export function AgentBuilderChatDiagram() {
           </div>
         </section>
 
-        <section className="h-[calc(100vh-170px)] min-h-[620px] rounded-xl border border-border bg-card p-3">
+        <section className="h-[calc(100vh-110px)] min-h-[700px] rounded-xl border border-border bg-card p-3">
           <div className="h-full overflow-hidden rounded-lg border border-border">
             <ReactFlow
               nodes={graph.nodes}
