@@ -19,6 +19,10 @@ export type GrowerRef = {
 export interface Agent {
   id: string;
   name: string;
+  /** Nombre público del agente (API: `agent_name` en Firestore). */
+  agentName?: string;
+  /** Nombre del negocio (API: `business_name` en Firestore). Equivale a `name` cuando solo hay uno. */
+  businessName?: string;
   owner: string;
   prompt?: string;
   enabled?: boolean;

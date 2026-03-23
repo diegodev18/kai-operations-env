@@ -22,6 +22,10 @@ export interface LightAgent {
   isValidatorAgentEnable?: boolean;
   model?: string;
   name: string;
+  /** Nombre público del agente (Firestore `agent_name`). */
+  agentName: string;
+  /** Nombre del negocio (Firestore `business_name`). */
+  businessName: string;
   omitFirstEchoes?: boolean;
   owner: string;
   prompt: string;
