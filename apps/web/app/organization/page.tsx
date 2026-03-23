@@ -3,6 +3,7 @@
 import {
   ArrowLeftIcon,
   Building2Icon,
+  CopyIcon,
   Loader2Icon,
   ShieldOffIcon,
   ShieldPlusIcon,
@@ -19,7 +20,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/auth";
 import {
+  copyOrganizationInvitationLink,
   createOrganizationInvitation,
+  deleteOrganizationInvitation,
   deleteOrganizationUser,
   fetchOrganizationInvitations,
   fetchOrganizationMe,
@@ -41,6 +44,8 @@ export default function OrganizationPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviting, setInviting] = useState(false);
   const [rowActionId, setRowActionId] = useState<string | null>(null);
+  const [copyInviteId, setCopyInviteId] = useState<string | null>(null);
+  const [removeInviteId, setRemoveInviteId] = useState<string | null>(null);
 
   const isAdmin = role === "admin";
   const currentUserId = session?.user?.id as string | undefined;
@@ -81,6 +86,57 @@ export default function OrganizationPage() {
     }
     void load();
   }, [session?.user, isPending, router, load]);
+
+  async function onCopyInviteLink(inv: OrganizationInvitation) {
+    setCopyInviteId(inv.id);
+    try {
+      const result = await copyOrganizationInvitationLink(inv.id);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      if (result.inviteUrl) {
+        try {
+          await navigator.clipboard.writeText(result.inviteUrl);
+          toast.success("Enlace copiado", {
+            description:
+              "Se generó un enlace nuevo y la fecha de expiración se renovó. Cualquier enlace anterior deja de funcionar.",
+          });
+        } catch {
+          toast.success("Enlace generado", {
+            description: result.inviteUrl,
+          });
+        }
+      }
+      const invRes = await fetchOrganizationInvitations();
+      setInvitations(invRes?.invitations ?? []);
+    } finally {
+      setCopyInviteId(null);
+    }
+  }
+
+  async function onRemoveInvite(inv: OrganizationInvitation) {
+    if (
+      !globalThis.confirm(
+        `¿Revocar la invitación a ${inv.email}? El enlace dejará de funcionar.`,
+      )
+    ) {
+      return;
+    }
+    setRemoveInviteId(inv.id);
+    try {
+      const result = await deleteOrganizationInvitation(inv.id);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Invitación eliminada");
+      const invRes = await fetchOrganizationInvitations();
+      setInvitations(invRes?.invitations ?? []);
+    } finally {
+      setRemoveInviteId(null);
+    }
+  }
 
   async function onCreateInvite(e: React.FormEvent) {
     e.preventDefault();
@@ -376,6 +432,10 @@ export default function OrganizationPage() {
                   <h3 className="mb-2 text-sm font-medium text-muted-foreground">
                     Pendientes
                   </h3>
+                  <p className="mb-3 text-xs text-muted-foreground">
+                    Para volver a copiar un enlace se genera uno nuevo (el
+                    anterior deja de ser válido).
+                  </p>
                   {invitations.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
                       No hay invitaciones pendientes.
@@ -385,16 +445,60 @@ export default function OrganizationPage() {
                       {invitations.map((inv) => (
                         <li
                           key={inv.id}
-                          className="flex flex-wrap items-center gap-2 rounded-md border px-3 py-2"
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2"
                         >
-                          <span>{inv.email}</span>
-                          <span className="text-muted-foreground">
-                            expira{" "}
-                            {new Date(inv.expiresAt).toLocaleString("es", {
-                              dateStyle: "short",
-                              timeStyle: "short",
-                            })}
-                          </span>
+                          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                            <span className="truncate">{inv.email}</span>
+                            <span className="text-muted-foreground">
+                              expira{" "}
+                              {new Date(inv.expiresAt).toLocaleString("es", {
+                                dateStyle: "short",
+                                timeStyle: "short",
+                              })}
+                            </span>
+                          </div>
+                          <div className="flex shrink-0 flex-wrap items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="gap-1"
+                              disabled={
+                                copyInviteId === inv.id ||
+                                removeInviteId === inv.id
+                              }
+                              onClick={() => {
+                                void onCopyInviteLink(inv);
+                              }}
+                            >
+                              {copyInviteId === inv.id ? (
+                                <Loader2Icon className="size-3.5 animate-spin" />
+                              ) : (
+                                <CopyIcon className="size-3.5" />
+                              )}
+                              Copiar enlace
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="gap-1 text-destructive hover:text-destructive"
+                              disabled={
+                                removeInviteId === inv.id ||
+                                copyInviteId === inv.id
+                              }
+                              onClick={() => {
+                                void onRemoveInvite(inv);
+                              }}
+                            >
+                              {removeInviteId === inv.id ? (
+                                <Loader2Icon className="size-3.5 animate-spin" />
+                              ) : (
+                                <Trash2Icon className="size-3.5" />
+                              )}
+                              Quitar
+                            </Button>
+                          </div>
                         </li>
                       ))}
                     </ul>

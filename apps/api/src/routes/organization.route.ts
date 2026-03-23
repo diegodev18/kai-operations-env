@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 
 import {
+  deleteOrganizationInvitation,
   deleteOrganizationUser,
   getInvitationPreview,
   getOrganizationInvitations,
@@ -9,6 +10,7 @@ import {
   getOrganizationUsers,
   patchOrganizationUser,
   postOrganizationInvitation,
+  postOrganizationInvitationLink,
 } from "@/controllers/organization.controller";
 import { auth } from "@/lib/auth";
 import { isOperationsAdmin } from "@/utils/operations-access";
@@ -86,6 +88,24 @@ organizationRouter.post("/invitations", async (c) => {
     return c.json({ error: "No autorizado" }, 403);
   }
   return postOrganizationInvitation(c, ctx.sessionUser.id);
+});
+
+organizationRouter.post("/invitations/:invitationId/link", async (c) => {
+  const ctx = await requireSession(c);
+  if ("error" in ctx) return ctx.error;
+  if (!isOperationsAdmin(ctx.role)) {
+    return c.json({ error: "No autorizado" }, 403);
+  }
+  return postOrganizationInvitationLink(c);
+});
+
+organizationRouter.delete("/invitations/:invitationId", async (c) => {
+  const ctx = await requireSession(c);
+  if ("error" in ctx) return ctx.error;
+  if (!isOperationsAdmin(ctx.role)) {
+    return c.json({ error: "No autorizado" }, 403);
+  }
+  return deleteOrganizationInvitation(c);
 });
 
 export default organizationRouter;

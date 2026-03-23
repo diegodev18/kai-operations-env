@@ -68,6 +68,52 @@ export async function createOrganizationInvitation(
   return { inviteUrl: data.inviteUrl };
 }
 
+/** Genera un nuevo enlace (el token se rota en servidor; enlaces anteriores dejan de valer). */
+export async function copyOrganizationInvitationLink(
+  invitationId: string,
+): Promise<{ inviteUrl?: string; error?: string }> {
+  const res = await fetch(
+    `/api/organization/invitations/${encodeURIComponent(invitationId)}/link`,
+    {
+      method: "POST",
+      credentials: "include",
+    },
+  );
+  let data: { inviteUrl?: string; error?: string } = {};
+  try {
+    data = (await res.json()) as { inviteUrl?: string; error?: string };
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return { error: data.error ?? "No se pudo obtener el enlace" };
+  }
+  return { inviteUrl: data.inviteUrl };
+}
+
+export async function deleteOrganizationInvitation(
+  invitationId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const res = await fetch(
+    `/api/organization/invitations/${encodeURIComponent(invitationId)}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+    },
+  );
+  if (res.ok) {
+    return { ok: true };
+  }
+  let error = "No se pudo eliminar la invitación";
+  try {
+    const data = (await res.json()) as { error?: string };
+    if (data.error) error = data.error;
+  } catch {
+    /* empty */
+  }
+  return { ok: false, error };
+}
+
 export async function fetchInvitationPreview(
   token: string,
 ): Promise<{ email: string } | null> {

@@ -6,7 +6,9 @@ import {
   findPendingInvitationByToken,
   listPendingInvitations,
   listUsersForOrganization,
+  deletePendingInvitation,
   normalizeInviteEmail,
+  rotatePendingInvitationToken,
 } from "@/lib/invitations";
 import { changeMemberRole, removeMember } from "@/lib/organizationMembers";
 import { generateInvitationPlainToken } from "@/utils/invitationToken";
@@ -83,6 +85,38 @@ export const postOrganizationInvitation = async (
   const base = WEB_ORIGIN.replace(/\/$/, "");
   const inviteUrl = `${base}/register?token=${encodeURIComponent(plainToken)}`;
   return c.json({ inviteUrl });
+};
+
+export const postOrganizationInvitationLink = async (c: Context) => {
+  const invitationId = c.req.param("invitationId")?.trim();
+  if (!invitationId) {
+    return c.json({ error: "Invitación no encontrada" }, 404);
+  }
+  const rotated = await rotatePendingInvitationToken(invitationId);
+  if (!rotated.ok) {
+    return c.json(
+      { error: "Invitación no encontrada o ya fue utilizada" },
+      404,
+    );
+  }
+  const base = WEB_ORIGIN.replace(/\/$/, "");
+  const inviteUrl = `${base}/register?token=${encodeURIComponent(rotated.plainToken)}`;
+  return c.json({ inviteUrl });
+};
+
+export const deleteOrganizationInvitation = async (c: Context) => {
+  const invitationId = c.req.param("invitationId")?.trim();
+  if (!invitationId) {
+    return c.json({ error: "Invitación no encontrada" }, 404);
+  }
+  const result = await deletePendingInvitation(invitationId);
+  if (!result.ok) {
+    return c.json(
+      { error: "Invitación no encontrada o ya fue utilizada" },
+      404,
+    );
+  }
+  return c.json({ ok: true });
 };
 
 export const getInvitationPreview = async (c: Context) => {
