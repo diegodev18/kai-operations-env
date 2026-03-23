@@ -3,6 +3,7 @@ import { toAgentWithOperations, type AgentWithOperations } from "@/lib/agent";
 import type {
   AgentDraftClient,
   AgentDraftPatchBody,
+  DraftPendingTask,
   AgentGrowerRow,
   ImplementationTask,
   ImplementationTaskStatus,
@@ -12,6 +13,7 @@ import type {
 export type {
   AgentDraftClient,
   AgentDraftPatchBody,
+  DraftPendingTask,
   AgentGrowerRow,
   ImplementationTask,
   ImplementationTaskStatus,
@@ -278,6 +280,77 @@ export async function fetchAgentDraft(
     return { ok: true, id: data.id, draft: data.draft };
   }
   return { ok: false, error: "Respuesta inválida del servidor" };
+}
+
+export async function fetchDraftPendingTasks(
+  draftId: string,
+): Promise<{ tasks: DraftPendingTask[] } | null> {
+  const res = await fetch(
+    `/api/agents/drafts/${encodeURIComponent(draftId)}/tasks`,
+    {
+      credentials: "include",
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) return null;
+  try {
+    return (await res.json()) as { tasks: DraftPendingTask[] };
+  } catch {
+    return null;
+  }
+}
+
+export async function createDraftPendingTask(
+  draftId: string,
+  body: { title: string; context?: string; postponed_from?: string },
+): Promise<{ ok: true; task: DraftPendingTask } | { ok: false; error: string }> {
+  const res = await fetch(
+    `/api/agents/drafts/${encodeURIComponent(draftId)}/tasks`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    },
+  );
+  let data: { task?: DraftPendingTask; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return { ok: false, error: data.error ?? "No se pudo crear la tarea" };
+  }
+  if (!data.task) return { ok: false, error: "Respuesta inválida del servidor" };
+  return { ok: true, task: data.task };
+}
+
+export async function patchDraftPendingTask(
+  draftId: string,
+  taskId: string,
+  body: { status?: "pending" | "completed"; title?: string; context?: string },
+): Promise<{ ok: true; task: DraftPendingTask } | { ok: false; error: string }> {
+  const res = await fetch(
+    `/api/agents/drafts/${encodeURIComponent(draftId)}/tasks/${encodeURIComponent(taskId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    },
+  );
+  let data: { task?: DraftPendingTask; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return { ok: false, error: data.error ?? "No se pudo actualizar la tarea" };
+  }
+  if (!data.task) return { ok: false, error: "Respuesta inválida del servidor" };
+  return { ok: true, task: data.task };
 }
 
 /** Detalle del agente (GET /api/agents/:id). */

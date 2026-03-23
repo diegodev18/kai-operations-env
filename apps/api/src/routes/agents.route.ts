@@ -2,8 +2,11 @@ import { Hono } from "hono";
 
 import {
   getAgentDraft,
+  getDraftPendingTasks,
   getToolsCatalog,
+  patchDraftPendingTask,
   patchAgentDraft,
+  postDraftPendingTask,
   postAgentDraft,
 } from "@/controllers/agent-drafts.controller";
 import { getAgentsInfo } from "@/controllers/agents.controller";
@@ -70,6 +73,31 @@ agentsRouter.patch("/drafts/:draftId", async (c) => {
   const draftId = c.req.param("draftId")?.trim() ?? "";
   if (!draftId) return c.json({ error: "Borrador no encontrado" }, 404);
   return patchAgentDraft(c, ctx.authCtx, draftId);
+});
+
+agentsRouter.get("/drafts/:draftId/tasks", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const draftId = c.req.param("draftId")?.trim() ?? "";
+  if (!draftId) return c.json({ error: "Borrador no encontrado" }, 404);
+  return getDraftPendingTasks(c, ctx.authCtx, draftId);
+});
+
+agentsRouter.post("/drafts/:draftId/tasks", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const draftId = c.req.param("draftId")?.trim() ?? "";
+  if (!draftId) return c.json({ error: "Borrador no encontrado" }, 404);
+  return postDraftPendingTask(c, ctx.authCtx, draftId);
+});
+
+agentsRouter.patch("/drafts/:draftId/tasks/:taskId", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const draftId = c.req.param("draftId")?.trim() ?? "";
+  const taskId = c.req.param("taskId")?.trim() ?? "";
+  if (!draftId || !taskId) return c.json({ error: "Tarea no encontrada" }, 404);
+  return patchDraftPendingTask(c, ctx.authCtx, draftId, taskId);
 });
 
 agentsRouter.get("/:agentId/properties", async (c) => {

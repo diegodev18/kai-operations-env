@@ -53,3 +53,16 @@ export type AgentDraftPatchBody =
   | { step: "complete" };
 
 export type AgentDraftClient = Record<string, unknown>;
+
+export type DraftPendingTaskStatus = "pending" | "completed";
+
+export type DraftPendingTask = {
+  id: string;
+  title: string;
+  context?: string;
+  status: DraftPendingTaskStatus;
+  postponed_from?: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+  completed_at?: string | null;
+};

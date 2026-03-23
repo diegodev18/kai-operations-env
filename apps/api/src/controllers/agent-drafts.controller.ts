@@ -18,6 +18,7 @@ import { isOperationsAdmin } from "@/utils/operations-access";
 
 const AGENT_DRAFTS = "agent_drafts";
 const TOOLS_CATALOG = "toolsCatalog";
+const PENDING_TASKS = "pending_tasks";
 
 const postDraftBodySchema = z.object({
   agent_name: z.string().trim().min(1, "agent_name es obligatorio"),
@@ -54,6 +55,18 @@ const patchToolsSchema = z.object({
 
 const patchCompleteSchema = z.object({
   step: z.literal("complete"),
+});
+
+const createDraftPendingTaskSchema = z.object({
+  title: z.string().trim().min(1, "title es obligatorio"),
+  context: z.string().trim().optional(),
+  postponed_from: z.string().trim().optional(),
+});
+
+const patchDraftPendingTaskSchema = z.object({
+  status: z.enum(["pending", "completed"]).optional(),
+  title: z.string().trim().min(1).optional(),
+  context: z.string().trim().optional(),
 });
 
 const patchDraftBodySchema = z.discriminatedUnion("step", [
@@ -402,6 +415,181 @@ export async function getToolsCatalog(c: Context, _authCtx: AgentsInfoAuthContex
   } catch (error) {
     const r = handleFirestoreError(c, error, "[agents/tools-catalog]");
     return r ?? c.json({ error: "Error al leer catálogo." }, 500);
+  }
+}
+
+function serializePendingTaskForClient(
+  id: string,
+  data: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    id,
+    title: typeof data.title === "string" ? data.title : "",
+    context: typeof data.context === "string" ? data.context : "",
+    status: data.status === "completed" ? "completed" : "pending",
+    postponed_from:
+      typeof data.postponed_from === "string" ? data.postponed_from : "",
+    created_at: serializeValue(data.created_at),
+    updated_at: serializeValue(data.updated_at),
+    completed_at: serializeValue(data.completed_at),
+  };
+}
+
+async function getAuthorizedDraftRef(
+  authCtx: AgentsInfoAuthContext,
+  draftId: string,
+): Promise<
+  | { ok: true; draftRef: DocumentReference; draftData: Record<string, unknown> }
+  | { ok: false; code: 403 | 404 }
+> {
+  const db = getFirestore();
+  const draftRef = db.collection(AGENT_DRAFTS).doc(draftId);
+  const snap = await draftRef.get();
+  if (!snap.exists) {
+    return { ok: false, code: 404 };
+  }
+  const draftData = snap.data() ?? {};
+  if (!canAccessDraft(authCtx, draftData)) {
+    return { ok: false, code: 403 };
+  }
+  return { ok: true, draftRef, draftData };
+}
+
+export async function getDraftPendingTasks(
+  c: Context,
+  authCtx: AgentsInfoAuthContext,
+  draftId: string,
+) {
+  try {
+    const auth = await getAuthorizedDraftRef(authCtx, draftId);
+    if (!auth.ok) {
+      return c.json(
+        { error: auth.code === 404 ? "Borrador no encontrado" : "No autorizado" },
+        auth.code,
+      );
+    }
+    const snap = await auth.draftRef
+      .collection(PENDING_TASKS)
+      .orderBy("created_at", "desc")
+      .get();
+    const tasks = snap.docs.map((doc) =>
+      serializePendingTaskForClient(
+        doc.id,
+        (doc.data() as Record<string, unknown>) ?? {},
+      ),
+    );
+    return c.json({ tasks });
+  } catch (error) {
+    const r = handleFirestoreError(c, error, "[agents/drafts/:id/tasks GET]");
+    return r ?? c.json({ error: "Error al listar tareas pendientes." }, 500);
+  }
+}
+
+export async function postDraftPendingTask(
+  c: Context,
+  authCtx: AgentsInfoAuthContext,
+  draftId: string,
+) {
+  let raw: unknown;
+  try {
+    raw = await c.req.json();
+  } catch {
+    return c.json({ error: "JSON inválido" }, 400);
+  }
+  const parsed = createDraftPendingTaskSchema.safeParse(raw);
+  if (!parsed.success) {
+    const msg = parsed.error.issues.map((i) => i.message).join("; ");
+    return c.json({ error: msg }, 400);
+  }
+  try {
+    const auth = await getAuthorizedDraftRef(authCtx, draftId);
+    if (!auth.ok) {
+      return c.json(
+        { error: auth.code === 404 ? "Borrador no encontrado" : "No autorizado" },
+        auth.code,
+      );
+    }
+    const ts = serverTimestampField();
+    const payload: Record<string, unknown> = {
+      title: parsed.data.title,
+      context: parsed.data.context ?? "",
+      postponed_from: parsed.data.postponed_from ?? "",
+      status: "pending",
+      created_at: ts,
+      updated_at: ts,
+      completed_at: null,
+    };
+    const docRef = await auth.draftRef.collection(PENDING_TASKS).add(payload);
+    const created = await docRef.get();
+    return c.json({
+      task: serializePendingTaskForClient(
+        docRef.id,
+        (created.data() as Record<string, unknown>) ?? payload,
+      ),
+    });
+  } catch (error) {
+    const r = handleFirestoreError(c, error, "[agents/drafts/:id/tasks POST]");
+    return r ?? c.json({ error: "Error al crear tarea pendiente." }, 500);
+  }
+}
+
+export async function patchDraftPendingTask(
+  c: Context,
+  authCtx: AgentsInfoAuthContext,
+  draftId: string,
+  taskId: string,
+) {
+  let raw: unknown;
+  try {
+    raw = await c.req.json();
+  } catch {
+    return c.json({ error: "JSON inválido" }, 400);
+  }
+  const parsed = patchDraftPendingTaskSchema.safeParse(raw);
+  if (!parsed.success) {
+    const msg = parsed.error.issues.map((i) => i.message).join("; ");
+    return c.json({ error: msg }, 400);
+  }
+  if (Object.keys(parsed.data).length === 0) {
+    return c.json({ error: "No hay cambios para aplicar" }, 400);
+  }
+  try {
+    const auth = await getAuthorizedDraftRef(authCtx, draftId);
+    if (!auth.ok) {
+      return c.json(
+        { error: auth.code === 404 ? "Borrador no encontrado" : "No autorizado" },
+        auth.code,
+      );
+    }
+    const taskRef = auth.draftRef.collection(PENDING_TASKS).doc(taskId);
+    const snap = await taskRef.get();
+    if (!snap.exists) return c.json({ error: "Tarea no encontrada" }, 404);
+
+    const next: Record<string, unknown> = {
+      updated_at: serverTimestampField(),
+    };
+    if (parsed.data.status) {
+      next.status = parsed.data.status;
+      if (parsed.data.status === "completed") {
+        next.completed_at = serverTimestampField();
+      } else {
+        next.completed_at = null;
+      }
+    }
+    if (parsed.data.title !== undefined) next.title = parsed.data.title;
+    if (parsed.data.context !== undefined) next.context = parsed.data.context;
+
+    await taskRef.update(next);
+    const updated = await taskRef.get();
+    return c.json({
+      task: serializePendingTaskForClient(
+        taskId,
+        (updated.data() as Record<string, unknown>) ?? {},
+      ),
+    });
+  } catch (error) {
+    const r = handleFirestoreError(c, error, "[agents/drafts/:id/tasks PATCH]");
+    return r ?? c.json({ error: "Error al actualizar tarea pendiente." }, 500);
   }
 }
 
