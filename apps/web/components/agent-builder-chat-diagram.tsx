@@ -291,6 +291,21 @@ export function AgentBuilderChatDiagram() {
     setChatMessages((prev) => [...prev, { id: nowId(), role, text }]);
   }, []);
 
+  const addAssistantMessageProgressive = useCallback(async (fullText: string) => {
+    const id = nowId();
+    const normalized = fullText.trim();
+    setChatMessages((prev) => [...prev, { id, role: "assistant", text: "" }]);
+    if (!normalized) return;
+    const step = normalized.length > 420 ? 5 : normalized.length > 220 ? 4 : 3;
+    for (let index = step; index <= normalized.length + step; index += step) {
+      const partial = normalized.slice(0, Math.min(index, normalized.length));
+      setChatMessages((prev) =>
+        prev.map((message) => (message.id === id ? { ...message, text: partial } : message)),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 16));
+    }
+  }, []);
+
   const updateStepFromState = useCallback(
     (state: DraftState): DraftState => {
       const next = { ...state };
@@ -602,11 +617,12 @@ export function AgentBuilderChatDiagram() {
         return;
       }
       applyDraftPatch(llmRes.draftPatch as Record<string, unknown>);
-      addMessage("assistant", llmRes.assistantMessage);
+      await addAssistantMessageProgressive(llmRes.assistantMessage);
     } finally {
       setIsThinking(false);
     }
   }, [
+    addAssistantMessageProgressive,
     applyDraftPatch,
     addMessage,
     chatInput,
@@ -710,6 +726,14 @@ export function AgentBuilderChatDiagram() {
                 {message.text}
               </div>
             ))}
+            {isThinking ? (
+              <div className="max-w-[92%] rounded-xl border border-border/70 bg-muted/80 px-3 py-2 text-sm text-foreground">
+                <div className="relative overflow-hidden rounded-md">
+                  <div className="absolute inset-y-0 left-[-45%] w-1/2 animate-pulse bg-gradient-to-r from-transparent via-white/35 to-transparent" />
+                  <div className="relative">Pensando...</div>
+                </div>
+              </div>
+            ) : null}
           </div>
           <div className="space-y-2 border-t border-border p-3">
             <p className="text-xs text-muted-foreground">
