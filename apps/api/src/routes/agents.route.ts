@@ -24,6 +24,11 @@ import {
   getAgentGrowers,
   postAgentGrower,
 } from "@/controllers/agents-growers.controller";
+import {
+  createImplementationTask,
+  getImplementationTasks,
+  patchImplementationTask,
+} from "@/controllers/agents-implementation-tasks.controller";
 import { resolveAgentsAuthContext } from "@/routes/agents-auth";
 
 const agentsRouter = new Hono();
@@ -184,6 +189,37 @@ agentsRouter.delete("/:agentId/growers/:growerEmail", async (c) => {
     return c.json({ error: "Agente o grower no encontrado" }, 404);
   }
   return deleteAgentGrower(c, ctx.authCtx, agentId, growerEmail);
+});
+
+agentsRouter.get("/:agentId/implementation-tasks", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return getImplementationTasks(c, ctx.authCtx, agentId);
+});
+
+agentsRouter.post("/:agentId/implementation-tasks", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return createImplementationTask(c, ctx.authCtx, agentId);
+});
+
+agentsRouter.patch("/:agentId/implementation-tasks/:taskId", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  const taskId = c.req.param("taskId")?.trim() ?? "";
+  if (!agentId || !taskId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente o tarea no encontrado" }, 404);
+  }
+  return patchImplementationTask(c, ctx.authCtx, agentId, taskId);
 });
 
 export default agentsRouter;

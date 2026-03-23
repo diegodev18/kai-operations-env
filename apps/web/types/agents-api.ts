@@ -2,6 +2,20 @@
 
 export type AgentGrowerRow = { email: string; name: string };
 
+export type ImplementationTaskStatus = "pending" | "completed";
+
+export type ImplementationTask = {
+  id: string;
+  title: string;
+  description?: string;
+  status: ImplementationTaskStatus;
+  dueDate?: string | null;
+  assigneeEmails: string[];
+  createdByEmail?: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
 export type ToolsCatalogItem = {
   id: string;
   name: string;

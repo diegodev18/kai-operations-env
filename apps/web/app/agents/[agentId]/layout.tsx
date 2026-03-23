@@ -13,6 +13,7 @@ import { fetchAgentById } from "@/lib/agents-api";
 
 const SECTIONS = [
   { suffix: "configuration", label: "Configuración" },
+  { suffix: "tasks", label: "Tareas" },
   { suffix: "tools", label: "Tools" },
   { suffix: "prompt-design", label: "Diseño de prompt" },
   { suffix: "simulator", label: "Simulador" },

@@ -32,3 +32,17 @@ export interface LightAgent {
   temperature?: number;
   waitTime?: number;
 }
+
+export type ImplementationTaskStatus = "pending" | "completed";
+
+export interface ImplementationTaskPayload {
+  id: string;
+  title: string;
+  description?: string;
+  status: ImplementationTaskStatus;
+  dueDate?: string | null;
+  assigneeEmails: string[];
+  createdByEmail?: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}

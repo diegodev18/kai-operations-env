@@ -4,6 +4,8 @@ import type {
   AgentDraftClient,
   AgentDraftPatchBody,
   AgentGrowerRow,
+  ImplementationTask,
+  ImplementationTaskStatus,
   ToolsCatalogItem,
 } from "@/types/agents-api";
 
@@ -11,6 +13,8 @@ export type {
   AgentDraftClient,
   AgentDraftPatchBody,
   AgentGrowerRow,
+  ImplementationTask,
+  ImplementationTaskStatus,
   ToolsCatalogItem,
 };
 
@@ -300,4 +304,94 @@ export async function postAgentsTestingSimulate(
     credentials: "include",
     body: JSON.stringify(body),
   });
+}
+
+export async function fetchImplementationTasks(
+  agentId: string,
+): Promise<{ tasks: ImplementationTask[] } | null> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/implementation-tasks`,
+    {
+      credentials: "include",
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) return null;
+  try {
+    return (await res.json()) as { tasks: ImplementationTask[] };
+  } catch {
+    return null;
+  }
+}
+
+export async function createImplementationTask(
+  agentId: string,
+  body: {
+    title: string;
+    description?: string;
+    dueDate?: string | null;
+    assigneeEmails?: string[];
+  },
+): Promise<
+  { ok: true; task: ImplementationTask } | { ok: false; error: string }
+> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/implementation-tasks`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    },
+  );
+  let data: { task?: ImplementationTask; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: data.error ?? "No se pudo crear la tarea",
+    };
+  }
+  if (!data.task) return { ok: false, error: "Respuesta inválida del servidor" };
+  return { ok: true, task: data.task };
+}
+
+export async function patchImplementationTask(
+  agentId: string,
+  taskId: string,
+  body: {
+    status?: ImplementationTaskStatus;
+    dueDate?: string | null;
+    assigneeEmails?: string[];
+  },
+): Promise<
+  { ok: true; task: ImplementationTask } | { ok: false; error: string }
+> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/implementation-tasks/${encodeURIComponent(taskId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    },
+  );
+  let data: { task?: ImplementationTask; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: data.error ?? "No se pudo actualizar la tarea",
+    };
+  }
+  if (!data.task) return { ok: false, error: "Respuesta inválida del servidor" };
+  return { ok: true, task: data.task };
 }
