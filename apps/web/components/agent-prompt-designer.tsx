@@ -576,6 +576,15 @@ export function AgentPromptDesigner({
             </div>
           )}
           <div className="flex justify-end gap-2 p-3 border-t">
+            {hasChanges && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setDiffViewRequested((v) => !v)}
+              >
+                {editorViewMode === "diff" ? "Editar" : "Ver cambios"}
+              </Button>
+            )}
             {showSuggestion && (
               <>
                 <Button type="button" variant="ghost" onClick={clearSuggestion}>
