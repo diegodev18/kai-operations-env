@@ -762,13 +762,6 @@ export function AgentBuilderChatDiagram() {
             ) : null}
           </div>
           <div className="space-y-2 border-t border-border p-3">
-            <p className="text-xs text-muted-foreground">
-              {isThinking
-                ? "La IA está analizando tu mensaje..."
-                : readyToConfirm
-                  ? "Listo para confirmar cuando quieras."
-                  : "Sigue conversando para completar negocio, tools y personalidad."}
-            </p>
             <div className="flex gap-2">
               <Input
                 value={chatInput}
