@@ -203,7 +203,7 @@ function buildProgressiveGraph(
   const nodes: Node[] = [
     {
       id: "agentRoot",
-      position: { x: 80, y: 120 },
+      position: { x: 700, y: 360 },
       data: {
         label: (
           <div className="flex items-center gap-2">
@@ -226,7 +226,7 @@ function buildProgressiveGraph(
   if (businessVisible) {
     nodes.push({
       id: "business",
-      position: { x: 340, y: 110 },
+      position: { x: 1040, y: 340 },
       data: {
         label: `${isBusinessComplete(state) ? "Completado" : "En progreso"} · Negocio`,
       },
@@ -239,8 +239,8 @@ function buildProgressiveGraph(
       if (!rawValue.trim()) return;
       const row = Math.floor(index / 2);
       const col = index % 2;
-      const x = 260 + col * 250;
-      const y = 240 + row * 86;
+      const x = 960 + col * 250;
+      const y = 470 + row * 86;
       const value = fieldNodeValue(rawValue);
       const fieldNodeId = `business-${field.key}`;
       nodes.push({
@@ -262,7 +262,7 @@ function buildProgressiveGraph(
   if (toolsVisible) {
     nodes.push({
       id: "tools",
-      position: { x: 760, y: 110 },
+      position: { x: 700, y: 120 },
       data: { label: `Tools (${state.selected_tools.length})` },
       style: withCardStyle(200),
     });
@@ -272,7 +272,7 @@ function buildProgressiveGraph(
   if (personalityVisible) {
     nodes.push({
       id: "personality",
-      position: { x: 1030, y: 110 },
+      position: { x: 330, y: 340 },
       data: {
         label: `${isPersonalityComplete(state) ? "Completado" : "En progreso"} · Personalidad`,
       },
@@ -289,7 +289,7 @@ function buildProgressiveGraph(
     const openTasks = pendingTasks.filter((task) => task.status === "pending").length;
     nodes.push({
       id: "tasks",
-      position: { x: 830, y: 520 },
+      position: { x: 700, y: 610 },
       data: { label: `Tareas pendientes (${openTasks})` },
       style: withCardStyle(230),
     });
@@ -301,7 +301,7 @@ function buildProgressiveGraph(
   if (completeVisible) {
     nodes.push({
       id: "complete",
-      position: { x: 1320, y: 110 },
+      position: { x: 700, y: 20 },
       data: { label: state.creation_step === "complete" ? "Builder finalizado" : "Confirmación" },
       style: withCardStyle(210),
     });
