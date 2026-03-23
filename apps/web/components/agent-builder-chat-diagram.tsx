@@ -35,6 +35,14 @@ import {
 import { cn } from "@/lib/utils";
 
 type ChatMessage = { id: string; role: "assistant" | "user"; text: string };
+const THINKING_LABELS = [
+  "Construyendo agente...",
+  "Refinando agente...",
+  "Analizando contexto...",
+  "Buscando tools relevantes...",
+  "Ajustando la respuesta...",
+  "Optimizando el flujo...",
+];
 
 type DraftState = {
   agent_name: string;
@@ -257,6 +265,8 @@ export function AgentBuilderChatDiagram() {
   const [queuedDeferredTexts, setQueuedDeferredTexts] = useState<string[]>([]);
   const [confirmedSummary, setConfirmedSummary] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
+  const [thinkingLabel, setThinkingLabel] = useState("Construyendo agente...");
+  const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       id: nowId(),
@@ -291,9 +301,15 @@ export function AgentBuilderChatDiagram() {
     setChatMessages((prev) => [...prev, { id: nowId(), role, text }]);
   }, []);
 
+  const pickThinkingLabel = useCallback(() => {
+    const index = Math.floor(Math.random() * THINKING_LABELS.length);
+    return THINKING_LABELS[index] ?? THINKING_LABELS[0];
+  }, []);
+
   const addAssistantMessageProgressive = useCallback(async (fullText: string) => {
     const id = nowId();
     const normalized = fullText.trim();
+    setTypingMessageId(id);
     setChatMessages((prev) => [...prev, { id, role: "assistant", text: "" }]);
     if (!normalized) return;
     const step = normalized.length > 420 ? 5 : normalized.length > 220 ? 4 : 3;
@@ -304,6 +320,7 @@ export function AgentBuilderChatDiagram() {
       );
       await new Promise((resolve) => setTimeout(resolve, 16));
     }
+    setTypingMessageId((current) => (current === id ? null : current));
   }, []);
 
   const updateStepFromState = useCallback(
@@ -605,6 +622,7 @@ export function AgentBuilderChatDiagram() {
       return;
     }
 
+    setThinkingLabel(pickThinkingLabel());
     setIsThinking(true);
     try {
       const llmRes = await postAgentBuilderChat({
@@ -633,6 +651,7 @@ export function AgentBuilderChatDiagram() {
     persistState,
     readyToConfirm,
     updateStepFromState,
+    pickThinkingLabel,
   ]);
 
   useEffect(() => {
@@ -724,13 +743,20 @@ export function AgentBuilderChatDiagram() {
                 )}
               >
                 {message.text}
+                {typingMessageId === message.id ? (
+                  <span className="ml-0.5 inline-block animate-pulse align-baseline font-mono">
+                    ▍
+                  </span>
+                ) : null}
               </div>
             ))}
             {isThinking ? (
-              <div className="max-w-[92%] rounded-xl border border-border/70 bg-muted/80 px-3 py-2 text-sm text-foreground">
-                <div className="relative overflow-hidden rounded-md">
-                  <div className="absolute inset-y-0 left-[-45%] w-1/2 animate-pulse bg-gradient-to-r from-transparent via-white/35 to-transparent" />
-                  <div className="relative">Pensando...</div>
+              <div className="max-w-[92%] px-1 py-1 text-sm text-muted-foreground">
+                <div className="relative inline-block">
+                  <span className="shine-text relative">
+                    {thinkingLabel}
+                    <span className="ml-0.5 inline-block animate-pulse">▍</span>
+                  </span>
                 </div>
               </div>
             ) : null}
@@ -786,6 +812,39 @@ export function AgentBuilderChatDiagram() {
           </div>
         </section>
       </div>
+      <style jsx>{`
+        .shine-text {
+          color: rgba(255, 255, 255, 0.34);
+          background-image: linear-gradient(
+            110deg,
+            rgba(255, 255, 255, 0.08) 0%,
+            rgba(255, 255, 255, 0.08) 42%,
+            rgba(255, 255, 255, 0.72) 50%,
+            rgba(255, 255, 255, 0.08) 58%,
+            rgba(255, 255, 255, 0.08) 100%
+          );
+          background-size: 220px 100%;
+          background-repeat: no-repeat;
+          background-clip: text;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          animation: subtle-shine 5s ease-in-out infinite;
+        }
+
+        @keyframes subtle-shine {
+          0%,
+          12% {
+            background-position: -220px 0;
+          }
+          45% {
+            background-position: 40% 0;
+          }
+          88%,
+          100% {
+            background-position: calc(100% + 220px) 0;
+          }
+        }
+      `}</style>
     </div>
   );
 }
