@@ -22,6 +22,13 @@ import {
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   createDraftPendingTask,
@@ -416,6 +423,10 @@ export function AgentBuilderChatDiagram() {
     complete: false,
   });
   const hasHydratedDraftRef = useRef(false);
+  /** Evita PATCH al hidratar un borrador ya marcado como completo en servidor. */
+  const skipDraftPersistenceRef = useRef(false);
+
+  const [agentCreatedDialogOpen, setAgentCreatedDialogOpen] = useState(false);
 
   const addMessage = useCallback(
     (role: ChatMessage["role"], text: string, displayText?: string) => {
@@ -661,6 +672,7 @@ export function AgentBuilderChatDiagram() {
   useEffect(() => {
     if (!draftFromUrl) {
       hasHydratedDraftRef.current = true;
+      skipDraftPersistenceRef.current = false;
       setLoadingDraft(false);
       return;
     }
@@ -731,27 +743,40 @@ export function AgentBuilderChatDiagram() {
           : [],
         creation_step: creationStep,
       });
+      const serverMarkedComplete = creationStepRaw === "complete";
+      const flowComplete =
+        serverMarkedComplete || nextState.creation_step === "complete";
+
       setDraftId(res.id);
       setDraftState(nextState);
-      setConfirmedSummary(nextState.creation_step === "complete");
-      const contextLines = [
-        "Borrador cargado. Este es tu contexto actual:",
-        nextState.business_name.trim() ? `- Negocio: ${nextState.business_name}` : null,
-        nextState.industry.trim() ? `- Industria: ${nextState.industry}` : null,
-        nextState.target_audience.trim() ? `- Audiencia: ${nextState.target_audience}` : null,
-        nextState.agent_description.trim()
-          ? `- Rol del agente: ${nextState.agent_description}`
-          : null,
-        nextState.agent_name.trim() ? `- Nombre del agente: ${nextState.agent_name}` : null,
-        `- Tools seleccionadas: ${nextState.selected_tools.length}`,
-      ].filter((line): line is string => Boolean(line));
-      setChatMessages([
-        {
-          id: nowId(),
-          role: "assistant",
-          text: contextLines.join("\n"),
-        },
-      ]);
+      setConfirmedSummary(flowComplete);
+
+      if (flowComplete) {
+        skipDraftPersistenceRef.current = true;
+        lastSyncedRef.current.complete = true;
+        setAgentCreatedDialogOpen(true);
+        setChatMessages([]);
+      } else {
+        skipDraftPersistenceRef.current = false;
+        const contextLines = [
+          "Borrador cargado. Este es tu contexto actual:",
+          nextState.business_name.trim() ? `- Negocio: ${nextState.business_name}` : null,
+          nextState.industry.trim() ? `- Industria: ${nextState.industry}` : null,
+          nextState.target_audience.trim() ? `- Audiencia: ${nextState.target_audience}` : null,
+          nextState.agent_description.trim()
+            ? `- Rol del agente: ${nextState.agent_description}`
+            : null,
+          nextState.agent_name.trim() ? `- Nombre del agente: ${nextState.agent_name}` : null,
+          `- Tools seleccionadas: ${nextState.selected_tools.length}`,
+        ].filter((line): line is string => Boolean(line));
+        setChatMessages([
+          {
+            id: nowId(),
+            role: "assistant",
+            text: contextLines.join("\n"),
+          },
+        ]);
+      }
       await syncPendingTasks(res.id);
       hasHydratedDraftRef.current = true;
       setIsHydratingDraft(false);
@@ -760,7 +785,7 @@ export function AgentBuilderChatDiagram() {
       cancelled = true;
       setIsHydratingDraft(false);
     };
-  }, [addMessage, draftFromUrl, syncPendingTasks, updateStepFromState]);
+  }, [draftFromUrl, syncPendingTasks, updateStepFromState]);
 
   const handleDeferredTask = useCallback(
     async (text: string) => {
@@ -891,6 +916,7 @@ export function AgentBuilderChatDiagram() {
   useEffect(() => {
     if (!hasHydratedDraftRef.current) return;
     if (loadingDraft || isHydratingDraft) return;
+    if (skipDraftPersistenceRef.current) return;
     void persistState(draftState, false);
   }, [draftState, isHydratingDraft, loadingDraft, persistState]);
 
@@ -949,7 +975,7 @@ export function AgentBuilderChatDiagram() {
               void handleSend();
             });
           }}
-          disabled={saving || !readyToConfirm}
+          disabled={saving || !readyToConfirm || agentCreatedDialogOpen}
         >
           {saving ? <Loader2Icon className="size-4 animate-spin" /> : <CheckIcon />}
           Confirmar y finalizar
@@ -1024,9 +1050,14 @@ export function AgentBuilderChatDiagram() {
                     void handleSend();
                   }
                 }}
+                disabled={agentCreatedDialogOpen}
                 placeholder="Escribe un mensaje..."
               />
-              <Button size="icon" onClick={() => void handleSend()} disabled={isThinking}>
+              <Button
+                size="icon"
+                onClick={() => void handleSend()}
+                disabled={isThinking || agentCreatedDialogOpen}
+              >
                 <SendIcon className="size-4" />
               </Button>
             </div>
@@ -1057,6 +1088,54 @@ export function AgentBuilderChatDiagram() {
           </div>
         </section>
       </div>
+      <Dialog open={agentCreatedDialogOpen}>
+        <DialogContent
+          showClose={false}
+          className="sm:max-w-md"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle>Agente creado</DialogTitle>
+            <DialogDescription>
+              El builder finalizó correctamente. Todos los datos del agente fueron
+              guardados.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 pt-2">
+            <Button
+              type="button"
+              onClick={() => {
+                setAgentCreatedDialogOpen(false);
+                router.push(draftId ? `/agents/${draftId}` : "/agents");
+              }}
+            >
+              Ir al agente
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setAgentCreatedDialogOpen(false);
+                router.push("/agents/new");
+              }}
+            >
+              Crear otro agente
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setAgentCreatedDialogOpen(false);
+                router.push("/");
+              }}
+            >
+              Ir al Dashboard
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <style jsx>{`
         .shine-text {
           color: rgba(255, 255, 255, 0.36);

@@ -301,6 +301,29 @@ function trimPatchStrings(patch: Record<string, unknown>): Record<string, unknow
   return out;
 }
 
+/**
+ * Concatena solo las partes `text` del candidato. No usar `response.text` del SDK:
+ * con `functionCall` en la misma respuesta puede lanzar o advertir (Vertex/Gemini).
+ */
+function extractTextFromModelResponse(response: unknown): string {
+  const candidates = (response as { candidates?: Array<{ content?: { parts?: unknown[] } }> })
+    ?.candidates;
+  const parts = candidates?.[0]?.content?.parts;
+  if (!Array.isArray(parts)) return "";
+  const chunks: string[] = [];
+  for (const part of parts) {
+    if (
+      part != null &&
+      typeof part === "object" &&
+      "text" in part &&
+      typeof (part as { text?: unknown }).text === "string"
+    ) {
+      chunks.push((part as { text: string }).text);
+    }
+  }
+  return chunks.join("").trim();
+}
+
 async function searchToolsDocsViaFileSearch(
   ai: GoogleGenAI,
   storeName: string,
@@ -317,7 +340,7 @@ async function searchToolsDocsViaFileSearch(
         tools: [{ fileSearch: { fileSearchStoreNames: [storeName] } }],
       } as never,
     });
-    return (res.text ?? "").trim();
+    return extractTextFromModelResponse(res);
   } catch {
     return "";
   }
@@ -351,6 +374,8 @@ export async function postAgentBuilderChat(
   }
 
   const { draftState, messages, pendingTasksCount } = parsed.data;
+
+  try {
   const lastMessages = messages.slice(-10);
   const catalog = await loadToolsCatalog();
 
@@ -461,7 +486,7 @@ Rules:
       .map((part) => part.functionCall)
       .find((x) => x != null);
 
-  let rawText = (firstResponse.text ?? "").trim();
+  let rawText = extractTextFromModelResponse(firstResponse);
   if (
     functionCall?.name === "search_tools_docs" &&
     typeof functionCall.args?.query === "string"
@@ -481,7 +506,7 @@ Rules:
       ].join("\n"),
       config: { systemInstruction, temperature: 0.35 } as never,
     });
-    rawText = (secondResponse.text ?? "").trim();
+    rawText = extractTextFromModelResponse(secondResponse);
   }
   const parsedJson = (() => {
     try {
@@ -538,5 +563,17 @@ Rules:
     draftPatch,
     ...(ui ? { ui } : {}),
   });
+  } catch (err) {
+    logger.error("postAgentBuilderChat failed", {
+      message: err instanceof Error ? err.message : String(err),
+    });
+    return c.json(
+      {
+        error:
+          "Error al generar la respuesta del builder. Si persiste, revisa la configuración de Vertex AI.",
+      },
+      500,
+    );
+  }
 }
 
