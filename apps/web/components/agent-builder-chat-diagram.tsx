@@ -37,13 +37,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   createDraftPendingTask,
+  createDraftPropertyItem,
+  deleteDraftPropertyItem,
   fetchAgentDraft,
+  fetchDraftPropertyItems,
   fetchDraftPendingTasks,
   fetchToolsCatalog,
+  patchDraftPropertyItem,
   postAgentBuilderChat,
   patchAgentDraft,
   postAgentDraft,
   type DraftPendingTask,
+  type DraftPropertyItem,
   type ToolsCatalogItem,
 } from "@/lib/agents-api";
 import { BuilderChatUiBlock } from "@/components/builder-chat-ui";
@@ -153,6 +158,20 @@ type ManualNode = {
   title: string;
   value: string;
 };
+
+type ManualSection = "business" | "personality";
+
+function manualSectionDocId(section: ManualSection): "business" | "personality" {
+  return section;
+}
+
+function mapDraftPropertyItemToManualNode(item: DraftPropertyItem): ManualNode {
+  return {
+    id: item.id,
+    title: item.title,
+    value: item.content,
+  };
+}
 
 const BUSINESS_FLOW: BusinessFieldKey[] = [
   "business_name",
@@ -645,7 +664,7 @@ export function AgentBuilderChatDiagram() {
   const [toolSearch, setToolSearch] = useState("");
   const [editingToolId, setEditingToolId] = useState<string | null>(null);
   const [manualDialogOpen, setManualDialogOpen] = useState(false);
-  const [manualSection, setManualSection] = useState<"business" | "personality">("business");
+  const [manualSection, setManualSection] = useState<ManualSection>("business");
   const [manualNodesBusiness, setManualNodesBusiness] = useState<ManualNode[]>([]);
   const [manualNodesPersonality, setManualNodesPersonality] = useState<ManualNode[]>([]);
   const [manualEditingId, setManualEditingId] = useState<string | null>(null);
@@ -760,7 +779,7 @@ export function AgentBuilderChatDiagram() {
   }, [updateStepFromState]);
 
   const openManualNodeDialog = useCallback(
-    (section: "business" | "personality", node?: ManualNode) => {
+    (section: ManualSection, node?: ManualNode) => {
       setManualSection(section);
       setManualEditingId(node?.id ?? null);
       setManualTitle(node?.title ?? "");
@@ -768,6 +787,28 @@ export function AgentBuilderChatDiagram() {
       setManualDialogOpen(true);
     },
     [],
+  );
+
+  const removeManualNode = useCallback(
+    async (section: ManualSection, itemId: string) => {
+      if (draftId) {
+        const deleted = await deleteDraftPropertyItem(
+          draftId,
+          manualSectionDocId(section),
+          itemId,
+        );
+        if (!deleted.ok) {
+          toast.error(deleted.error);
+          return;
+        }
+      }
+      if (section === "business") {
+        setManualNodesBusiness((prev) => prev.filter((node) => node.id !== itemId));
+      } else {
+        setManualNodesPersonality((prev) => prev.filter((node) => node.id !== itemId));
+      }
+    },
+    [draftId],
   );
 
   const graph = useMemo(
@@ -780,12 +821,8 @@ export function AgentBuilderChatDiagram() {
         manualNodesBusiness,
         manualNodesPersonality,
         removeToolFromDraft,
-        (nodeId) =>
-          setManualNodesBusiness((prev) => prev.filter((node) => node.id !== nodeId)),
-        (nodeId) =>
-          setManualNodesPersonality((prev) =>
-            prev.filter((node) => node.id !== nodeId),
-          ),
+        (nodeId) => void removeManualNode("business", nodeId),
+        (nodeId) => void removeManualNode("personality", nodeId),
       ),
     [
       catalogById,
@@ -794,6 +831,7 @@ export function AgentBuilderChatDiagram() {
       manualNodesBusiness,
       manualNodesPersonality,
       pendingTasks,
+      removeManualNode,
       removeToolFromDraft,
     ],
   );
@@ -801,6 +839,19 @@ export function AgentBuilderChatDiagram() {
   const syncPendingTasks = useCallback(async (id: string) => {
     const res = await fetchDraftPendingTasks(id);
     if (res) setPendingTasks(res.tasks);
+  }, []);
+
+  const syncManualNodesFromDraft = useCallback(async (id: string) => {
+    const [personalityRes, businessRes] = await Promise.all([
+      fetchDraftPropertyItems(id, "personality"),
+      fetchDraftPropertyItems(id, "business"),
+    ]);
+    if (personalityRes) {
+      setManualNodesPersonality(personalityRes.items.map(mapDraftPropertyItemToManualNode));
+    }
+    if (businessRes) {
+      setManualNodesBusiness(businessRes.items.map(mapDraftPropertyItemToManualNode));
+    }
   }, []);
 
   const flushQueuedDeferredTasks = useCallback(
@@ -920,7 +971,7 @@ export function AgentBuilderChatDiagram() {
         }
       }
     },
-    [draftId, flushQueuedDeferredTasks, router, syncPendingTasks, updateStepFromState],
+    [draftId, flushQueuedDeferredTasks, syncPendingTasks, updateStepFromState],
   );
 
   useEffect(() => {
@@ -940,6 +991,8 @@ export function AgentBuilderChatDiagram() {
       hasHydratedDraftRef.current = true;
       skipDraftPersistenceRef.current = false;
       setLoadingDraft(false);
+      setManualNodesBusiness([]);
+      setManualNodesPersonality([]);
       return;
     }
     let cancelled = false;
@@ -1044,6 +1097,7 @@ export function AgentBuilderChatDiagram() {
         ]);
       }
       await syncPendingTasks(res.id);
+      await syncManualNodesFromDraft(res.id);
       hasHydratedDraftRef.current = true;
       setIsHydratingDraft(false);
     })();
@@ -1051,7 +1105,7 @@ export function AgentBuilderChatDiagram() {
       cancelled = true;
       setIsHydratingDraft(false);
     };
-  }, [draftFromUrl, syncPendingTasks, updateStepFromState]);
+  }, [draftFromUrl, syncManualNodesFromDraft, syncPendingTasks, updateStepFromState]);
 
   const handleDeferredTask = useCallback(
     async (text: string) => {
@@ -1480,25 +1534,56 @@ export function AgentBuilderChatDiagram() {
               Cancelar
             </Button>
             <Button
-              onClick={() => {
+              onClick={async () => {
                 if (!manualTitle.trim() || !manualValue.trim()) return;
-                const payload: ManualNode = {
-                  id: manualEditingId ?? nowId(),
-                  title: manualTitle.trim(),
-                  value: manualValue.trim(),
-                };
-                if (manualSection === "business") {
-                  setManualNodesBusiness((prev) =>
-                    manualEditingId
-                      ? prev.map((item) => (item.id === manualEditingId ? payload : item))
-                      : [...prev, payload],
+                if (!draftId) {
+                  toast.error("Primero completa los datos base para crear el borrador.");
+                  return;
+                }
+                const sectionDocId = manualSectionDocId(manualSection);
+                if (manualEditingId) {
+                  const updated = await patchDraftPropertyItem(
+                    draftId,
+                    sectionDocId,
+                    manualEditingId,
+                    {
+                      title: manualTitle.trim(),
+                      content: manualValue.trim(),
+                    },
                   );
+                  if (!updated.ok) {
+                    toast.error(updated.error);
+                    return;
+                  }
+                  const payload = mapDraftPropertyItemToManualNode(updated.item);
+                  if (manualSection === "business") {
+                    setManualNodesBusiness((prev) =>
+                      prev.map((item) => (item.id === manualEditingId ? payload : item)),
+                    );
+                  } else {
+                    setManualNodesPersonality((prev) =>
+                      prev.map((item) => (item.id === manualEditingId ? payload : item)),
+                    );
+                  }
                 } else {
-                  setManualNodesPersonality((prev) =>
-                    manualEditingId
-                      ? prev.map((item) => (item.id === manualEditingId ? payload : item))
-                      : [...prev, payload],
+                  const created = await createDraftPropertyItem(
+                    draftId,
+                    sectionDocId,
+                    {
+                      title: manualTitle.trim(),
+                      content: manualValue.trim(),
+                    },
                   );
+                  if (!created.ok) {
+                    toast.error(created.error);
+                    return;
+                  }
+                  const payload = mapDraftPropertyItemToManualNode(created.item);
+                  if (manualSection === "business") {
+                    setManualNodesBusiness((prev) => [...prev, payload]);
+                  } else {
+                    setManualNodesPersonality((prev) => [...prev, payload]);
+                  }
                 }
                 setManualDialogOpen(false);
                 setManualEditingId(null);

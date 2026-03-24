@@ -1,11 +1,15 @@
 import { Hono } from "hono";
 
 import {
+  deleteDraftPropertyItem,
   getAgentDraft,
+  getDraftPropertyItems,
   getDraftPendingTasks,
   getToolsCatalog,
+  patchDraftPropertyItem,
   patchDraftPendingTask,
   patchAgentDraft,
+  postDraftPropertyItem,
   postDraftPendingTask,
   postAgentDraft,
 } from "@/controllers/agent-drafts.controller";
@@ -106,6 +110,54 @@ agentsRouter.patch("/drafts/:draftId/tasks/:taskId", async (c) => {
   if (!draftId || !taskId) return c.json({ error: "Tarea no encontrada" }, 404);
   return patchDraftPendingTask(c, ctx.authCtx, draftId, taskId);
 });
+
+agentsRouter.get("/drafts/:draftId/properties/:documentId/items", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const draftId = c.req.param("draftId")?.trim() ?? "";
+  const documentId = c.req.param("documentId")?.trim() ?? "";
+  if (!draftId || !documentId) return c.json({ error: "Recurso no encontrado" }, 404);
+  return getDraftPropertyItems(c, ctx.authCtx, draftId, documentId);
+});
+
+agentsRouter.post("/drafts/:draftId/properties/:documentId/items", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const draftId = c.req.param("draftId")?.trim() ?? "";
+  const documentId = c.req.param("documentId")?.trim() ?? "";
+  if (!draftId || !documentId) return c.json({ error: "Recurso no encontrado" }, 404);
+  return postDraftPropertyItem(c, ctx.authCtx, draftId, documentId);
+});
+
+agentsRouter.patch(
+  "/drafts/:draftId/properties/:documentId/items/:itemId",
+  async (c) => {
+    const ctx = await resolveAgentsAuthContext(c);
+    if (!ctx.ok) return ctx.response;
+    const draftId = c.req.param("draftId")?.trim() ?? "";
+    const documentId = c.req.param("documentId")?.trim() ?? "";
+    const itemId = c.req.param("itemId")?.trim() ?? "";
+    if (!draftId || !documentId || !itemId) {
+      return c.json({ error: "Recurso no encontrado" }, 404);
+    }
+    return patchDraftPropertyItem(c, ctx.authCtx, draftId, documentId, itemId);
+  },
+);
+
+agentsRouter.delete(
+  "/drafts/:draftId/properties/:documentId/items/:itemId",
+  async (c) => {
+    const ctx = await resolveAgentsAuthContext(c);
+    if (!ctx.ok) return ctx.response;
+    const draftId = c.req.param("draftId")?.trim() ?? "";
+    const documentId = c.req.param("documentId")?.trim() ?? "";
+    const itemId = c.req.param("itemId")?.trim() ?? "";
+    if (!draftId || !documentId || !itemId) {
+      return c.json({ error: "Recurso no encontrado" }, 404);
+    }
+    return deleteDraftPropertyItem(c, ctx.authCtx, draftId, documentId, itemId);
+  },
+);
 
 agentsRouter.get("/:agentId/properties", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);

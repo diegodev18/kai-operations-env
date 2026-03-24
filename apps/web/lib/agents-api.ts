@@ -26,6 +26,14 @@ export type {
   BuilderChatUI,
 };
 
+export type DraftPropertyItem = {
+  id: string;
+  title: string;
+  content: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
 /** Tama?o de cada p?gina al listar agentes (carga perezosa: primero solo esta cantidad). */
 export const AGENTS_PAGE_SIZE = 15;
 
@@ -357,6 +365,100 @@ export async function patchDraftPendingTask(
   }
   if (!data.task) return { ok: false, error: "Respuesta inv?lida del servidor" };
   return { ok: true, task: data.task };
+}
+
+export async function fetchDraftPropertyItems(
+  draftId: string,
+  documentId: "personality" | "business",
+): Promise<{ items: DraftPropertyItem[] } | null> {
+  const res = await fetch(
+    `/api/agents/drafts/${encodeURIComponent(draftId)}/properties/${encodeURIComponent(documentId)}/items`,
+    {
+      credentials: "include",
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) return null;
+  try {
+    return (await res.json()) as { items: DraftPropertyItem[] };
+  } catch {
+    return null;
+  }
+}
+
+export async function createDraftPropertyItem(
+  draftId: string,
+  documentId: "personality" | "business",
+  body: { title: string; content: string },
+): Promise<{ ok: true; item: DraftPropertyItem } | { ok: false; error: string }> {
+  const res = await fetch(
+    `/api/agents/drafts/${encodeURIComponent(draftId)}/properties/${encodeURIComponent(documentId)}/items`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    },
+  );
+  let data: { item?: DraftPropertyItem; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return { ok: false, error: data.error ?? "No se pudo crear el item" };
+  }
+  if (!data.item) return { ok: false, error: "Respuesta inv?lida del servidor" };
+  return { ok: true, item: data.item };
+}
+
+export async function patchDraftPropertyItem(
+  draftId: string,
+  documentId: "personality" | "business",
+  itemId: string,
+  body: { title?: string; content?: string },
+): Promise<{ ok: true; item: DraftPropertyItem } | { ok: false; error: string }> {
+  const res = await fetch(
+    `/api/agents/drafts/${encodeURIComponent(draftId)}/properties/${encodeURIComponent(documentId)}/items/${encodeURIComponent(itemId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    },
+  );
+  let data: { item?: DraftPropertyItem; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) return { ok: false, error: data.error ?? "No se pudo actualizar el item" };
+  if (!data.item) return { ok: false, error: "Respuesta inv?lida del servidor" };
+  return { ok: true, item: data.item };
+}
+
+export async function deleteDraftPropertyItem(
+  draftId: string,
+  documentId: "personality" | "business",
+  itemId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const res = await fetch(
+    `/api/agents/drafts/${encodeURIComponent(draftId)}/properties/${encodeURIComponent(documentId)}/items/${encodeURIComponent(itemId)}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+    },
+  );
+  let data: { ok?: boolean; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) return { ok: false, error: data.error ?? "No se pudo eliminar el item" };
+  return { ok: true };
 }
 
 /** Detalle del agente (GET /api/agents/:id). */

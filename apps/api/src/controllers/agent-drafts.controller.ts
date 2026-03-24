@@ -19,6 +19,7 @@ import { isOperationsAdmin } from "@/utils/operations-access";
 const AGENT_DRAFTS = "agent_drafts";
 const TOOLS_CATALOG = "toolsCatalog";
 const PENDING_TASKS = "pending_tasks";
+const DRAFT_PROPERTY_DOC_IDS = new Set(["personality", "business"]);
 
 const postDraftBodySchema = z.object({
   agent_name: z.string().trim().min(1, "agent_name es obligatorio"),
@@ -68,6 +69,20 @@ const patchDraftPendingTaskSchema = z.object({
   title: z.string().trim().min(1).optional(),
   context: z.string().trim().optional(),
 });
+
+const createDraftPropertyItemSchema = z.object({
+  title: z.string().trim().min(1, "title es obligatorio"),
+  content: z.string().trim().min(1, "content es obligatorio"),
+});
+
+const patchDraftPropertyItemSchema = z
+  .object({
+    title: z.string().trim().min(1).optional(),
+    content: z.string().trim().min(1).optional(),
+  })
+  .refine((body) => Object.keys(body).length > 0, {
+    message: "No hay cambios para aplicar",
+  });
 
 const patchDraftBodySchema = z.discriminatedUnion("step", [
   patchPersonalitySchema,
@@ -435,6 +450,23 @@ function serializePendingTaskForClient(
   };
 }
 
+function isDraftPropertyDocumentId(value: string): boolean {
+  return DRAFT_PROPERTY_DOC_IDS.has(value);
+}
+
+function serializeDraftPropertyItemForClient(
+  id: string,
+  data: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    id,
+    title: typeof data.title === "string" ? data.title : "",
+    content: typeof data.content === "string" ? data.content : "",
+    created_at: serializeValue(data.created_at),
+    updated_at: serializeValue(data.updated_at),
+  };
+}
+
 async function getAuthorizedDraftRef(
   authCtx: AgentsInfoAuthContext,
   draftId: string,
@@ -590,6 +622,197 @@ export async function patchDraftPendingTask(
   } catch (error) {
     const r = handleFirestoreError(c, error, "[agents/drafts/:id/tasks PATCH]");
     return r ?? c.json({ error: "Error al actualizar tarea pendiente." }, 500);
+  }
+}
+
+export async function getDraftPropertyItems(
+  c: Context,
+  authCtx: AgentsInfoAuthContext,
+  draftId: string,
+  documentId: string,
+) {
+  if (!isDraftPropertyDocumentId(documentId)) {
+    return c.json({ error: "documentId inválido" }, 400);
+  }
+  try {
+    const auth = await getAuthorizedDraftRef(authCtx, draftId);
+    if (!auth.ok) {
+      return c.json(
+        { error: auth.code === 404 ? "Borrador no encontrado" : "No autorizado" },
+        auth.code,
+      );
+    }
+    const snap = await auth.draftRef
+      .collection("properties")
+      .doc(documentId)
+      .collection("items")
+      .orderBy("created_at", "asc")
+      .get();
+    const items = snap.docs.map((doc) =>
+      serializeDraftPropertyItemForClient(
+        doc.id,
+        (doc.data() as Record<string, unknown>) ?? {},
+      ),
+    );
+    return c.json({ items });
+  } catch (error) {
+    const r = handleFirestoreError(
+      c,
+      error,
+      "[agents/drafts/:id/properties/:documentId/items GET]",
+    );
+    return r ?? c.json({ error: "Error al listar items de properties." }, 500);
+  }
+}
+
+export async function postDraftPropertyItem(
+  c: Context,
+  authCtx: AgentsInfoAuthContext,
+  draftId: string,
+  documentId: string,
+) {
+  if (!isDraftPropertyDocumentId(documentId)) {
+    return c.json({ error: "documentId inválido" }, 400);
+  }
+  let raw: unknown;
+  try {
+    raw = await c.req.json();
+  } catch {
+    return c.json({ error: "JSON inválido" }, 400);
+  }
+  const parsed = createDraftPropertyItemSchema.safeParse(raw);
+  if (!parsed.success) {
+    const msg = parsed.error.issues.map((i) => i.message).join("; ");
+    return c.json({ error: msg }, 400);
+  }
+  try {
+    const auth = await getAuthorizedDraftRef(authCtx, draftId);
+    if (!auth.ok) {
+      return c.json(
+        { error: auth.code === 404 ? "Borrador no encontrado" : "No autorizado" },
+        auth.code,
+      );
+    }
+    const ts = serverTimestampField();
+    const payload: Record<string, unknown> = {
+      title: parsed.data.title,
+      content: parsed.data.content,
+      created_at: ts,
+      updated_at: ts,
+    };
+    const docRef = await auth.draftRef
+      .collection("properties")
+      .doc(documentId)
+      .collection("items")
+      .add(payload);
+    const created = await docRef.get();
+    return c.json({
+      item: serializeDraftPropertyItemForClient(
+        docRef.id,
+        (created.data() as Record<string, unknown>) ?? payload,
+      ),
+    });
+  } catch (error) {
+    const r = handleFirestoreError(
+      c,
+      error,
+      "[agents/drafts/:id/properties/:documentId/items POST]",
+    );
+    return r ?? c.json({ error: "Error al crear item de properties." }, 500);
+  }
+}
+
+export async function patchDraftPropertyItem(
+  c: Context,
+  authCtx: AgentsInfoAuthContext,
+  draftId: string,
+  documentId: string,
+  itemId: string,
+) {
+  if (!isDraftPropertyDocumentId(documentId)) {
+    return c.json({ error: "documentId inválido" }, 400);
+  }
+  let raw: unknown;
+  try {
+    raw = await c.req.json();
+  } catch {
+    return c.json({ error: "JSON inválido" }, 400);
+  }
+  const parsed = patchDraftPropertyItemSchema.safeParse(raw);
+  if (!parsed.success) {
+    const msg = parsed.error.issues.map((i) => i.message).join("; ");
+    return c.json({ error: msg }, 400);
+  }
+  try {
+    const auth = await getAuthorizedDraftRef(authCtx, draftId);
+    if (!auth.ok) {
+      return c.json(
+        { error: auth.code === 404 ? "Borrador no encontrado" : "No autorizado" },
+        auth.code,
+      );
+    }
+    const itemRef = auth.draftRef
+      .collection("properties")
+      .doc(documentId)
+      .collection("items")
+      .doc(itemId);
+    const snap = await itemRef.get();
+    if (!snap.exists) return c.json({ error: "Item no encontrado" }, 404);
+    await itemRef.update({
+      ...parsed.data,
+      updated_at: serverTimestampField(),
+    });
+    const updated = await itemRef.get();
+    return c.json({
+      item: serializeDraftPropertyItemForClient(
+        itemId,
+        (updated.data() as Record<string, unknown>) ?? {},
+      ),
+    });
+  } catch (error) {
+    const r = handleFirestoreError(
+      c,
+      error,
+      "[agents/drafts/:id/properties/:documentId/items PATCH]",
+    );
+    return r ?? c.json({ error: "Error al actualizar item de properties." }, 500);
+  }
+}
+
+export async function deleteDraftPropertyItem(
+  c: Context,
+  authCtx: AgentsInfoAuthContext,
+  draftId: string,
+  documentId: string,
+  itemId: string,
+) {
+  if (!isDraftPropertyDocumentId(documentId)) {
+    return c.json({ error: "documentId inválido" }, 400);
+  }
+  try {
+    const auth = await getAuthorizedDraftRef(authCtx, draftId);
+    if (!auth.ok) {
+      return c.json(
+        { error: auth.code === 404 ? "Borrador no encontrado" : "No autorizado" },
+        auth.code,
+      );
+    }
+    const itemRef = auth.draftRef
+      .collection("properties")
+      .doc(documentId)
+      .collection("items")
+      .doc(itemId);
+    const snap = await itemRef.get();
+    if (!snap.exists) return c.json({ error: "Item no encontrado" }, 404);
+    await itemRef.delete();
+    return c.json({ ok: true, id: itemId });
+  } catch (error) {
+    const r = handleFirestoreError(
+      c,
+      error,
+      "[agents/drafts/:id/properties/:documentId/items DELETE]",
+    );
+    return r ?? c.json({ error: "Error al eliminar item de properties." }, 500);
   }
 }
 
