@@ -367,6 +367,51 @@ export async function patchDraftPendingTask(
   return { ok: true, task: data.task };
 }
 
+export async function fetchDraftTechnicalProperties(
+  draftId: string,
+): Promise<Record<string, Record<string, unknown>> | null> {
+  const res = await fetch(
+    `/api/agents/drafts/${encodeURIComponent(draftId)}/technical-properties`,
+    {
+      credentials: "include",
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) return null;
+  try {
+    const data = (await res.json()) as { properties?: Record<string, Record<string, unknown>> };
+    return data.properties ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function patchDraftTechnicalPropertyDocument(
+  draftId: string,
+  documentId: string,
+  body: Record<string, unknown>,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const res = await fetch(
+    `/api/agents/drafts/${encodeURIComponent(draftId)}/properties/${encodeURIComponent(documentId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    },
+  );
+  let data: { error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return { ok: false, error: data.error ?? "No se pudo guardar la propiedad" };
+  }
+  return { ok: true };
+}
+
 export async function fetchDraftPropertyItems(
   draftId: string,
   documentId: "personality" | "business",
@@ -509,8 +554,19 @@ export async function postAgentBuilderChat(body: {
   messages: BuilderChatMessage[];
   draftState: Record<string, unknown>;
   pendingTasksCount?: number;
+  draftId?: string;
 }): Promise<
-  | { ok: true; assistantMessage: string; draftPatch: BuilderChatDraftPatch; ui?: BuilderChatUI }
+  | {
+      ok: true;
+      assistantMessage: string;
+      draftPatch: BuilderChatDraftPatch;
+      ui?: BuilderChatUI;
+      appliedPropertyPatches?: Array<{
+        documentId: string;
+        fieldKey: string;
+        value: unknown;
+      }>;
+    }
   | { ok: false; error: string }
 > {
   const res = await fetch("/api/agents/builder/chat", {
@@ -524,6 +580,11 @@ export async function postAgentBuilderChat(body: {
     draftPatch?: BuilderChatDraftPatch;
     ui?: BuilderChatUI;
     error?: string;
+    appliedPropertyPatches?: Array<{
+      documentId: string;
+      fieldKey: string;
+      value: unknown;
+    }>;
   } = {};
   try {
     data = (await res.json()) as typeof data;
@@ -541,6 +602,9 @@ export async function postAgentBuilderChat(body: {
     assistantMessage: data.assistantMessage,
     draftPatch: data.draftPatch ?? {},
     ...(data.ui ? { ui: data.ui } : {}),
+    ...(data.appliedPropertyPatches?.length
+      ? { appliedPropertyPatches: data.appliedPropertyPatches }
+      : {}),
   };
 }
 

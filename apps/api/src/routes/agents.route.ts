@@ -5,9 +5,11 @@ import {
   getAgentDraft,
   getDraftPropertyItems,
   getDraftPendingTasks,
+  getDraftTechnicalPropertiesBundle,
   getToolsCatalog,
   patchDraftPropertyItem,
   patchDraftPendingTask,
+  patchDraftTechnicalPropertyDocument,
   patchAgentDraft,
   postDraftPropertyItem,
   postDraftPendingTask,
@@ -84,6 +86,30 @@ agentsRouter.patch("/drafts/:draftId", async (c) => {
   const draftId = c.req.param("draftId")?.trim() ?? "";
   if (!draftId) return c.json({ error: "Borrador no encontrado" }, 404);
   return patchAgentDraft(c, ctx.authCtx, draftId);
+});
+
+agentsRouter.get("/drafts/:draftId/technical-properties", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const draftId = c.req.param("draftId")?.trim() ?? "";
+  if (!draftId) return c.json({ error: "Borrador no encontrado" }, 404);
+  return getDraftTechnicalPropertiesBundle(c, ctx.authCtx, draftId);
+});
+
+agentsRouter.patch("/drafts/:draftId/properties/:documentId", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const draftId = c.req.param("draftId")?.trim() ?? "";
+  const documentId = c.req.param("documentId")?.trim() ?? "";
+  if (!draftId || !documentId) {
+    return c.json({ error: "Borrador o documento no encontrado" }, 404);
+  }
+  return patchDraftTechnicalPropertyDocument(
+    c,
+    ctx.authCtx,
+    draftId,
+    documentId,
+  );
 });
 
 agentsRouter.get("/drafts/:draftId/tasks", async (c) => {

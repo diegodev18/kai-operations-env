@@ -42,8 +42,10 @@ import {
   fetchAgentDraft,
   fetchDraftPropertyItems,
   fetchDraftPendingTasks,
+  fetchDraftTechnicalProperties,
   fetchToolsCatalog,
   patchDraftPropertyItem,
+  patchDraftTechnicalPropertyDocument,
   postAgentBuilderChat,
   patchAgentDraft,
   postAgentDraft,
@@ -52,7 +54,16 @@ import {
   type ToolsCatalogItem,
 } from "@/lib/agents-api";
 import { BuilderChatUiBlock } from "@/components/builder-chat-ui";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import { ToolsCatalogSearchList } from "@/components/tools-catalog-search-list";
+import {
+  BUILDER_TECHNICAL_FIELDS,
+  formatTechnicalFieldValue,
+  getTechFieldDefault,
+  isTechFieldAtDefault,
+} from "@/lib/builder-technical-properties";
+import { PROPERTY_DESCRIPTIONS, PROPERTY_TITLES } from "@/lib/property-descriptions";
 import type { BuilderChatUI } from "@/types/agents-api";
 import { cn } from "@/lib/utils";
 
@@ -305,6 +316,7 @@ function buildProgressiveGraph(
   confirmed: boolean,
   businessManualNodes: ManualNode[],
   personalityManualNodes: ManualNode[],
+  technicalProps: Record<string, Record<string, unknown>> | null,
   onRemoveTool: (toolId: string) => void,
   onRemoveManualBusinessNode: (nodeId: string) => void,
   onRemoveManualPersonalityNode: (nodeId: string) => void,
@@ -559,15 +571,68 @@ function buildProgressiveGraph(
 
   if (tasksVisible) {
     const openTasks = pendingTasks.filter((task) => task.status === "pending").length;
+    const propsBranch = state.creation_step !== "personality";
+    /* Debajo del bloque Propiedades cuando existe, para no solapar tarjetas técnicas (~7 filas). */
     nodes.push({
       id: "tasks",
-      position: { x: 700, y: 610 },
+      position: { x: 620, y: propsBranch ? 1720 : 610 },
       data: { label: `Tareas pendientes (${openTasks})` },
       style: withCardStyle(230),
     });
     if (businessVisible) {
       edges.push({ id: "e-business-tasks", source: "business", target: "tasks" });
     }
+  }
+
+  const propsVisible = state.creation_step !== "personality";
+  /** Izquierda del eje de Negocio (≥960) y debajo de filas de negocio (~470–900) para evitar solapes. */
+  const PROPS_ORIGIN_X = 40;
+  const PROPS_COL_STEP = 300;
+  const PROPS_ROOT = { x: 340, y: 920 };
+  /* Por debajo de negocio + nodos manuales y el botón agregar (hasta ~1200+ en Y). */
+  const PROPS_FIRST_ROW_Y = 1060;
+  const PROPS_ROW_STEP = 82;
+  if (propsVisible) {
+    nodes.push({
+      id: "properties-root",
+      position: PROPS_ROOT,
+      data: { label: "Propiedades" },
+      style: withCardStyle(220),
+    });
+    edges.push({
+      id: "e-root-properties",
+      source: "agentRoot",
+      target: "properties-root",
+    });
+    BUILDER_TECHNICAL_FIELDS.forEach((field, index) => {
+      const raw = technicalProps?.[field.documentId]?.[field.fieldKey];
+      const defVal = getTechFieldDefault(field.documentId, field.fieldKey);
+      const effective =
+        raw !== undefined && raw !== null ? raw : defVal;
+      const display = formatTechnicalFieldValue(field.kind, effective);
+      const dimmed = isTechFieldAtDefault(field.documentId, field.fieldKey, raw);
+      const title =
+        PROPERTY_TITLES[field.documentId]?.[field.fieldKey] ?? field.fieldKey;
+      const nodeId = `tech-${field.documentId}-${field.fieldKey}`;
+      const col = index % 2;
+      const row = Math.floor(index / 2);
+      nodes.push({
+        id: nodeId,
+        position: {
+          x: PROPS_ORIGIN_X + col * PROPS_COL_STEP,
+          y: PROPS_FIRST_ROW_Y + row * PROPS_ROW_STEP,
+        },
+        data: {
+          label: nodeLabelCard({ title, value: display }),
+        },
+        style: withCardStyle(278, dimmed),
+      });
+      edges.push({
+        id: `e-props-${nodeId}`,
+        source: "properties-root",
+        target: nodeId,
+      });
+    });
   }
 
   if (completeVisible) {
@@ -657,6 +722,15 @@ export function AgentBuilderChatDiagram() {
   >(null);
   const [requiredNodeLabel, setRequiredNodeLabel] = useState("");
   const [requiredNodeValue, setRequiredNodeValue] = useState("");
+  const [technicalPropsBundle, setTechnicalPropsBundle] = useState<
+    Record<string, Record<string, unknown>> | null
+  >(null);
+  const [techDialogOpen, setTechDialogOpen] = useState(false);
+  const [techEditDoc, setTechEditDoc] = useState<string | null>(null);
+  const [techEditKey, setTechEditKey] = useState<string | null>(null);
+  const [techBoolValue, setTechBoolValue] = useState(false);
+  const [techNumberValue, setTechNumberValue] = useState("");
+  const [techStringValue, setTechStringValue] = useState("");
 
   const addMessage = useCallback(
     (role: ChatMessage["role"], text: string, displayText?: string) => {
@@ -786,6 +860,48 @@ export function AgentBuilderChatDiagram() {
     [draftState],
   );
 
+  const syncTechnicalProps = useCallback(async (id: string) => {
+    const res = await fetchDraftTechnicalProperties(id);
+    if (res) setTechnicalPropsBundle(res);
+  }, []);
+
+  const openTechnicalPropertyDialog = useCallback(
+    (documentId: string, fieldKey: string) => {
+      const field = BUILDER_TECHNICAL_FIELDS.find(
+        (f) => f.documentId === documentId && f.fieldKey === fieldKey,
+      );
+      if (!field) return;
+      const raw = technicalPropsBundle?.[documentId]?.[fieldKey];
+      const def = getTechFieldDefault(documentId, fieldKey);
+      const effective = raw !== undefined && raw !== null ? raw : def;
+      setTechEditDoc(documentId);
+      setTechEditKey(fieldKey);
+      if (field.kind === "boolean") {
+        setTechBoolValue(effective === true);
+        setTechNumberValue("");
+        setTechStringValue("");
+      } else if (field.kind === "number") {
+        setTechBoolValue(false);
+        setTechNumberValue(
+          typeof effective === "number" && Number.isFinite(effective)
+            ? String(effective)
+            : typeof def === "number"
+              ? String(def)
+              : "",
+        );
+        setTechStringValue("");
+      } else {
+        setTechBoolValue(false);
+        setTechNumberValue("");
+        setTechStringValue(
+          typeof effective === "string" ? effective : typeof def === "string" ? def : "",
+        );
+      }
+      setTechDialogOpen(true);
+    },
+    [technicalPropsBundle],
+  );
+
   const removeManualNode = useCallback(
     async (section: ManualSection, itemId: string) => {
       if (draftId) {
@@ -817,6 +933,7 @@ export function AgentBuilderChatDiagram() {
         confirmedSummary,
         manualNodesBusiness,
         manualNodesPersonality,
+        technicalPropsBundle,
         removeToolFromDraft,
         (nodeId) => void removeManualNode("business", nodeId),
         (nodeId) => void removeManualNode("personality", nodeId),
@@ -830,6 +947,7 @@ export function AgentBuilderChatDiagram() {
       pendingTasks,
       removeManualNode,
       removeToolFromDraft,
+      technicalPropsBundle,
     ],
   );
 
@@ -990,6 +1108,7 @@ export function AgentBuilderChatDiagram() {
       setLoadingDraft(false);
       setManualNodesBusiness([]);
       setManualNodesPersonality([]);
+      setTechnicalPropsBundle(null);
       return;
     }
     let cancelled = false;
@@ -1095,6 +1214,10 @@ export function AgentBuilderChatDiagram() {
       }
       await syncPendingTasks(res.id);
       await syncManualNodesFromDraft(res.id);
+      if (creationStep !== "personality") {
+        const tech = await fetchDraftTechnicalProperties(res.id);
+        if (!cancelled && tech) setTechnicalPropsBundle(tech);
+      }
       hasHydratedDraftRef.current = true;
       setIsHydratingDraft(false);
     })();
@@ -1103,6 +1226,16 @@ export function AgentBuilderChatDiagram() {
       setIsHydratingDraft(false);
     };
   }, [draftFromUrl, syncManualNodesFromDraft, syncPendingTasks, updateStepFromState]);
+
+  useEffect(() => {
+    if (!draftId || draftState.creation_step === "personality") {
+      if (draftState.creation_step === "personality") {
+        setTechnicalPropsBundle(null);
+      }
+      return;
+    }
+    void syncTechnicalProps(draftId);
+  }, [draftId, draftState.creation_step, syncTechnicalProps]);
 
   const handleDeferredTask = useCallback(
     async (text: string) => {
@@ -1197,6 +1330,7 @@ export function AgentBuilderChatDiagram() {
           messages: [...chatMessages, { role: "user", text: trimmed }],
           draftState,
           pendingTasksCount: pendingTasks.length,
+          ...(draftId ? { draftId } : {}),
         });
         if (!llmRes.ok) {
           addMessage("assistant", `No pude responder en este momento: ${llmRes.error}`);
@@ -1204,6 +1338,9 @@ export function AgentBuilderChatDiagram() {
         }
         applyDraftPatch(llmRes.draftPatch as Record<string, unknown>);
         await addAssistantMessageProgressive(llmRes.assistantMessage, llmRes.ui);
+        if (draftId && draftState.creation_step !== "personality") {
+          await syncTechnicalProps(draftId);
+        }
       } finally {
         setIsThinking(false);
       }
@@ -1219,6 +1356,8 @@ export function AgentBuilderChatDiagram() {
       pendingTasks.length,
       persistState,
       readyToConfirm,
+      syncTechnicalProps,
+      draftId,
       updateStepFromState,
       pickThinkingLabel,
     ],
@@ -1441,6 +1580,16 @@ export function AgentBuilderChatDiagram() {
                 }
                 if (node.id === "personality-style") {
                   openRequiredNodeDialog("agent_personality", "Estilo");
+                  return;
+                }
+                if (node.id.startsWith("tech-")) {
+                  const rest = node.id.slice("tech-".length);
+                  const firstDash = rest.indexOf("-");
+                  if (firstDash > 0) {
+                    const docId = rest.slice(0, firstDash);
+                    const fieldKey = rest.slice(firstDash + 1);
+                    openTechnicalPropertyDialog(docId, fieldKey);
+                  }
                 }
               }}
               fitView
@@ -1504,6 +1653,119 @@ export function AgentBuilderChatDiagram() {
               </Button>
             ) : null}
           </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={techDialogOpen} onOpenChange={setTechDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {techEditDoc && techEditKey
+                ? PROPERTY_TITLES[techEditDoc]?.[techEditKey] ?? techEditKey
+                : "Propiedad técnica"}
+            </DialogTitle>
+            {techEditDoc && techEditKey ? (
+              <DialogDescription className="text-xs">
+                {PROPERTY_DESCRIPTIONS[techEditDoc]?.[techEditKey] ?? ""}
+              </DialogDescription>
+            ) : null}
+          </DialogHeader>
+          {(() => {
+            const field = BUILDER_TECHNICAL_FIELDS.find(
+              (f) => f.documentId === techEditDoc && f.fieldKey === techEditKey,
+            );
+            if (!field) {
+              return <p className="text-sm text-muted-foreground">Selecciona un nodo del diagrama.</p>;
+            }
+            if (field.kind === "boolean") {
+              return (
+                <div className="flex items-center gap-2 py-2">
+                  <Checkbox
+                    id="tech-bool-field"
+                    checked={techBoolValue}
+                    onCheckedChange={(v) => setTechBoolValue(v === true)}
+                  />
+                  <Label htmlFor="tech-bool-field" className="cursor-pointer font-normal">
+                    Activado
+                  </Label>
+                </div>
+              );
+            }
+            if (field.kind === "number") {
+              return (
+                <div className="space-y-1.5">
+                  <Label>Valor numérico</Label>
+                  <Input
+                    type="number"
+                    value={techNumberValue}
+                    onChange={(event) => setTechNumberValue(event.target.value)}
+                  />
+                </div>
+              );
+            }
+            return (
+              <div className="space-y-1.5">
+                <Label>Texto</Label>
+                <Textarea
+                  value={techStringValue}
+                  onChange={(event) => setTechStringValue(event.target.value)}
+                  rows={4}
+                />
+              </div>
+            );
+          })()}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setTechDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                void (async () => {
+                  if (!draftId || !techEditDoc || !techEditKey) return;
+                  const field = BUILDER_TECHNICAL_FIELDS.find(
+                    (f) => f.documentId === techEditDoc && f.fieldKey === techEditKey,
+                  );
+                  if (!field) return;
+                  const payload: Record<string, unknown> = {};
+                  if (field.kind === "boolean") {
+                    payload[techEditKey] = techBoolValue;
+                  } else if (field.kind === "number") {
+                    const n = Number(techNumberValue);
+                    if (!Number.isFinite(n)) {
+                      toast.error("Número inválido");
+                      return;
+                    }
+                    payload[techEditKey] = n;
+                  } else {
+                    const s = techStringValue.trim();
+                    if (!s.length) {
+                      toast.error("El texto no puede quedar vacío");
+                      return;
+                    }
+                    payload[techEditKey] = s;
+                  }
+                  const res = await patchDraftTechnicalPropertyDocument(
+                    draftId,
+                    techEditDoc,
+                    payload,
+                  );
+                  if (!res.ok) {
+                    toast.error(res.error);
+                    return;
+                  }
+                  toast.success("Propiedad guardada");
+                  setTechDialogOpen(false);
+                  await syncTechnicalProps(draftId);
+                })();
+              }}
+            >
+              Guardar
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
       <Dialog open={manualDialogOpen} onOpenChange={setManualDialogOpen}>

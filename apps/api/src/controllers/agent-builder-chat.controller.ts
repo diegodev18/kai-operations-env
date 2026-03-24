@@ -4,6 +4,8 @@ import { existsSync } from "fs";
 import { dirname, join } from "path";
 import { z } from "zod";
 
+import { buildBuilderPropertyHeuristicsText } from "@/constants/builder-suggested-properties";
+import { mergeBuilderTechnicalPropertyPatchesForChat } from "@/controllers/agent-drafts.controller";
 import { getFirestore } from "@/lib/firestore";
 import logger from "@/lib/logger";
 import type { AgentsInfoAuthContext } from "@/types/agents";
@@ -70,6 +72,8 @@ const bodySchema = z.object({
   messages: z.array(messageSchema).min(1),
   draftState: draftStateSchema,
   pendingTasksCount: z.number().int().min(0).optional().default(0),
+  /** Necesario para aplicar property_patch en Firestore (borrador). */
+  draftId: z.string().trim().min(1).optional(),
 });
 
 /** Límites UX para bloques UI emitidos por el modelo (sanitización en servidor). */
@@ -194,6 +198,12 @@ function sanitizeUi(raw: BuilderChatUi): BuilderChatUi {
   };
 }
 
+const propertyPatchEntrySchema = z.object({
+  documentId: z.string().min(1).max(40),
+  fieldKey: z.string().min(1).max(80),
+  value: z.union([z.boolean(), z.number(), z.string()]),
+});
+
 const responseBaseSchema = z.object({
   assistantMessage: z.string().min(1).max(12000),
   draftPatch: z
@@ -211,6 +221,8 @@ const responseBaseSchema = z.object({
       selected_tools: z.array(z.string()).optional(),
     })
     .optional(),
+  /** Cambios en properties técnicas del borrador (solo tras confirmación del usuario). */
+  property_patch: z.array(propertyPatchEntrySchema).max(24).optional(),
   ui: z.unknown().optional(),
 });
 
@@ -429,7 +441,7 @@ async function searchToolsDocsViaFileSearch(
 
 export async function postAgentBuilderChat(
   c: Context,
-  _authCtx: AgentsInfoAuthContext,
+  authCtx: AgentsInfoAuthContext,
 ) {
   let raw: unknown;
   try {
@@ -454,7 +466,8 @@ export async function postAgentBuilderChat(
     );
   }
 
-  const { draftState, messages, pendingTasksCount } = parsed.data;
+  const { draftState, messages, pendingTasksCount, draftId: draftIdFromBody } =
+    parsed.data;
 
   try {
     const lastMessages = messages.slice(-10);
@@ -502,9 +515,14 @@ Always output STRICT JSON only with this shape:
     "country"?: "string",
     "selected_tools"?: ["toolId1","toolId2"]
   },
+  "property_patch"?: [
+    { "documentId": "agent", "fieldKey": "isMultiMessageEnable", "value": true }
+  ],
   "ui"?: { ... } | omitted
 }
 Rules:
+- Infer business profile (type of business, audience, channels) from draftPatch and user text; use it to recommend 1–2 technical settings per turn when relevant. Never confuse agent.isMultiMessageEnable (model may return multiple WhatsApp bubbles in one turn via JSON array) with agent.isMultiMessageResponseEnable (debounce/group incoming user messages using response.waitTime).
+- property_patch: ONLY after the user clearly confirms they want that change (sí/ok/aplicar/confirma/activar/desactivar…). Use ONLY combinations of documentId + fieldKey + value allowed in the ALLOWLIST block of the user context. One or a few entries per turn. Omit property_patch entirely when still only proposing or asking.
 - Only include draftPatch keys if new reliable info appears in the latest user message or direct context.
 - selected_tools must contain ONLY valid tool IDs from catalog.
 - Never add multiple tools at once unless the user explicitly asks for bulk mode. Default behavior is one tool per turn.
@@ -523,11 +541,19 @@ Rules:
 - assistantMessage must include one next question when useful when appropriate.
 - Omit "ui" if free-form chat is enough.`;
 
+    const heuristics = buildBuilderPropertyHeuristicsText({
+      industry: draftState.industry,
+      description: draftState.description,
+      target_audience: draftState.target_audience,
+    });
+
     const userContext = [
       "Current draft state:",
       JSON.stringify(draftState),
       "",
       `Pending tasks count: ${pendingTasksCount}`,
+      "",
+      heuristics,
       "",
       "Recent conversation:",
       ...lastMessages.map(
@@ -659,9 +685,38 @@ Rules:
       : undefined;
     if (selectedTools) draftPatch.selected_tools = selectedTools;
 
+    const rawPropertyPatch = validated.data.property_patch;
+    let appliedPropertyPatches: Array<{
+      documentId: string;
+      fieldKey: string;
+      value: unknown;
+    }> = [];
+    if (rawPropertyPatch && rawPropertyPatch.length > 0) {
+      const did = draftIdFromBody?.trim();
+      if (!did) {
+        logger.warn(
+          "builder chat: property_patch present but draftId missing; not persisted",
+        );
+      } else {
+        const mergeResult = await mergeBuilderTechnicalPropertyPatchesForChat(
+          authCtx,
+          did,
+          rawPropertyPatch,
+        );
+        if (!mergeResult.ok) {
+          const code = mergeResult.status as 400 | 403 | 404;
+          return c.json({ error: mergeResult.error }, code);
+        }
+        appliedPropertyPatches = mergeResult.applied;
+      }
+    }
+
     return c.json({
       assistantMessage: validated.data.assistantMessage,
       draftPatch,
+      ...(appliedPropertyPatches.length > 0
+        ? { appliedPropertyPatches }
+        : {}),
       ...(ui ? { ui } : {}),
     });
   } catch (err) {

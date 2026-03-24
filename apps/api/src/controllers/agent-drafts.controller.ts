@@ -3,6 +3,12 @@ import type { DocumentReference, Firestore } from "firebase-admin/firestore";
 import { z } from "zod";
 
 import {
+  getBuilderAllowlistEntry,
+  isBuilderTechnicalDocumentId,
+  normalizeAndValidateBuilderPropertyValue,
+} from "@/constants/builder-suggested-properties";
+import {
+  PROPERTY_DOC_IDS,
   serverTimestampField,
   syncAiFieldsToDraftRoot,
   writeDefaultAgentProperties,
@@ -814,6 +820,151 @@ export async function deleteDraftPropertyItem(
     );
     return r ?? c.json({ error: "Error al eliminar item de properties." }, 500);
   }
+}
+
+const DRAFT_TECHNICAL_PROPERTY_DOC_IDS = [
+  "agent",
+  "response",
+  "prompt",
+  "memory",
+  "limitation",
+  "answer",
+] as const satisfies readonly (typeof PROPERTY_DOC_IDS)[number][];
+
+export async function mergeBuilderTechnicalPropertyPatchesForChat(
+  authCtx: AgentsInfoAuthContext,
+  draftId: string,
+  rawPatches: Array<{ documentId: string; fieldKey: string; value: unknown }>,
+): Promise<
+  | { ok: true; applied: Array<{ documentId: string; fieldKey: string; value: unknown }> }
+  | { ok: false; status: number; error: string }
+> {
+  if (rawPatches.length === 0) return { ok: true, applied: [] };
+  const auth = await getAuthorizedDraftRef(authCtx, draftId);
+  if (!auth.ok) {
+    return {
+      ok: false,
+      status: auth.code,
+      error:
+        auth.code === 404 ? "Borrador no encontrado" : "No autorizado",
+    };
+  }
+
+  const agentProp = await auth.draftRef.collection("properties").doc("agent").get();
+  if (!agentProp.exists) {
+    await writeDefaultAgentProperties(auth.draftRef);
+    await syncAiFieldsToDraftRoot(auth.draftRef);
+  }
+
+  const byDoc = new Map<string, Record<string, unknown>>();
+  const applied: Array<{ documentId: string; fieldKey: string; value: unknown }> =
+    [];
+
+  for (const p of rawPatches) {
+    const entry = getBuilderAllowlistEntry(p.documentId, p.fieldKey);
+    if (!entry) {
+      return {
+        ok: false,
+        status: 400,
+        error: `Campo no permitido en property_patch: ${p.documentId}.${p.fieldKey}`,
+      };
+    }
+    const norm = normalizeAndValidateBuilderPropertyValue(entry, p.value);
+    if (!norm.ok) {
+      return { ok: false, status: 400, error: norm.error };
+    }
+    const docId = entry.documentId;
+    const prev = byDoc.get(docId) ?? {};
+    prev[entry.fieldKey] = norm.value;
+    byDoc.set(docId, prev);
+    applied.push({ documentId: docId, fieldKey: entry.fieldKey, value: norm.value });
+  }
+
+  const batch = auth.draftRef.firestore.batch();
+  for (const [docId, data] of byDoc) {
+    batch.set(auth.draftRef.collection("properties").doc(docId), data, {
+      merge: true,
+    });
+  }
+  batch.update(auth.draftRef, {
+    updated_at: serverTimestampField(),
+  });
+  await batch.commit();
+
+  return { ok: true, applied };
+}
+
+export async function getDraftTechnicalPropertiesBundle(
+  c: Context,
+  authCtx: AgentsInfoAuthContext,
+  draftId: string,
+) {
+  try {
+    const auth = await getAuthorizedDraftRef(authCtx, draftId);
+    if (!auth.ok) {
+      return c.json(
+        { error: auth.code === 404 ? "Borrador no encontrado" : "No autorizado" },
+        auth.code,
+      );
+    }
+    const out: Record<string, Record<string, unknown>> = {};
+    for (const docId of DRAFT_TECHNICAL_PROPERTY_DOC_IDS) {
+      const snap = await auth.draftRef.collection("properties").doc(docId).get();
+      out[docId] = snap.exists
+        ? { ...((snap.data() as Record<string, unknown>) ?? {}) }
+        : {};
+    }
+    return c.json({ properties: out });
+  } catch (error) {
+    const r = handleFirestoreError(
+      c,
+      error,
+      "[agents/drafts/:id/technical-properties GET]",
+    );
+    return r ?? c.json({ error: "Error al leer propiedades técnicas del borrador." }, 500);
+  }
+}
+
+export async function patchDraftTechnicalPropertyDocument(
+  c: Context,
+  authCtx: AgentsInfoAuthContext,
+  draftId: string,
+  documentId: string,
+) {
+  if (!isBuilderTechnicalDocumentId(documentId)) {
+    return c.json({ error: "documentId no permitido" }, 400);
+  }
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "JSON inválido" }, 400);
+  }
+  if (body == null || typeof body !== "object" || Array.isArray(body)) {
+    return c.json({ error: "El cuerpo debe ser un objeto" }, 400);
+  }
+  const bodyObj = body as Record<string, unknown>;
+  const patches: Array<{ documentId: string; fieldKey: string; value: unknown }> =
+    [];
+  for (const [fieldKey, value] of Object.entries(bodyObj)) {
+    if (!getBuilderAllowlistEntry(documentId, fieldKey)) continue;
+    patches.push({ documentId, fieldKey, value });
+  }
+  if (patches.length === 0) {
+    return c.json({ error: "Ningún campo permitido en el cuerpo" }, 400);
+  }
+
+  const merged = await mergeBuilderTechnicalPropertyPatchesForChat(
+    authCtx,
+    draftId,
+    patches,
+  );
+  if (!merged.ok) {
+    const code = merged.status as 400 | 403 | 404;
+    return c.json({ error: merged.error }, code);
+  }
+
+  return c.json({ documentId, success: true, applied: merged.applied });
 }
 
 async function loadActiveToolsCatalogByDocId(
