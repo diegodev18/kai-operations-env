@@ -11,7 +11,8 @@ import type { AgentsInfoAuthContext } from "@/types/agents";
 const TOOLS_CATALOG = "toolsCatalog";
 const TOOLS_DOCS_STORE_DISPLAY_NAME = "agents-tools-default-docs";
 const MODEL = "gemini-2.5-pro";
-const TOOLS_DOCS_STORE_NAME_ENV = process.env.GEMINI_TOOLS_DOCS_STORE_NAME?.trim() ?? "";
+const TOOLS_DOCS_STORE_NAME_ENV =
+  process.env.GEMINI_TOOLS_DOCS_STORE_NAME?.trim() ?? "";
 
 const {
   FIREBASE_SERVICE_ACCOUNT_JSON,
@@ -109,7 +110,10 @@ const formFieldSchema = z
     kind: z.enum(["text", "textarea", "select"]),
     required: z.boolean().optional(),
     placeholder: z.string().max(200).optional(),
-    options: z.array(formFieldSelectOptionSchema).max(UI_MAX_SELECT_OPTIONS).optional(),
+    options: z
+      .array(formFieldSelectOptionSchema)
+      .max(UI_MAX_SELECT_OPTIONS)
+      .optional(),
   })
   .superRefine((data, ctx) => {
     if (data.kind === "select") {
@@ -145,7 +149,9 @@ function sanitizeUi(raw: BuilderChatUi): BuilderChatUi {
     return {
       type: "options",
       uiId: raw.uiId.trim(),
-      ...(raw.title?.trim() ? { title: raw.title.trim().slice(0, UI_MAX_TITLE) } : {}),
+      ...(raw.title?.trim()
+        ? { title: raw.title.trim().slice(0, UI_MAX_TITLE) }
+        : {}),
       options,
       ...(raw.multiSelect === true ? { multiSelect: true as const } : {}),
       ...(raw.submitLabel?.trim()
@@ -178,7 +184,9 @@ function sanitizeUi(raw: BuilderChatUi): BuilderChatUi {
     type: "form",
     uiId: raw.uiId.trim(),
     formId: raw.formId.trim(),
-    ...(raw.title?.trim() ? { title: raw.title.trim().slice(0, UI_MAX_TITLE) } : {}),
+    ...(raw.title?.trim()
+      ? { title: raw.title.trim().slice(0, UI_MAX_TITLE) }
+      : {}),
     fields,
     ...(raw.submitLabel?.trim()
       ? { submitLabel: raw.submitLabel.trim().slice(0, 64) }
@@ -210,7 +218,8 @@ let aiInstance: GoogleGenAI | null = null;
 let cachedStoreName: null | string = null;
 
 function getVertexCredsPath(): null | string {
-  if (productionCredsPath && existsSync(productionCredsPath)) return productionCredsPath;
+  if (productionCredsPath && existsSync(productionCredsPath))
+    return productionCredsPath;
   return null;
 }
 
@@ -220,13 +229,18 @@ function getAiInstance(): GoogleGenAI | null {
   try {
     const credsPath = getVertexCredsPath();
     if (!credsPath) {
-      logger.error("Vertex AI credentials file not found for agent builder chat", {
-        expectedPath: productionCredsPath,
-        fallbackPath: defaultCredsPath,
-        GOOGLE_APPLICATION_CREDENTIALS,
-        hasEnvJson:
-          !!(FIREBASE_SERVICE_ACCOUNT_JSON_PRODUCTION ?? FIREBASE_SERVICE_ACCOUNT_JSON),
-      });
+      logger.error(
+        "Vertex AI credentials file not found for agent builder chat",
+        {
+          expectedPath: productionCredsPath,
+          fallbackPath: defaultCredsPath,
+          GOOGLE_APPLICATION_CREDENTIALS,
+          hasEnvJson: !!(
+            FIREBASE_SERVICE_ACCOUNT_JSON_PRODUCTION ??
+            FIREBASE_SERVICE_ACCOUNT_JSON
+          ),
+        },
+      );
       return null;
     }
     process.env.GOOGLE_APPLICATION_CREDENTIALS = credsPath;
@@ -244,11 +258,13 @@ function getAiInstance(): GoogleGenAI | null {
 async function getToolsDocsStoreName(ai: GoogleGenAI): Promise<null | string> {
   if (TOOLS_DOCS_STORE_NAME_ENV) return TOOLS_DOCS_STORE_NAME_ENV;
   if (cachedStoreName) return cachedStoreName;
-  const maybeList = (ai as unknown as {
-    fileSearchStores?: {
-      list?: () => AsyncIterable<{ displayName?: string; name?: string }>;
-    };
-  }).fileSearchStores?.list;
+  const maybeList = (
+    ai as unknown as {
+      fileSearchStores?: {
+        list?: () => AsyncIterable<{ displayName?: string; name?: string }>;
+      };
+    }
+  ).fileSearchStores?.list;
   if (typeof maybeList !== "function") return null;
   try {
     const stores = await maybeList();
@@ -285,10 +301,14 @@ async function loadToolsCatalog(): Promise<CatalogItem[]> {
         description: typeof d.description === "string" ? d.description : "",
       };
     })
-    .filter((item): item is CatalogItem => item !== null && item.name.length > 0);
+    .filter(
+      (item): item is CatalogItem => item !== null && item.name.length > 0,
+    );
 }
 
-function trimPatchStrings(patch: Record<string, unknown>): Record<string, unknown> {
+function trimPatchStrings(
+  patch: Record<string, unknown>,
+): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(patch)) {
     if (typeof value === "string") {
@@ -306,8 +326,9 @@ function trimPatchStrings(patch: Record<string, unknown>): Record<string, unknow
  * con `functionCall` en la misma respuesta puede lanzar o advertir (Vertex/Gemini).
  */
 function extractTextFromModelResponse(response: unknown): string {
-  const candidates = (response as { candidates?: Array<{ content?: { parts?: unknown[] } }> })
-    ?.candidates;
+  const candidates = (
+    response as { candidates?: Array<{ content?: { parts?: unknown[] } }> }
+  )?.candidates;
   const parts = candidates?.[0]?.content?.parts;
   if (!Array.isArray(parts)) return "";
   const chunks: string[] = [];
@@ -322,6 +343,66 @@ function extractTextFromModelResponse(response: unknown): string {
     }
   }
   return chunks.join("").trim();
+}
+
+function stripMarkdownFences(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed.startsWith("```")) return trimmed;
+  return trimmed
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "")
+    .trim();
+}
+
+function extractBalancedJsonObject(input: string): string | null {
+  const text = input.trim();
+  const start = text.indexOf("{");
+  if (start < 0) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (ch === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) {
+        return text.slice(start, i + 1);
+      }
+    }
+  }
+  return null;
+}
+
+function parseCandidateJson(raw: string): unknown | null {
+  const candidates = [
+    raw,
+    stripMarkdownFences(raw),
+    extractBalancedJsonObject(raw) ?? "",
+  ]
+    .map((x) => x.trim())
+    .filter(Boolean);
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      // try next
+    }
+  }
+  return null;
 }
 
 async function searchToolsDocsViaFileSearch(
@@ -376,18 +457,18 @@ export async function postAgentBuilderChat(
   const { draftState, messages, pendingTasksCount } = parsed.data;
 
   try {
-  const lastMessages = messages.slice(-10);
-  const catalog = await loadToolsCatalog();
+    const lastMessages = messages.slice(-10);
+    const catalog = await loadToolsCatalog();
 
-  const catalogContext = catalog
-    .slice(0, 120)
-    .map(
-      (item) =>
-        `- id:${item.id} | name:${item.name} | display:${item.displayName} | description:${item.description}`,
-    )
-    .join("\n");
+    const catalogContext = catalog
+      .slice(0, 120)
+      .map(
+        (item) =>
+          `- id:${item.id} | name:${item.name} | display:${item.displayName} | description:${item.description}`,
+      )
+      .join("\n");
 
-  const systemInstruction = `You are an assistant that helps users build AI agents through natural conversation in Spanish.
+    const systemInstruction = `You are an assistant that helps users build AI agents through natural conversation in Spanish.
 You are the BUILDER/CONFIGURATOR, not the final deployed agent.
 CRITICAL: Never roleplay as the agent being built. Never answer as if you are that agent.
 CRITICAL: Never use first-person identity as the built agent (e.g. "Hola soy...", "yo te ayudo como mesero", etc.).
@@ -427,147 +508,162 @@ Rules:
 - Only include draftPatch keys if new reliable info appears in the latest user message or direct context.
 - selected_tools must contain ONLY valid tool IDs from catalog.
 - Never add multiple tools at once unless the user explicitly asks for bulk mode. Default behavior is one tool per turn.
-- For every tool recommendation, explain WHY it is useful for this business before asking to add it.
+- For every tool recommendation, provide a deep explanation of WHY it is useful for this business (purpose, when it is triggered, expected user impact, operational impact, and concrete example scenario).
 - Ask explicit confirmation before adding each tool (yes/no). Only include that tool in selected_tools after confirmation.
 - If a tool requires properties/config values, collect them first with ui.form fields, then ask final confirmation for that tool.
 - When waiting for confirmation or missing properties, keep selected_tools unchanged.
 - If user asks for tools recommendation, use File Search evidence and propose candidates (IDs), but do not write them into selected_tools until confirmation.
+- If there are two or more tools that solve similar needs, explicitly compare them before recommending one:
+  - state key differences in scope/capabilities,
+  - data/properties required,
+  - complexity of setup,
+  - risks/limitations,
+  - and a clear recommendation of which one fits this user's case better and why.
+- Prefer high-clarity, high-detail reasoning over brevity when discussing tools. Avoid generic descriptions.
 - assistantMessage must include one next question when useful when appropriate.
 - Omit "ui" if free-form chat is enough.`;
 
-  const userContext = [
-    "Current draft state:",
-    JSON.stringify(draftState),
-    "",
-    `Pending tasks count: ${pendingTasksCount}`,
-    "",
-    "Recent conversation:",
-    ...lastMessages.map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.text}`),
-    "",
-    "Tools catalog (subset):",
-    catalogContext,
-  ].join("\n");
+    const userContext = [
+      "Current draft state:",
+      JSON.stringify(draftState),
+      "",
+      `Pending tasks count: ${pendingTasksCount}`,
+      "",
+      "Recent conversation:",
+      ...lastMessages.map(
+        (m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.text}`,
+      ),
+      "",
+      "Tools catalog (subset):",
+      catalogContext,
+    ].join("\n");
 
-  const storeName = await getToolsDocsStoreName(ai);
-  const firstResponse = await ai.models.generateContent({
-    model: MODEL,
-    contents: userContext,
-    config: {
-      systemInstruction,
-      temperature: 0.35,
-      tools: [
-        {
-          functionDeclarations: [
-            {
-              name: "search_tools_docs",
-              description:
-                "Search tools documentation to recommend which tools to use.",
-              parameters: {
-                type: "object",
-                properties: {
-                  query: {
-                    type: "string",
-                    description: "User question about tools or tool recommendations.",
-                  },
-                },
-                required: ["query"],
-              },
-            },
-          ],
-        },
-      ],
-    } as never,
-  });
-
-  const functionCall =
-    ((firstResponse as unknown as {
-      functionCalls?: Array<{ args?: Record<string, unknown>; name?: string }>;
-    }).functionCalls ?? [])[0] ??
-    ((firstResponse as unknown as {
-      candidates?: Array<{
-        content?: { parts?: Array<{ functionCall?: { args?: Record<string, unknown>; name?: string } }> };
-      }>;
-    }).candidates?.[0]?.content?.parts ?? [])
-      .map((part) => part.functionCall)
-      .find((x) => x != null);
-
-  let rawText = extractTextFromModelResponse(firstResponse);
-  if (
-    functionCall?.name === "search_tools_docs" &&
-    typeof functionCall.args?.query === "string"
-  ) {
-    const query = functionCall.args.query.trim();
-    const toolResult =
-      storeName == null
-        ? "No hay File Search store disponible en este entorno."
-        : await searchToolsDocsViaFileSearch(ai, storeName, query);
-    const secondResponse = await ai.models.generateContent({
+    const storeName = await getToolsDocsStoreName(ai);
+    const firstResponse = await ai.models.generateContent({
       model: MODEL,
-      contents: [
-        userContext,
-        "",
-        "Function call output (search_tools_docs):",
-        toolResult || "Sin resultados en docs.",
-      ].join("\n"),
-      config: { systemInstruction, temperature: 0.35 } as never,
+      contents: userContext,
+      config: {
+        systemInstruction,
+        temperature: 0.35,
+        tools: [
+          {
+            functionDeclarations: [
+              {
+                name: "search_tools_docs",
+                description:
+                  "Search tools documentation to recommend which tools to use.",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    query: {
+                      type: "string",
+                      description:
+                        "User question about tools or tool recommendations.",
+                    },
+                  },
+                  required: ["query"],
+                },
+              },
+            ],
+          },
+        ],
+      } as never,
     });
-    rawText = extractTextFromModelResponse(secondResponse);
-  }
-  const parsedJson = (() => {
-    try {
-      return JSON.parse(rawText);
-    } catch {
-      const first = rawText.indexOf("{");
-      const last = rawText.lastIndexOf("}");
-      if (first >= 0 && last > first) {
-        try {
-          return JSON.parse(rawText.slice(first, last + 1));
-        } catch {
-          return null;
+
+    const functionCall =
+      ((
+        firstResponse as unknown as {
+          functionCalls?: Array<{
+            args?: Record<string, unknown>;
+            name?: string;
+          }>;
         }
+      ).functionCalls ?? [])[0] ??
+      (
+        (
+          firstResponse as unknown as {
+            candidates?: Array<{
+              content?: {
+                parts?: Array<{
+                  functionCall?: {
+                    args?: Record<string, unknown>;
+                    name?: string;
+                  };
+                }>;
+              };
+            }>;
+          }
+        ).candidates?.[0]?.content?.parts ?? []
+      )
+        .map((part) => part.functionCall)
+        .find((x) => x != null);
+
+    let rawText = extractTextFromModelResponse(firstResponse);
+    if (
+      functionCall?.name === "search_tools_docs" &&
+      typeof functionCall.args?.query === "string"
+    ) {
+      const query = functionCall.args.query.trim();
+      const toolResult =
+        storeName == null
+          ? "No hay File Search store disponible en este entorno."
+          : await searchToolsDocsViaFileSearch(ai, storeName, query);
+      const secondResponse = await ai.models.generateContent({
+        model: MODEL,
+        contents: [
+          userContext,
+          "",
+          "Function call output (search_tools_docs):",
+          toolResult || "Sin resultados en docs.",
+        ].join("\n"),
+        config: { systemInstruction, temperature: 0.35 } as never,
+      });
+      rawText = extractTextFromModelResponse(secondResponse);
+    }
+    const parsedJson = parseCandidateJson(rawText);
+
+    if (!parsedJson) {
+      return c.json({
+        assistantMessage:
+          "No pude interpretar la respuesta del modelo. Reintenta con más detalle.",
+        draftPatch: {},
+      });
+    }
+
+    const validated = responseBaseSchema.safeParse(parsedJson);
+    if (!validated.success) {
+      return c.json({
+        assistantMessage:
+          "No pude estructurar bien la respuesta del modelo. Probemos con otra pregunta.",
+        draftPatch: {},
+      });
+    }
+
+    let ui: BuilderChatUi | undefined;
+    if (validated.data.ui !== undefined && validated.data.ui !== null) {
+      const uiParsed = uiSchema.safeParse(validated.data.ui);
+      if (uiParsed.success) {
+        ui = sanitizeUi(uiParsed.data);
       }
-      return null;
     }
-  })();
 
-  if (!parsedJson) {
+    const draftPatch = trimPatchStrings(
+      (validated.data.draftPatch ?? {}) as Record<string, unknown>,
+    );
+    const selectedTools = Array.isArray(draftPatch.selected_tools)
+      ? (draftPatch.selected_tools as unknown[])
+          .filter(
+            (x): x is string => typeof x === "string" && x.trim().length > 0,
+          )
+          .filter((id) => catalog.some((tool) => tool.id === id))
+      : undefined;
+    if (selectedTools) draftPatch.selected_tools = selectedTools;
+
     return c.json({
-      assistantMessage:
-        "No pude interpretar la respuesta del modelo. Reintenta con más detalle.",
-      draftPatch: {},
+      assistantMessage: validated.data.assistantMessage,
+      draftPatch,
+      ...(ui ? { ui } : {}),
     });
-  }
-
-  const validated = responseBaseSchema.safeParse(parsedJson);
-  if (!validated.success) {
-    return c.json({
-      assistantMessage:
-        "No pude estructurar bien la respuesta del modelo. Probemos con otra pregunta.",
-      draftPatch: {},
-    });
-  }
-
-  let ui: BuilderChatUi | undefined;
-  if (validated.data.ui !== undefined && validated.data.ui !== null) {
-    const uiParsed = uiSchema.safeParse(validated.data.ui);
-    if (uiParsed.success) {
-      ui = sanitizeUi(uiParsed.data);
-    }
-  }
-
-  const draftPatch = trimPatchStrings((validated.data.draftPatch ?? {}) as Record<string, unknown>);
-  const selectedTools = Array.isArray(draftPatch.selected_tools)
-    ? (draftPatch.selected_tools as unknown[])
-        .filter((x): x is string => typeof x === "string" && x.trim().length > 0)
-        .filter((id) => catalog.some((tool) => tool.id === id))
-    : undefined;
-  if (selectedTools) draftPatch.selected_tools = selectedTools;
-
-  return c.json({
-    assistantMessage: validated.data.assistantMessage,
-    draftPatch,
-    ...(ui ? { ui } : {}),
-  });
   } catch (err) {
     logger.error("postAgentBuilderChat failed", {
       message: err instanceof Error ? err.message : String(err),
@@ -581,4 +677,3 @@ Rules:
     );
   }
 }
-
