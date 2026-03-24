@@ -2,14 +2,16 @@
 
 import "@xyflow/react/dist/style.css";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  applyNodeChanges,
   Background,
   ReactFlow,
   type Edge,
   type Node,
+  type NodeChange,
 } from "@xyflow/react";
 import {
   ArrowLeftIcon,
@@ -308,6 +310,15 @@ function nodeLabelCard({
       ) : null}
     </div>
   );
+}
+
+/** Al recalcular el grafo, mantiene posiciones que el usuario arrastró. */
+function mergeGraphNodesPreservingPositions(prev: Node[], next: Node[]): Node[] {
+  const posById = new Map(prev.map((n) => [n.id, n.position]));
+  return next.map((n) => {
+    const pos = posById.get(n.id);
+    return pos ? { ...n, position: pos } : n;
+  });
 }
 
 function buildProgressiveGraph(
@@ -981,6 +992,15 @@ export function AgentBuilderChatDiagram() {
     ],
   );
 
+  const [nodes, setNodes] = useState<Node[]>([]);
+  useLayoutEffect(() => {
+    setNodes((prev) => mergeGraphNodesPreservingPositions(prev, graph.nodes));
+  }, [graph]);
+
+  const onNodesChange = useCallback((changes: NodeChange[]) => {
+    setNodes((nds) => applyNodeChanges(changes, nds));
+  }, []);
+
   const syncPendingTasks = useCallback(async (id: string) => {
     const res = await fetchDraftPendingTasks(id);
     if (res) setPendingTasks(res.tasks);
@@ -1562,8 +1582,10 @@ export function AgentBuilderChatDiagram() {
         <section className="h-[calc(100vh-110px)] min-h-[700px] flex-1 rounded-xl border border-border bg-card p-3">
           <div className="h-full overflow-hidden rounded-lg border border-border">
             <ReactFlow
-              nodes={graph.nodes}
+              nodes={nodes}
               edges={graph.edges}
+              onNodesChange={onNodesChange}
+              nodesDraggable
               onNodeClick={(_event, node) => {
                 if (node.id === "tool-add") {
                   setEditingToolId(null);
