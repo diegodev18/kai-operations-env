@@ -426,7 +426,12 @@ Always output STRICT JSON only with this shape:
 Rules:
 - Only include draftPatch keys if new reliable info appears in the latest user message or direct context.
 - selected_tools must contain ONLY valid tool IDs from catalog.
-- If user asks for tools recommendation, use File Search evidence and suggest tools by IDs in selected_tools.
+- Never add multiple tools at once unless the user explicitly asks for bulk mode. Default behavior is one tool per turn.
+- For every tool recommendation, explain WHY it is useful for this business before asking to add it.
+- Ask explicit confirmation before adding each tool (yes/no). Only include that tool in selected_tools after confirmation.
+- If a tool requires properties/config values, collect them first with ui.form fields, then ask final confirmation for that tool.
+- When waiting for confirmation or missing properties, keep selected_tools unchanged.
+- If user asks for tools recommendation, use File Search evidence and propose candidates (IDs), but do not write them into selected_tools until confirmation.
 - assistantMessage must include one next question when useful when appropriate.
 - Omit "ui" if free-form chat is enough.`;
 

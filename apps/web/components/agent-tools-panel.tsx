@@ -8,7 +8,7 @@ import {
   useAgentTools,
 } from "@/hooks/agent-tools";
 import { useToolsCatalog } from "@/hooks/use-tools-catalog";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ParameterSchemaEditor } from "@/components/parameter-schema-editor";
+import { ToolsCatalogSearchList } from "@/components/tools-catalog-search-list";
 import {
   Loader2Icon,
   PlusIcon,
@@ -311,21 +312,7 @@ function AddToolDialog({
   const [agentPropertiesValues, setAgentPropertiesValues] = useState<Record<string, JsonRecord>>({});
   const [loadingAgentProperties, setLoadingAgentProperties] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [catalogDropdownOpen, setCatalogDropdownOpen] = useState(false);
-  const catalogDropdownRef = useRef<HTMLDivElement>(null);
-
   const { tools: catalogTools, isLoading: catalogLoading } = useToolsCatalog();
-  const catalogFiltered = useMemo(() => {
-    if (type !== "default" || !catalogTools.length) return [];
-    const q = name.trim().toLowerCase();
-    if (!q) return catalogTools.slice(0, 20);
-    return catalogTools
-      .filter((t) => t.name.toLowerCase().includes(q))
-      .slice(0, 20);
-  }, [type, name, catalogTools]);
-  useEffect(() => {
-    if (!open) setCatalogDropdownOpen(false);
-  }, [open]);
   const [displayName, setDisplayName] = useState("");
   const [path, setPath] = useState("");
   const selectCatalogTool = useCallback(
@@ -491,65 +478,32 @@ function AddToolDialog({
               {type === "default" && " (buscar en catálogo)"}
             </Label>
             {type === "default" ? (
-              <div className="space-y-1" ref={catalogDropdownRef}>
+              <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">
                   Elige una tool del catálogo para rellenar nombre, descripción y parámetros; podrás editarlos después.
                 </p>
-                <div className="relative">
-                  <Input
-                    id="add-tool-catalog-search"
-                    value={name}
-                    onChange={(e) => {
-                      setName(e.target.value);
-                      setToolPropertiesSchema(null);
-                      setAgentPropertiesValues({});
-                      setCatalogDropdownOpen(true);
-                    }}
-                    onFocus={() => setCatalogDropdownOpen(true)}
-                    onBlur={() =>
-                      setTimeout(() => setCatalogDropdownOpen(false), 200)
-                    }
-                    placeholder={
-                      catalogLoading
-                        ? "Cargando catálogo..."
-                        : "Escribe para buscar (ej. kai_interest)"
-                    }
-                    autoComplete="off"
-                  />
-                  {catalogDropdownOpen && catalogFiltered.length > 0 && (
-                    <ul
-                      className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border bg-popover py-1 shadow-md"
-                      role="listbox"
-                    >
-                      {catalogFiltered.map((tool) => (
-                        <li
-                          key={tool.id}
-                          role="option"
-                          aria-selected={false}
-                          className="cursor-pointer px-3 py-2 text-sm hover:bg-accent focus:bg-accent focus:outline-none"
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            selectCatalogTool({
-                              name: tool.name,
-                              description: tool.description,
-                              displayName: tool.displayName,
-                              parameters: tool.parameters,
-                              properties: tool.properties,
-                              path: tool.path,
-                            });
-                          }}
-                        >
-                          <span className="font-medium">{tool.name}</span>
-                          {tool.description && (
-                            <p className="text-xs text-muted-foreground truncate mt-0.5">
-                              {tool.description}
-                            </p>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
+                <ToolsCatalogSearchList
+                  tools={catalogTools}
+                  loading={catalogLoading}
+                  maxItems={20}
+                  value={name}
+                  onValueChange={(next) => {
+                    setName(next);
+                    setToolPropertiesSchema(null);
+                    setAgentPropertiesValues({});
+                  }}
+                  onSelect={(tool) =>
+                    selectCatalogTool({
+                      name: tool.name,
+                      description: tool.description,
+                      displayName: tool.displayName,
+                      parameters: tool.parameters as Record<string, unknown> | undefined,
+                      properties: tool.properties as Record<string, unknown> | undefined,
+                      path: tool.path as string | undefined,
+                    })
+                  }
+                  placeholder="Escribe para buscar (ej. kai_interest)"
+                />
               </div>
             ) : (
               <Input

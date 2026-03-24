@@ -14,7 +14,10 @@ import {
 import {
   ArrowLeftIcon,
   BotIcon,
+  PlusIcon,
   CheckIcon,
+  PencilIcon,
+  XIcon,
   Loader2Icon,
   MessageSquareIcon,
   SendIcon,
@@ -24,12 +27,14 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogFooter,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   createDraftPendingTask,
   fetchAgentDraft,
@@ -42,6 +47,7 @@ import {
   type ToolsCatalogItem,
 } from "@/lib/agents-api";
 import { BuilderChatUiBlock } from "@/components/builder-chat-ui";
+import { ToolsCatalogSearchList } from "@/components/tools-catalog-search-list";
 import type { BuilderChatUI } from "@/types/agents-api";
 import { cn } from "@/lib/utils";
 
@@ -142,6 +148,12 @@ type DraftTextKey =
   | "escalation_rules"
   | "country";
 
+type ManualNode = {
+  id: string;
+  title: string;
+  value: string;
+};
+
 const BUSINESS_FLOW: BusinessFieldKey[] = [
   "business_name",
   "owner_name",
@@ -233,11 +245,49 @@ function fieldNodeValue(value: string): string {
   return value.trim().slice(0, 44);
 }
 
+function nodeLabelCard({
+  title,
+  value,
+  canDelete = false,
+  onDelete,
+}: {
+  title: string;
+  value?: string;
+  canDelete?: boolean;
+  onDelete?: () => void;
+}) {
+  return (
+    <div className="group relative pr-5">
+      <p className="text-xs font-medium text-muted-foreground">{title}</p>
+      {value ? <p className="mt-1 text-sm">{value}</p> : null}
+      {canDelete ? (
+        <button
+          type="button"
+          className="absolute -top-1 -right-1 rounded-full border border-border bg-background p-0.5 opacity-0 transition-opacity group-hover:opacity-100"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onDelete?.();
+          }}
+          aria-label={`Eliminar ${title}`}
+        >
+          <XIcon className="size-3" />
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 function buildProgressiveGraph(
   state: DraftState,
   pendingTasks: DraftPendingTask[],
   catalogById: Map<string, ToolsCatalogItem>,
   confirmed: boolean,
+  businessManualNodes: ManualNode[],
+  personalityManualNodes: ManualNode[],
+  onRemoveTool: (toolId: string) => void,
+  onRemoveManualBusinessNode: (nodeId: string) => void,
+  onRemoveManualPersonalityNode: (nodeId: string) => void,
 ): { nodes: Node[]; edges: Edge[] } {
   const nodes: Node[] = [
     {
@@ -267,7 +317,7 @@ function buildProgressiveGraph(
       id: "business",
       position: { x: 1040, y: 340 },
       data: {
-        label: `${isBusinessComplete(state) ? "Completado" : "En progreso"} · Negocio`,
+        label: "Negocio",
       },
       style: withCardStyle(220),
     });
@@ -282,19 +332,78 @@ function buildProgressiveGraph(
       const y = 470 + row * 86;
       const value = fieldNodeValue(rawValue);
       const fieldNodeId = `business-${field.key}`;
+      const keyNodeId = `${fieldNodeId}-key`;
+      const valueNodeId = `${fieldNodeId}-value`;
       nodes.push({
-        id: fieldNodeId,
+        id: keyNodeId,
         position: { x, y },
         data: {
-          label: `${field.label}: ${value}`,
+          label: nodeLabelCard({ title: field.label }),
+        },
+        style: withCardStyle(190),
+      });
+      nodes.push({
+        id: valueNodeId,
+        position: { x, y: y + 62 },
+        data: {
+          label: nodeLabelCard({ title: "Valor", value }),
         },
         style: withCardStyle(230),
       });
       edges.push({
-        id: `e-business-${field.key}`,
+        id: `e-business-${field.key}-key`,
         source: "business",
-        target: fieldNodeId,
+        target: keyNodeId,
       });
+      edges.push({
+        id: `e-business-${field.key}-value`,
+        source: keyNodeId,
+        target: valueNodeId,
+      });
+    });
+    businessManualNodes.forEach((item, index) => {
+      const baseId = `business-manual-${item.id}`;
+      const x = 960 + (index % 2) * 250;
+      const y = 820 + Math.floor(index / 2) * 84;
+      nodes.push({
+        id: baseId,
+        position: { x, y },
+        data: {
+          label: nodeLabelCard({
+            title: item.title.slice(0, 36),
+            value: fieldNodeValue(item.value),
+            canDelete: true,
+            onDelete: () => onRemoveManualBusinessNode(item.id),
+          }),
+        },
+        style: withCardStyle(230),
+      });
+      edges.push({
+        id: `e-business-manual-${item.id}`,
+        source: "business",
+        target: baseId,
+      });
+    });
+    nodes.push({
+      id: "business-add-manual",
+      position: {
+        x: 960,
+        y: 820 + Math.ceil(businessManualNodes.length / 2) * 84 + 40,
+      },
+      data: {
+        label: (
+          <div className="flex items-center gap-2 text-sm">
+            <PlusIcon className="size-4" />
+            Agregar nodo manual
+          </div>
+        ),
+      },
+      style: withCardStyle(220),
+    });
+    edges.push({
+      id: "e-business-add-manual",
+      source: "business",
+      target: "business-add-manual",
     });
   }
 
@@ -307,7 +416,7 @@ function buildProgressiveGraph(
     });
     edges.push({ id: "e-root-tools", source: "agentRoot", target: "tools" });
 
-    state.selected_tools.slice(0, 8).forEach((toolId, index) => {
+    state.selected_tools.forEach((toolId, index) => {
       const tool = catalogById.get(toolId);
       const label = tool?.displayName || tool?.name || toolId;
       const col = index % 2;
@@ -316,7 +425,14 @@ function buildProgressiveGraph(
       nodes.push({
         id: nodeId,
         position: { x: 560 + col * 260, y: 10 - row * 80 },
-        data: { label: label.slice(0, 46) },
+        data: {
+          label: nodeLabelCard({
+            title: "Tool",
+            value: label.slice(0, 46),
+            canDelete: true,
+            onDelete: () => onRemoveTool(toolId),
+          }),
+        },
         style: withCardStyle(230),
       });
       edges.push({
@@ -325,6 +441,24 @@ function buildProgressiveGraph(
         target: nodeId,
       });
     });
+    nodes.push({
+      id: "tool-add",
+      position: { x: 820, y: -320 },
+      data: {
+        label: (
+          <div className="flex items-center gap-2 text-sm">
+            <PlusIcon className="size-4" />
+            Agregar tool
+          </div>
+        ),
+      },
+      style: withCardStyle(200),
+    });
+    edges.push({
+      id: "e-tools-add",
+      source: "tools",
+      target: "tool-add",
+    });
   }
 
   if (personalityVisible) {
@@ -332,7 +466,7 @@ function buildProgressiveGraph(
       id: "personality",
       position: { x: 330, y: 340 },
       data: {
-        label: `${isPersonalityComplete(state) ? "Completado" : "En progreso"} · Personalidad`,
+        label: "Personalidad",
       },
       style: withCardStyle(220),
     });
@@ -340,6 +474,86 @@ function buildProgressiveGraph(
       id: "e-root-personality",
       source: "agentRoot",
       target: "personality",
+    });
+    if (state.agent_name.trim()) {
+      nodes.push({
+        id: "personality-name",
+        position: { x: 250, y: 470 },
+        data: {
+          label: nodeLabelCard({
+            title: "Nombre del agente",
+            value: fieldNodeValue(state.agent_name),
+          }),
+        },
+        style: withCardStyle(230),
+      });
+      edges.push({
+        id: "e-personality-name",
+        source: "personality",
+        target: "personality-name",
+      });
+    }
+    if (state.agent_personality.trim()) {
+      nodes.push({
+        id: "personality-style",
+        position: { x: 500, y: 470 },
+        data: {
+          label: nodeLabelCard({
+            title: "Estilo",
+            value: fieldNodeValue(state.agent_personality),
+          }),
+        },
+        style: withCardStyle(230),
+      });
+      edges.push({
+        id: "e-personality-style",
+        source: "personality",
+        target: "personality-style",
+      });
+    }
+    personalityManualNodes.forEach((item, index) => {
+      const x = 250 + (index % 2) * 250;
+      const y = 560 + Math.floor(index / 2) * 84;
+      const nodeId = `personality-manual-${item.id}`;
+      nodes.push({
+        id: nodeId,
+        position: { x, y },
+        data: {
+          label: nodeLabelCard({
+            title: item.title.slice(0, 36),
+            value: fieldNodeValue(item.value),
+            canDelete: true,
+            onDelete: () => onRemoveManualPersonalityNode(item.id),
+          }),
+        },
+        style: withCardStyle(230),
+      });
+      edges.push({
+        id: `e-personality-manual-${item.id}`,
+        source: "personality",
+        target: nodeId,
+      });
+    });
+    nodes.push({
+      id: "personality-add-manual",
+      position: {
+        x: 250,
+        y: 560 + Math.ceil(personalityManualNodes.length / 2) * 84 + 38,
+      },
+      data: {
+        label: (
+          <div className="flex items-center gap-2 text-sm">
+            <PlusIcon className="size-4" />
+            Agregar nodo manual
+          </div>
+        ),
+      },
+      style: withCardStyle(220),
+    });
+    edges.push({
+      id: "e-personality-add-manual",
+      source: "personality",
+      target: "personality-add-manual",
     });
   }
 
@@ -427,6 +641,16 @@ export function AgentBuilderChatDiagram() {
   const skipDraftPersistenceRef = useRef(false);
 
   const [agentCreatedDialogOpen, setAgentCreatedDialogOpen] = useState(false);
+  const [toolsDialogOpen, setToolsDialogOpen] = useState(false);
+  const [toolSearch, setToolSearch] = useState("");
+  const [editingToolId, setEditingToolId] = useState<string | null>(null);
+  const [manualDialogOpen, setManualDialogOpen] = useState(false);
+  const [manualSection, setManualSection] = useState<"business" | "personality">("business");
+  const [manualNodesBusiness, setManualNodesBusiness] = useState<ManualNode[]>([]);
+  const [manualNodesPersonality, setManualNodesPersonality] = useState<ManualNode[]>([]);
+  const [manualEditingId, setManualEditingId] = useState<string | null>(null);
+  const [manualTitle, setManualTitle] = useState("");
+  const [manualValue, setManualValue] = useState("");
 
   const addMessage = useCallback(
     (role: ChatMessage["role"], text: string, displayText?: string) => {
@@ -526,9 +750,52 @@ export function AgentBuilderChatDiagram() {
     return new Map(catalog.map((tool) => [tool.id, tool]));
   }, [catalog]);
 
+  const removeToolFromDraft = useCallback((toolId: string) => {
+    setDraftState((prev) =>
+      updateStepFromState({
+        ...prev,
+        selected_tools: prev.selected_tools.filter((id) => id !== toolId),
+      }),
+    );
+  }, [updateStepFromState]);
+
+  const openManualNodeDialog = useCallback(
+    (section: "business" | "personality", node?: ManualNode) => {
+      setManualSection(section);
+      setManualEditingId(node?.id ?? null);
+      setManualTitle(node?.title ?? "");
+      setManualValue(node?.value ?? "");
+      setManualDialogOpen(true);
+    },
+    [],
+  );
+
   const graph = useMemo(
-    () => buildProgressiveGraph(draftState, pendingTasks, catalogById, confirmedSummary),
-    [catalogById, draftState, pendingTasks, confirmedSummary],
+    () =>
+      buildProgressiveGraph(
+        draftState,
+        pendingTasks,
+        catalogById,
+        confirmedSummary,
+        manualNodesBusiness,
+        manualNodesPersonality,
+        removeToolFromDraft,
+        (nodeId) =>
+          setManualNodesBusiness((prev) => prev.filter((node) => node.id !== nodeId)),
+        (nodeId) =>
+          setManualNodesPersonality((prev) =>
+            prev.filter((node) => node.id !== nodeId),
+          ),
+      ),
+    [
+      catalogById,
+      confirmedSummary,
+      draftState,
+      manualNodesBusiness,
+      manualNodesPersonality,
+      pendingTasks,
+      removeToolFromDraft,
+    ],
   );
 
   const syncPendingTasks = useCallback(async (id: string) => {
@@ -1079,6 +1346,38 @@ export function AgentBuilderChatDiagram() {
             <ReactFlow
               nodes={graph.nodes}
               edges={graph.edges}
+              onNodeClick={(_event, node) => {
+                if (node.id === "tool-add") {
+                  setEditingToolId(null);
+                  setToolsDialogOpen(true);
+                  return;
+                }
+                if (node.id.startsWith("tool-")) {
+                  const toolId = node.id.slice("tool-".length);
+                  setEditingToolId(toolId);
+                  setToolsDialogOpen(true);
+                  return;
+                }
+                if (node.id === "business-add-manual") {
+                  openManualNodeDialog("business");
+                  return;
+                }
+                if (node.id === "personality-add-manual") {
+                  openManualNodeDialog("personality");
+                  return;
+                }
+                if (node.id.startsWith("business-manual-")) {
+                  const nodeId = node.id.slice("business-manual-".length);
+                  const target = manualNodesBusiness.find((item) => item.id === nodeId);
+                  if (target) openManualNodeDialog("business", target);
+                  return;
+                }
+                if (node.id.startsWith("personality-manual-")) {
+                  const nodeId = node.id.slice("personality-manual-".length);
+                  const target = manualNodesPersonality.find((item) => item.id === nodeId);
+                  if (target) openManualNodeDialog("personality", target);
+                }
+              }}
               fitView
               minZoom={0.3}
               maxZoom={1.8}
@@ -1088,6 +1387,135 @@ export function AgentBuilderChatDiagram() {
           </div>
         </section>
       </div>
+      <Dialog open={toolsDialogOpen} onOpenChange={setToolsDialogOpen}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>
+              {editingToolId ? "Editar tool del diagrama" : "Agregar tools"}
+            </DialogTitle>
+            <DialogDescription>
+              Selecciona herramientas del catálogo. Al hacer clic en una tool del diagrama puedes reemplazarla o eliminarla.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <ToolsCatalogSearchList
+              tools={catalog}
+              maxItems={60}
+              value={toolSearch}
+              onValueChange={setToolSearch}
+              onSelect={(item) => {
+                setDraftState((prev) => {
+                  const has = prev.selected_tools.includes(item.id);
+                  let selected = prev.selected_tools;
+                  if (editingToolId) {
+                    selected = prev.selected_tools.map((id) =>
+                      id === editingToolId ? item.id : id,
+                    );
+                  } else if (!has) {
+                    selected = [...prev.selected_tools, item.id];
+                  }
+                  return updateStepFromState({
+                    ...prev,
+                    selected_tools: [...new Set(selected)],
+                  });
+                });
+                setToolsDialogOpen(false);
+                setEditingToolId(null);
+              }}
+              placeholder="Buscar tool por nombre o descripción..."
+            />
+            {editingToolId ? (
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => {
+                  removeToolFromDraft(editingToolId);
+                  setToolsDialogOpen(false);
+                  setEditingToolId(null);
+                }}
+              >
+                <XIcon className="mr-2 size-4" />
+                Eliminar tool seleccionada
+              </Button>
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={manualDialogOpen} onOpenChange={setManualDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {manualEditingId ? "Editar nodo manual" : "Nuevo nodo manual"}
+            </DialogTitle>
+            <DialogDescription>
+              Este nodo se agregará en {manualSection === "business" ? "Negocio" : "Personalidad"}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Título</Label>
+              <Input
+                value={manualTitle}
+                onChange={(event) => setManualTitle(event.target.value)}
+                placeholder="Ej. Horarios especiales"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Valor</Label>
+              <Input
+                value={manualValue}
+                onChange={(event) => setManualValue(event.target.value)}
+                placeholder="Ej. Domingos hasta las 11pm"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setManualDialogOpen(false);
+                setManualEditingId(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                if (!manualTitle.trim() || !manualValue.trim()) return;
+                const payload: ManualNode = {
+                  id: manualEditingId ?? nowId(),
+                  title: manualTitle.trim(),
+                  value: manualValue.trim(),
+                };
+                if (manualSection === "business") {
+                  setManualNodesBusiness((prev) =>
+                    manualEditingId
+                      ? prev.map((item) => (item.id === manualEditingId ? payload : item))
+                      : [...prev, payload],
+                  );
+                } else {
+                  setManualNodesPersonality((prev) =>
+                    manualEditingId
+                      ? prev.map((item) => (item.id === manualEditingId ? payload : item))
+                      : [...prev, payload],
+                  );
+                }
+                setManualDialogOpen(false);
+                setManualEditingId(null);
+                setManualTitle("");
+                setManualValue("");
+              }}
+            >
+              {manualEditingId ? (
+                <PencilIcon className="mr-2 size-4" />
+              ) : (
+                <PlusIcon className="mr-2 size-4" />
+              )}
+              Guardar nodo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={agentCreatedDialogOpen}>
         <DialogContent
           showClose={false}
