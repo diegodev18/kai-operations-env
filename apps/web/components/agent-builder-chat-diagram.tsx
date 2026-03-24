@@ -351,33 +351,18 @@ function buildProgressiveGraph(
       const y = 470 + row * 86;
       const value = fieldNodeValue(rawValue);
       const fieldNodeId = `business-${field.key}`;
-      const keyNodeId = `${fieldNodeId}-key`;
-      const valueNodeId = `${fieldNodeId}-value`;
       nodes.push({
-        id: keyNodeId,
+        id: fieldNodeId,
         position: { x, y },
         data: {
-          label: nodeLabelCard({ title: field.label }),
-        },
-        style: withCardStyle(190),
-      });
-      nodes.push({
-        id: valueNodeId,
-        position: { x, y: y + 62 },
-        data: {
-          label: nodeLabelCard({ title: "Valor", value }),
+          label: nodeLabelCard({ title: field.label, value }),
         },
         style: withCardStyle(230),
       });
       edges.push({
-        id: `e-business-${field.key}-key`,
+        id: `e-business-${field.key}`,
         source: "business",
-        target: keyNodeId,
-      });
-      edges.push({
-        id: `e-business-${field.key}-value`,
-        source: keyNodeId,
-        target: valueNodeId,
+        target: fieldNodeId,
       });
     });
     businessManualNodes.forEach((item, index) => {
