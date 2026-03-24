@@ -2073,6 +2073,13 @@ export function AgentBuilderChatDiagram() {
             </Button>
             <Button
               type="button"
+              variant="secondary"
+              onClick={() => setAgentCreatedDialogOpen(false)}
+            >
+              Seguir configurando agente
+            </Button>
+            <Button
+              type="button"
               variant="outline"
               onClick={() => {
                 setAgentCreatedDialogOpen(false);
