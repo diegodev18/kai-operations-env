@@ -338,7 +338,6 @@ function AddToolDialog({
           ? (tool.properties as Record<string, unknown>)
           : null
       );
-      setCatalogDropdownOpen(false);
     },
     []
   );
@@ -497,9 +496,9 @@ function AddToolDialog({
                       name: tool.name,
                       description: tool.description,
                       displayName: tool.displayName,
-                      parameters: tool.parameters as Record<string, unknown> | undefined,
-                      properties: tool.properties as Record<string, unknown> | undefined,
-                      path: tool.path as string | undefined,
+                      parameters: tool.parameters,
+                      properties: tool.properties,
+                      path: tool.path,
                     })
                   }
                   placeholder="Escribe para buscar (ej. kai_interest)"

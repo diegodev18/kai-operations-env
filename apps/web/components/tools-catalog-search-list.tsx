@@ -3,13 +3,7 @@
 import { useMemo, useState } from "react";
 
 import { Input } from "@/components/ui/input";
-
-type CatalogItem = {
-  id: string;
-  name: string;
-  description: string;
-  displayName?: string;
-};
+import type { ToolsCatalogItem } from "@/types/agents-api";
 
 export function ToolsCatalogSearchList({
   tools,
@@ -20,12 +14,12 @@ export function ToolsCatalogSearchList({
   onSelect,
   placeholder = "Buscar tool...",
 }: {
-  tools: CatalogItem[];
+  tools: ToolsCatalogItem[];
   loading?: boolean;
   maxItems?: number;
   value: string;
   onValueChange: (next: string) => void;
-  onSelect: (tool: CatalogItem) => void;
+  onSelect: (tool: ToolsCatalogItem) => void;
   placeholder?: string;
 }) {
   const [hasFocus, setHasFocus] = useState(false);
