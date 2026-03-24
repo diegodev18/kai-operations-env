@@ -20,6 +20,29 @@ export const BUILDER_TECHNICAL_FIELDS: Array<{
   { documentId: "answer", fieldKey: "notSupport", kind: "string" },
 ];
 
+/** Aristas padre → hijo en el diagrama: el hijo solo aplica o tiene sentido si el padre está activo / configurado. */
+export const BUILDER_TECH_PROPERTY_DEPENDENCY_EDGES: Array<{
+  parent: { documentId: string; fieldKey: string };
+  child: { documentId: string; fieldKey: string };
+}> = [
+  {
+    parent: { documentId: "agent", fieldKey: "isMemoryEnable" },
+    child: { documentId: "memory", fieldKey: "limit" },
+  },
+  {
+    parent: { documentId: "response", fieldKey: "maxResponseLinesEnabled" },
+    child: { documentId: "response", fieldKey: "maxResponseLines" },
+  },
+  {
+    parent: { documentId: "prompt", fieldKey: "isMultiFunctionCallingEnable" },
+    child: { documentId: "agent", fieldKey: "maxFunctionCalls" },
+  },
+  {
+    parent: { documentId: "agent", fieldKey: "isMultiMessageResponseEnable" },
+    child: { documentId: "response", fieldKey: "waitTime" },
+  },
+];
+
 /** Valores por defecto del servidor al crear el borrador (subset). */
 export const BUILDER_TECH_DEFAULTS: Record<string, Record<string, unknown>> = {
   agent: {

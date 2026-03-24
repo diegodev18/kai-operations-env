@@ -59,6 +59,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToolsCatalogSearchList } from "@/components/tools-catalog-search-list";
 import {
   BUILDER_TECHNICAL_FIELDS,
+  BUILDER_TECH_PROPERTY_DEPENDENCY_EDGES,
   formatTechnicalFieldValue,
   getTechFieldDefault,
   isTechFieldAtDefault,
@@ -571,11 +572,10 @@ function buildProgressiveGraph(
 
   if (tasksVisible) {
     const openTasks = pendingTasks.filter((task) => task.status === "pending").length;
-    const propsBranch = state.creation_step !== "personality";
-    /* Debajo del bloque Propiedades cuando existe, para no solapar tarjetas técnicas (~7 filas). */
+    /* Propiedades siempre visibles: tareas debajo del bloque técnico. */
     nodes.push({
       id: "tasks",
-      position: { x: 620, y: propsBranch ? 1720 : 610 },
+      position: { x: 620, y: 1720 },
       data: { label: `Tareas pendientes (${openTasks})` },
       style: withCardStyle(230),
     });
@@ -584,7 +584,7 @@ function buildProgressiveGraph(
     }
   }
 
-  const propsVisible = state.creation_step !== "personality";
+  const propsVisible = true;
   /** Izquierda del eje de Negocio (≥960) y debajo de filas de negocio (~470–900) para evitar solapes. */
   const PROPS_ORIGIN_X = 40;
   const PROPS_COL_STEP = 300;
@@ -604,6 +604,25 @@ function buildProgressiveGraph(
       source: "agentRoot",
       target: "properties-root",
     });
+
+    const techNodeId = (d: string, k: string) => `tech-${d}-${k}`;
+    const techFieldKey = (d: string, k: string) => `${d}:${k}`;
+    const fieldInGraph = (doc: string, key: string) =>
+      BUILDER_TECHNICAL_FIELDS.some((f) => f.documentId === doc && f.fieldKey === key);
+
+    const validPropertyDeps = BUILDER_TECH_PROPERTY_DEPENDENCY_EDGES.filter(
+      ({ parent, child }) =>
+        fieldInGraph(parent.documentId, parent.fieldKey) &&
+        fieldInGraph(child.documentId, child.fieldKey),
+    );
+
+    /** Hijas con padre en el diagrama: solo enlazan desde el padre, no desde Propiedades (cadena). */
+    const propertyNodesLinkedFromParent = new Set(
+      validPropertyDeps.map((dep) =>
+        techFieldKey(dep.child.documentId, dep.child.fieldKey),
+      ),
+    );
+
     BUILDER_TECHNICAL_FIELDS.forEach((field, index) => {
       const raw = technicalProps?.[field.documentId]?.[field.fieldKey];
       const defVal = getTechFieldDefault(field.documentId, field.fieldKey);
@@ -613,7 +632,7 @@ function buildProgressiveGraph(
       const dimmed = isTechFieldAtDefault(field.documentId, field.fieldKey, raw);
       const title =
         PROPERTY_TITLES[field.documentId]?.[field.fieldKey] ?? field.fieldKey;
-      const nodeId = `tech-${field.documentId}-${field.fieldKey}`;
+      const nodeId = techNodeId(field.documentId, field.fieldKey);
       const col = index % 2;
       const row = Math.floor(index / 2);
       nodes.push({
@@ -627,12 +646,22 @@ function buildProgressiveGraph(
         },
         style: withCardStyle(278, dimmed),
       });
-      edges.push({
-        id: `e-props-${nodeId}`,
-        source: "properties-root",
-        target: nodeId,
-      });
+      if (!propertyNodesLinkedFromParent.has(techFieldKey(field.documentId, field.fieldKey))) {
+        edges.push({
+          id: `e-props-${nodeId}`,
+          source: "properties-root",
+          target: nodeId,
+        });
+      }
     });
+
+    for (const { parent, child } of validPropertyDeps) {
+      edges.push({
+        id: `e-tech-dep-${parent.documentId}-${parent.fieldKey}-${child.documentId}-${child.fieldKey}`,
+        source: techNodeId(parent.documentId, parent.fieldKey),
+        target: techNodeId(child.documentId, child.fieldKey),
+      });
+    }
   }
 
   if (completeVisible) {
@@ -1011,6 +1040,7 @@ export function AgentBuilderChatDiagram() {
           setDraftId(created.id);
           await syncPendingTasks(created.id);
           await flushQueuedDeferredTasks(created.id);
+          await syncTechnicalProps(created.id);
         } finally {
           setSaving(false);
         }
@@ -1086,7 +1116,13 @@ export function AgentBuilderChatDiagram() {
         }
       }
     },
-    [draftId, flushQueuedDeferredTasks, syncPendingTasks, updateStepFromState],
+    [
+      draftId,
+      flushQueuedDeferredTasks,
+      syncPendingTasks,
+      syncTechnicalProps,
+      updateStepFromState,
+    ],
   );
 
   useEffect(() => {
@@ -1214,10 +1250,8 @@ export function AgentBuilderChatDiagram() {
       }
       await syncPendingTasks(res.id);
       await syncManualNodesFromDraft(res.id);
-      if (creationStep !== "personality") {
-        const tech = await fetchDraftTechnicalProperties(res.id);
-        if (!cancelled && tech) setTechnicalPropsBundle(tech);
-      }
+      const tech = await fetchDraftTechnicalProperties(res.id);
+      if (!cancelled && tech) setTechnicalPropsBundle(tech);
       hasHydratedDraftRef.current = true;
       setIsHydratingDraft(false);
     })();
@@ -1228,14 +1262,9 @@ export function AgentBuilderChatDiagram() {
   }, [draftFromUrl, syncManualNodesFromDraft, syncPendingTasks, updateStepFromState]);
 
   useEffect(() => {
-    if (!draftId || draftState.creation_step === "personality") {
-      if (draftState.creation_step === "personality") {
-        setTechnicalPropsBundle(null);
-      }
-      return;
-    }
+    if (!draftId) return;
     void syncTechnicalProps(draftId);
-  }, [draftId, draftState.creation_step, syncTechnicalProps]);
+  }, [draftId, syncTechnicalProps]);
 
   const handleDeferredTask = useCallback(
     async (text: string) => {
@@ -1338,9 +1367,7 @@ export function AgentBuilderChatDiagram() {
         }
         applyDraftPatch(llmRes.draftPatch as Record<string, unknown>);
         await addAssistantMessageProgressive(llmRes.assistantMessage, llmRes.ui);
-        if (draftId && draftState.creation_step !== "personality") {
-          await syncTechnicalProps(draftId);
-        }
+        if (draftId) await syncTechnicalProps(draftId);
       } finally {
         setIsThinking(false);
       }
