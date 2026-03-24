@@ -36,6 +36,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   createDraftPendingTask,
@@ -57,7 +58,6 @@ import {
 } from "@/lib/agents-api";
 import { BuilderChatUiBlock } from "@/components/builder-chat-ui";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Textarea } from "@/components/ui/textarea";
 import { ToolsCatalogSearchList } from "@/components/tools-catalog-search-list";
 import {
   BUILDER_TECHNICAL_FIELDS,
@@ -693,12 +693,20 @@ function buildProgressiveGraph(
   return { nodes, edges };
 }
 
+/** Altura del área de mensaje: crece hasta 4 líneas (`leading-5`), luego scroll. */
+const CHAT_COMPOSER_LINE_HEIGHT_PX = 20;
+const CHAT_COMPOSER_PAD_Y_PX = 12;
+const CHAT_COMPOSER_MIN_HEIGHT_PX = CHAT_COMPOSER_LINE_HEIGHT_PX + CHAT_COMPOSER_PAD_Y_PX;
+const CHAT_COMPOSER_MAX_HEIGHT_PX =
+  CHAT_COMPOSER_LINE_HEIGHT_PX * 4 + CHAT_COMPOSER_PAD_Y_PX;
+
 export function AgentBuilderChatDiagram() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const draftFromUrl = searchParams.get("draft")?.trim() ?? "";
   const layoutRef = useRef<HTMLDivElement | null>(null);
   const resizingRef = useRef(false);
+  const chatComposerRef = useRef<HTMLTextAreaElement | null>(null);
 
   const [draftId, setDraftId] = useState(draftFromUrl);
   const [loadingDraft, setLoadingDraft] = useState(Boolean(draftFromUrl));
@@ -1418,6 +1426,17 @@ export function AgentBuilderChatDiagram() {
     await sendUserText(text);
   }, [chatInput, sendUserText]);
 
+  useLayoutEffect(() => {
+    const el = chatComposerRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const h = Math.max(
+      CHAT_COMPOSER_MIN_HEIGHT_PX,
+      Math.min(el.scrollHeight, CHAT_COMPOSER_MAX_HEIGHT_PX),
+    );
+    el.style.height = `${h}px`;
+  }, [chatInput]);
+
   useEffect(() => {
     if (!hasHydratedDraftRef.current) return;
     if (loadingDraft || isHydratingDraft) return;
@@ -1545,8 +1564,9 @@ export function AgentBuilderChatDiagram() {
             ) : null}
           </div>
           <div className="space-y-2 border-t border-border p-3">
-            <div className="flex gap-2">
-              <Input
+            <div className="flex items-end gap-2">
+              <Textarea
+                ref={chatComposerRef}
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -1557,6 +1577,12 @@ export function AgentBuilderChatDiagram() {
                 }}
                 disabled={agentCreatedDialogOpen}
                 placeholder="Escribe un mensaje..."
+                rows={1}
+                aria-label="Mensaje del chat"
+                className={cn(
+                  "max-h-[92px] min-h-[32px] resize-none overflow-y-auto rounded-lg px-2.5 py-1.5 text-sm leading-5 shadow-none md:text-sm dark:bg-input/30",
+                  "field-sizing-fixed",
+                )}
               />
               <Button
                 size="icon"
