@@ -340,7 +340,8 @@ function buildProgressiveGraph(
   const edges: Edge[] = [];
 
   const businessVisible = hasAnyBusinessValue(state) || state.creation_step !== "personality";
-  const toolsVisible = isBusinessComplete(state) || state.selected_tools.length > 0;
+  /** Siempre visible para poder añadir tools desde el diagrama sin pasar por el chat. */
+  const toolsVisible = true;
   const personalityVisible = true;
   const completeVisible = confirmed || state.creation_step === "complete";
   const tasksVisible = pendingTasks.length > 0;
