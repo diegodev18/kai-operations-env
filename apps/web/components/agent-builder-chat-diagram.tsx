@@ -843,7 +843,6 @@ export function AgentBuilderChatDiagram() {
           }
           currentDraftId = created.id;
           setDraftId(created.id);
-          router.replace(`/agents/new?draft=${encodeURIComponent(created.id)}`);
           await syncPendingTasks(created.id);
           await flushQueuedDeferredTasks(created.id);
         } finally {
@@ -1135,6 +1134,7 @@ export function AgentBuilderChatDiagram() {
         setDraftState(nextState);
         await persistState(nextState, true);
         addMessage("assistant", "Builder finalizado correctamente.");
+        setAgentCreatedDialogOpen(true);
         toast.success("Builder completado");
         return;
       }
@@ -1524,10 +1524,9 @@ export function AgentBuilderChatDiagram() {
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
           <DialogHeader>
-            <DialogTitle>Agente creado</DialogTitle>
+            <DialogTitle>Agente construido</DialogTitle>
             <DialogDescription>
-              El builder finalizó correctamente. Todos los datos del agente fueron
-              guardados.
+              El builder finalizó correctamente. ¿Qué deseas hacer ahora?
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-2 pt-2">
@@ -1535,17 +1534,19 @@ export function AgentBuilderChatDiagram() {
               type="button"
               onClick={() => {
                 setAgentCreatedDialogOpen(false);
-                router.push(draftId ? `/agents/${draftId}` : "/agents");
+                if (!draftId) return;
+                router.push(`/agents/${draftId}/configuration`);
               }}
+              disabled={!draftId}
             >
-              Ir al agente
+              Ir a configuración del agente
             </Button>
             <Button
               type="button"
               variant="outline"
               onClick={() => {
                 setAgentCreatedDialogOpen(false);
-                router.push("/agents/new");
+                window.location.assign("/agents/new");
               }}
             >
               Crear otro agente
@@ -1558,7 +1559,7 @@ export function AgentBuilderChatDiagram() {
                 router.push("/");
               }}
             >
-              Ir al Dashboard
+              Volver a la página principal
             </Button>
           </div>
         </DialogContent>
