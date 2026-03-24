@@ -260,6 +260,39 @@ function isPersonalityComplete(state: DraftState) {
   return !!state.agent_name.trim() && !!state.agent_personality.trim();
 }
 
+/** Lista legible de lo que impide cerrar el builder (alineado con `readyToConfirm`). */
+function getBuilderIncompleteItems(state: DraftState): string[] {
+  const items: string[] = [];
+  for (const key of BUSINESS_FLOW) {
+    if (!state[key].trim()) {
+      const label = BUSINESS_FIELD_GRAPH.find((f) => f.key === key)?.label ?? key;
+      items.push(`Negocio — ${label}`);
+    }
+  }
+  if (state.selected_tools.length === 0) {
+    items.push("Tools — al menos una herramienta del catálogo");
+  }
+  if (!state.agent_name.trim()) {
+    items.push("Personalidad — nombre del agente");
+  }
+  if (!state.agent_personality.trim()) {
+    items.push("Personalidad — estilo del agente");
+  }
+  return items;
+}
+
+function buildConfirmIncompletePromptForModel(state: DraftState): string {
+  const missing = getBuilderIncompleteItems(state);
+  const list = missing.map((line) => `- ${line}`).join("\n");
+  return [
+    "Quiero confirmar y finalizar el builder, pero el sistema indica que aún no se puede cerrar.",
+    "Falta completar lo siguiente:",
+    list,
+    "",
+    "Guía al usuario paso a paso para terminar la configuración. Si puedes inferir valores del contexto previo, proponlos en draftPatch y pide confirmación cuando sea necesario.",
+  ].join("\n");
+}
+
 function hasAnyBusinessValue(state: DraftState) {
   return BUSINESS_FLOW.some((f) => !!state[f].trim());
 }
@@ -1360,17 +1393,38 @@ export function AgentBuilderChatDiagram() {
       const trimmed = text.trim();
       if (!trimmed || isThinking) return;
 
+      const isConfirm = trimmed.toLowerCase() === "confirmar";
+
+      if (isConfirm && !readyToConfirm) {
+        const fullUserText = buildConfirmIncompletePromptForModel(draftState);
+        addMessage("user", fullUserText, displayText ?? "confirmar");
+        await handleDeferredTask(trimmed);
+        setThinkingLabel(pickThinkingLabel());
+        setIsThinking(true);
+        try {
+          const llmRes = await postAgentBuilderChat({
+            messages: [...chatMessages, { role: "user", text: fullUserText }],
+            draftState,
+            pendingTasksCount: pendingTasks.length,
+            ...(draftId ? { draftId } : {}),
+          });
+          if (!llmRes.ok) {
+            addMessage("assistant", `No pude responder en este momento: ${llmRes.error}`);
+            return;
+          }
+          applyDraftPatch(llmRes.draftPatch as Record<string, unknown>);
+          await addAssistantMessageProgressive(llmRes.assistantMessage, llmRes.ui);
+          if (draftId) await syncTechnicalProps(draftId);
+        } finally {
+          setIsThinking(false);
+        }
+        return;
+      }
+
       addMessage("user", trimmed, displayText);
       await handleDeferredTask(trimmed);
 
-      if (trimmed.toLowerCase() === "confirmar") {
-        if (!readyToConfirm) {
-          addMessage(
-            "assistant",
-            "Aún faltan datos por completar (negocio, tools o personalidad). Continuemos.",
-          );
-          return;
-        }
+      if (isConfirm && readyToConfirm) {
         setConfirmedSummary(true);
         const nextState = updateStepFromState({ ...draftState, creation_step: "complete" });
         setDraftState(nextState);
