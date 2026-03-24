@@ -250,13 +250,14 @@ function hasAnyBusinessValue(state: DraftState) {
   return BUSINESS_FLOW.some((f) => !!state[f].trim());
 }
 
-function withCardStyle(width: number) {
+function withCardStyle(width: number, dimmed = false) {
   return {
     width,
     borderRadius: 12,
     border: "1px solid var(--border)",
     background: "var(--card)",
     color: "var(--card-foreground)",
+    opacity: dimmed ? 0.5 : 1,
   };
 }
 
@@ -278,7 +279,7 @@ function nodeLabelCard({
   return (
     <div className="group relative pr-5">
       <p className="text-xs font-medium text-muted-foreground">{title}</p>
-      {value ? <p className="mt-1 text-sm">{value}</p> : null}
+      {value ? <p className="mt-1 text-sm">{value}</p> : <p className="mt-1 text-sm text-muted-foreground">Sin definir</p>}
       {canDelete ? (
         <button
           type="button"
@@ -327,11 +328,11 @@ function buildProgressiveGraph(
 
   const businessVisible = hasAnyBusinessValue(state) || state.creation_step !== "personality";
   const toolsVisible = isBusinessComplete(state) || state.selected_tools.length > 0;
-  const personalityVisible = toolsVisible || !!state.agent_name.trim() || !!state.agent_personality.trim();
+  const personalityVisible = true;
   const completeVisible = confirmed || state.creation_step === "complete";
   const tasksVisible = pendingTasks.length > 0;
 
-  if (businessVisible) {
+  if (businessVisible || true) {
     nodes.push({
       id: "business",
       position: { x: 1040, y: 340 },
@@ -344,7 +345,6 @@ function buildProgressiveGraph(
 
     BUSINESS_FIELD_GRAPH.forEach((field, index) => {
       const rawValue = state[field.key];
-      if (!rawValue.trim()) return;
       const row = Math.floor(index / 2);
       const col = index % 2;
       const x = 960 + col * 250;
@@ -357,7 +357,7 @@ function buildProgressiveGraph(
         data: {
           label: nodeLabelCard({ title: field.label, value }),
         },
-        style: withCardStyle(230),
+        style: withCardStyle(230, !rawValue.trim()),
       });
       edges.push({
         id: `e-business-${field.key}`,
@@ -479,42 +479,38 @@ function buildProgressiveGraph(
       source: "agentRoot",
       target: "personality",
     });
-    if (state.agent_name.trim()) {
-      nodes.push({
-        id: "personality-name",
-        position: { x: 250, y: 470 },
-        data: {
-          label: nodeLabelCard({
-            title: "Nombre del agente",
-            value: fieldNodeValue(state.agent_name),
-          }),
-        },
-        style: withCardStyle(230),
-      });
-      edges.push({
-        id: "e-personality-name",
-        source: "personality",
-        target: "personality-name",
-      });
-    }
-    if (state.agent_personality.trim()) {
-      nodes.push({
-        id: "personality-style",
-        position: { x: 500, y: 470 },
-        data: {
-          label: nodeLabelCard({
-            title: "Estilo",
-            value: fieldNodeValue(state.agent_personality),
-          }),
-        },
-        style: withCardStyle(230),
-      });
-      edges.push({
-        id: "e-personality-style",
-        source: "personality",
-        target: "personality-style",
-      });
-    }
+    nodes.push({
+      id: "personality-name",
+      position: { x: 250, y: 470 },
+      data: {
+        label: nodeLabelCard({
+          title: "Nombre del agente",
+          value: fieldNodeValue(state.agent_name),
+        }),
+      },
+      style: withCardStyle(230, !state.agent_name.trim()),
+    });
+    edges.push({
+      id: "e-personality-name",
+      source: "personality",
+      target: "personality-name",
+    });
+    nodes.push({
+      id: "personality-style",
+      position: { x: 500, y: 470 },
+      data: {
+        label: nodeLabelCard({
+          title: "Estilo",
+          value: fieldNodeValue(state.agent_personality),
+        }),
+      },
+      style: withCardStyle(230, !state.agent_personality.trim()),
+    });
+    edges.push({
+      id: "e-personality-style",
+      source: "personality",
+      target: "personality-style",
+    });
     personalityManualNodes.forEach((item, index) => {
       const x = 250 + (index % 2) * 250;
       const y = 560 + Math.floor(index / 2) * 84;
@@ -655,6 +651,12 @@ export function AgentBuilderChatDiagram() {
   const [manualEditingId, setManualEditingId] = useState<string | null>(null);
   const [manualTitle, setManualTitle] = useState("");
   const [manualValue, setManualValue] = useState("");
+  const [requiredNodeDialogOpen, setRequiredNodeDialogOpen] = useState(false);
+  const [requiredNodeKey, setRequiredNodeKey] = useState<
+    BusinessFieldKey | "agent_name" | "agent_personality" | null
+  >(null);
+  const [requiredNodeLabel, setRequiredNodeLabel] = useState("");
+  const [requiredNodeValue, setRequiredNodeValue] = useState("");
 
   const addMessage = useCallback(
     (role: ChatMessage["role"], text: string, displayText?: string) => {
@@ -772,6 +774,16 @@ export function AgentBuilderChatDiagram() {
       setManualDialogOpen(true);
     },
     [],
+  );
+
+  const openRequiredNodeDialog = useCallback(
+    (key: BusinessFieldKey | "agent_name" | "agent_personality", label: string) => {
+      setRequiredNodeKey(key);
+      setRequiredNodeLabel(label);
+      setRequiredNodeValue(draftState[key]);
+      setRequiredNodeDialogOpen(true);
+    },
+    [draftState],
   );
 
   const removeManualNode = useCallback(
@@ -1415,6 +1427,20 @@ export function AgentBuilderChatDiagram() {
                   const nodeId = node.id.slice("personality-manual-".length);
                   const target = manualNodesPersonality.find((item) => item.id === nodeId);
                   if (target) openManualNodeDialog("personality", target);
+                  return;
+                }
+                if (node.id.startsWith("business-")) {
+                  const key = node.id.slice("business-".length) as BusinessFieldKey;
+                  const field = BUSINESS_FIELD_GRAPH.find((item) => item.key === key);
+                  if (field) openRequiredNodeDialog(key, field.label);
+                  return;
+                }
+                if (node.id === "personality-name") {
+                  openRequiredNodeDialog("agent_name", "Nombre del agente");
+                  return;
+                }
+                if (node.id === "personality-style") {
+                  openRequiredNodeDialog("agent_personality", "Estilo");
                 }
               }}
               fitView
@@ -1582,6 +1608,48 @@ export function AgentBuilderChatDiagram() {
                 <PlusIcon className="mr-2 size-4" />
               )}
               Guardar nodo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={requiredNodeDialogOpen} onOpenChange={setRequiredNodeDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar nodo</DialogTitle>
+            <DialogDescription>
+              Asigna un valor para <span className="font-medium">{requiredNodeLabel}</span>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Valor</Label>
+            <Input
+              value={requiredNodeValue}
+              onChange={(event) => setRequiredNodeValue(event.target.value)}
+              placeholder="Escribe el valor..."
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRequiredNodeDialogOpen(false);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                if (!requiredNodeKey) return;
+                setDraftState((prev) =>
+                  updateStepFromState({
+                    ...prev,
+                    [requiredNodeKey]: requiredNodeValue.trim(),
+                  }),
+                );
+                setRequiredNodeDialogOpen(false);
+              }}
+            >
+              Guardar valor
             </Button>
           </DialogFooter>
         </DialogContent>
