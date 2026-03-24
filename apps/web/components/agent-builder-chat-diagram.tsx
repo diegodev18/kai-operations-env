@@ -1281,7 +1281,7 @@ export function AgentBuilderChatDiagram() {
               void handleSend();
             });
           }}
-          disabled={saving || !readyToConfirm || agentCreatedDialogOpen}
+          disabled={saving || agentCreatedDialogOpen}
         >
           {saving ? <Loader2Icon className="size-4 animate-spin" /> : <CheckIcon />}
           Confirmar y finalizar
