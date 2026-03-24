@@ -78,6 +78,10 @@ export type BuilderChatUIOptions = {
   uiId: string;
   title?: string;
   options: Array<{ id: string; label: string; value: string }>;
+  /** Checkboxes + botón confirmar; el envío usa el prefijo UI_MULTI. */
+  multiSelect?: boolean;
+  /** Texto del botón al usar multiSelect (p. ej. "Aplicar cambios"). */
+  submitLabel?: string;
 };
 
 export type BuilderChatUIFormField = {

@@ -72,6 +72,22 @@ function formatUserBubbleText(raw: string): string {
       return "Formulario enviado";
     }
   }
+  const multiMatch = /^UI_MULTI:([^:]+):([\s\S]+)$/.exec(raw);
+  if (multiMatch) {
+    try {
+      const parsed = JSON.parse(multiMatch[2]) as {
+        selected?: Array<{ label?: string; value?: string }>;
+      };
+      const items = parsed.selected ?? [];
+      if (items.length === 0) return "Selección vacía";
+      return items
+        .map((s) => (s.label ?? s.value ?? "").trim())
+        .filter(Boolean)
+        .join(" · ");
+    } catch {
+      return "Selección múltiple";
+    }
+  }
   return raw;
 }
 const THINKING_LABELS = [

@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -31,7 +32,7 @@ export type BuilderChatUiBlockProps = {
   onSend: (payload: string, displayText?: string) => void | Promise<void>;
 };
 
-function BuilderChatUIOptionsBlock({
+function BuilderChatUIOptionsSingleBlock({
   ui,
   disabled,
   onSend,
@@ -79,6 +80,121 @@ function BuilderChatUIOptionsBlock({
         ))}
       </div>
     </div>
+  );
+}
+
+function BuilderChatUIOptionsMultiBlock({
+  ui,
+  disabled,
+  onSend,
+}: {
+  ui: BuilderChatUIOptions;
+  disabled?: boolean;
+  onSend: (payload: string, displayText?: string) => void | Promise<void>;
+}) {
+  const opts = ui.options.slice(0, MAX_OPTIONS);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+
+  const toggle = useCallback((id: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+
+  const handleConfirm = useCallback(() => {
+    const selected = opts.filter((o) => selectedIds.has(o.id));
+    const payload = {
+      selected: selected.map((o) => ({
+        id: o.id,
+        value: o.value,
+        label: o.label,
+      })),
+    };
+    const text = `UI_MULTI:${ui.uiId}:${JSON.stringify(payload)}`;
+    const displayText =
+      selected.length === 0
+        ? "Ninguna opción seleccionada"
+        : selected.map((o) => o.label.trim()).join(", ");
+    void onSend(text, displayText);
+  }, [onSend, opts, selectedIds, ui.uiId]);
+
+  const submitLabel = ui.submitLabel?.trim() || "Aplicar selección";
+
+  return (
+    <div
+      className={cn(
+        "mt-3 space-y-3 border-t border-border/60 pt-3",
+        disabled && "pointer-events-none opacity-60",
+      )}
+    >
+      {ui.title ? (
+        <p className="text-xs font-medium text-muted-foreground">{ui.title}</p>
+      ) : null}
+      <div className="flex flex-col gap-2">
+        {opts.map((opt) => {
+          const inputId = `builder-opt-${ui.uiId}-${opt.id}`;
+          return (
+            <div
+              key={opt.id}
+              className={cn(
+                "flex items-start gap-3 rounded-lg border border-border bg-card px-3 py-2.5 shadow-xs transition-all duration-150",
+                "hover:border-primary hover:bg-primary/10 dark:hover:bg-primary/15",
+                disabled && "opacity-60",
+              )}
+            >
+              <Checkbox
+                id={inputId}
+                checked={selectedIds.has(opt.id)}
+                disabled={disabled}
+                onCheckedChange={(c) => toggle(opt.id, c === true)}
+                className="mt-0.5"
+              />
+              <label
+                htmlFor={inputId}
+                className={cn(
+                  "flex-1 cursor-pointer text-left text-xs leading-snug text-foreground",
+                  disabled && "cursor-not-allowed",
+                )}
+              >
+                {opt.label}
+              </label>
+            </div>
+          );
+        })}
+      </div>
+      <Button
+        type="button"
+        size="sm"
+        variant="default"
+        disabled={disabled}
+        className="w-full sm:w-auto"
+        onClick={handleConfirm}
+      >
+        {submitLabel}
+      </Button>
+    </div>
+  );
+}
+
+function BuilderChatUIOptionsBlock({
+  ui,
+  disabled,
+  onSend,
+}: {
+  ui: BuilderChatUIOptions;
+  disabled?: boolean;
+  onSend: (payload: string, displayText?: string) => void | Promise<void>;
+}) {
+  if (ui.multiSelect === true) {
+    return (
+      <BuilderChatUIOptionsMultiBlock ui={ui} disabled={disabled} onSend={onSend} />
+    );
+  }
+  return (
+    <BuilderChatUIOptionsSingleBlock ui={ui} disabled={disabled} onSend={onSend} />
   );
 }
 

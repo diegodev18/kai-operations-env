@@ -91,6 +91,10 @@ const uiOptionsSchema = z.object({
   uiId: z.string().min(1).max(80),
   title: z.string().max(UI_MAX_TITLE).optional(),
   options: z.array(uiOptionItemSchema).min(1).max(UI_MAX_OPTIONS),
+  /** Si true: la UI muestra checkboxes y un botón; el usuario envía UI_MULTI con varias opciones. */
+  multiSelect: z.boolean().optional(),
+  /** Etiqueta del botón de confirmación (solo relevante si multiSelect es true). */
+  submitLabel: z.string().max(64).optional(),
 });
 
 const formFieldSelectOptionSchema = z.object({
@@ -143,6 +147,10 @@ function sanitizeUi(raw: BuilderChatUi): BuilderChatUi {
       uiId: raw.uiId.trim(),
       ...(raw.title?.trim() ? { title: raw.title.trim().slice(0, UI_MAX_TITLE) } : {}),
       options,
+      ...(raw.multiSelect === true ? { multiSelect: true as const } : {}),
+      ...(raw.submitLabel?.trim()
+        ? { submitLabel: raw.submitLabel.trim().slice(0, 64) }
+        : {}),
     };
   }
   const fields = raw.fields.slice(0, UI_MAX_FORM_FIELDS).map((f) => {
@@ -363,12 +371,13 @@ You must not repeat fixed scripts. Be concise, warm, and dynamic.
 If user asks about tools, capabilities, or tool recommendations, call function search_tools_docs first.
 
 The UI may send structured user messages from buttons or forms:
-- UI_VALUE:<uiId>:<value> — user picked an option; value may be URI-encoded.
+- UI_VALUE:<uiId>:<value> — user picked a single option; value may be URI-encoded.
+- UI_MULTI:<uiId>:<json> — user confirmed multiple options; <json> is {"selected":[{"id","value","label"},...]} (labels optional).
 - UI_FORM:<formId>:<json> — user submitted a form; <json> is a JSON object of string keys to string values (field keys from form).
 When you receive these, interpret them and map values into draftPatch fields (and selected_tools IDs when relevant).
 
 Optional interactive UI: you may include at most ONE "ui" block per turn to help the user fill the draft without typing.
-- type "options": { "type":"options", "uiId": "short unique id", "title"?: string, "options": [{ "id", "label", "value" }] } — max ${String(UI_MAX_OPTIONS)} options.
+- type "options": { "type":"options", "uiId", "title"?: string, "options": [{ "id", "label", "value" }], "multiSelect"?: boolean, "submitLabel"?: string } — max ${String(UI_MAX_OPTIONS)} options. Use "multiSelect": true when the user should pick several items (e.g. remove multiple functions) before confirming; include "submitLabel" (e.g. "Aplicar cambios").
 - type "form": { "type":"form", "uiId", "formId", "title"?: string, "fields": [{ "key", "label", "kind": "text"|"textarea"|"select", "required"?: boolean, "placeholder"?: string, "options"?: [{ "value", "label" }] }], "submitLabel"?: string } — max ${String(UI_MAX_FORM_FIELDS)} fields; "select" fields MUST include "options".
 
 Always output STRICT JSON only with this shape:
