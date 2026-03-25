@@ -1016,26 +1016,27 @@ function buildPayloadForDocument(
 ): Record<string, unknown> {
   switch (documentId) {
     case "agent": {
-      const rawMax = formState.agent.maxFunctionCalls ?? 4;
+      const agent = formState.agent ?? {};
+      const rawMax = agent.maxFunctionCalls ?? 4;
       const maxFunctionCalls = Math.min(
         8,
         Math.max(1, Number.isFinite(rawMax) ? rawMax : 4),
       );
       return {
-        enabled: formState.agent.enabled !== false,
-        isAuthEnable: formState.agent.isAuthEnable,
-        injectCommandsInPrompt: formState.agent.injectCommandsInPrompt,
-        isMemoryEnable: formState.agent.isMemoryEnable,
-        isMultiMessageEnable: formState.agent.isMultiMessageEnable,
-        isMultiMessageResponseEnable: formState.agent.isMultiMessageResponseEnable,
+        enabled: agent.enabled !== false,
+        isAuthEnable: agent.isAuthEnable,
+        injectCommandsInPrompt: agent.injectCommandsInPrompt,
+        isMemoryEnable: agent.isMemoryEnable,
+        isMultiMessageEnable: agent.isMultiMessageEnable,
+        isMultiMessageResponseEnable: agent.isMultiMessageResponseEnable,
         maxFunctionCalls,
-        omitFirstEchoes: formState.agent.omitFirstEchoes,
-        isValidatorAgentEnable: formState.agent.isValidatorAgentEnable ?? false,
-        excludedNumbers: formState.agent.excludedNumbers ?? [],
+        omitFirstEchoes: agent.omitFirstEchoes,
+        isValidatorAgentEnable: agent.isValidatorAgentEnable ?? false,
+        excludedNumbers: agent.excludedNumbers ?? [],
       };
     }
     case "answer":
-      return { notSupport: formState.answer.notSupport ?? "" };
+      return { notSupport: formState.answer?.notSupport ?? "" };
     case "ai": {
       const thinking = formState.ai?.thinking;
       const aiModel = formState.ai?.model ?? DEFAULT_LLM_MODEL;
@@ -1055,36 +1056,40 @@ function buildPayloadForDocument(
       };
     }
     case "response": {
+      const response = formState.response ?? {};
       const maxResponseLinesEnabled =
-        formState.response.maxResponseLinesEnabled ?? false;
+        response.maxResponseLinesEnabled ?? false;
       const maxResponseLines =
-        formState.response.maxResponseLines ?? 50;
+        response.maxResponseLines ?? 50;
       return {
         maxResponseLinesEnabled,
         maxResponseLines: maxResponseLinesEnabled ? maxResponseLines : undefined,
-        waitTime: formState.response.waitTime ?? 3,
+        waitTime: response.waitTime ?? 3,
       };
     }
     case "time":
-      return { zone: formState.time.zone ?? "America/Mexico_City" };
+      return { zone: formState.time?.zone ?? "America/Mexico_City" };
     case "prompt": {
+      const prompt = formState.prompt ?? {};
       return {
         auth: {
-          auth: formState.prompt.auth?.auth ?? "",
-          unauth: formState.prompt.auth?.unauth ?? "",
+          auth: prompt.auth?.auth ?? "",
+          unauth: prompt.auth?.unauth ?? "",
         },
-        isMultiFunctionCallingEnable: formState.prompt.isMultiFunctionCallingEnable,
+        isMultiFunctionCallingEnable: prompt.isMultiFunctionCallingEnable,
       };
     }
     case "memory":
-      return { limit: formState.memory.limit ?? 15 };
+      return { limit: formState.memory?.limit ?? 15 };
     case "mcp":
-      return { maxRetries: formState.mcp.maxRetries ?? 1 };
-    case "limitation":
+      return { maxRetries: formState.mcp?.maxRetries ?? 1 };
+    case "limitation": {
+      const lim = formState.limitation;
       return {
-        userLimitation: formState.limitation.userLimitation ?? false,
-        allowedUsers: formState.limitation.allowedUsers ?? [],
+        userLimitation: lim?.userLimitation ?? false,
+        allowedUsers: Array.isArray(lim?.allowedUsers) ? lim.allowedUsers : [],
       };
+    }
     default:
       return {};
   }
