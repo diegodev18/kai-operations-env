@@ -786,6 +786,11 @@ export function AgentBuilderChatDiagram() {
   const hasHydratedDraftRef = useRef(false);
   /** Evita PATCH al hidratar un borrador ya marcado como completo en servidor. */
   const skipDraftPersistenceRef = useRef(false);
+  /**
+   * Evita múltiples POST / agent_drafts cuando varias llamadas a persistState
+   * coinciden antes de que React aplique setDraftId (efecto + actualizaciones de estado).
+   */
+  const draftCreationPromiseRef = useRef<Promise<string> | null>(null);
 
   const [agentCreatedDialogOpen, setAgentCreatedDialogOpen] = useState(false);
   /** Estado de generación async del system prompt (campos MCP del borrador). */
@@ -1098,7 +1103,7 @@ export function AgentBuilderChatDiagram() {
   );
 
   const persistState = useCallback(
-    async (state: DraftState, markComplete: boolean) => {
+    async (state: DraftState, markComplete: boolean): Promise<string | null> => {
       const stepped = updateStepFromState(state);
       const personalitySig = `${stepped.agent_name}|${stepped.agent_personality}`;
       const businessSig = BUSINESS_FLOW.map((field) => stepped[field]).join("|");
@@ -1106,26 +1111,37 @@ export function AgentBuilderChatDiagram() {
 
       let currentDraftId = draftId;
       if (!currentDraftId && isPersonalityComplete(stepped)) {
-        setSaving(true);
-        try {
-          const created = await postAgentDraft({
-            agent_name: stepped.agent_name.trim(),
-            agent_personality: stepped.agent_personality.trim(),
+        if (!draftCreationPromiseRef.current) {
+          draftCreationPromiseRef.current = (async (): Promise<string> => {
+            setSaving(true);
+            try {
+              const created = await postAgentDraft({
+                agent_name: stepped.agent_name.trim(),
+                agent_personality: stepped.agent_personality.trim(),
+              });
+              if (!created.ok) {
+                toast.error(created.error);
+                throw new Error(created.error);
+              }
+              setDraftId(created.id);
+              await syncPendingTasks(created.id);
+              await flushQueuedDeferredTasks(created.id);
+              await syncTechnicalProps(created.id);
+              return created.id;
+            } finally {
+              setSaving(false);
+            }
+          })().finally(() => {
+            draftCreationPromiseRef.current = null;
           });
-          if (!created.ok) {
-            toast.error(created.error);
-            return;
-          }
-          currentDraftId = created.id;
-          setDraftId(created.id);
-          await syncPendingTasks(created.id);
-          await flushQueuedDeferredTasks(created.id);
-          await syncTechnicalProps(created.id);
-        } finally {
-          setSaving(false);
+        }
+        try {
+          currentDraftId = await draftCreationPromiseRef.current;
+        } catch {
+          return null;
         }
       }
-      if (!currentDraftId) return;
+      if (!currentDraftId) return null;
 
       if (
         isBusinessComplete(stepped) &&
@@ -1203,6 +1219,7 @@ export function AgentBuilderChatDiagram() {
           setSaving(false);
         }
       }
+      return currentDraftId;
     },
     [
       draftId,
@@ -1306,8 +1323,10 @@ export function AgentBuilderChatDiagram() {
         creation_step: creationStep,
       });
       const serverMarkedComplete = creationStepRaw === "complete";
-      const flowComplete =
-        serverMarkedComplete || nextState.creation_step === "complete";
+      /** Solo el servidor puede marcar el builder como cerrado; si usáramos `creation_step` local,
+       * un borrador con todos los campos llenos pondría `lastSyncedRef.complete` sin PATCH y el
+       * confirm no ejecutaría el paso `complete` ni el estado de generación del prompt. */
+      const serverFlowComplete = serverMarkedComplete;
 
       const mcpHydrated = d.mcp_configuration as
         | Record<string, unknown>
@@ -1320,12 +1339,12 @@ export function AgentBuilderChatDiagram() {
 
       setDraftId(res.id);
       setDraftState(nextState);
-      setConfirmedSummary(flowComplete);
+      setConfirmedSummary(serverFlowComplete);
       setDraftSystemPromptGenStatus(
         typeof genSt === "string" && genSt.length > 0 ? genSt : null,
       );
 
-      if (flowComplete) {
+      if (serverFlowComplete) {
         setBuilderMode("conversational");
         skipDraftPersistenceRef.current = true;
         lastSyncedRef.current.complete = true;
@@ -1498,7 +1517,23 @@ export function AgentBuilderChatDiagram() {
         setConfirmedSummary(true);
         const nextState = updateStepFromState({ ...draftState, creation_step: "complete" });
         setDraftState(nextState);
-        await persistState(nextState, true);
+        const persistedId = await persistState(nextState, true);
+        const draftIdForSync = persistedId ?? draftId;
+        if (draftIdForSync) {
+          const syncRes = await fetchAgentDraft(draftIdForSync);
+          if (syncRes.ok) {
+            const doc = syncRes.draft as Record<string, unknown>;
+            const mcp = doc.mcp_configuration as Record<string, unknown> | undefined;
+            const nested =
+              typeof mcp?.system_prompt_generation_status === "string"
+                ? mcp.system_prompt_generation_status
+                : null;
+            const st = syncRes.systemPromptGenerationStatus ?? nested;
+            setDraftSystemPromptGenStatus(
+              typeof st === "string" && st.length > 0 ? st : null,
+            );
+          }
+        }
         addMessage("assistant", "Builder finalizado correctamente.");
         setAgentCreatedDialogOpen(true);
         toast.success("Builder completado");
