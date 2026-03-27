@@ -1473,12 +1473,15 @@ export function AgentBuilderChatDiagram() {
     ],
   );
 
-  const handleSend = useCallback(async () => {
-    const text = chatInput.trim();
-    if (!text) return;
-    setChatInput("");
-    await sendUserText(text);
-  }, [chatInput, sendUserText]);
+  const handleSend = useCallback(
+    async (textOverride?: string) => {
+      const text = (textOverride ?? chatInput).trim();
+      if (!text) return;
+      setChatInput("");
+      await sendUserText(text);
+    },
+    [chatInput, sendUserText],
+  );
 
   useLayoutEffect(() => {
     const el = chatComposerRef.current;
@@ -1548,12 +1551,9 @@ export function AgentBuilderChatDiagram() {
         </div>
         <Button
           onClick={() => {
-            setChatInput("confirmar");
-            void Promise.resolve().then(() => {
-              void handleSend();
-            });
+            void handleSend("confirmar");
           }}
-          disabled={saving || agentCreatedDialogOpen}
+          disabled={saving || agentCreatedDialogOpen || isThinking}
         >
           {saving ? <Loader2Icon className="size-4 animate-spin" /> : <CheckIcon />}
           Confirmar y finalizar
