@@ -19,6 +19,7 @@ import {
   PlusIcon,
   CheckIcon,
   PencilIcon,
+  Trash2Icon,
   XIcon,
   Loader2Icon,
   MessageSquareIcon,
@@ -174,6 +175,8 @@ type ManualNode = {
 };
 
 type ManualSection = "business" | "personality";
+type BuilderMode = "unselected" | "conversational" | "form";
+type FormStep = "business" | "tools" | "personality" | "review";
 
 function manualSectionDocId(section: ManualSection): "business" | "personality" {
   return section;
@@ -196,6 +199,7 @@ const BUSINESS_FLOW: BusinessFieldKey[] = [
   "agent_description",
   "escalation_rules",
 ];
+const FORM_STEPS: FormStep[] = ["business", "tools", "personality", "review"];
 
 const BUSINESS_FIELD_GRAPH: Array<{ key: BusinessFieldKey; label: string }> = [
   { key: "business_name", label: "Nombre" },
@@ -754,13 +758,9 @@ export function AgentBuilderChatDiagram() {
   const [thinkingLabel, setThinkingLabel] = useState("Construyendo agente...");
   const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
   const [isHydratingDraft, setIsHydratingDraft] = useState(false);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    {
-      id: nowId(),
-      role: "assistant",
-      text: "Empezamos en modo conversacional con IA. Cuéntame sobre tu negocio y el agente que quieres construir.",
-    },
-  ]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [builderMode, setBuilderMode] = useState<BuilderMode>("unselected");
+  const [formStep, setFormStep] = useState<FormStep>("business");
 
   const [draftState, setDraftState] = useState<DraftState>({
     agent_name: "",
@@ -920,6 +920,20 @@ export function AgentBuilderChatDiagram() {
       }),
     );
   }, [updateStepFromState]);
+
+  const launchConversationalMode = useCallback(() => {
+    setBuilderMode("conversational");
+    setChatMessages((prev) => {
+      if (prev.length > 0) return prev;
+      return [
+        {
+          id: nowId(),
+          role: "assistant",
+          text: "Empezamos en modo conversacional con IA. Cuéntame sobre tu negocio y el agente que quieres construir.",
+        },
+      ];
+    });
+  }, []);
 
   const openManualNodeDialog = useCallback(
     (section: ManualSection, node?: ManualNode) => {
@@ -1201,6 +1215,8 @@ export function AgentBuilderChatDiagram() {
 
   useEffect(() => {
     if (!draftFromUrl) {
+      setBuilderMode("unselected");
+      setFormStep("business");
       hasHydratedDraftRef.current = true;
       skipDraftPersistenceRef.current = false;
       setLoadingDraft(false);
@@ -1285,11 +1301,13 @@ export function AgentBuilderChatDiagram() {
       setConfirmedSummary(flowComplete);
 
       if (flowComplete) {
+        setBuilderMode("conversational");
         skipDraftPersistenceRef.current = true;
         lastSyncedRef.current.complete = true;
         setAgentCreatedDialogOpen(true);
         setChatMessages([]);
       } else {
+        setBuilderMode("conversational");
         skipDraftPersistenceRef.current = false;
         const contextLines = [
           "Borrador cargado. Este es tu contexto actual:",
@@ -1474,11 +1492,19 @@ export function AgentBuilderChatDiagram() {
   );
 
   const handleSend = useCallback(async () => {
+    if (builderMode === "unselected") return;
+    if (builderMode === "form" && formStep !== "tools") return;
     const text = chatInput.trim();
     if (!text) return;
     setChatInput("");
     await sendUserText(text);
-  }, [chatInput, sendUserText]);
+  }, [builderMode, chatInput, formStep, sendUserText]);
+
+  const canUseChatComposer = builderMode === "conversational" || formStep === "tools";
+  const formStepIndex = FORM_STEPS.indexOf(formStep);
+  const selectedToolsForForm = draftState.selected_tools
+    .map((toolId) => catalogById.get(toolId))
+    .filter((tool): tool is ToolsCatalogItem => Boolean(tool));
 
   useLayoutEffect(() => {
     const el = chatComposerRef.current;
@@ -1568,45 +1594,322 @@ export function AgentBuilderChatDiagram() {
           <header className="border-b border-border px-4 py-3">
             <p className="flex items-center gap-2 text-sm font-medium">
               <MessageSquareIcon className="size-4" />
-              Conversación guiada
+              {builderMode === "form" ? "Constructor por formulario" : "Conversación guiada"}
             </p>
           </header>
           <div className="flex-1 space-y-3 overflow-y-auto p-4">
-            {chatMessages.map((message, messageIndex) => {
-              const isLatestInThread = messageIndex === chatMessages.length - 1;
-              /** Solo el último mensaje del hilo puede tener UI activa; tras enviar o elegir opción, queda bloqueada. */
-              const uiInteractive = isLatestInThread && !isThinking;
-              return (
-              <div
-                key={message.id}
-                className={cn(
-                  "max-w-[92%] rounded-xl px-3 py-2 text-sm whitespace-pre-wrap",
-                  message.role === "assistant"
-                    ? "bg-muted text-foreground"
-                    : "ml-auto bg-primary text-primary-foreground",
-                )}
-              >
-                {message.role === "user"
-                  ? (message.displayText ?? formatUserBubbleText(message.text))
-                  : message.text}
-                {typingMessageId === message.id ? (
-                  <span className="ml-0.5 inline-block animate-pulse align-baseline font-mono">
-                    ▍
-                  </span>
-                ) : null}
-                {message.role === "assistant" &&
-                message.ui &&
-                typingMessageId !== message.id ? (
-                  <BuilderChatUiBlock
-                    ui={message.ui}
-                    disabled={!uiInteractive}
-                    onSend={(payload, displayText) => void sendUserText(payload, displayText)}
-                  />
-                ) : null}
+            {builderMode === "unselected" ? (
+              <div className="rounded-xl border border-border bg-muted/30 p-4">
+                <p className="text-sm font-medium">Elige el constructor inicial</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Antes del primer mensaje, selecciona cómo quieres construir este agente.
+                </p>
+                <div className="mt-4 grid gap-2">
+                  <Button
+                    type="button"
+                    variant="default"
+                    className="justify-start"
+                    onClick={launchConversationalMode}
+                  >
+                    Constructor conversacional
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="justify-start"
+                    onClick={() => {
+                      setBuilderMode("form");
+                      setFormStep("business");
+                    }}
+                  >
+                    Constructor formulario
+                  </Button>
+                </div>
               </div>
-              );
-            })}
-            {isThinking ? (
+            ) : null}
+            {builderMode === "form" ? (
+              <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Paso {formStepIndex + 1} de {FORM_STEPS.length}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {formStep === "business"
+                      ? "Negocio"
+                      : formStep === "tools"
+                        ? "Tools"
+                        : formStep === "personality"
+                          ? "Personalidad"
+                          : "Revisión"}
+                  </p>
+                </div>
+                {formStep === "business" ? (
+                  <div className="space-y-2">
+                    <Label>Nombre del negocio</Label>
+                    <Input
+                      value={draftState.business_name}
+                      onChange={(event) =>
+                        setDraftState((prev) =>
+                          updateStepFromState({ ...prev, business_name: event.target.value }),
+                        )
+                      }
+                    />
+                    <Label>Responsable</Label>
+                    <Input
+                      value={draftState.owner_name}
+                      onChange={(event) =>
+                        setDraftState((prev) =>
+                          updateStepFromState({ ...prev, owner_name: event.target.value }),
+                        )
+                      }
+                    />
+                    <Label>Industria</Label>
+                    <Input
+                      value={draftState.industry}
+                      onChange={(event) =>
+                        setDraftState((prev) =>
+                          updateStepFromState({ ...prev, industry: event.target.value }),
+                        )
+                      }
+                    />
+                    <Label>Descripción del negocio</Label>
+                    <Textarea
+                      value={draftState.description}
+                      onChange={(event) =>
+                        setDraftState((prev) =>
+                          updateStepFromState({ ...prev, description: event.target.value }),
+                        )
+                      }
+                      rows={2}
+                    />
+                    <Label>Audiencia objetivo</Label>
+                    <Textarea
+                      value={draftState.target_audience}
+                      onChange={(event) =>
+                        setDraftState((prev) =>
+                          updateStepFromState({ ...prev, target_audience: event.target.value }),
+                        )
+                      }
+                      rows={2}
+                    />
+                    <Label>Rol del agente</Label>
+                    <Textarea
+                      value={draftState.agent_description}
+                      onChange={(event) =>
+                        setDraftState((prev) =>
+                          updateStepFromState({ ...prev, agent_description: event.target.value }),
+                        )
+                      }
+                      rows={2}
+                    />
+                    <Label>Reglas de escalamiento</Label>
+                    <Textarea
+                      value={draftState.escalation_rules}
+                      onChange={(event) =>
+                        setDraftState((prev) =>
+                          updateStepFromState({ ...prev, escalation_rules: event.target.value }),
+                        )
+                      }
+                      rows={2}
+                    />
+                  </div>
+                ) : null}
+                {formStep === "tools" ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium">Tools seleccionadas</p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setEditingToolId(null);
+                          setToolsDialogOpen(true);
+                        }}
+                      >
+                        <PlusIcon className="mr-1 size-4" />
+                        Agregar tool
+                      </Button>
+                    </div>
+                    {selectedToolsForForm.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        Aún no hay tools seleccionadas.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {selectedToolsForForm.map((tool) => (
+                          <div
+                            key={tool.id}
+                            className="flex items-center justify-between rounded-md border border-border bg-background px-2 py-2"
+                          >
+                            <div className="pr-2">
+                              <p className="text-sm font-medium">{tool.displayName ?? tool.name}</p>
+                              <p className="line-clamp-1 text-xs text-muted-foreground">{tool.name}</p>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => {
+                                  setEditingToolId(tool.id);
+                                  setToolsDialogOpen(true);
+                                }}
+                                aria-label={`Personalizar ${tool.displayName ?? tool.name}`}
+                              >
+                                <PencilIcon className="size-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => removeToolFromDraft(tool.id)}
+                                aria-label={`Eliminar ${tool.displayName ?? tool.name}`}
+                              >
+                                <Trash2Icon className="size-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Usa el chat de abajo en este paso para que el agente te ayude a encontrar tools.
+                    </p>
+                  </div>
+                ) : null}
+                {formStep === "personality" ? (
+                  <div className="space-y-2">
+                    <Label>Nombre del agente</Label>
+                    <Input
+                      value={draftState.agent_name}
+                      onChange={(event) =>
+                        setDraftState((prev) =>
+                          updateStepFromState({ ...prev, agent_name: event.target.value }),
+                        )
+                      }
+                    />
+                    <Label>Personalidad del agente</Label>
+                    <Textarea
+                      value={draftState.agent_personality}
+                      onChange={(event) =>
+                        setDraftState((prev) =>
+                          updateStepFromState({ ...prev, agent_personality: event.target.value }),
+                        )
+                      }
+                      rows={3}
+                    />
+                  </div>
+                ) : null}
+                {formStep === "review" ? (
+                  <div className="space-y-2 text-sm">
+                    <p className="font-medium">Revisión final</p>
+                    <p>
+                      Negocio:{" "}
+                      <span className="text-muted-foreground">
+                        {draftState.business_name || "Sin completar"}
+                      </span>
+                    </p>
+                    <p>
+                      Tools:{" "}
+                      <span className="text-muted-foreground">
+                        {draftState.selected_tools.length} seleccionadas
+                      </span>
+                    </p>
+                    <p>
+                      Agente:{" "}
+                      <span className="text-muted-foreground">
+                        {draftState.agent_name || "Sin nombre"}
+                      </span>
+                    </p>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        setChatInput("confirmar");
+                        void Promise.resolve().then(() => {
+                          void handleSend();
+                        });
+                      }}
+                      disabled={!readyToConfirm || isThinking || saving}
+                    >
+                      Confirmar desde formulario
+                    </Button>
+                  </div>
+                ) : null}
+                <div className="flex items-center justify-between pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      const prevIndex = Math.max(0, formStepIndex - 1);
+                      setFormStep(FORM_STEPS[prevIndex] ?? "business");
+                    }}
+                    disabled={formStepIndex === 0}
+                  >
+                    Anterior
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      if (formStep === "business" && !isBusinessComplete(draftState)) {
+                        toast.error("Completa los campos de negocio requeridos.");
+                        return;
+                      }
+                      if (formStep === "tools" && draftState.selected_tools.length === 0) {
+                        toast.error("Selecciona al menos una tool.");
+                        return;
+                      }
+                      if (formStep === "personality" && !isPersonalityComplete(draftState)) {
+                        toast.error("Completa nombre y personalidad del agente.");
+                        return;
+                      }
+                      const nextIndex = Math.min(FORM_STEPS.length - 1, formStepIndex + 1);
+                      setFormStep(FORM_STEPS[nextIndex] ?? "review");
+                    }}
+                    disabled={formStepIndex === FORM_STEPS.length - 1}
+                  >
+                    Siguiente
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+            {builderMode !== "form" || formStep === "tools"
+              ? chatMessages.map((message, messageIndex) => {
+                  const isLatestInThread = messageIndex === chatMessages.length - 1;
+                  /** Solo el último mensaje del hilo puede tener UI activa; tras enviar o elegir opción, queda bloqueada. */
+                  const uiInteractive = isLatestInThread && !isThinking;
+                  return (
+                    <div
+                      key={message.id}
+                      className={cn(
+                        "max-w-[92%] rounded-xl px-3 py-2 text-sm whitespace-pre-wrap",
+                        message.role === "assistant"
+                          ? "bg-muted text-foreground"
+                          : "ml-auto bg-primary text-primary-foreground",
+                      )}
+                    >
+                      {message.role === "user"
+                        ? (message.displayText ?? formatUserBubbleText(message.text))
+                        : message.text}
+                      {typingMessageId === message.id ? (
+                        <span className="ml-0.5 inline-block animate-pulse align-baseline font-mono">
+                          ▍
+                        </span>
+                      ) : null}
+                      {message.role === "assistant" &&
+                      message.ui &&
+                      typingMessageId !== message.id ? (
+                        <BuilderChatUiBlock
+                          ui={message.ui}
+                          disabled={!uiInteractive}
+                          onSend={(payload, displayText) => void sendUserText(payload, displayText)}
+                        />
+                      ) : null}
+                    </div>
+                  );
+                })
+              : null}
+            {isThinking && (builderMode !== "form" || formStep === "tools") ? (
               <div className="max-w-[92%] px-1 py-1 text-sm text-muted-foreground">
                 <div className="relative inline-block">
                   <span className="shine-text relative">
@@ -1629,8 +1932,14 @@ export function AgentBuilderChatDiagram() {
                     void handleSend();
                   }
                 }}
-                disabled={agentCreatedDialogOpen}
-                placeholder="Escribe un mensaje..."
+                disabled={agentCreatedDialogOpen || !canUseChatComposer}
+                placeholder={
+                  canUseChatComposer
+                    ? formStep === "tools" && builderMode === "form"
+                      ? "Pide sugerencias de tools al agente..."
+                      : "Escribe un mensaje..."
+                    : "Activa modo conversacional o avanza al paso Tools"
+                }
                 rows={1}
                 aria-label="Mensaje del chat"
                 className={cn(
@@ -1641,7 +1950,7 @@ export function AgentBuilderChatDiagram() {
               <Button
                 size="icon"
                 onClick={() => void handleSend()}
-                disabled={isThinking || agentCreatedDialogOpen}
+                disabled={isThinking || agentCreatedDialogOpen || !canUseChatComposer}
               >
                 <SendIcon className="size-4" />
               </Button>
