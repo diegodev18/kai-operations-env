@@ -1,9 +1,12 @@
 import type { Context } from "hono";
-import { FieldValue, type QueryDocumentSnapshot } from "firebase-admin/firestore";
+import {
+  FieldValue,
+  type Firestore,
+  type QueryDocumentSnapshot,
+} from "firebase-admin/firestore";
 
-import { getFirestore } from "@/lib/firestore";
 import type { AgentsInfoAuthContext } from "@/types/agents";
-import { userCanAccessAgent } from "@/utils/agents/agentAccess";
+import { resolveAgentWriteDatabase, userCanAccessAgent } from "@/utils/agents";
 import {
   extractFirestoreIndexUrl,
   firestoreFailureHint,
@@ -25,8 +28,8 @@ type ImplementationTaskRow = {
   updatedAt?: string | null;
 };
 
-function getTaskItemsCollection(agentId: string) {
-  return getFirestore()
+function getTaskItemsCollection(db: Firestore, agentId: string) {
+  return db
     .collection("agent_configurations")
     .doc(agentId)
     .collection("implementation")
@@ -114,8 +117,7 @@ async function requireAgentAccess(
   agentId: string,
 ): Promise<Response | null> {
   try {
-    const database = getFirestore();
-    const ok = await userCanAccessAgent(database, authCtx, agentId);
+    const ok = await userCanAccessAgent(authCtx, agentId);
     if (!ok) {
       return c.json({ error: "No autorizado para este agente" }, 403);
     }
@@ -134,9 +136,14 @@ export async function getImplementationTasks(
   if (denied) return denied;
 
   try {
-    const itemsRef = getTaskItemsCollection(agentId);
+    const { db, inCommercial, inProduction } =
+      await resolveAgentWriteDatabase(agentId);
+    if (!inCommercial && !inProduction) {
+      return c.json({ error: "Agente no encontrado" }, 404);
+    }
+    const itemsRef = getTaskItemsCollection(db, agentId);
     const [agentSnap, snap] = await Promise.all([
-      getFirestore().collection("agent_configurations").doc(agentId).get(),
+      db.collection("agent_configurations").doc(agentId).get(),
       itemsRef.orderBy("createdAt", "desc").get(),
     ]);
     if (!agentSnap.exists) {
@@ -192,11 +199,12 @@ export async function createImplementationTask(
   }
 
   try {
-    const agentRef = getFirestore().collection("agent_configurations").doc(agentId);
-    const agentSnap = await agentRef.get();
-    if (!agentSnap.exists) {
+    const { db, inCommercial, inProduction } =
+      await resolveAgentWriteDatabase(agentId);
+    if (!inCommercial && !inProduction) {
       return c.json({ error: "Agente no encontrado" }, 404);
     }
+    const agentRef = db.collection("agent_configurations").doc(agentId);
     const now = FieldValue.serverTimestamp();
     const payload = {
       title,
@@ -208,7 +216,7 @@ export async function createImplementationTask(
       createdAt: now,
       updatedAt: now,
     };
-    const docRef = await getTaskItemsCollection(agentId).add(payload);
+    const docRef = await getTaskItemsCollection(db, agentId).add(payload);
     const created = await docRef.get();
     return c.json(
       { task: mapTaskDoc(created as QueryDocumentSnapshot) },
@@ -278,10 +286,15 @@ export async function patchImplementationTask(
   }
 
   try {
-    const agentRef = getFirestore().collection("agent_configurations").doc(agentId);
+    const { db, inCommercial, inProduction } =
+      await resolveAgentWriteDatabase(agentId);
+    if (!inCommercial && !inProduction) {
+      return c.json({ error: "Agente no encontrado" }, 404);
+    }
+    const agentRef = db.collection("agent_configurations").doc(agentId);
     const [agentSnap, taskSnap] = await Promise.all([
       agentRef.get(),
-      getTaskItemsCollection(agentId).doc(taskId).get(),
+      getTaskItemsCollection(db, agentId).doc(taskId).get(),
     ]);
     if (!agentSnap.exists) {
       return c.json({ error: "Agente no encontrado" }, 404);

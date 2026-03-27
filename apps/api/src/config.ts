@@ -7,6 +7,8 @@ export const {
   BETTER_AUTH_URL = "http://localhost:3000",
   WEB_ORIGIN = "http://localhost:3000",
   FIREBASE_APP_NAME = "kai-project-26879",
+  /** Segunda app Firebase (asistente comercial / testing). */
+  FIREBASE_APP_NAME_COMMERCIAL = "asistente-comercial-8d43c",
   KAI_AGENTS_TESTING_URL = "https://kaiagentstesting-eimrzmtgdq-uc.a.run.app",
 } = process.env;
 

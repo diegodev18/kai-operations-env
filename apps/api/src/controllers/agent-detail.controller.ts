@@ -6,7 +6,7 @@ import {
   PROPERTY_DOC_IDS,
   type PropertyDocId,
 } from "@/constants/agentPropertyDefaults";
-import { getFirestore } from "@/lib/firestore";
+import { getFirestore, getFirestoreCommercial } from "@/lib/firestore";
 import logger, { formatError } from "@/lib/logger";
 import {
   runSystemPromptGenerationJob,
@@ -14,7 +14,9 @@ import {
 } from "@/services/system-prompt-generation-job";
 import type { AgentsInfoAuthContext } from "@/types/agents";
 import {
+  getAgentDeploymentFlags,
   parseAgentDoc,
+  resolveAgentWriteDatabase,
   userCanAccessAgent,
 } from "@/utils/agents";
 import {
@@ -124,8 +126,7 @@ async function requireAgentAccess(
   agentId: string,
 ): Promise<Response | null> {
   try {
-    const database = getFirestore();
-    const ok = await userCanAccessAgent(database, authCtx, agentId);
+    const ok = await userCanAccessAgent(authCtx, agentId);
     if (!ok) {
       return c.json({ error: "No autorizado para este agente" }, 403);
     }
@@ -145,7 +146,13 @@ export async function getAgentById(
   if (denied) return denied;
 
   try {
-    const database = getFirestore();
+    const flags = await getAgentDeploymentFlags(agentId);
+    if (!flags.inCommercial && !flags.inProduction) {
+      return c.json({ error: "Agente no encontrado" }, 404);
+    }
+    const database = flags.inCommercial
+      ? getFirestoreCommercial()
+      : getFirestore();
     const docRef = database.collection("agent_configurations").doc(agentId);
     const [snapshot, agentPropSnap] = await Promise.all([
       docRef.get(),
@@ -160,7 +167,13 @@ export async function getAgentById(
     }
     const agentData = agentPropSnap.exists ? agentPropSnap.data() : undefined;
     const enabled = (agentData?.enabled as boolean | undefined) !== false;
-    return c.json({ ...agent, enabled });
+    return c.json({
+      ...agent,
+      enabled,
+      in_commercial: flags.inCommercial,
+      in_production: flags.inProduction,
+      primary_source: flags.inCommercial ? "commercial" : "production",
+    });
   } catch (error) {
     const r = handleFirestoreError(c, error, "[agents/:id GET]");
     return r ?? c.json({ error: "Error al leer agente" }, 500);
@@ -176,12 +189,13 @@ export async function getAgentProperties(
   if (denied) return denied;
 
   try {
-    const database = getFirestore();
-    const agentRef = database.collection("agent_configurations").doc(agentId);
-    const agentSnap = await agentRef.get();
-    if (!agentSnap.exists) {
+    const { db: database, inCommercial, inProduction } =
+      await resolveAgentWriteDatabase(agentId);
+    if (!inCommercial && !inProduction) {
       return c.json({ error: "Agente no encontrado" }, 404);
     }
+    const agentRef = database.collection("agent_configurations").doc(agentId);
+    const agentSnap = await agentRef.get();
 
     const propertiesRef = agentRef.collection("properties");
     const result: Record<string, unknown> = {};
@@ -240,7 +254,12 @@ export async function getAgentProperties(
       delete agentResult.isCommandsEnable;
     }
 
-    return c.json(result);
+    return c.json({
+      ...result,
+      in_commercial: inCommercial,
+      in_production: inProduction,
+      primary_source: inCommercial ? "commercial" : "production",
+    });
   } catch (error) {
     const r = handleFirestoreError(c, error, "[agents/:id/properties GET]");
     return r ?? c.json({ error: "Error al leer propiedades" }, 500);
@@ -286,12 +305,12 @@ export async function updateAgentPropertyDocument(
   }
 
   try {
-    const database = getFirestore();
-    const agentRef = database.collection("agent_configurations").doc(agentId);
-    const agentSnap = await agentRef.get();
-    if (!agentSnap.exists) {
+    const { db: database, inCommercial, inProduction } =
+      await resolveAgentWriteDatabase(agentId);
+    if (!inCommercial && !inProduction) {
       return c.json({ error: "Agente no encontrado" }, 404);
     }
+    const agentRef = database.collection("agent_configurations").doc(agentId);
 
     const docRef = agentRef.collection("properties").doc(documentId);
     await docRef.set(body as Record<string, unknown>, { merge: true });
@@ -335,11 +354,17 @@ export async function postAgentSystemPromptRegenerate(
   if (denied) return denied;
 
   try {
-    const database = getFirestore();
-    const ref = database.collection("agent_configurations").doc(agentId);
+    const commercial = getFirestoreCommercial();
+    const ref = commercial.collection("agent_configurations").doc(agentId);
     const snap = await ref.get();
     if (!snap.exists) {
-      return c.json({ error: "Agente no encontrado" }, 404);
+      return c.json(
+        {
+          error:
+            "El agente no existe en asistente comercial. Sincroniza desde producción primero.",
+        },
+        404,
+      );
     }
     const data = snap.data() ?? {};
     const mcp = data.mcp_configuration as Record<string, unknown> | undefined;
@@ -392,12 +417,12 @@ export async function updateAgentPrompt(
   }
 
   try {
-    const database = getFirestore();
-    const docRef = database.collection("agent_configurations").doc(agentId);
-    const snapshot = await docRef.get();
-    if (!snapshot.exists) {
+    const { db: database, inCommercial, inProduction } =
+      await resolveAgentWriteDatabase(agentId);
+    if (!inCommercial && !inProduction) {
       return c.json({ error: "Agente no encontrado" }, 404);
     }
+    const docRef = database.collection("agent_configurations").doc(agentId);
 
     await docRef.update({
       "mcp_configuration.system_prompt": prompt,

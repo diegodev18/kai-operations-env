@@ -41,6 +41,10 @@ import {
   getImplementationTasks,
   patchImplementationTask,
 } from "@/controllers/agents-implementation-tasks.controller";
+import {
+  postPromoteToProduction,
+  postSyncFromProduction,
+} from "@/controllers/agent-sync.controller";
 import { resolveAgentsAuthContext } from "@/routes/agents-auth";
 
 const agentsRouter = new Hono();
@@ -279,6 +283,26 @@ agentsRouter.post("/:agentId/system-prompt/regenerate", async (c) => {
     return c.json({ error: "Agente no encontrado" }, 404);
   }
   return postAgentSystemPromptRegenerate(c, ctx.authCtx, agentId);
+});
+
+agentsRouter.post("/:agentId/sync-from-production", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return postSyncFromProduction(c, ctx.authCtx, agentId);
+});
+
+agentsRouter.post("/:agentId/promote-to-production", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return postPromoteToProduction(c, ctx.authCtx, agentId);
 });
 
 agentsRouter.get("/:agentId", async (c) => {

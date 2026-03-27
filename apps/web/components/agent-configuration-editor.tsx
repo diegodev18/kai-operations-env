@@ -11,6 +11,7 @@ import {
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -35,10 +36,12 @@ import {
   Loader2Icon,
   ChevronDownIcon,
   ChevronRightIcon,
+  CloudDownloadIcon,
   FileEditIcon,
   PlusIcon,
   PowerIcon,
   PowerOffIcon,
+  RocketIcon,
 } from "lucide-react";
 import { PROPERTY_DESCRIPTIONS, PROPERTY_TITLES } from "@/lib/property-descriptions";
 import { cn } from "@/lib/utils";
@@ -48,6 +51,8 @@ import {
   fetchAgentById,
   fetchAgentGrowers,
   postAgentGrower,
+  postAgentSyncFromProduction,
+  postPromoteToProduction,
 } from "@/lib/agents-api";
 import {
   fetchOrganizationUsers,
@@ -67,6 +72,28 @@ const DOCUMENT_IDS: PropertyDocumentId[] = [
 ];
 
 const DEFAULT_LLM_MODEL = "gemini-2.5-flash";
+
+/** Subcolecciones permitidas en POST promote-to-production (alineado con API). */
+const PROMOTE_SUBCOLLECTION_OPTIONS: { id: string; label: string }[] = [
+  { id: "tools", label: "Herramientas" },
+  { id: "knowledgeBase", label: "Base de conocimiento" },
+  { id: "properties", label: "Propiedades" },
+  { id: "wallet", label: "Wallet" },
+  { id: "pipelines", label: "Pipelines" },
+  { id: "growers", label: "Growers" },
+  { id: "commands", label: "Comandos" },
+  { id: "faqs", label: "FAQs" },
+  { id: "chats", label: "Chats" },
+  { id: "orders", label: "Pedidos" },
+];
+
+function defaultPromoteSelection(): Record<string, boolean> {
+  const o: Record<string, boolean> = {};
+  for (const { id } of PROMOTE_SUBCOLLECTION_OPTIONS) {
+    o[id] = ["chats", "orders", "commands", "faqs"].includes(id) ? false : true;
+  }
+  return o;
+}
 
 const AGENT_LLM_MODELS = [
   "gemini-2.5-flash",
@@ -215,10 +242,21 @@ export function AgentConfigurationEditor({
   const [addingGrowerUserId, setAddingGrowerUserId] = useState<string | null>(
     null,
   );
+  const [promoteDialogOpen, setPromoteDialogOpen] = useState(false);
+  const [promoteSubcols, setPromoteSubcols] = useState<Record<string, boolean>>(
+    () => defaultPromoteSelection(),
+  );
+  const [promoteConfirmName, setPromoteConfirmName] = useState("");
+  const [syncingFromProd, setSyncingFromProd] = useState(false);
+  const [promoting, setPromoting] = useState(false);
 
   useEffect(() => {
     if (data) {
-      const next = JSON.parse(JSON.stringify(data)) as AgentPropertiesResponse;
+      const raw = JSON.parse(JSON.stringify(data)) as Record<string, unknown>;
+      delete raw.in_commercial;
+      delete raw.in_production;
+      delete raw.primary_source;
+      const next = raw as unknown as AgentPropertiesResponse;
       // Hydrate ai.model and ai.temperature from data.ai (source of truth), fallback to data.prompt
       if (next.ai) {
         next.ai.model =
@@ -465,7 +503,75 @@ export function AgentConfigurationEditor({
 
   const growerPickerLoading = orgUsersLoading || dialogGrowersLoading;
 
+  const handleSyncFromProduction = useCallback(async () => {
+    if (!agentId) return;
+    setSyncingFromProd(true);
+    try {
+      const r = await postAgentSyncFromProduction(agentId);
+      if (r.ok) {
+        toast.success(
+          "Copia actualizada en asistente comercial (desde producción)",
+        );
+        await refetch();
+        onAgentUpdated?.();
+      } else {
+        toast.error(r.error);
+      }
+    } finally {
+      setSyncingFromProd(false);
+    }
+  }, [agentId, refetch, onAgentUpdated]);
+
+  const openPromoteDialog = useCallback(() => {
+    setPromoteSubcols(defaultPromoteSelection());
+    setPromoteConfirmName("");
+    setPromoteDialogOpen(true);
+  }, []);
+
+  const handlePromoteToProduction = useCallback(async () => {
+    if (!agentId) return;
+    const subcollections = PROMOTE_SUBCOLLECTION_OPTIONS.filter(
+      ({ id }) => promoteSubcols[id],
+    ).map(({ id }) => id);
+    if (subcollections.length === 0) {
+      toast.error("Selecciona al menos una subcolección");
+      return;
+    }
+    const expected = agentNameForConfirm.trim();
+    if (!expected || promoteConfirmName.trim() !== expected) {
+      toast.error("El nombre no coincide con el agente en comercial");
+      return;
+    }
+    setPromoting(true);
+    try {
+      const r = await postPromoteToProduction(agentId, {
+        subcollections,
+        confirmation_agent_name: promoteConfirmName.trim(),
+      });
+      if (r.ok) {
+        toast.success("Agente copiado a producción (kai)");
+        setPromoteDialogOpen(false);
+        await refetch();
+        onAgentUpdated?.();
+      } else {
+        toast.error(r.error);
+      }
+    } finally {
+      setPromoting(false);
+    }
+  }, [
+    agentId,
+    promoteSubcols,
+    promoteConfirmName,
+    agentNameForConfirm,
+    refetch,
+    onAgentUpdated,
+  ]);
+
   if (!agentId) return null;
+
+  const inCommercial = data?.in_commercial ?? false;
+  const inProduction = data?.in_production ?? false;
 
   return (
     <div
@@ -479,6 +585,67 @@ export function AgentConfigurationEditor({
         </div>
       ) : formState ? (
         <div className="flex min-h-0 flex-1 flex-col">
+          {data ? (
+            <div className="shrink-0 space-y-3 border-b border-border bg-muted/40 px-4 py-3">
+              <div className="flex flex-wrap items-center gap-2">
+                {inCommercial ? (
+                  <Badge variant="outline" className="font-normal">
+                    Testing (comercial)
+                  </Badge>
+                ) : null}
+                {inProduction ? (
+                  <Badge variant="secondary" className="font-normal">
+                    Producción (kai)
+                  </Badge>
+                ) : null}
+                {inProduction && !inCommercial ? (
+                  <Badge variant="destructive" className="font-normal">
+                    Solo en producción
+                  </Badge>
+                ) : null}
+              </div>
+              {inProduction && !inCommercial ? (
+                <p className="text-sm text-muted-foreground">
+                  Este agente existe en kai pero aún no en asistente comercial.
+                  Baja la copia para editarla aquí (sobrescribe datos previos en
+                  testing si existían).
+                </p>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                {inProduction ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    disabled={syncingFromProd}
+                    onClick={() => void handleSyncFromProduction()}
+                  >
+                    {syncingFromProd ? (
+                      <Loader2Icon className="size-4 animate-spin" />
+                    ) : (
+                      <CloudDownloadIcon className="size-4" />
+                    )}
+                    {inCommercial
+                      ? "Refrescar desde producción"
+                      : "Crear en testing (desde prod)"}
+                  </Button>
+                ) : null}
+                {inCommercial ? (
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={openPromoteDialog}
+                  >
+                    <RocketIcon className="size-4" />
+                    Subir a producción
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
           <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:gap-0 lg:items-start">
           <div className="min-w-0 space-y-12 lg:pr-8">
@@ -1108,6 +1275,88 @@ export function AgentConfigurationEditor({
               )}
             </Button>
           </div>
+          <Dialog
+            open={promoteDialogOpen}
+            onOpenChange={(open) => {
+              setPromoteDialogOpen(open);
+              if (!open) setPromoting(false);
+            }}
+          >
+            <DialogContent className="max-h-[min(90vh,36rem)] overflow-y-auto sm:max-w-lg" showClose>
+              <DialogHeader>
+                <DialogTitle>Subir a producción</DialogTitle>
+                <DialogDescription>
+                  Se copiará el documento del agente y las subcolecciones marcadas
+                  desde asistente comercial hacia kai. Confirma escribiendo el
+                  nombre público del agente (
+                  <span className="font-medium text-foreground">
+                    {agentNameForConfirm || "—"}
+                  </span>
+                  ).
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3 py-2">
+                <p className="text-sm font-medium">Subcolecciones</p>
+                <div className="grid max-h-48 gap-2 overflow-y-auto rounded-md border p-3 sm:grid-cols-2">
+                  {PROMOTE_SUBCOLLECTION_OPTIONS.map(({ id, label }) => (
+                    <label
+                      key={id}
+                      className="flex cursor-pointer items-center gap-2 text-sm"
+                    >
+                      <Checkbox
+                        checked={!!promoteSubcols[id]}
+                        onCheckedChange={(v) =>
+                          setPromoteSubcols((prev) => ({
+                            ...prev,
+                            [id]: v === true,
+                          }))
+                        }
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="promote-confirm-name">Nombre del agente</Label>
+                  <Input
+                    id="promote-confirm-name"
+                    value={promoteConfirmName}
+                    onChange={(e) => setPromoteConfirmName(e.target.value)}
+                    placeholder={agentNameForConfirm}
+                    autoComplete="off"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setPromoteDialogOpen(false)}
+                  disabled={promoting}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  disabled={
+                    promoting ||
+                    promoteConfirmName.trim() !== agentNameForConfirm.trim() ||
+                    !PROMOTE_SUBCOLLECTION_OPTIONS.some(({ id }) => promoteSubcols[id])
+                  }
+                  onClick={() => void handlePromoteToProduction()}
+                >
+                  {promoting ? (
+                    <>
+                      <Loader2Icon className="mr-2 size-4 animate-spin" />
+                      Subiendo…
+                    </>
+                  ) : (
+                    "Promover"
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           <Dialog open={isDisableDialogOpen} onOpenChange={handleDisableDialogOpenChange}>
             <DialogContent className="max-w-md" showClose>
               <DialogHeader>

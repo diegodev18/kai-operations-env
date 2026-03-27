@@ -1,5 +1,9 @@
 /** Agent properties by document. Matches API GET /agents/:id/properties response. */
 export interface AgentPropertiesResponse {
+  /** Metadatos de despliegue (opcional; no enviar en PATCH de propiedades). */
+  in_commercial?: boolean;
+  in_production?: boolean;
+  primary_source?: "commercial" | "production";
   agent: AgentPropertyDoc;
   ai: AiPropertyDoc;
   answer: AnswerPropertyDoc;

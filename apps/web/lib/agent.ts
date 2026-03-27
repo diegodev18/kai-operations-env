@@ -32,6 +32,12 @@ export interface Agent {
   model?: string;
   temperature?: number;
   growers?: GrowerRef[];
+  /** Existe en asistente comercial (testing). */
+  inCommercial?: boolean;
+  /** Existe en proyecto kai (producción). */
+  inProduction?: boolean;
+  /** Origen de lectura preferido en detalle (`GET /agents/:id`). */
+  primarySource?: "commercial" | "production";
 }
 
 export interface AgentWithOperations extends Agent {

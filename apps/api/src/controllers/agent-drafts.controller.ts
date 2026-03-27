@@ -13,7 +13,7 @@ import {
   syncAiFieldsToDraftRoot,
   writeDefaultAgentProperties,
 } from "@/constants/agentPropertyDefaults";
-import { getFirestore, FieldValue } from "@/lib/firestore";
+import { getFirestore, getFirestoreCommercial, FieldValue } from "@/lib/firestore";
 import logger, { formatError } from "@/lib/logger";
 import {
   runSystemPromptGenerationJob,
@@ -27,7 +27,8 @@ import {
 } from "@/utils/firestore/errors";
 import { isOperationsAdmin } from "@/utils/operations-access";
 
-const AGENT_DRAFTS = "agent_drafts";
+/** Builder: un solo doc por agente en asistente comercial. */
+const AGENT_CONFIGURATIONS = "agent_configurations";
 const TOOLS_CATALOG = "toolsCatalog";
 const PENDING_TASKS = "pending_tasks";
 const DRAFT_PROPERTY_DOC_IDS = new Set(["personality", "business"]);
@@ -189,8 +190,8 @@ export async function postAgentDraft(
   const { agent_name, agent_personality } = parsed.data;
 
   try {
-    const db = getFirestore();
-    const draftRef = db.collection(AGENT_DRAFTS).doc();
+    const db = getFirestoreCommercial();
+    const draftRef = db.collection(AGENT_CONFIGURATIONS).doc();
     const ts = serverTimestampField();
     const creatorEmail = authCtx.userEmail!.trim().toLowerCase();
     const nameFromProfile = authCtx.userName?.trim();
@@ -244,8 +245,8 @@ export async function getAgentDraft(
   draftId: string,
 ) {
   try {
-    const db = getFirestore();
-    const snap = await db.collection(AGENT_DRAFTS).doc(draftId).get();
+    const db = getFirestoreCommercial();
+    const snap = await db.collection(AGENT_CONFIGURATIONS).doc(draftId).get();
     if (!snap.exists) {
       return c.json({ error: "Borrador no encontrado" }, 404);
     }
@@ -284,8 +285,8 @@ export async function patchAgentDraft(
   }
 
   try {
-    const db = getFirestore();
-    const draftRef = db.collection(AGENT_DRAFTS).doc(draftId);
+    const db = getFirestoreCommercial();
+    const draftRef = db.collection(AGENT_CONFIGURATIONS).doc(draftId);
     const snap = await draftRef.get();
     if (!snap.exists) {
       return c.json({ error: "Borrador no encontrado" }, 404);
@@ -362,7 +363,7 @@ export async function patchAgentDraft(
     }
 
     if (body.step === "tools") {
-      const catalog = await loadActiveToolsCatalogByDocId(db);
+      const catalog = await loadActiveToolsCatalogByDocId(getFirestore());
       const missing = body.selected_tools.filter((id) => !catalog.has(id));
       if (missing.length > 0) {
         return c.json(
@@ -399,17 +400,6 @@ export async function patchAgentDraft(
         FieldValue.serverTimestamp(),
     };
     await draftRef.update(genPatch);
-
-    const agentRef = db.collection("agent_configurations").doc(draftId);
-    const agentSnap = await agentRef.get();
-    if (agentSnap.exists) {
-      await agentRef.update({
-        "mcp_configuration.system_prompt_generation_status": "generating",
-        "mcp_configuration.system_prompt_generation_error": null,
-        "mcp_configuration.system_prompt_generation_updated_at":
-          FieldValue.serverTimestamp(),
-      });
-    }
 
     void runSystemPromptGenerationJob(draftId).catch((e) => {
       logger.error("[agents/drafts] system prompt generation job", formatError(e));
@@ -464,9 +454,7 @@ export async function postDraftSystemPromptRegenerate(
         auth.code,
       );
     }
-    const db = getFirestore();
-    const draftRef = db.collection(AGENT_DRAFTS).doc(draftId);
-    const snap = await draftRef.get();
+    const snap = await auth.draftRef.get();
     const data = snap.data() ?? {};
     const mcp = data.mcp_configuration as Record<string, unknown> | undefined;
     const st =
@@ -580,8 +568,8 @@ async function getAuthorizedDraftRef(
   | { ok: true; draftRef: DocumentReference; draftData: Record<string, unknown> }
   | { ok: false; code: 403 | 404 }
 > {
-  const db = getFirestore();
-  const draftRef = db.collection(AGENT_DRAFTS).doc(draftId);
+  const db = getFirestoreCommercial();
+  const draftRef = db.collection(AGENT_CONFIGURATIONS).doc(draftId);
   const snap = await draftRef.get();
   if (!snap.exists) {
     return { ok: false, code: 404 };

@@ -596,10 +596,77 @@ export async function fetchAgentById(agentId: string): Promise<Agent | null> {
   });
   if (!res.ok) return null;
   try {
-    return (await res.json()) as Agent;
+    const j = (await res.json()) as Record<string, unknown>;
+    return {
+      ...j,
+      id: typeof j.id === "string" ? j.id : agentId,
+      name: typeof j.name === "string" ? j.name : String(j.name ?? ""),
+      inCommercial: Boolean(j.in_commercial ?? j.inCommercial),
+      inProduction: Boolean(j.in_production ?? j.inProduction),
+      primarySource:
+        (j.primary_source ?? j.primarySource) === "production"
+          ? "production"
+          : (j.primary_source ?? j.primarySource) === "commercial"
+            ? "commercial"
+            : undefined,
+    } as Agent;
   } catch {
     return null;
   }
+}
+
+/** Producción (kai) → asistente comercial: copia profunda del agente. */
+export async function postAgentSyncFromProduction(
+  agentId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/sync-from-production`,
+    { method: "POST", credentials: "include" },
+  );
+  let data: { ok?: boolean; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: data.error ?? "No se pudo sincronizar desde producción",
+    };
+  }
+  if (data.ok) return { ok: true };
+  return { ok: false, error: "Respuesta inválida del servidor" };
+}
+
+/** Asistente comercial → producción (subcolecciones elegidas + nombre exacto). */
+export async function postPromoteToProduction(
+  agentId: string,
+  body: { subcollections: string[]; confirmation_agent_name: string },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/promote-to-production`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+  let data: { ok?: boolean; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: data.error ?? "No se pudo promover a producción",
+    };
+  }
+  if (data.ok) return { ok: true };
+  return { ok: false, error: "Respuesta inválida del servidor" };
 }
 
 /** Proxy de simulaci?n (POST /api/agents-testing/simulate). */

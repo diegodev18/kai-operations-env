@@ -1,4 +1,8 @@
-export { userCanAccessAgent } from "./agentAccess";
+export {
+  userCanAccessAgent,
+  getAgentDeploymentFlags,
+  resolveAgentWriteDatabase,
+} from "./agentAccess";
 export { buildLightAgent } from "./buildLightAgent";
 export { userCanAddGrowerToAgent } from "./growerAccess";
 export { isGrowerCursor } from "./growersCursor";

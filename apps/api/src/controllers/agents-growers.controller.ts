@@ -1,13 +1,17 @@
 import type { Context } from "hono";
-import type { QueryDocumentSnapshot } from "firebase-admin/firestore";
+import type {
+  DocumentReference,
+  QueryDocumentSnapshot,
+} from "firebase-admin/firestore";
 
-import { getFirestore } from "@/lib/firestore";
+import { getFirestore, getFirestoreCommercial } from "@/lib/firestore";
 import type { AgentsInfoAuthContext } from "@/types/agents";
 import {
   extractFirestoreIndexUrl,
   firestoreFailureHint,
   isFirebaseConfigError,
 } from "@/utils/firestore/errors";
+import { resolveAgentWriteDatabase } from "@/utils/agents";
 import { userCanAddGrowerToAgent } from "@/utils/agents/growerAccess";
 import {
   fetchGrowersForAgent,
@@ -39,20 +43,16 @@ export async function postAgentGrower(
   if (!name) name = normalizedEmail;
 
   try {
-    const database = getFirestore();
-    const agentRef = database.collection("agent_configurations").doc(agentId);
-    const agentSnap = await agentRef.get();
-    if (!agentSnap.exists) {
+    const { db, inCommercial, inProduction } =
+      await resolveAgentWriteDatabase(agentId);
+    if (!inCommercial && !inProduction) {
       return c.json({ error: "Agente no encontrado" }, 404);
     }
-    const allowed = await userCanAddGrowerToAgent(
-      database,
-      authCtx,
-      agentId,
-    );
+    const allowed = await userCanAddGrowerToAgent(authCtx, agentId);
     if (!allowed) {
       return c.json({ error: "No autorizado" }, 403);
     }
+    const agentRef = db.collection("agent_configurations").doc(agentId);
     const growerRef = agentRef.collection("growers").doc(normalizedEmail);
     const existing = await growerRef.get();
     if (existing.exists) {
@@ -96,22 +96,32 @@ export async function getAgentGrowers(
   agentId: string,
 ) {
   try {
-    const database = getFirestore();
-    const agentRef = database.collection("agent_configurations").doc(agentId);
-    const agentSnap = await agentRef.get();
-    if (!agentSnap.exists) {
+    const commercial = getFirestoreCommercial();
+    const production = getFirestore();
+    const comRef = commercial.collection("agent_configurations").doc(agentId);
+    const prodRef = production.collection("agent_configurations").doc(agentId);
+    const [comSnap, prodSnap] = await Promise.all([comRef.get(), prodRef.get()]);
+    if (!comSnap.exists && !prodSnap.exists) {
       return c.json({ error: "Agente no encontrado" }, 404);
     }
-    const allowed = await userCanAddGrowerToAgent(
-      database,
-      authCtx,
-      agentId,
-    );
+    const allowed = await userCanAddGrowerToAgent(authCtx, agentId);
     if (!allowed) {
       return c.json({ error: "No autorizado" }, 403);
     }
-    const growers = await fetchGrowersForAgent(agentRef);
-    return c.json({ growers });
+    const growersCom = comSnap.exists ? await fetchGrowersForAgent(comRef) : [];
+    const growersProd = prodSnap.exists
+      ? await fetchGrowersForAgent(prodRef)
+      : [];
+    const byEmail = new Map<string, (typeof growersCom)[0]>();
+    for (const g of growersCom) {
+      byEmail.set(g.email, g);
+    }
+    for (const g of growersProd) {
+      if (!byEmail.has(g.email)) {
+        byEmail.set(g.email, g);
+      }
+    }
+    return c.json({ growers: [...byEmail.values()] });
   } catch (error) {
     if (isFirebaseConfigError(error)) {
       return c.json(
@@ -156,38 +166,49 @@ export async function deleteAgentGrower(
   }
 
   try {
-    const database = getFirestore();
-    const agentRef = database.collection("agent_configurations").doc(agentId);
-    const agentSnap = await agentRef.get();
-    if (!agentSnap.exists) {
+    const commercial = getFirestoreCommercial();
+    const production = getFirestore();
+    const comRef = commercial.collection("agent_configurations").doc(agentId);
+    const prodRef = production.collection("agent_configurations").doc(agentId);
+    const [comSnap, prodSnap] = await Promise.all([comRef.get(), prodRef.get()]);
+    if (!comSnap.exists && !prodSnap.exists) {
       return c.json({ error: "Agente no encontrado" }, 404);
     }
-    const allowed = await userCanAddGrowerToAgent(
-      database,
-      authCtx,
-      agentId,
-    );
+    const allowed = await userCanAddGrowerToAgent(authCtx, agentId);
     if (!allowed) {
       return c.json({ error: "No autorizado" }, 403);
     }
 
-    const col = agentRef.collection("growers");
-    const direct = await col.doc(normalizedEmail).get();
-    if (direct.exists) {
-      await direct.ref.delete();
-      return c.json({ ok: true });
-    }
-
-    const all = await col.get();
-    for (const d of all.docs) {
-      const mapped = mapGrowerDocsToPayload([d as QueryDocumentSnapshot]);
-      if (mapped[0]?.email === normalizedEmail) {
-        await d.ref.delete();
-        return c.json({ ok: true });
+    const tryDeleteFrom = async (agentRef: DocumentReference): Promise<boolean> => {
+      const col = agentRef.collection("growers");
+      const direct = await col.doc(normalizedEmail).get();
+      if (direct.exists) {
+        await direct.ref.delete();
+        return true;
       }
+      const all = await col.get();
+      for (const d of all.docs) {
+        const mapped = mapGrowerDocsToPayload([d as QueryDocumentSnapshot]);
+        if (mapped[0]?.email === normalizedEmail) {
+          await d.ref.delete();
+          return true;
+        }
+      }
+      return false;
+    };
+
+    let deleted = false;
+    if (comSnap.exists) {
+      deleted = (await tryDeleteFrom(comRef)) || deleted;
+    }
+    if (prodSnap.exists) {
+      deleted = (await tryDeleteFrom(prodRef)) || deleted;
     }
 
-    return c.json({ error: "Grower no encontrado" }, 404);
+    if (!deleted) {
+      return c.json({ error: "Grower no encontrado" }, 404);
+    }
+    return c.json({ ok: true });
   } catch (error) {
     if (isFirebaseConfigError(error)) {
       return c.json(

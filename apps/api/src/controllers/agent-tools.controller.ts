@@ -1,8 +1,7 @@
 import type { Context } from "hono";
 
-import { getFirestore } from "@/lib/firestore";
 import type { AgentsInfoAuthContext } from "@/types/agents";
-import { userCanAccessAgent } from "@/utils/agents";
+import { resolveAgentWriteDatabase, userCanAccessAgent } from "@/utils/agents";
 import {
   extractFirestoreIndexUrl,
   firestoreFailureHint,
@@ -44,8 +43,7 @@ async function requireAccess(
   agentId: string,
 ) {
   try {
-    const db = getFirestore();
-    const ok = await userCanAccessAgent(db, authCtx, agentId);
+    const ok = await userCanAccessAgent(authCtx, agentId);
     if (!ok) return c.json({ error: "No autorizado para este agente" }, 403);
     return null;
   } catch (e) {
@@ -106,12 +104,12 @@ export async function getAgentTools(
   if (denied) return denied;
 
   try {
-    const database = getFirestore();
-    const agentRef = database.collection("agent_configurations").doc(agentId);
-    const agentSnap = await agentRef.get();
-    if (!agentSnap.exists) {
+    const { db: database, inCommercial, inProduction } =
+      await resolveAgentWriteDatabase(agentId);
+    if (!inCommercial && !inProduction) {
       return c.json({ error: "Agente no encontrado" }, 404);
     }
+    const agentRef = database.collection("agent_configurations").doc(agentId);
 
     const toolsSnap = await agentRef.collection("tools").get();
     const tools = toolsSnap.docs.map((doc) =>
@@ -195,12 +193,12 @@ export async function createAgentTool(
   }
 
   try {
-    const database = getFirestore();
-    const agentRef = database.collection("agent_configurations").doc(agentId);
-    const agentSnap = await agentRef.get();
-    if (!agentSnap.exists) {
+    const { db: database, inCommercial, inProduction } =
+      await resolveAgentWriteDatabase(agentId);
+    if (!inCommercial && !inProduction) {
       return c.json({ error: "Agente no encontrado" }, 404);
     }
+    const agentRef = database.collection("agent_configurations").doc(agentId);
 
     const toolData: Record<string, unknown> = {
       description,
@@ -305,7 +303,11 @@ export async function updateAgentTool(
   }
 
   try {
-    const database = getFirestore();
+    const { db: database, inCommercial, inProduction } =
+      await resolveAgentWriteDatabase(agentId);
+    if (!inCommercial && !inProduction) {
+      return c.json({ error: "Agente no encontrado" }, 404);
+    }
     const toolRef = database
       .collection("agent_configurations")
       .doc(agentId)
@@ -337,12 +339,12 @@ export async function deleteAgentTool(
   if (denied) return denied;
 
   try {
-    const database = getFirestore();
-    const agentRef = database.collection("agent_configurations").doc(agentId);
-    const agentSnap = await agentRef.get();
-    if (!agentSnap.exists) {
+    const { db: database, inCommercial, inProduction } =
+      await resolveAgentWriteDatabase(agentId);
+    if (!inCommercial && !inProduction) {
       return c.json({ error: "Agente no encontrado" }, 404);
     }
+    const agentRef = database.collection("agent_configurations").doc(agentId);
 
     const toolRef = agentRef.collection("tools").doc(toolId);
     const toolSnap = await toolRef.get();

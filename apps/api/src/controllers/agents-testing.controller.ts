@@ -4,7 +4,6 @@ import { KAI_AGENTS_TESTING_URL } from "@/config";
 import logger, { formatError } from "@/lib/logger";
 import { resolveAgentsAuthContext } from "@/routes/agents-auth";
 import { userCanAccessAgent } from "@/utils/agents";
-import { getFirestore } from "@/lib/firestore";
 
 interface SimulateBody {
   agent?: unknown;
@@ -56,8 +55,7 @@ export const simulateAgentsTesting = async (c: Context) => {
 
   const id = body.config!.AGENT_DOC_ID;
   if (id) {
-    const db = getFirestore();
-    const ok = await userCanAccessAgent(db, ctx.authCtx, id);
+    const ok = await userCanAccessAgent(ctx.authCtx, id);
     if (!ok) {
       return c.json({ error: "No autorizado para este agente" }, 403);
     }

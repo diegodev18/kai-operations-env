@@ -34,6 +34,10 @@ export interface LightAgent {
   systemPromptGenerationError?: string | null;
   temperature?: number;
   waitTime?: number;
+  /** Existe en Firestore asistente comercial (testing). */
+  inCommercial?: boolean;
+  /** Existe en Firestore kai (producción). */
+  inProduction?: boolean;
 }
 
 export type ImplementationTaskStatus = "pending" | "completed";
