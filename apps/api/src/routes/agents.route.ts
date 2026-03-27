@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import {
   deleteDraftPropertyItem,
   getAgentDraft,
+  postDraftSystemPromptRegenerate,
   getDraftPropertyItems,
   getDraftPendingTasks,
   getDraftTechnicalPropertiesBundle,
@@ -20,6 +21,7 @@ import { getAgentsInfo } from "@/controllers/agents.controller";
 import {
   getAgentById,
   getAgentProperties,
+  postAgentSystemPromptRegenerate,
   updateAgentPrompt,
   updateAgentPropertyDocument,
 } from "@/controllers/agent-detail.controller";
@@ -87,6 +89,17 @@ agentsRouter.patch("/drafts/:draftId", async (c) => {
   if (!draftId) return c.json({ error: "Borrador no encontrado" }, 404);
   return patchAgentDraft(c, ctx.authCtx, draftId);
 });
+
+agentsRouter.post(
+  "/drafts/:draftId/system-prompt/regenerate",
+  async (c) => {
+    const ctx = await resolveAgentsAuthContext(c);
+    if (!ctx.ok) return ctx.response;
+    const draftId = c.req.param("draftId")?.trim() ?? "";
+    if (!draftId) return c.json({ error: "Borrador no encontrado" }, 404);
+    return postDraftSystemPromptRegenerate(c, ctx.authCtx, draftId);
+  },
+);
 
 agentsRouter.get("/drafts/:draftId/technical-properties", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
@@ -256,6 +269,16 @@ agentsRouter.patch("/:agentId/prompt", async (c) => {
     return c.json({ error: "Agente no encontrado" }, 404);
   }
   return updateAgentPrompt(c, ctx.authCtx, agentId);
+});
+
+agentsRouter.post("/:agentId/system-prompt/regenerate", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return postAgentSystemPromptRegenerate(c, ctx.authCtx, agentId);
 });
 
 agentsRouter.get("/:agentId", async (c) => {

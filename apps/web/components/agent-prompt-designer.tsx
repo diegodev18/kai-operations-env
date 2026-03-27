@@ -38,7 +38,11 @@ import {
   TerminalIcon,
   XIcon,
 } from "lucide-react";
-import { fetchAgentById } from "@/lib/agents-api";
+import {
+  fetchAgentById,
+  postAgentSystemPromptRegenerate,
+} from "@/lib/agents-api";
+import { toast } from "sonner";
 import type { Agent } from "@/lib/agent";
 import {
   useAgentProperties,
@@ -73,6 +77,10 @@ const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const PDF_MIME_TYPE = "application/pdf";
 const MAX_PDF_BYTES = 20 * 1024 * 1024;
+
+function isSystemPromptGenerationInProgress(status: string | undefined): boolean {
+  return status === "pending" || status === "generating";
+}
 
 function isAllowedImageType(type: string): boolean {
   return ALLOWED_IMAGE_TYPES.includes(type);
@@ -210,6 +218,8 @@ export function AgentPromptDesigner({
     }
   });
   const [includeToolsContext] = useState(false);
+  const [regenerateSystemPromptLoading, setRegenerateSystemPromptLoading] =
+    useState(false);
 
   const { models: promptModels, isLoading: modelsLoading } = usePromptModels();
   const isAuthEnabled = propertiesData?.agent?.isAuthEnable === true;
@@ -253,6 +263,39 @@ export function AgentPromptDesigner({
       cancelled = true;
     };
   }, [agentId]);
+
+  const systemPromptGenStatus = agent?.systemPromptGenerationStatus;
+  const systemPromptGenInProgress =
+    isSystemPromptGenerationInProgress(systemPromptGenStatus);
+  const systemPromptGenFailed = systemPromptGenStatus === "failed";
+  const promptAndChatLocked = propertiesLoading || systemPromptGenInProgress;
+
+  useEffect(() => {
+    if (!agentId || !systemPromptGenInProgress) return;
+    const interval = window.setInterval(() => {
+      void (async () => {
+        const next = await fetchAgentById(agentId);
+        if (next) setAgent(next);
+      })();
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [agentId, systemPromptGenInProgress]);
+
+  const handleRegenerateSystemPrompt = async () => {
+    setRegenerateSystemPromptLoading(true);
+    try {
+      const r = await postAgentSystemPromptRegenerate(agentId);
+      if (!r.ok) {
+        toast.error(r.error);
+        return;
+      }
+      toast.success("Generación del system prompt reiniciada.");
+      const a = await fetchAgentById(agentId);
+      if (a) setAgent(a);
+    } finally {
+      setRegenerateSystemPromptLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!agent) return;
@@ -512,6 +555,44 @@ export function AgentPromptDesigner({
 
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+      {systemPromptGenInProgress && (
+        <div
+          className="mb-3 flex items-start gap-2 rounded-lg border border-primary/35 bg-primary/5 px-3 py-2.5 text-sm text-foreground"
+          role="status"
+        >
+          <Loader2Icon className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-primary" />
+          <div>
+            <p className="font-medium">Generando system prompt especializado…</p>
+            <p className="mt-0.5 text-muted-foreground text-xs">
+              Esto ocurre en segundo plano. El editor y el asistente están en solo
+              lectura hasta que termine. Esta página se actualiza sola cada pocos
+              segundos.
+            </p>
+          </div>
+        </div>
+      )}
+      {systemPromptGenFailed && (
+        <div className="mb-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2.5 text-sm">
+          <p className="font-medium text-destructive">No se pudo generar el system prompt</p>
+          <p className="mt-1 text-xs text-muted-foreground break-words">
+            {agent?.systemPromptGenerationError?.trim() ||
+              "Reintenta la generación o revisa la configuración del agente."}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-2"
+            disabled={regenerateSystemPromptLoading}
+            onClick={() => void handleRegenerateSystemPrompt()}
+          >
+            {regenerateSystemPromptLoading ? (
+              <Loader2Icon className="mr-1 h-3.5 w-3.5 animate-spin" />
+            ) : null}
+            Reintentar generación
+          </Button>
+        </div>
+      )}
       <div className="flex min-h-0 flex-1 overflow-hidden rounded-lg border">
         <div className="flex-1 min-w-0 flex flex-col min-h-0">
           <div className="flex-1 min-h-0 p-3">
@@ -547,7 +628,7 @@ export function AgentPromptDesigner({
               <Textarea
                 value={editingPrompt}
                 onChange={(e) => setEditingPrompt(e.target.value)}
-                disabled={propertiesLoading}
+                disabled={promptAndChatLocked}
                 className="h-full min-h-[200px] resize-none font-mono text-sm"
                 placeholder="Escribe el prompt del agente…"
               />
@@ -561,7 +642,7 @@ export function AgentPromptDesigner({
                   value={editingUnauthPrompt}
                   onChange={(e) => setEditingUnauthPrompt(e.target.value)}
                   className="min-h-[100px] font-mono text-xs"
-                  disabled={propertiesLoading}
+                  disabled={promptAndChatLocked}
                 />
               </div>
               <div className="space-y-1 min-h-0">
@@ -570,7 +651,7 @@ export function AgentPromptDesigner({
                   value={editingAuthPrompt}
                   onChange={(e) => setEditingAuthPrompt(e.target.value)}
                   className="min-h-[100px] font-mono text-xs"
-                  disabled={propertiesLoading}
+                  disabled={promptAndChatLocked}
                 />
               </div>
             </div>
@@ -581,17 +662,27 @@ export function AgentPromptDesigner({
                 type="button"
                 variant="ghost"
                 onClick={() => setDiffViewRequested((v) => !v)}
+                disabled={promptAndChatLocked}
               >
                 {editorViewMode === "diff" ? "Editar" : "Ver cambios"}
               </Button>
             )}
             {showSuggestion && (
               <>
-                <Button type="button" variant="ghost" onClick={clearSuggestion}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={clearSuggestion}
+                  disabled={promptAndChatLocked}
+                >
                   <XIcon className="mr-1 h-3 w-3" />
                   Descartar sugerencia
                 </Button>
-                <Button type="button" onClick={handleApplySuggestion}>
+                <Button
+                  type="button"
+                  onClick={handleApplySuggestion}
+                  disabled={promptAndChatLocked}
+                >
                   <CheckIcon className="mr-1 h-3 w-3" />
                   Aplicar sugerencia
                 </Button>
@@ -607,11 +698,14 @@ export function AgentPromptDesigner({
                 clearSuggestion();
                 reset();
               }}
-              disabled={!hasChanges && !showSuggestion}
+              disabled={(!hasChanges && !showSuggestion) || promptAndChatLocked}
             >
               Deshacer
             </Button>
-            <Button onClick={handleSave} disabled={!hasChanges || isSaving}>
+            <Button
+              onClick={handleSave}
+              disabled={!hasChanges || isSaving || promptAndChatLocked}
+            >
               {isSaving ? (
                 <Loader2Icon className="w-4 h-4 animate-spin mr-2" />
               ) : null}
@@ -678,7 +772,9 @@ export function AgentPromptDesigner({
                       size="icon"
                       className="h-8 w-8"
                       onClick={() => reset()}
-                      disabled={messages.length === 0 || chatLoading}
+                      disabled={
+                        messages.length === 0 || chatLoading || promptAndChatLocked
+                      }
                     >
                       <RotateCcwIcon className="w-4 h-4" />
                     </Button>
@@ -734,7 +830,11 @@ export function AgentPromptDesigner({
                           variant="outline"
                           size="icon"
                           className="h-8 w-8 rounded-lg"
-                          disabled={!editingPrompt.trim() || chatLoading}
+                          disabled={
+                            !editingPrompt.trim() ||
+                            chatLoading ||
+                            promptAndChatLocked
+                          }
                           onClick={() => void sendMessage(OPTIMIZE)}
                           aria-label="Optimizar prompt"
                         >
@@ -752,7 +852,11 @@ export function AgentPromptDesigner({
                           variant="outline"
                           size="icon"
                           className="h-8 w-8 rounded-lg"
-                          disabled={!editingPrompt.trim() || chatLoading}
+                          disabled={
+                            !editingPrompt.trim() ||
+                            chatLoading ||
+                            promptAndChatLocked
+                          }
                           onClick={() => void sendMessage(FIX_CONTRADICTIONS)}
                           aria-label="Corregir contradicciones"
                         >
@@ -770,7 +874,11 @@ export function AgentPromptDesigner({
                           variant="outline"
                           size="icon"
                           className="h-8 w-8 rounded-lg"
-                          disabled={!editingPrompt.trim() || chatLoading}
+                          disabled={
+                            !editingPrompt.trim() ||
+                            chatLoading ||
+                            promptAndChatLocked
+                          }
                           onClick={() => {
                             void sendMessage(
                               `Contexto de tools:\n${formatToolsBlock()}\n\nResume qué hace cada tool.`,
@@ -792,7 +900,11 @@ export function AgentPromptDesigner({
                           variant="outline"
                           size="icon"
                           className="h-8 w-8 rounded-lg"
-                          disabled={!editingPrompt.trim() || chatLoading}
+                          disabled={
+                            !editingPrompt.trim() ||
+                            chatLoading ||
+                            promptAndChatLocked
+                          }
                           aria-label="Extraer comandos"
                         >
                           <TerminalIcon className="h-4 w-4" />
@@ -809,7 +921,7 @@ export function AgentPromptDesigner({
                           variant="outline"
                           size="icon"
                           className="h-8 w-8 rounded-lg"
-                          disabled={chatLoading}
+                          disabled={chatLoading || promptAndChatLocked}
                           onClick={() => chatFileInputRef.current?.click()}
                           aria-label="Subir imagen"
                         >
@@ -892,6 +1004,7 @@ export function AgentPromptDesigner({
                   placeholder="Escribe un mensaje…"
                   rows={3}
                   className="min-h-[92px] resize-none rounded-xl text-sm"
+                  disabled={promptAndChatLocked}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
@@ -919,6 +1032,7 @@ export function AgentPromptDesigner({
                   <Select
                     value={promptMode}
                     onValueChange={(v) => setPromptMode(v as PromptMode)}
+                    disabled={promptAndChatLocked}
                   >
                     <SelectTrigger className="h-8 w-fit min-w-[108px] rounded-full border px-2.5 text-xs">
                       <span className="inline-flex items-center gap-2">
@@ -937,7 +1051,9 @@ export function AgentPromptDesigner({
                     size="icon"
                     className="ml-auto h-8 w-8 rounded-lg"
                     onClick={() => void handleSendChat()}
-                    disabled={chatLoading || !chatInput.trim()}
+                    disabled={
+                      chatLoading || !chatInput.trim() || promptAndChatLocked
+                    }
                     aria-label="Enviar"
                   >
                     {chatLoading ? (

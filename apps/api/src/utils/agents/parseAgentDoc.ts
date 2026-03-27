@@ -10,6 +10,9 @@ export type ParsedAgentDoc = {
   businessName: string;
   owner: string;
   prompt: string;
+  /** `mcp_configuration.system_prompt_generation_status` cuando existe. */
+  systemPromptGenerationStatus?: string;
+  systemPromptGenerationError?: string | null;
 };
 
 /**
@@ -22,15 +25,31 @@ export function parseAgentDoc(
   try {
     const data = doc.data();
     let prompt = "";
-    if (includePrompt) {
-      const mcp = data.mcp_configuration as
-        | null
-        | undefined
-        | { system_prompt?: string };
+    let systemPromptGenerationStatus: string | undefined;
+    let systemPromptGenerationError: string | null | undefined;
+    const mcp = data.mcp_configuration as
+      | null
+      | undefined
+      | {
+          system_prompt?: string;
+          system_prompt_generation_status?: string;
+          system_prompt_generation_error?: string | null;
+        };
+    if (includePrompt && mcp != null && typeof mcp === "object") {
       prompt =
-        mcp != null && typeof mcp.system_prompt === "string"
-          ? mcp.system_prompt
-          : "";
+        typeof mcp.system_prompt === "string" ? mcp.system_prompt : "";
+    }
+    if (mcp != null && typeof mcp === "object") {
+      const st = mcp.system_prompt_generation_status;
+      if (typeof st === "string" && st.length > 0) {
+        systemPromptGenerationStatus = st;
+      }
+      const er = mcp.system_prompt_generation_error;
+      if (typeof er === "string") {
+        systemPromptGenerationError = er;
+      } else if (er == null && "system_prompt_generation_error" in mcp) {
+        systemPromptGenerationError = null;
+      }
     }
     const businessName =
       typeof data.business_name === "string" ? data.business_name : "";
@@ -43,6 +62,12 @@ export function parseAgentDoc(
       businessName,
       owner: typeof data.owner_name === "string" ? data.owner_name : "",
       prompt,
+      ...(systemPromptGenerationStatus != null
+        ? { systemPromptGenerationStatus }
+        : {}),
+      ...(systemPromptGenerationError !== undefined
+        ? { systemPromptGenerationError }
+        : {}),
     };
   } catch {
     return null;

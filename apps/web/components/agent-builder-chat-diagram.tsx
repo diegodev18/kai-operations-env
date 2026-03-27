@@ -788,6 +788,10 @@ export function AgentBuilderChatDiagram() {
   const skipDraftPersistenceRef = useRef(false);
 
   const [agentCreatedDialogOpen, setAgentCreatedDialogOpen] = useState(false);
+  /** Estado de generación async del system prompt (campos MCP del borrador). */
+  const [draftSystemPromptGenStatus, setDraftSystemPromptGenStatus] = useState<
+    string | null
+  >(null);
   const [toolsDialogOpen, setToolsDialogOpen] = useState(false);
   const [toolSearch, setToolSearch] = useState("");
   const [editingToolId, setEditingToolId] = useState<string | null>(null);
@@ -1186,7 +1190,15 @@ export function AgentBuilderChatDiagram() {
         setSaving(true);
         try {
           const res = await patchAgentDraft(currentDraftId, { step: "complete" });
-          if (res.ok) lastSyncedRef.current.complete = true;
+          if (res.ok) {
+            lastSyncedRef.current.complete = true;
+            setDraftSystemPromptGenStatus("generating");
+            toast.success(
+              "Builder finalizado. El system prompt se está generando en segundo plano; en el diseñador de prompts verás el estado.",
+            );
+          } else {
+            toast.error(res.error);
+          }
         } finally {
           setSaving(false);
         }
@@ -1223,6 +1235,7 @@ export function AgentBuilderChatDiagram() {
       setManualNodesBusiness([]);
       setManualNodesPersonality([]);
       setTechnicalPropsBundle(null);
+      setDraftSystemPromptGenStatus(null);
       return;
     }
     let cancelled = false;
@@ -1296,9 +1309,21 @@ export function AgentBuilderChatDiagram() {
       const flowComplete =
         serverMarkedComplete || nextState.creation_step === "complete";
 
+      const mcpHydrated = d.mcp_configuration as
+        | Record<string, unknown>
+        | undefined;
+      const genFromNested =
+        typeof mcpHydrated?.system_prompt_generation_status === "string"
+          ? mcpHydrated.system_prompt_generation_status
+          : null;
+      const genSt = res.systemPromptGenerationStatus ?? genFromNested;
+
       setDraftId(res.id);
       setDraftState(nextState);
       setConfirmedSummary(flowComplete);
+      setDraftSystemPromptGenStatus(
+        typeof genSt === "string" && genSt.length > 0 ? genSt : null,
+      );
 
       if (flowComplete) {
         setBuilderMode("conversational");
@@ -1340,6 +1365,33 @@ export function AgentBuilderChatDiagram() {
       setIsHydratingDraft(false);
     };
   }, [draftFromUrl, syncManualNodesFromDraft, syncPendingTasks, updateStepFromState]);
+
+  useEffect(() => {
+    if (!draftId || draftState.creation_step !== "complete") {
+      return;
+    }
+    let cancelled = false;
+    const poll = async () => {
+      const r = await fetchAgentDraft(draftId);
+      if (cancelled || !r.ok) return;
+      const doc = r.draft as Record<string, unknown>;
+      const mcp = doc.mcp_configuration as Record<string, unknown> | undefined;
+      const nested =
+        typeof mcp?.system_prompt_generation_status === "string"
+          ? mcp.system_prompt_generation_status
+          : null;
+      const st = r.systemPromptGenerationStatus ?? nested;
+      setDraftSystemPromptGenStatus(
+        typeof st === "string" && st.length > 0 ? st : null,
+      );
+    };
+    void poll();
+    const interval = window.setInterval(() => void poll(), 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [draftId, draftState.creation_step]);
 
   useEffect(() => {
     if (!draftId) return;
@@ -2364,8 +2416,24 @@ export function AgentBuilderChatDiagram() {
         >
           <DialogHeader>
             <DialogTitle>Agente construido</DialogTitle>
-            <DialogDescription>
-              El builder finalizó correctamente. ¿Qué deseas hacer ahora?
+            <DialogDescription asChild>
+              <div className="space-y-2">
+                <p>El builder finalizó correctamente. ¿Qué deseas hacer ahora?</p>
+                {(draftSystemPromptGenStatus === "generating" ||
+                  draftSystemPromptGenStatus === "pending") && (
+                  <p className="text-xs text-muted-foreground">
+                    El system prompt especializado se está generando en segundo
+                    plano. En el diseñador de prompts verás el progreso y el texto
+                    cuando esté listo.
+                  </p>
+                )}
+                {draftSystemPromptGenStatus === "failed" && (
+                  <p className="text-xs text-destructive">
+                    La generación automática del system prompt falló. Puedes
+                    reintentarla desde el apartado de prompts del agente.
+                  </p>
+                )}
+              </div>
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-2 pt-2">

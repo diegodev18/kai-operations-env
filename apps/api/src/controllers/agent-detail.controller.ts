@@ -7,6 +7,11 @@ import {
   type PropertyDocId,
 } from "@/constants/agentPropertyDefaults";
 import { getFirestore } from "@/lib/firestore";
+import logger, { formatError } from "@/lib/logger";
+import {
+  runSystemPromptGenerationJob,
+  setSystemPromptGeneratingFlags,
+} from "@/services/system-prompt-generation-job";
 import type { AgentsInfoAuthContext } from "@/types/agents";
 import {
   parseAgentDoc,
@@ -315,6 +320,50 @@ export async function updateAgentPropertyDocument(
   } catch (error) {
     const r = handleFirestoreError(c, error, "[agents/:id/properties PATCH]");
     return r ?? c.json({ error: "Error al guardar propiedades" }, 500);
+  }
+}
+
+/**
+ * Reintenta generación multi-fase de `mcp_configuration.system_prompt` para un agente publicado.
+ */
+export async function postAgentSystemPromptRegenerate(
+  c: Context,
+  authCtx: AgentsInfoAuthContext,
+  agentId: string,
+) {
+  const denied = await requireAgentAccess(c, authCtx, agentId);
+  if (denied) return denied;
+
+  try {
+    const database = getFirestore();
+    const ref = database.collection("agent_configurations").doc(agentId);
+    const snap = await ref.get();
+    if (!snap.exists) {
+      return c.json({ error: "Agente no encontrado" }, 404);
+    }
+    const data = snap.data() ?? {};
+    const mcp = data.mcp_configuration as Record<string, unknown> | undefined;
+    const st =
+      typeof mcp?.system_prompt_generation_status === "string"
+        ? mcp.system_prompt_generation_status
+        : "";
+    if (st === "generating") {
+      return c.json(
+        { error: "La generación del system prompt ya está en curso." },
+        409,
+      );
+    }
+    await setSystemPromptGeneratingFlags(agentId);
+    void runSystemPromptGenerationJob(agentId).catch((e) => {
+      logger.error(
+        "[agents/:id/system-prompt/regenerate] job",
+        formatError(e),
+      );
+    });
+    return c.json({ ok: true });
+  } catch (error) {
+    const r = handleFirestoreError(c, error, "[agents/:id system-prompt POST]");
+    return r ?? c.json({ error: "No se pudo reintentar la generación." }, 500);
   }
 }
 
