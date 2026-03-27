@@ -302,21 +302,21 @@ export async function patchAgentDraft(
       const prev = snap.data() ?? {};
       const prevMcp =
         prev.mcp_configuration != null && typeof prev.mcp_configuration === "object"
-          ? { ...(prev.mcp_configuration as Record<string, unknown>) }
+          ? (prev.mcp_configuration as Record<string, unknown>)
           : {};
       const systemPrompt =
         typeof prevMcp.system_prompt === "string" ? prevMcp.system_prompt : "";
+      /**
+       * No sustituir el mapa `mcp_configuration` entero: si otro PATCH (p. ej. step
+       * `complete`) ya escribió `system_prompt_generation_status`, un update
+       * concurrente con `{ ...prevMcp }` leído antes borraba el estado de generación.
+       */
       await draftRef.update({
         agent_name: body.agent_name,
         agent_personality: body.agent_personality,
-        mcp_configuration: {
-          ...prevMcp,
-          system_prompt: systemPrompt,
-          agent_personalization: {
-            agent_name: body.agent_name,
-            agent_personality: body.agent_personality,
-          },
-        },
+        "mcp_configuration.system_prompt": systemPrompt,
+        "mcp_configuration.agent_personalization.agent_name": body.agent_name,
+        "mcp_configuration.agent_personalization.agent_personality": body.agent_personality,
         creation_step: "personality",
         updated_at: ts,
       });

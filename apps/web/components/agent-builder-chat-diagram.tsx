@@ -1518,6 +1518,7 @@ export function AgentBuilderChatDiagram() {
         const nextState = updateStepFromState({ ...draftState, creation_step: "complete" });
         setDraftState(nextState);
         const persistedId = await persistState(nextState, true);
+        setDraftSystemPromptGenStatus("generating");
         const draftIdForSync = persistedId ?? draftId;
         if (draftIdForSync) {
           const syncRes = await fetchAgentDraft(draftIdForSync);
@@ -1529,9 +1530,17 @@ export function AgentBuilderChatDiagram() {
                 ? mcp.system_prompt_generation_status
                 : null;
             const st = syncRes.systemPromptGenerationStatus ?? nested;
-            setDraftSystemPromptGenStatus(
-              typeof st === "string" && st.length > 0 ? st : null,
-            );
+            const creationStep =
+              typeof doc.creation_step === "string" ? doc.creation_step : "";
+            let resolved: string | null =
+              typeof st === "string" && st.length > 0 ? st : null;
+            if (
+              creationStep === "complete" &&
+              (resolved === null || resolved === "idle")
+            ) {
+              resolved = "generating";
+            }
+            setDraftSystemPromptGenStatus(resolved);
           }
         }
         addMessage("assistant", "Builder finalizado correctamente.");
@@ -2458,11 +2467,18 @@ export function AgentBuilderChatDiagram() {
               <div className="space-y-2">
                 <p>El builder finalizó correctamente. ¿Qué deseas hacer ahora?</p>
                 {(draftSystemPromptGenStatus === "generating" ||
-                  draftSystemPromptGenStatus === "pending") && (
+                  draftSystemPromptGenStatus === "pending" ||
+                  draftSystemPromptGenStatus === "idle") && (
                   <p className="text-xs text-muted-foreground">
                     El system prompt especializado se está generando en segundo
                     plano. En el diseñador de prompts verás el progreso y el texto
                     cuando esté listo.
+                  </p>
+                )}
+                {draftSystemPromptGenStatus === "ready" && (
+                  <p className="text-xs text-muted-foreground">
+                    La generación del system prompt ya terminó; puedes revisarlo en
+                    el diseñador de prompts.
                   </p>
                 )}
                 {draftSystemPromptGenStatus === "failed" && (
