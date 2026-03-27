@@ -12,6 +12,7 @@ import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -25,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -34,12 +36,23 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   FileEditIcon,
+  PlusIcon,
   PowerIcon,
   PowerOffIcon,
 } from "lucide-react";
 import { PROPERTY_DESCRIPTIONS, PROPERTY_TITLES } from "@/lib/property-descriptions";
 import { cn } from "@/lib/utils";
-import { fetchAgentById } from "@/lib/agents-api";
+import {
+  type AgentGrowerRow,
+  deleteAgentGrower,
+  fetchAgentById,
+  fetchAgentGrowers,
+  postAgentGrower,
+} from "@/lib/agents-api";
+import {
+  fetchOrganizationUsers,
+  type OrganizationUser,
+} from "@/lib/organization-api";
 
 const DOCUMENT_IDS: PropertyDocumentId[] = [
   "agent",
@@ -194,6 +207,14 @@ export function AgentConfigurationEditor({
   const [agentNameForConfirm, setAgentNameForConfirm] = useState("");
   const [isDisableDialogOpen, setIsDisableDialogOpen] = useState(false);
   const [disableConfirmInput, setDisableConfirmInput] = useState("");
+  const [isGrowersDialogOpen, setIsGrowersDialogOpen] = useState(false);
+  const [orgUsers, setOrgUsers] = useState<OrganizationUser[]>([]);
+  const [dialogGrowers, setDialogGrowers] = useState<AgentGrowerRow[]>([]);
+  const [orgUsersLoading, setOrgUsersLoading] = useState(false);
+  const [dialogGrowersLoading, setDialogGrowersLoading] = useState(false);
+  const [addingGrowerUserId, setAddingGrowerUserId] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     if (data) {
@@ -238,6 +259,45 @@ export function AgentConfigurationEditor({
       cancelled = true;
     };
   }, [agentId]);
+
+  useEffect(() => {
+    if (!isGrowersDialogOpen || !agentId) {
+      if (!isGrowersDialogOpen) {
+        setOrgUsers([]);
+        setDialogGrowers([]);
+      }
+      return;
+    }
+    let cancelled = false;
+    setOrgUsersLoading(true);
+    setDialogGrowersLoading(true);
+    void (async () => {
+      const [usersRes, growersRes] = await Promise.all([
+        fetchOrganizationUsers(),
+        fetchAgentGrowers(agentId),
+      ]);
+      if (cancelled) return;
+      setOrgUsersLoading(false);
+      setDialogGrowersLoading(false);
+      if (usersRes?.users) {
+        setOrgUsers(usersRes.users);
+      } else {
+        setOrgUsers([]);
+        toast.error("No se pudieron cargar los usuarios de la organización");
+      }
+      if (growersRes === null) {
+        setDialogGrowers([]);
+        toast.error("No se pudieron cargar los growers del agente");
+      } else {
+        setDialogGrowers(
+          Array.isArray(growersRes.growers) ? growersRes.growers : [],
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isGrowersDialogOpen, agentId]);
 
   const update = useCallback(
     <K extends keyof AgentPropertiesResponse>(
@@ -320,6 +380,90 @@ export function AgentConfigurationEditor({
     }
     void handleToggleEnabled();
   }, [isEnabled, handleToggleEnabled]);
+
+  const growersByEmail = useMemo(() => {
+    const byEmail = new Map<string, AgentGrowerRow>();
+    for (const g of dialogGrowers) {
+      const email = g.email.trim().toLowerCase();
+      if (email) byEmail.set(email, { email, name: g.name });
+    }
+    return byEmail;
+  }, [dialogGrowers]);
+
+  const checkIsGrower = useCallback(
+    (u: OrganizationUser) => {
+      const email = u.email.trim().toLowerCase();
+      if (growersByEmail.has(email)) return true;
+      const name = u.name.trim().toLowerCase();
+      if (!name) return false;
+      for (const g of growersByEmail.values()) {
+        if (g.name.trim().toLowerCase() === name) return true;
+      }
+      return false;
+    },
+    [growersByEmail],
+  );
+
+  const onCheckAddGrower = useCallback(
+    async (orgUser: OrganizationUser) => {
+      if (!agentId) return;
+      if (checkIsGrower(orgUser)) return;
+      const emailNorm = orgUser.email.trim().toLowerCase();
+      setAddingGrowerUserId(orgUser.id);
+      try {
+        const displayName = orgUser.name.trim() || orgUser.email.trim();
+        const result = await postAgentGrower(agentId, {
+          email: orgUser.email.trim(),
+          name: displayName,
+        });
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success(`${displayName} agregado como grower`);
+        const row: AgentGrowerRow = { email: emailNorm, name: displayName };
+        setDialogGrowers((prev) =>
+          prev.some((g) => g.email.trim().toLowerCase() === emailNorm)
+            ? prev
+            : [...prev, row],
+        );
+      } finally {
+        setAddingGrowerUserId(null);
+      }
+    },
+    [agentId, checkIsGrower],
+  );
+
+  const onUncheckRemoveGrower = useCallback(
+    async (orgUser: OrganizationUser) => {
+      if (!agentId) return;
+      if (!checkIsGrower(orgUser)) return;
+      const emailNorm = orgUser.email.trim().toLowerCase();
+      setAddingGrowerUserId(orgUser.id);
+      try {
+        const result = await deleteAgentGrower(agentId, orgUser.email);
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success("Grower quitado");
+        setDialogGrowers((prev) =>
+          prev.filter((g) => g.email.trim().toLowerCase() !== emailNorm),
+        );
+      } finally {
+        setAddingGrowerUserId(null);
+      }
+    },
+    [agentId, checkIsGrower],
+  );
+
+  const sortedOrgUsers = useMemo(() => {
+    return [...orgUsers].sort((a, b) =>
+      a.name.localeCompare(b.name, "es", { sensitivity: "base" }),
+    );
+  }, [orgUsers]);
+
+  const growerPickerLoading = orgUsersLoading || dialogGrowersLoading;
 
   if (!agentId) return null;
 
@@ -925,6 +1069,17 @@ export function AgentConfigurationEditor({
                   </>
                 )}
               </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsGrowersDialogOpen(true)}
+                disabled={saving}
+                className="w-fit shrink-0"
+              >
+                <PlusIcon className="mr-1.5 h-4 w-4" />
+                Gestionar growers
+              </Button>
               {data ? (
                 <PendingChangesPanel
                   formState={formState}
@@ -1001,6 +1156,85 @@ export function AgentConfigurationEditor({
                   ) : (
                     "Apagar agente"
                   )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          <Dialog
+            open={isGrowersDialogOpen}
+            onOpenChange={(open) => {
+              setIsGrowersDialogOpen(open);
+              if (!open) setAddingGrowerUserId(null);
+            }}
+          >
+            <DialogContent showClose className="max-h-[min(90vh,32rem)]">
+              <DialogHeader>
+                <DialogTitle>Gestionar growers</DialogTitle>
+                <DialogDescription>
+                  Los usuarios de la organización aparecen con un tick si ya son
+                  growers; marca para añadir o desmarca para quitar (nombre y correo
+                  de su cuenta).
+                </DialogDescription>
+              </DialogHeader>
+              <div className="min-h-0 flex-1 overflow-hidden py-2">
+                {growerPickerLoading ? (
+                  <div className="flex items-center justify-center gap-2 py-10 text-muted-foreground">
+                    <Loader2Icon className="size-5 animate-spin" />
+                    <span>Cargando usuarios y growers…</span>
+                  </div>
+                ) : sortedOrgUsers.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-muted-foreground">
+                    No hay usuarios en la organización.
+                  </p>
+                ) : (
+                  <ul className="max-h-64 space-y-1 overflow-y-auto pr-1">
+                    {sortedOrgUsers.map((u) => {
+                      const already = checkIsGrower(u);
+                      const busy = addingGrowerUserId === u.id;
+                      return (
+                        <li key={u.id}>
+                          <label className="flex cursor-pointer items-center gap-3 rounded-md border border-transparent px-2 py-2 hover:bg-muted/50">
+                            <Checkbox
+                              checked={already}
+                              disabled={busy || growerPickerLoading || !agentId}
+                              onCheckedChange={(v) => {
+                                if (v === true) void onCheckAddGrower(u);
+                                else void onUncheckRemoveGrower(u);
+                              }}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-sm font-medium">
+                                {u.name}
+                              </div>
+                              <div className="truncate text-xs text-muted-foreground">
+                                {u.email}
+                                {u.role === "admin" ? (
+                                  <span className="ml-2 text-foreground/80">
+                                    · admin
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+                            {busy ? (
+                              <Loader2Icon
+                                className="size-4 shrink-0 animate-spin text-muted-foreground"
+                                aria-hidden
+                              />
+                            ) : null}
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsGrowersDialogOpen(false)}
+                >
+                  Cerrar
                 </Button>
               </DialogFooter>
             </DialogContent>
