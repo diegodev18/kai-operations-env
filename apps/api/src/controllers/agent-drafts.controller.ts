@@ -45,6 +45,8 @@ const patchPersonalitySchema = z.object({
   step: z.literal("personality"),
   agent_name: z.string().trim().min(1),
   agent_personality: z.string().trim().min(1),
+  /** Idioma de las respuestas al usuario final (el system prompt se genera en inglés). */
+  response_language: z.string().trim().min(1).max(80),
 });
 
 const patchBusinessSchema = z.object({
@@ -315,9 +317,12 @@ export async function patchAgentDraft(
       await draftRef.update({
         agent_name: body.agent_name,
         agent_personality: body.agent_personality,
+        response_language: body.response_language,
         "mcp_configuration.system_prompt": systemPrompt,
         "mcp_configuration.agent_personalization.agent_name": body.agent_name,
         "mcp_configuration.agent_personalization.agent_personality": body.agent_personality,
+        "mcp_configuration.agent_personalization.response_language":
+          body.response_language,
         creation_step: "personality",
         updated_at: ts,
       });

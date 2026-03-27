@@ -99,16 +99,21 @@ export default function AgentDetailLayout({
     businessName: string;
   } | null>(null);
   const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [deploymentInfo, setDeploymentInfo] = useState<{
+    inCommercial: boolean;
+    inProduction: boolean;
+  } | null>(null);
 
   useEffect(() => {
     if (!agentId) return;
     let cancelled = false;
-    (async () => {
+    const load = async () => {
       const a = await fetchAgentById(agentId);
       if (cancelled) return;
       if (!a) {
         setHeaderNames({ agentName: "", businessName: "" });
         setEnabled(false);
+        setDeploymentInfo(null);
         return;
       }
       const business =
@@ -121,9 +126,38 @@ export default function AgentDetailLayout({
           : "";
       setHeaderNames({ agentName: agent, businessName: business });
       setEnabled(typeof a.enabled === "boolean" ? a.enabled : true);
-    })();
+      setDeploymentInfo({
+        inCommercial: Boolean(a.inCommercial),
+        inProduction: Boolean(a.inProduction),
+      });
+    };
+    void load();
     return () => {
       cancelled = true;
+    };
+  }, [agentId]);
+
+  useEffect(() => {
+    if (!agentId) return;
+    const onDeploymentChange = () => {
+      void (async () => {
+        const a = await fetchAgentById(agentId);
+        if (!a) {
+          setDeploymentInfo(null);
+          return;
+        }
+        setDeploymentInfo({
+          inCommercial: Boolean(a.inCommercial),
+          inProduction: Boolean(a.inProduction),
+        });
+      })();
+    };
+    window.addEventListener("kai-agent-deployment-changed", onDeploymentChange);
+    return () => {
+      window.removeEventListener(
+        "kai-agent-deployment-changed",
+        onDeploymentChange,
+      );
     };
   }, [agentId]);
 
@@ -175,8 +209,23 @@ export default function AgentDetailLayout({
           })}
         </nav>
 
-        <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
           <AgentEnabledBadge enabled={enabled} />
+          {deploymentInfo?.inCommercial ? (
+            <Badge variant="outline" className="shrink-0 font-normal">
+              Testing (comercial)
+            </Badge>
+          ) : null}
+          {deploymentInfo?.inProduction ? (
+            <Badge variant="secondary" className="shrink-0 font-normal">
+              Producción (kai)
+            </Badge>
+          ) : null}
+          {deploymentInfo?.inProduction && !deploymentInfo?.inCommercial ? (
+            <Badge variant="destructive" className="shrink-0 font-normal">
+              Solo en producción
+            </Badge>
+          ) : null}
           {!authPending && session?.user ? (
             <UserMenu
               userName={session.user.name}

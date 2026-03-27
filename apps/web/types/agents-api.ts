@@ -35,6 +35,8 @@ export type AgentDraftPatchBody =
       step: "personality";
       agent_name: string;
       agent_personality: string;
+      /** Idioma de las respuestas al usuario (p. ej. Spanish, English). */
+      response_language: string;
     }
   | {
       step: "business";
@@ -107,6 +109,7 @@ export type BuilderChatUI = BuilderChatUIOptions | BuilderChatUIForm;
 export type BuilderChatDraftPatch = Partial<{
   agent_name: string;
   agent_personality: string;
+  response_language: string;
   business_name: string;
   owner_name: string;
   industry: string;

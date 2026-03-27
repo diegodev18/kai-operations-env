@@ -36,6 +36,8 @@ const productionCredsPath = defaultCredsPath
 type DraftState = {
   agent_name: string;
   agent_personality: string;
+  /** Idioma de las respuestas al usuario (el system prompt almacenado se redacta en inglés). */
+  response_language: string;
   business_name: string;
   owner_name: string;
   industry: string;
@@ -56,6 +58,7 @@ const messageSchema = z.object({
 const draftStateSchema = z.object({
   agent_name: z.string(),
   agent_personality: z.string(),
+  response_language: z.string(),
   business_name: z.string(),
   owner_name: z.string(),
   industry: z.string(),
@@ -512,6 +515,7 @@ Always output STRICT JSON only with this shape:
     "escalation_rules"?: "string",
     "agent_name"?: "string",
     "agent_personality"?: "string",
+    "response_language"?: "string",
     "country"?: "string",
     "selected_tools"?: ["toolId1","toolId2"]
   },

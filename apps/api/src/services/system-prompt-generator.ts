@@ -151,6 +151,8 @@ export type BuilderContextPayload = {
   tools: Array<Record<string, unknown>>;
   technicalProperties: Record<string, Record<string, unknown>>;
   builderLanguageNote: string;
+  /** Idioma en que el agente debe hablar con el usuario final (p. ej. Spanish, English). */
+  response_language: string;
 };
 
 export function validateGeneratedSystemPrompt(text: string): {
@@ -216,8 +218,9 @@ export async function generateSystemPromptMultiPhase(
 You write the FINAL system prompt text that will be stored in Firestore as mcp_configuration.system_prompt (a single string).
 
 Hard rules:
-- Output language for the system prompt itself: English (clear, operational).
-- If builderLanguageNote or user content requires EXACT phrases (trademarks, legal lines, greetings), keep those phrases verbatim in their original language inside clearly marked sections (e.g. "Exact phrases (do not paraphrase):").
+- **System prompt language (mandatory):** The entire system_prompt must be written in **English only** — headings, instructions, tool rules, and guardrails. Do not write the system prompt in Spanish or any other language.
+- **End-user language:** The JSON context includes response_language (language for replies to end users). You MUST include a dedicated section titled **"End-user language"** stating clearly that all messages to the user must be in that language (name the language in English, e.g. "Spanish", "English"). User-facing examples inside the system prompt may appear in that language if helpful.
+- If builderLanguageNote or user content requires EXACT phrases (trademarks, legal lines, greetings), keep those phrases verbatim in clearly marked subsections (e.g. "Exact phrases (do not paraphrase):").
 - Do NOT paste, quote, or imitate default prompts from any internal repo (never mention MCP-KAI-AGENTS, webhook boilerplate, or framework defaults).
 - Optimize for Gemini: explicit role, boundaries, tool-use discipline, grounding rules (only state facts consistent with provided context; if unknown, say you do not have that information), no hallucinated policies or APIs.
 - Be specific to the business and tools in the JSON context; no generic platitudes.
@@ -243,6 +246,8 @@ The system_prompt value must be plain text suitable for a single Firestore strin
 
     const critiqueSystem = `You are a strict reviewer of system prompts for Gemini agents.
 Given the BUILDER CONTEXT (JSON) and the DRAFT SYSTEM PROMPT, find concrete problems: contradictions, ambiguity, missing guardrails, hallucination risk, unclear tool usage, wrong language rules, or missing business specifics.
+
+**Language checks:** The system prompt document must be entirely in **English** (except quoted user-facing examples or exact phrases as allowed). If the draft is partly or wholly in Spanish or another language, flag it and require a full English rewrite. Verify an "End-user language" section exists and matches context.response_language.
 
 Return STRICT JSON only:
 {"issues": string[], "rewrite_instructions": string}
@@ -274,7 +279,7 @@ issues: short bullet strings; rewrite_instructions: one consolidated instruction
     }
 
     const rewriteSystem = `You are a prompt engineer. Rewrite the DRAFT SYSTEM PROMPT into a final version that fully applies the rewrite_instructions and fixes every issue.
-Keep English as the base language; preserve exact-phrase blocks as required.
+The final system_prompt must be **entirely in English** (instructions to the model). Preserve end-user language rules via an "End-user language" section matching the builder context. Preserve exact-phrase blocks as required.
 Return STRICT JSON only: {"system_prompt": "..."} with \\n escapes for newlines inside the JSON string.`;
 
     const raw3 = await generateJsonPhase(
@@ -294,7 +299,7 @@ Return STRICT JSON only: {"system_prompt": "..."} with \\n escapes for newlines 
     if (!validation.ok) {
       const rawFix = await generateJsonPhase(
         ai,
-        `Fix the system prompt so it passes validation: ${validation.reason}. Return STRICT JSON {"system_prompt":"..."} only.`,
+        `Fix the system prompt so it passes validation: ${validation.reason}. The output system_prompt must be entirely in English (instructions to the model). Return STRICT JSON {"system_prompt":"..."} only.`,
         `BROKEN PROMPT:\n${finalPrompt}\n\nBUILDER CONTEXT (summary):\n${contextJson.slice(0, 12000)}`,
         0.1,
       );

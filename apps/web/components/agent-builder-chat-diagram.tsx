@@ -135,6 +135,8 @@ const THINKING_LABELS = [
 type DraftState = {
   agent_name: string;
   agent_personality: string;
+  /** Idioma en que el agente hablará con el usuario (el system prompt generado se guarda en inglés). */
+  response_language: string;
   business_name: string;
   owner_name: string;
   industry: string;
@@ -159,6 +161,7 @@ type BusinessFieldKey =
 type DraftTextKey =
   | "agent_name"
   | "agent_personality"
+  | "response_language"
   | "business_name"
   | "owner_name"
   | "industry"
@@ -261,7 +264,11 @@ function isBusinessComplete(state: DraftState) {
 }
 
 function isPersonalityComplete(state: DraftState) {
-  return !!state.agent_name.trim() && !!state.agent_personality.trim();
+  return (
+    !!state.agent_name.trim() &&
+    !!state.agent_personality.trim() &&
+    !!state.response_language.trim()
+  );
 }
 
 /** Lista legible de lo que impide cerrar el builder (alineado con `readyToConfirm`). */
@@ -281,6 +288,9 @@ function getBuilderIncompleteItems(state: DraftState): string[] {
   }
   if (!state.agent_personality.trim()) {
     items.push("Personalidad — estilo del agente");
+  }
+  if (!state.response_language.trim()) {
+    items.push("Personalidad — idioma de respuesta al usuario");
   }
   return items;
 }
@@ -573,6 +583,22 @@ function buildProgressiveGraph(
       source: "personality",
       target: "personality-style",
     });
+    nodes.push({
+      id: "personality-language",
+      position: { x: 750, y: 470 },
+      data: {
+        label: nodeLabelCard({
+          title: "Idioma (respuestas)",
+          value: fieldNodeValue(state.response_language),
+        }),
+      },
+      style: withCardStyle(230, !state.response_language.trim()),
+    });
+    edges.push({
+      id: "e-personality-language",
+      source: "personality",
+      target: "personality-language",
+    });
     personalityManualNodes.forEach((item, index) => {
       const x = 250 + (index % 2) * 250;
       const y = 560 + Math.floor(index / 2) * 84;
@@ -765,6 +791,7 @@ export function AgentBuilderChatDiagram() {
   const [draftState, setDraftState] = useState<DraftState>({
     agent_name: "",
     agent_personality: "",
+    response_language: "Spanish",
     business_name: "",
     owner_name: "",
     industry: "",
@@ -809,7 +836,7 @@ export function AgentBuilderChatDiagram() {
   const [manualValue, setManualValue] = useState("");
   const [requiredNodeDialogOpen, setRequiredNodeDialogOpen] = useState(false);
   const [requiredNodeKey, setRequiredNodeKey] = useState<
-    BusinessFieldKey | "agent_name" | "agent_personality" | null
+    BusinessFieldKey | "agent_name" | "agent_personality" | "response_language" | null
   >(null);
   const [requiredNodeLabel, setRequiredNodeLabel] = useState("");
   const [requiredNodeValue, setRequiredNodeValue] = useState("");
@@ -956,7 +983,10 @@ export function AgentBuilderChatDiagram() {
   );
 
   const openRequiredNodeDialog = useCallback(
-    (key: BusinessFieldKey | "agent_name" | "agent_personality", label: string) => {
+    (
+      key: BusinessFieldKey | "agent_name" | "agent_personality" | "response_language",
+      label: string,
+    ) => {
       setRequiredNodeKey(key);
       setRequiredNodeLabel(label);
       setRequiredNodeValue(draftState[key]);
@@ -1105,7 +1135,7 @@ export function AgentBuilderChatDiagram() {
   const persistState = useCallback(
     async (state: DraftState, markComplete: boolean): Promise<string | null> => {
       const stepped = updateStepFromState(state);
-      const personalitySig = `${stepped.agent_name}|${stepped.agent_personality}`;
+      const personalitySig = `${stepped.agent_name}|${stepped.agent_personality}|${stepped.response_language}`;
       const businessSig = BUSINESS_FLOW.map((field) => stepped[field]).join("|");
       const toolsSig = [...stepped.selected_tools].sort().join("|");
 
@@ -1194,6 +1224,8 @@ export function AgentBuilderChatDiagram() {
             step: "personality",
             agent_name: stepped.agent_name.trim(),
             agent_personality: stepped.agent_personality.trim(),
+            response_language:
+              stepped.response_language.trim() || "Spanish",
           });
           if (res.ok) lastSyncedRef.current.personality = personalitySig;
           else toast.error(res.error);
@@ -1285,6 +1317,11 @@ export function AgentBuilderChatDiagram() {
           "agent_personality",
           "mcp_configuration.agent_personalization.agent_personality",
         ]),
+        response_language:
+          pickFirstString(d, [
+            "response_language",
+            "mcp_configuration.agent_personalization.response_language",
+          ]) || "Spanish",
         business_name: pickFirstString(d, [
           "business_name",
           "mcp_configuration.agent_business_info.business_name",
@@ -1362,6 +1399,9 @@ export function AgentBuilderChatDiagram() {
             ? `- Rol del agente: ${nextState.agent_description}`
             : null,
           nextState.agent_name.trim() ? `- Nombre del agente: ${nextState.agent_name}` : null,
+          nextState.response_language.trim()
+            ? `- Idioma de respuestas al usuario: ${nextState.response_language}`
+            : null,
           `- Tools seleccionadas: ${nextState.selected_tools.length}`,
         ].filter((line): line is string => Boolean(line));
         setChatMessages([
@@ -1450,6 +1490,7 @@ export function AgentBuilderChatDiagram() {
         const textKeys: DraftTextKey[] = [
           "agent_name",
           "agent_personality",
+          "response_language",
           "business_name",
           "owner_name",
           "industry",
@@ -1901,6 +1942,23 @@ export function AgentBuilderChatDiagram() {
                       }
                       rows={3}
                     />
+                    <Label>Idioma de las respuestas al usuario</Label>
+                    <Input
+                      value={draftState.response_language}
+                      onChange={(event) =>
+                        setDraftState((prev) =>
+                          updateStepFromState({
+                            ...prev,
+                            response_language: event.target.value,
+                          }),
+                        )
+                      }
+                      placeholder="p. ej. Spanish, English"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      El system prompt técnico se guarda en inglés; este valor indica en qué idioma
+                      debe hablar el agente con tus clientes.
+                    </p>
                   </div>
                 ) : null}
                 {formStep === "review" ? (
@@ -1922,6 +1980,12 @@ export function AgentBuilderChatDiagram() {
                       Agente:{" "}
                       <span className="text-muted-foreground">
                         {draftState.agent_name || "Sin nombre"}
+                      </span>
+                    </p>
+                    <p>
+                      Idioma de respuestas:{" "}
+                      <span className="text-muted-foreground">
+                        {draftState.response_language.trim() || "—"}
                       </span>
                     </p>
                     <Button
@@ -2118,6 +2182,13 @@ export function AgentBuilderChatDiagram() {
                 }
                 if (node.id === "personality-style") {
                   openRequiredNodeDialog("agent_personality", "Estilo");
+                  return;
+                }
+                if (node.id === "personality-language") {
+                  openRequiredNodeDialog(
+                    "response_language",
+                    "Idioma de las respuestas al usuario",
+                  );
                   return;
                 }
                 if (node.id.startsWith("tech-")) {
@@ -2440,10 +2511,13 @@ export function AgentBuilderChatDiagram() {
             <Button
               onClick={() => {
                 if (!requiredNodeKey) return;
+                const raw = requiredNodeValue.trim();
+                const value =
+                  requiredNodeKey === "response_language" && !raw ? "Spanish" : raw;
                 setDraftState((prev) =>
                   updateStepFromState({
                     ...prev,
-                    [requiredNodeKey]: requiredNodeValue.trim(),
+                    [requiredNodeKey]: value,
                   }),
                 );
                 setRequiredNodeDialogOpen(false);

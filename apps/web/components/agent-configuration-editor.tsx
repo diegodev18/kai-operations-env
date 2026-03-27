@@ -11,7 +11,6 @@ import {
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -514,6 +513,7 @@ export function AgentConfigurationEditor({
         );
         await refetch();
         onAgentUpdated?.();
+        window.dispatchEvent(new Event("kai-agent-deployment-changed"));
       } else {
         toast.error(r.error);
       }
@@ -553,6 +553,7 @@ export function AgentConfigurationEditor({
         setPromoteDialogOpen(false);
         await refetch();
         onAgentUpdated?.();
+        window.dispatchEvent(new Event("kai-agent-deployment-changed"));
       } else {
         toast.error(r.error);
       }
@@ -585,65 +586,11 @@ export function AgentConfigurationEditor({
         </div>
       ) : formState ? (
         <div className="flex min-h-0 flex-1 flex-col">
-          {data ? (
-            <div className="shrink-0 space-y-3 border-b border-border bg-muted/40 px-4 py-3">
-              <div className="flex flex-wrap items-center gap-2">
-                {inCommercial ? (
-                  <Badge variant="outline" className="font-normal">
-                    Testing (comercial)
-                  </Badge>
-                ) : null}
-                {inProduction ? (
-                  <Badge variant="secondary" className="font-normal">
-                    Producción (kai)
-                  </Badge>
-                ) : null}
-                {inProduction && !inCommercial ? (
-                  <Badge variant="destructive" className="font-normal">
-                    Solo en producción
-                  </Badge>
-                ) : null}
-              </div>
-              {inProduction && !inCommercial ? (
-                <p className="text-sm text-muted-foreground">
-                  Este agente existe en kai pero aún no en asistente comercial.
-                  Baja la copia para editarla aquí (sobrescribe datos previos en
-                  testing si existían).
-                </p>
-              ) : null}
-              <div className="flex flex-wrap gap-2">
-                {inProduction ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5"
-                    disabled={syncingFromProd}
-                    onClick={() => void handleSyncFromProduction()}
-                  >
-                    {syncingFromProd ? (
-                      <Loader2Icon className="size-4 animate-spin" />
-                    ) : (
-                      <CloudDownloadIcon className="size-4" />
-                    )}
-                    {inCommercial
-                      ? "Refrescar desde producción"
-                      : "Crear en testing (desde prod)"}
-                  </Button>
-                ) : null}
-                {inCommercial ? (
-                  <Button
-                    type="button"
-                    variant="default"
-                    size="sm"
-                    className="gap-1.5"
-                    onClick={openPromoteDialog}
-                  >
-                    <RocketIcon className="size-4" />
-                    Subir a producción
-                  </Button>
-                ) : null}
-              </div>
+          {data && inProduction && !inCommercial ? (
+            <div className="shrink-0 border-b border-border bg-muted/30 px-4 py-2.5 text-sm text-muted-foreground">
+              Este agente existe en kai pero aún no en asistente comercial.
+              Baja la copia para editarla aquí (sobrescribe datos previos en
+              testing si existían).
             </div>
           ) : null}
           <div className="min-h-0 flex-1 overflow-y-auto">
@@ -1247,6 +1194,25 @@ export function AgentConfigurationEditor({
                 <PlusIcon className="mr-1.5 h-4 w-4" />
                 Gestionar growers
               </Button>
+              {data && inProduction ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-fit shrink-0 gap-1.5"
+                  disabled={syncingFromProd || saving}
+                  onClick={() => void handleSyncFromProduction()}
+                >
+                  {syncingFromProd ? (
+                    <Loader2Icon className="size-4 animate-spin" />
+                  ) : (
+                    <CloudDownloadIcon className="size-4" />
+                  )}
+                  {inCommercial
+                    ? "Refrescar desde producción"
+                    : "Crear en testing (desde prod)"}
+                </Button>
+              ) : null}
               {data ? (
                 <PendingChangesPanel
                   formState={formState}
@@ -1255,25 +1221,40 @@ export function AgentConfigurationEditor({
                 />
               ) : null}
             </div>
-            <Button
-              type="button"
-              onClick={handleSave}
-              disabled={
-                saving ||
-                !data ||
-                getPendingDocumentIds(formState, data).length === 0
-              }
-              className="w-full shrink-0 sm:w-auto"
-            >
-              {saving ? (
-                <>
-                  <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
-                  Guardando…
-                </>
-              ) : (
-                "Guardar cambios"
-              )}
-            </Button>
+            <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
+              {inCommercial ? (
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  className="gap-1.5 w-full sm:w-auto"
+                  onClick={openPromoteDialog}
+                  disabled={saving}
+                >
+                  <RocketIcon className="size-4" />
+                  Subir a producción
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                onClick={handleSave}
+                disabled={
+                  saving ||
+                  !data ||
+                  getPendingDocumentIds(formState, data).length === 0
+                }
+                className="w-full shrink-0 sm:w-auto"
+              >
+                {saving ? (
+                  <>
+                    <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                    Guardando…
+                  </>
+                ) : (
+                  "Guardar cambios"
+                )}
+              </Button>
+            </div>
           </div>
           <Dialog
             open={promoteDialogOpen}

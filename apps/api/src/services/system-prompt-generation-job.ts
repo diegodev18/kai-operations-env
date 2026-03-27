@@ -63,11 +63,32 @@ async function loadAgentContext(
     "Context from agent_configurations (asistente comercial). Infer builder language from business fields. " +
     (creatorEmail ? `Builder contact email locale hint: ${creatorEmail}.` : "");
 
+  const mcpPers =
+    draftRoot.mcp_configuration != null &&
+    typeof draftRoot.mcp_configuration === "object"
+      ? (draftRoot.mcp_configuration as Record<string, unknown>).agent_personalization
+      : undefined;
+  const persObj =
+    mcpPers != null && typeof mcpPers === "object"
+      ? (mcpPers as Record<string, unknown>)
+      : undefined;
+  const responseLanguageRaw =
+    typeof draftRoot["response_language"] === "string"
+      ? draftRoot["response_language"]
+      : typeof persObj?.["response_language"] === "string"
+        ? persObj["response_language"]
+        : "";
+  const response_language =
+    typeof responseLanguageRaw === "string" && responseLanguageRaw.trim()
+      ? responseLanguageRaw.trim().slice(0, 80)
+      : "Spanish";
+
   return {
     draftRoot: stripUndefinedDeep(draftRoot) as Record<string, unknown>,
     tools,
     technicalProperties,
     builderLanguageNote,
+    response_language,
   };
 }
 
