@@ -268,7 +268,13 @@ export async function patchAgentDraft(
 export async function fetchAgentDraft(
   draftId: string,
 ): Promise<
-  | { ok: true; id: string; draft: AgentDraftClient }
+  | {
+      ok: true;
+      id: string;
+      draft: AgentDraftClient;
+      systemPromptGenerationStatus?: string;
+      systemPromptGenerationError?: string | null;
+    }
   | { ok: false; error: string }
 > {
   const res = await fetch(
@@ -278,7 +284,13 @@ export async function fetchAgentDraft(
       cache: "no-store",
     },
   );
-  let data: { id?: string; draft?: AgentDraftClient; error?: string } = {};
+  let data: {
+    id?: string;
+    draft?: AgentDraftClient;
+    error?: string;
+    systemPromptGenerationStatus?: string;
+    systemPromptGenerationError?: string | null;
+  } = {};
   try {
     data = (await res.json()) as typeof data;
   } catch {
@@ -291,8 +303,78 @@ export async function fetchAgentDraft(
     };
   }
   if (data.id && data.draft && typeof data.draft === "object") {
-    return { ok: true, id: data.id, draft: data.draft };
+    return {
+      ok: true,
+      id: data.id,
+      draft: data.draft,
+      ...(data.systemPromptGenerationStatus != null
+        ? { systemPromptGenerationStatus: data.systemPromptGenerationStatus }
+        : {}),
+      ...(data.systemPromptGenerationError !== undefined
+        ? { systemPromptGenerationError: data.systemPromptGenerationError }
+        : {}),
+    };
   }
+  return { ok: false, error: "Respuesta inv?lida del servidor" };
+}
+
+export async function postDraftSystemPromptRegenerate(
+  draftId: string,
+): Promise<{ ok: true } | { ok: false; error: string; conflict?: boolean }> {
+  const res = await fetch(
+    `/api/agents/drafts/${encodeURIComponent(draftId)}/system-prompt/regenerate`,
+    { method: "POST", credentials: "include" },
+  );
+  let data: { ok?: boolean; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (res.status === 409) {
+    return {
+      ok: false,
+      error: data.error ?? "Ya hay una generación en curso.",
+      conflict: true,
+    };
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: data.error ?? "No se pudo reintentar la generación",
+    };
+  }
+  if (data.ok) return { ok: true };
+  return { ok: false, error: "Respuesta inv?lida del servidor" };
+}
+
+export async function postAgentSystemPromptRegenerate(
+  agentId: string,
+): Promise<{ ok: true } | { ok: false; error: string; conflict?: boolean }> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/system-prompt/regenerate`,
+    { method: "POST", credentials: "include" },
+  );
+  let data: { ok?: boolean; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (res.status === 409) {
+    return {
+      ok: false,
+      error: data.error ?? "Ya hay una generación en curso.",
+      conflict: true,
+    };
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: data.error ?? "No se pudo reintentar la generación",
+    };
+  }
+  if (data.ok) return { ok: true };
   return { ok: false, error: "Respuesta inv?lida del servidor" };
 }
 

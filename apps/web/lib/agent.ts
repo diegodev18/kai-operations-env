@@ -25,6 +25,9 @@ export interface Agent {
   businessName?: string;
   owner: string;
   prompt?: string;
+  /** Estado de generación async del system prompt (MCP). */
+  systemPromptGenerationStatus?: string;
+  systemPromptGenerationError?: string | null;
   enabled?: boolean;
   model?: string;
   temperature?: number;

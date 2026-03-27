@@ -14,6 +14,11 @@ import {
   writeDefaultAgentProperties,
 } from "@/constants/agentPropertyDefaults";
 import { getFirestore, FieldValue } from "@/lib/firestore";
+import logger, { formatError } from "@/lib/logger";
+import {
+  runSystemPromptGenerationJob,
+  setSystemPromptGeneratingFlags,
+} from "@/services/system-prompt-generation-job";
 import type { AgentsInfoAuthContext } from "@/types/agents";
 import {
   extractFirestoreIndexUrl,
@@ -207,6 +212,7 @@ export async function postAgentDraft(
           agent_personality,
         },
         system_prompt: "",
+        system_prompt_generation_status: "idle",
       },
       created_at: ts,
       updated_at: ts,
@@ -247,9 +253,11 @@ export async function getAgentDraft(
     if (!canAccessDraft(authCtx, data)) {
       return c.json({ error: "No autorizado" }, 403);
     }
+    const genFields = extractMcpGenerationMeta(data);
     return c.json({
       id: snap.id,
       draft: serializeDraftForClient(data),
+      ...genFields,
     });
   } catch (error) {
     const r = handleFirestoreError(c, error, "[agents/drafts GET]");
@@ -381,15 +389,107 @@ export async function patchAgentDraft(
       });
     }
 
-    // complete
-    await draftRef.update({
+    // complete — generación async del system prompt (no bloquea la respuesta)
+    const genPatch = {
       creation_step: "complete",
       updated_at: ts,
+      "mcp_configuration.system_prompt_generation_status": "generating",
+      "mcp_configuration.system_prompt_generation_error": null,
+      "mcp_configuration.system_prompt_generation_updated_at":
+        FieldValue.serverTimestamp(),
+    };
+    await draftRef.update(genPatch);
+
+    const agentRef = db.collection("agent_configurations").doc(draftId);
+    const agentSnap = await agentRef.get();
+    if (agentSnap.exists) {
+      await agentRef.update({
+        "mcp_configuration.system_prompt_generation_status": "generating",
+        "mcp_configuration.system_prompt_generation_error": null,
+        "mcp_configuration.system_prompt_generation_updated_at":
+          FieldValue.serverTimestamp(),
+      });
+    }
+
+    void runSystemPromptGenerationJob(draftId).catch((e) => {
+      logger.error("[agents/drafts] system prompt generation job", formatError(e));
     });
+
     return c.json({ id: draftId, creation_step: "complete" });
   } catch (error) {
     const r = handleFirestoreError(c, error, "[agents/drafts PATCH]");
     return r ?? c.json({ error: "Error al actualizar borrador." }, 500);
+  }
+}
+
+function extractMcpGenerationMeta(data: Record<string, unknown>): {
+  systemPromptGenerationStatus?: string;
+  systemPromptGenerationError?: string | null;
+} {
+  const mcp = data.mcp_configuration;
+  if (mcp == null || typeof mcp !== "object" || Array.isArray(mcp)) {
+    return {};
+  }
+  const o = mcp as Record<string, unknown>;
+  const st = o.system_prompt_generation_status;
+  const err = o.system_prompt_generation_error;
+  const out: {
+    systemPromptGenerationStatus?: string;
+    systemPromptGenerationError?: string | null;
+  } = {};
+  if (typeof st === "string" && st.length > 0) {
+    out.systemPromptGenerationStatus = st;
+  }
+  if (typeof err === "string") {
+    out.systemPromptGenerationError = err;
+  } else if (err == null && "system_prompt_generation_error" in o) {
+    out.systemPromptGenerationError = null;
+  }
+  return out;
+}
+
+/**
+ * Reintenta la generación multi-fase del system prompt (draft + agent con mismo id).
+ */
+export async function postDraftSystemPromptRegenerate(
+  c: Context,
+  authCtx: AgentsInfoAuthContext,
+  draftId: string,
+) {
+  try {
+    const auth = await getAuthorizedDraftRef(authCtx, draftId);
+    if (!auth.ok) {
+      return c.json(
+        { error: auth.code === 404 ? "Borrador no encontrado" : "No autorizado" },
+        auth.code,
+      );
+    }
+    const db = getFirestore();
+    const draftRef = db.collection(AGENT_DRAFTS).doc(draftId);
+    const snap = await draftRef.get();
+    const data = snap.data() ?? {};
+    const mcp = data.mcp_configuration as Record<string, unknown> | undefined;
+    const st =
+      typeof mcp?.system_prompt_generation_status === "string"
+        ? mcp.system_prompt_generation_status
+        : "";
+    if (st === "generating") {
+      return c.json(
+        { error: "La generación del system prompt ya está en curso." },
+        409,
+      );
+    }
+    await setSystemPromptGeneratingFlags(draftId);
+    void runSystemPromptGenerationJob(draftId).catch((e) => {
+      logger.error(
+        "[agents/drafts] system prompt regenerate job",
+        formatError(e),
+      );
+    });
+    return c.json({ ok: true });
+  } catch (error) {
+    const r = handleFirestoreError(c, error, "[agents/drafts system-prompt POST]");
+    return r ?? c.json({ error: "No se pudo reintentar la generación." }, 500);
   }
 }
 

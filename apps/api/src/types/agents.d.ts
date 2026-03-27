@@ -29,6 +29,9 @@ export interface LightAgent {
   omitFirstEchoes?: boolean;
   owner: string;
   prompt: string;
+  /** `mcp_configuration.system_prompt_generation_status` en Firestore. */
+  systemPromptGenerationStatus?: string;
+  systemPromptGenerationError?: string | null;
   temperature?: number;
   waitTime?: number;
 }
