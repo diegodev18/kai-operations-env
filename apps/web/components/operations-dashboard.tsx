@@ -76,6 +76,8 @@ export function OperationsDashboard(props: {
 }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
+  /** Texto de búsqueda aplicado al API (debounce 300 ms; vacío al limpiar al instante). */
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [billingAlertOnly, setBillingAlertOnly] = useState(false);
   const [agents, setAgents] = useState<AgentWithOperations[]>([]);
@@ -96,16 +98,27 @@ export function OperationsDashboard(props: {
   );
   const [syncingAgentId, setSyncingAgentId] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (search.trim() === "") {
+      setDebouncedSearch("");
+      return;
+    }
+    const t = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => window.clearTimeout(t);
+  }, [search]);
+
   const fetchPage = useCallback(
     async (cursor: string | undefined) => {
+      const q = debouncedSearch.trim() || undefined;
       return fetchAgentsPage({
         light: true,
         paginated: true,
         pageSize: AGENTS_PAGE_SIZE,
         cursor,
+        ...(q ? { q } : {}),
       });
     },
-    [],
+    [debouncedSearch],
   );
 
   const fetchAgents = useCallback(async () => {
@@ -341,24 +354,30 @@ export function OperationsDashboard(props: {
 
   const growerPickerLoading = orgUsersLoading || dialogGrowersLoading;
 
+  const serverSearchActive = debouncedSearch.trim().length > 0;
+  const isSearchDebouncing =
+    search.trim() !== debouncedSearch.trim();
+
   const filteredAgents = useMemo(() => {
     let list = agents;
-    const q = search.trim().toLowerCase();
-    if (q) {
-      list = list.filter((a) => {
-        if (
-          a.name.toLowerCase().includes(q) ||
-          a.owner.toLowerCase().includes(q) ||
-          (a.industry ?? "").toLowerCase().includes(q)
-        ) {
-          return true;
-        }
-        return (a.growers ?? []).some(
-          (g) =>
-            g.name.toLowerCase().includes(q) ||
-            g.email.toLowerCase().includes(q),
-        );
-      });
+    if (!serverSearchActive) {
+      const q = search.trim().toLowerCase();
+      if (q) {
+        list = list.filter((a) => {
+          if (
+            a.name.toLowerCase().includes(q) ||
+            a.owner.toLowerCase().includes(q) ||
+            (a.industry ?? "").toLowerCase().includes(q)
+          ) {
+            return true;
+          }
+          return (a.growers ?? []).some(
+            (g) =>
+              g.name.toLowerCase().includes(q) ||
+              g.email.toLowerCase().includes(q),
+          );
+        });
+      }
     }
     if (statusFilter !== "all") {
       list = list.filter((a) => a.operationalStatus === statusFilter);
@@ -367,7 +386,13 @@ export function OperationsDashboard(props: {
       list = list.filter((a) => a.billing.paymentAlert);
     }
     return list;
-  }, [agents, search, statusFilter, billingAlertOnly]);
+  }, [
+    agents,
+    search,
+    serverSearchActive,
+    statusFilter,
+    billingAlertOnly,
+  ]);
 
   const hasMore = nextCursor != null && nextCursor !== undefined;
 
@@ -408,7 +433,15 @@ export function OperationsDashboard(props: {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="h-9 pl-8"
+                aria-busy={
+                  isSearchDebouncing ||
+                  (Boolean(search.trim()) && isLoading)
+                }
               />
+              {(isSearchDebouncing ||
+                (Boolean(search.trim()) && isLoading)) ? (
+                <Loader2Icon className="absolute top-1/2 right-2.5 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+              ) : null}
             </div>
             <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-1">
               <span className="px-2 py-1.5 text-xs text-muted-foreground">
@@ -680,7 +713,9 @@ export function OperationsDashboard(props: {
               {filteredAgents.length === 0 ? (
                 <p className="py-8 text-center text-muted-foreground">
                   {agents.length === 0
-                    ? "No hay agentes."
+                    ? serverSearchActive
+                      ? "No hay agentes que coincidan con la búsqueda."
+                      : "No hay agentes."
                     : "Ningún agente coincide con los filtros."}
                 </p>
               ) : null}
@@ -690,7 +725,7 @@ export function OperationsDashboard(props: {
                     type="button"
                     variant="outline"
                     size="sm"
-                    disabled={isLoadingMore}
+                    disabled={isLoadingMore || isSearchDebouncing}
                     onClick={() => void loadMore()}
                   >
                     {isLoadingMore ? (
@@ -702,8 +737,15 @@ export function OperationsDashboard(props: {
                     type="button"
                     variant="outline"
                     size="sm"
-                    disabled={isLoadingAll}
+                    disabled={
+                      isLoadingAll || isSearchDebouncing || Boolean(debouncedSearch.trim())
+                    }
                     onClick={() => void loadAll()}
+                    title={
+                      debouncedSearch.trim()
+                        ? "Con búsqueda activa usa «Cargar más» para ver más resultados."
+                        : undefined
+                    }
                   >
                     {isLoadingAll ? (
                       <Loader2Icon className="mr-2 size-4 animate-spin" />

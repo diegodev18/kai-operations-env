@@ -42,6 +42,7 @@ function agentsInfoUrl(
   paginated: boolean,
   pageSize: number,
   cursor?: string,
+  q?: string,
 ): string {
   const params = new URLSearchParams();
   if (light) params.set("light", "1");
@@ -49,6 +50,8 @@ function agentsInfoUrl(
     params.set("limit", String(Math.max(1, Math.min(100, pageSize))));
     if (cursor) params.set("cursor", cursor);
   }
+  const trimmedQ = q?.trim();
+  if (trimmedQ) params.set("q", trimmedQ);
   return `/api/agents/info?${params.toString()}`;
 }
 
@@ -58,6 +61,8 @@ export async function fetchAgentsPage(
     paginated?: boolean;
     pageSize?: number;
     cursor?: string;
+    /** Búsqueda en servidor (Firestore); vacío omite el parámetro. */
+    q?: string;
   } = {},
 ): Promise<{ agents: AgentWithOperations[]; nextCursor: string | null } | null> {
   const {
@@ -65,8 +70,9 @@ export async function fetchAgentsPage(
     paginated = true,
     pageSize = AGENTS_PAGE_SIZE,
     cursor,
+    q,
   } = options;
-  const url = agentsInfoUrl(light, paginated, pageSize, cursor);
+  const url = agentsInfoUrl(light, paginated, pageSize, cursor, q);
   const response = await fetch(url, {
     credentials: "include",
     cache: "no-store",

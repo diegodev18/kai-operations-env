@@ -10,8 +10,10 @@ import type {
   LightAgent,
 } from "@/types/agents";
 import {
+  agentMatchesSearchQuery,
   buildLightAgent,
   isGrowerCursor,
+  normalizeAgentsSearchQuery,
   parseAgentDoc,
 } from "@/utils/agents";
 import {
@@ -68,6 +70,34 @@ async function mergedAgentIdsSorted(): Promise<string[]> {
   return [...idSet].sort((a, b) => a.localeCompare(b));
 }
 
+/** Paginación sobre `sortedIds` filtrando por subcadena `qLower` (coincidencias consecutivas en orden). */
+async function paginateLightAgentsWithSearch(
+  sortedIds: string[],
+  qLower: string,
+  cursor: string | undefined,
+  effectiveLimit: number,
+): Promise<{ agents: LightAgent[]; nextCursor: string | null }> {
+  let startIdx = 0;
+  if (cursor) {
+    const lastId = cursorToAgentIdStart(cursor);
+    const idx = sortedIds.indexOf(lastId);
+    startIdx = idx >= 0 ? idx + 1 : 0;
+  }
+  const agents: LightAgent[] = [];
+  for (let i = startIdx; i < sortedIds.length; i++) {
+    const id = sortedIds[i]!;
+    if (!(await agentMatchesSearchQuery(id, qLower))) continue;
+    const row = await buildLightAgentWithDeployment(id);
+    if (row) {
+      agents.push(row);
+      if (agents.length >= effectiveLimit) {
+        return { agents, nextCursor: id };
+      }
+    }
+  }
+  return { agents, nextCursor: null };
+}
+
 export const getAgentsInfo = async (
   c: Context,
   authCtx: AgentsInfoAuthContext,
@@ -91,6 +121,8 @@ export const getAgentsInfo = async (
         Math.max(1, Math.floor(Number(limitRaw))),
       )
     : null;
+
+  const searchQ = normalizeAgentsSearchQuery(c.req.query("q"));
 
   if (!light && !admin) {
     return c.json(
@@ -131,6 +163,17 @@ export const getAgentsInfo = async (
       }
       const sortedIds = [...idSet].sort((a, b) => a.localeCompare(b));
 
+      if (searchQ) {
+        const { agents: agentRows, nextCursor } =
+          await paginateLightAgentsWithSearch(
+            sortedIds,
+            searchQ,
+            cursor,
+            effectiveLimit,
+          );
+        return c.json({ agents: agentRows, nextCursor });
+      }
+
       let startIdx = 0;
       if (cursor) {
         const lastId = cursorToAgentIdStart(cursor);
@@ -156,6 +199,22 @@ export const getAgentsInfo = async (
     if (admin && light) {
       const effectiveLimit = pageLimit ?? 15;
       const sortedIds = await mergedAgentIdsSorted();
+
+      if (searchQ) {
+        if (cursor && isGrowerCursor(cursor)) {
+          return c.json(
+            { error: "cursor de grower no válido para listado de administrador" },
+            400,
+          );
+        }
+        const { agents, nextCursor } = await paginateLightAgentsWithSearch(
+          sortedIds,
+          searchQ,
+          cursor,
+          effectiveLimit,
+        );
+        return c.json({ agents, nextCursor });
+      }
 
       let startIdx = 0;
       if (cursor) {

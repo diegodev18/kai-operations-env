@@ -15,3 +15,7 @@ export {
   parseAgentDoc,
   type ParsedAgentDoc,
 } from "./parseAgentDoc";
+export {
+  agentMatchesSearchQuery,
+  normalizeAgentsSearchQuery,
+} from "./agentSearchMatch";
