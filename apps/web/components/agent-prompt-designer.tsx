@@ -606,8 +606,9 @@ export function AgentPromptDesigner({
         </div>
       )}
       <div className="flex min-h-0 flex-1 overflow-hidden rounded-lg border">
-        <div className="flex-1 min-w-0 flex flex-col min-h-0 overflow-y-auto">
-          <div className="flex flex-col gap-2 p-3 min-h-[400px]">
+        <div className="flex-1 min-w-0 flex flex-col min-h-0">
+          <div className="flex-1 min-h-0 flex flex-col p-3 gap-4 overflow-hidden bg-background">
+          <div className="flex-[3] min-h-0 flex flex-col gap-2 overflow-hidden">
             <div className="flex items-center gap-2">
               <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 Base Prompt
@@ -652,19 +653,19 @@ export function AgentPromptDesigner({
                   value={editingPrompt}
                   onChange={(e) => setEditingPrompt(e.target.value)}
                   disabled={promptAndChatLocked}
-                  className="h-full min-h-[300px] resize-none font-mono text-sm"
+                  className="h-full w-full resize-none font-mono text-sm"
                   placeholder="Escribe el prompt del agente…"
                 />
               )}
             </div>
           </div>
           {isAuthEnabled && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 p-3 border-t bg-muted/5">
+            <div className="flex-[2] min-h-0 grid grid-cols-1 lg:grid-cols-2 gap-4 p-3 border-t bg-muted/5 overflow-hidden">
               <div className="flex flex-col gap-2 min-h-0">
                 <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                   Unauth (Public)
                 </Label>
-                <div className="h-[300px] min-h-0">
+                <div className="flex-1 min-h-0">
                   {showSuggestion && suggestedForUnauth != null ? (
                     <PromptDiffView
                       oldText={editingUnauthPrompt}
@@ -691,7 +692,7 @@ export function AgentPromptDesigner({
                 <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-primary/80">
                   Auth (Verified)
                 </Label>
-                <div className="h-[300px] min-h-0">
+                <div className="flex-1 min-h-0">
                   {showSuggestion && suggestedForAuth != null ? (
                     <PromptDiffView
                       oldText={editingAuthPrompt}
@@ -716,6 +717,7 @@ export function AgentPromptDesigner({
               </div>
             </div>
           )}
+          </div>
           <div className="flex justify-end gap-2 p-3 border-t">
             {hasChanges && (
               <Button
