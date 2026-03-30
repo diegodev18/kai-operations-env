@@ -65,7 +65,6 @@ import {
   BUILDER_TECH_PROPERTY_DEPENDENCY_EDGES,
   formatTechnicalFieldValue,
   getTechFieldDefault,
-  isTechFieldAtDefault,
 } from "@/lib/builder-technical-properties";
 import { PROPERTY_DESCRIPTIONS, PROPERTY_TITLES } from "@/lib/property-descriptions";
 import type { BuilderChatUI } from "@/types/agents-api";
@@ -330,6 +329,7 @@ function withCardStyle(width: number, dimmed = false) {
     background: "var(--card)",
     color: "var(--card-foreground)",
     opacity: dimmed ? 0.5 : 1,
+    transition: "all 0.3s ease",
   };
 }
 
@@ -773,10 +773,12 @@ function buildProgressiveGraph(
     BUILDER_TECHNICAL_FIELDS.forEach((field, index) => {
       const raw = technicalProps?.[field.documentId]?.[field.fieldKey];
       const defVal = getTechFieldDefault(field.documentId, field.fieldKey);
-      const effective =
-        raw !== undefined && raw !== null ? raw : defVal;
+      const effective = raw !== undefined && raw !== null ? raw : defVal;
       const display = formatTechnicalFieldValue(field.kind, effective);
-      const dimmed = isTechFieldAtDefault(field.documentId, field.fieldKey, raw);
+      
+      // Glow and full opacity if the value is defined (even if at default)
+      const isDefined = effective !== undefined && effective !== null;
+      
       const title =
         PROPERTY_TITLES[field.documentId]?.[field.fieldKey] ?? field.fieldKey;
       const nodeId = techNodeId(field.documentId, field.fieldKey);
@@ -791,7 +793,7 @@ function buildProgressiveGraph(
         data: {
           label: nodeLabelCard({ title, value: display }),
         },
-        style: withCardStyle(278, dimmed),
+        style: withCardStyle(278, !isDefined),
       });
       if (!propertyNodesLinkedFromParent.has(techFieldKey(field.documentId, field.fieldKey))) {
         edges.push({
