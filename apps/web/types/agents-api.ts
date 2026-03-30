@@ -37,6 +37,9 @@ export type AgentDraftPatchBody =
       agent_personality: string;
       /** Idioma de las respuestas al usuario (p. ej. Spanish, English). */
       response_language: string;
+      use_emojis?: string;
+      country_accent?: string;
+      agent_signature?: string;
     }
   | {
       step: "business";
@@ -48,6 +51,7 @@ export type AgentDraftPatchBody =
       target_audience: string;
       escalation_rules: string;
       country?: string;
+      business_timezone?: string;
       phone_number_id?: string;
       whatsapp_token?: string;
     }
@@ -118,5 +122,9 @@ export type BuilderChatDraftPatch = Partial<{
   target_audience: string;
   escalation_rules: string;
   country: string;
+  use_emojis: string;
+  country_accent: string;
+  agent_signature: string;
+  business_timezone: string;
   selected_tools: string[];
 }>;

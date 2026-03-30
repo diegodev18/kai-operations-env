@@ -145,6 +145,10 @@ type DraftState = {
   target_audience: string;
   escalation_rules: string;
   country: string;
+  use_emojis: string;
+  country_accent: string;
+  agent_signature: string;
+  business_timezone: string;
   selected_tools: string[];
   creation_step: "personality" | "business" | "tools" | "complete";
 };
@@ -156,7 +160,8 @@ type BusinessFieldKey =
   | "description"
   | "target_audience"
   | "agent_description"
-  | "escalation_rules";
+  | "escalation_rules"
+  | "business_timezone";
 
 type DraftTextKey =
   | "agent_name"
@@ -169,7 +174,11 @@ type DraftTextKey =
   | "agent_description"
   | "target_audience"
   | "escalation_rules"
-  | "country";
+  | "country"
+  | "use_emojis"
+  | "country_accent"
+  | "agent_signature"
+  | "business_timezone";
 
 type ManualNode = {
   id: string;
@@ -201,6 +210,7 @@ const BUSINESS_FLOW: BusinessFieldKey[] = [
   "target_audience",
   "agent_description",
   "escalation_rules",
+  "business_timezone",
 ];
 const FORM_STEPS: FormStep[] = ["business", "tools", "personality", "review"];
 
@@ -212,6 +222,7 @@ const BUSINESS_FIELD_GRAPH: Array<{ key: BusinessFieldKey; label: string }> = [
   { key: "target_audience", label: "Audiencia" },
   { key: "agent_description", label: "Rol del agente" },
   { key: "escalation_rules", label: "Escalamiento" },
+  { key: "business_timezone", label: "Zona horaria" },
 ];
 
 function nowId() {
@@ -437,6 +448,8 @@ function buildProgressiveGraph(
         target: fieldNodeId,
       });
     });
+
+
     businessManualNodes.forEach((item, index) => {
       const baseId = `business-manual-${item.id}`;
       const x = 960 + (index % 2) * 250;
@@ -551,6 +564,7 @@ function buildProgressiveGraph(
       source: "agentRoot",
       target: "personality",
     });
+
     nodes.push({
       id: "personality-name",
       position: { x: 250, y: 470 },
@@ -567,6 +581,7 @@ function buildProgressiveGraph(
       source: "personality",
       target: "personality-name",
     });
+
     nodes.push({
       id: "personality-style",
       position: { x: 500, y: 470 },
@@ -583,6 +598,7 @@ function buildProgressiveGraph(
       source: "personality",
       target: "personality-style",
     });
+
     nodes.push({
       id: "personality-language",
       position: { x: 750, y: 470 },
@@ -599,9 +615,64 @@ function buildProgressiveGraph(
       source: "personality",
       target: "personality-language",
     });
+
+    const emojiNodeId = "personality-emojis";
+    nodes.push({
+      id: emojiNodeId,
+      position: { x: 250, y: 556 },
+      data: {
+        label: nodeLabelCard({
+          title: "Uso de emojis",
+          value: fieldNodeValue(state.use_emojis),
+        }),
+      },
+      style: withCardStyle(230, !state.use_emojis.trim()),
+    });
+    edges.push({
+      id: "e-personality-emojis",
+      source: "personality",
+      target: emojiNodeId,
+    });
+
+    const accentNodeId = "personality-accent";
+    nodes.push({
+      id: accentNodeId,
+      position: { x: 500, y: 556 },
+      data: {
+        label: nodeLabelCard({
+          title: "Acento / Dialecto",
+          value: fieldNodeValue(state.country_accent),
+        }),
+      },
+      style: withCardStyle(230, !state.country_accent.trim()),
+    });
+    edges.push({
+      id: "e-personality-accent",
+      source: "personality",
+      target: accentNodeId,
+    });
+
+    const signatureNodeId = "personality-signature";
+    nodes.push({
+      id: signatureNodeId,
+      position: { x: 750, y: 556 },
+      data: {
+        label: nodeLabelCard({
+          title: "Firma / Despedida",
+          value: fieldNodeValue(state.agent_signature),
+        }),
+      },
+      style: withCardStyle(230, !state.agent_signature.trim()),
+    });
+    edges.push({
+      id: "e-personality-signature",
+      source: "personality",
+      target: signatureNodeId,
+    });
+
     personalityManualNodes.forEach((item, index) => {
       const x = 250 + (index % 2) * 250;
-      const y = 560 + Math.floor(index / 2) * 84;
+      const y = 642 + Math.floor(index / 2) * 84;
       const nodeId = `personality-manual-${item.id}`;
       nodes.push({
         id: nodeId,
@@ -622,11 +693,12 @@ function buildProgressiveGraph(
         target: nodeId,
       });
     });
+
     nodes.push({
       id: "personality-add-manual",
       position: {
         x: 250,
-        y: 560 + Math.ceil(personalityManualNodes.length / 2) * 84 + 38,
+        y: 642 + Math.ceil(personalityManualNodes.length / 2) * 84 + 38,
       },
       data: {
         label: (
@@ -634,7 +706,7 @@ function buildProgressiveGraph(
             <PlusIcon className="size-4" />
             Agregar nodo manual
           </div>
-        ),
+        )
       },
       style: withCardStyle(220),
     });
@@ -800,6 +872,10 @@ export function AgentBuilderChatDiagram() {
     target_audience: "",
     escalation_rules: "",
     country: "",
+    use_emojis: "",
+    country_accent: "",
+    agent_signature: "",
+    business_timezone: "",
     selected_tools: [],
     creation_step: "personality",
   });
@@ -1188,6 +1264,7 @@ export function AgentBuilderChatDiagram() {
             agent_description: stepped.agent_description.trim(),
             target_audience: stepped.target_audience.trim(),
             escalation_rules: stepped.escalation_rules.trim(),
+            business_timezone: stepped.business_timezone.trim(),
             ...(stepped.country.trim() ? { country: stepped.country.trim() } : {}),
           });
           if (res.ok) lastSyncedRef.current.business = businessSig;
@@ -1226,6 +1303,9 @@ export function AgentBuilderChatDiagram() {
             agent_personality: stepped.agent_personality.trim(),
             response_language:
               stepped.response_language.trim() || "Spanish",
+            use_emojis: stepped.use_emojis.trim(),
+            country_accent: stepped.country_accent.trim(),
+            agent_signature: stepped.agent_signature.trim(),
           });
           if (res.ok) lastSyncedRef.current.personality = personalitySig;
           else toast.error(res.error);
@@ -1353,6 +1433,22 @@ export function AgentBuilderChatDiagram() {
         country: pickFirstString(d, [
           "country",
           "mcp_configuration.agent_business_info.country",
+        ]),
+        use_emojis: pickFirstString(d, [
+          "use_emojis",
+          "mcp_configuration.agent_personalization.use_emojis",
+        ]),
+        country_accent: pickFirstString(d, [
+          "country_accent",
+          "mcp_configuration.agent_personalization.country_accent",
+        ]),
+        agent_signature: pickFirstString(d, [
+          "agent_signature",
+          "mcp_configuration.agent_personalization.agent_signature",
+        ]),
+        business_timezone: pickFirstString(d, [
+          "business_timezone",
+          "mcp_configuration.agent_business_info.business_timezone",
         ]),
         selected_tools: Array.isArray(d.selected_tools)
           ? d.selected_tools.filter((x): x is string => typeof x === "string")
@@ -1499,6 +1595,10 @@ export function AgentBuilderChatDiagram() {
           "target_audience",
           "escalation_rules",
           "country",
+          "use_emojis",
+          "country_accent",
+          "agent_signature",
+          "business_timezone",
         ];
         for (const key of textKeys) {
           const value = patch[key];
