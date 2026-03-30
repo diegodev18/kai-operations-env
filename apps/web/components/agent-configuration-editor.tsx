@@ -1017,6 +1017,21 @@ export function AgentConfigurationEditor({
                     placeholder="America/Mexico_City"
                   />
                 </div>
+                <div className="space-y-2">
+                  <FieldLabel docId="time" fieldKey="echoesWaitMinutes" id="time-echoesWaitMinutes" />
+                  <Input
+                    id="time-echoesWaitMinutes"
+                    type="number"
+                    min={0}
+                    value={formState.time.echoesWaitMinutes ?? 480}
+                    onChange={(e) =>
+                      update("time", (prev) => ({
+                        ...prev,
+                        echoesWaitMinutes: parseInt(e.target.value, 10) || 0,
+                      }))
+                    }
+                  />
+                </div>
               </section>
 
               {/* Prompt */}
@@ -1486,7 +1501,10 @@ function buildPayloadForDocument(
       };
     }
     case "time":
-      return { zone: formState.time?.zone ?? "America/Mexico_City" };
+      return {
+        zone: formState.time?.zone ?? "America/Mexico_City",
+        echoesWaitMinutes: formState.time?.echoesWaitMinutes ?? 480,
+      };
     case "prompt": {
       const prompt = formState.prompt ?? {};
       return {

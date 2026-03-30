@@ -35,6 +35,7 @@ export const PROPERTY_TITLES: Record<string, Record<string, string>> = {
   },
   time: {
     zone: "Zona horaria del agente",
+    echoesWaitMinutes: "Tiempo de bloqueo por ecos (minutos)",
   },
   prompt: {
     "auth.auth": "Texto extra cuando el usuario está identificado",
@@ -111,6 +112,8 @@ export const PROPERTY_DESCRIPTIONS: Record<
   },
   time: {
     zone: "Zona horaria (IANA) usada para formatear la fecha actual que se inyecta en el system prompt del LLM.",
+    echoesWaitMinutes:
+      "Minutos que el usuario queda bloqueado del modelo al recibir un mensaje tipo eco (ej. mensaje propio detectado). Por defecto 480 (8 horas).",
   },
   prompt: {
     "auth.auth":

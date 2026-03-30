@@ -50,6 +50,7 @@ export interface ResponsePropertyDoc {
 
 export interface TimePropertyDoc {
   zone?: string;
+  echoesWaitMinutes?: number;
 }
 
 export interface PromptPropertyDoc {
