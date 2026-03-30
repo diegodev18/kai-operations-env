@@ -1025,52 +1025,6 @@ export function AgentConfigurationEditor({
                   {DOCUMENT_LABELS.prompt}
                 </h3>
                 <div className="space-y-3">
-                  <div className="space-y-2">
-                    <FieldLabel
-                      docId="prompt"
-                      fieldKey="auth.auth"
-                      id="prompt-auth-auth"
-                    />
-                    <Textarea
-                      id="prompt-auth-auth"
-                      value={formState.prompt.auth?.auth ?? ""}
-                      onChange={(e) =>
-                        update("prompt", (prev) => ({
-                          ...prev,
-                          auth: {
-                            ...prev.auth,
-                            auth: e.target.value,
-                            unauth: prev.auth?.unauth ?? "",
-                          },
-                        }))
-                      }
-                      rows={2}
-                      className="font-mono text-sm"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <FieldLabel
-                      docId="prompt"
-                      fieldKey="auth.unauth"
-                      id="prompt-auth-unauth"
-                    />
-                    <Textarea
-                      id="prompt-auth-unauth"
-                      value={formState.prompt.auth?.unauth ?? ""}
-                      onChange={(e) =>
-                        update("prompt", (prev) => ({
-                          ...prev,
-                          auth: {
-                            ...prev.auth,
-                            auth: prev.auth?.auth ?? "",
-                            unauth: e.target.value,
-                          },
-                        }))
-                      }
-                      rows={2}
-                      className="font-mono text-sm"
-                    />
-                  </div>
                   <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -1536,10 +1490,6 @@ function buildPayloadForDocument(
     case "prompt": {
       const prompt = formState.prompt ?? {};
       return {
-        auth: {
-          auth: prompt.auth?.auth ?? "",
-          unauth: prompt.auth?.unauth ?? "",
-        },
         isMultiFunctionCallingEnable: prompt.isMultiFunctionCallingEnable,
       };
     }
