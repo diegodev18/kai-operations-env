@@ -601,7 +601,7 @@ function buildProgressiveGraph(
 
     nodes.push({
       id: "personality-language",
-      position: { x: 750, y: 470 },
+      position: { x: 250, y: 556 },
       data: {
         label: nodeLabelCard({
           title: "Idioma (respuestas)",
@@ -619,7 +619,7 @@ function buildProgressiveGraph(
     const emojiNodeId = "personality-emojis";
     nodes.push({
       id: emojiNodeId,
-      position: { x: 250, y: 556 },
+      position: { x: 500, y: 556 },
       data: {
         label: nodeLabelCard({
           title: "Uso de emojis",
@@ -637,7 +637,7 @@ function buildProgressiveGraph(
     const accentNodeId = "personality-accent";
     nodes.push({
       id: accentNodeId,
-      position: { x: 500, y: 556 },
+      position: { x: 250, y: 642 },
       data: {
         label: nodeLabelCard({
           title: "Acento / Dialecto",
@@ -655,7 +655,7 @@ function buildProgressiveGraph(
     const signatureNodeId = "personality-signature";
     nodes.push({
       id: signatureNodeId,
-      position: { x: 750, y: 556 },
+      position: { x: 500, y: 642 },
       data: {
         label: nodeLabelCard({
           title: "Firma / Despedida",
@@ -672,7 +672,7 @@ function buildProgressiveGraph(
 
     personalityManualNodes.forEach((item, index) => {
       const x = 250 + (index % 2) * 250;
-      const y = 642 + Math.floor(index / 2) * 84;
+      const y = 728 + Math.floor(index / 2) * 84;
       const nodeId = `personality-manual-${item.id}`;
       nodes.push({
         id: nodeId,
@@ -698,7 +698,7 @@ function buildProgressiveGraph(
       id: "personality-add-manual",
       position: {
         x: 250,
-        y: 642 + Math.ceil(personalityManualNodes.length / 2) * 84 + 38,
+        y: 728 + Math.ceil(personalityManualNodes.length / 2) * 84 + 38,
       },
       data: {
         label: (
