@@ -43,6 +43,8 @@ serve({
   fetch: app.fetch,
   port: PORT_NUMBER,
   hostname: "0.0.0.0",
+  /** Evita el error "request timed out after 10 seconds" en búsquedas pesadas. */
+  idleTimeout: 30,
 });
 
 console.log(

@@ -99,11 +99,12 @@ export function OperationsDashboard(props: {
   const [syncingAgentId, setSyncingAgentId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (search.trim() === "") {
+    const trimmed = search.trim();
+    if (trimmed === "" || trimmed.length < 3) {
       setDebouncedSearch("");
       return;
     }
-    const t = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    const t = window.setTimeout(() => setDebouncedSearch(trimmed), 300);
     return () => window.clearTimeout(t);
   }, [search]);
 
@@ -356,7 +357,8 @@ export function OperationsDashboard(props: {
 
   const serverSearchActive = debouncedSearch.trim().length > 0;
   const isSearchDebouncing =
-    search.trim() !== debouncedSearch.trim();
+    search.trim() !== debouncedSearch.trim() &&
+    (search.trim().length >= 3 || debouncedSearch !== "");
 
   const filteredAgents = useMemo(() => {
     let list = agents;

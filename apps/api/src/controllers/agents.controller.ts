@@ -10,6 +10,8 @@ import type {
   LightAgent,
 } from "@/types/agents";
 import {
+  agentMatchesGrowersSearchQuery,
+  agentMatchesRootSearchQuery,
   agentMatchesSearchQuery,
   buildLightAgent,
   isGrowerCursor,
@@ -57,17 +59,37 @@ async function buildLightAgentWithDeployment(
   };
 }
 
-async function mergedAgentIdsSorted(): Promise<string[]> {
+/** Retorna IDs únicos y mapas de datos (comercial, producción) para evitar re-fetches. */
+async function mergedAgentIdsAndData(): Promise<{
+  sortedIds: string[];
+  commercialMap: Map<string, Record<string, unknown>>;
+  productionMap: Map<string, Record<string, unknown>>;
+}> {
   const commercial = getFirestoreCommercial();
   const production = getFirestore();
   const [comSnap, prodSnap] = await Promise.all([
     commercial.collection("agent_configurations").get(),
     production.collection("agent_configurations").get(),
   ]);
+
+  const commercialMap = new Map<string, Record<string, unknown>>();
+  const productionMap = new Map<string, Record<string, unknown>>();
   const idSet = new Set<string>();
-  for (const d of comSnap.docs) idSet.add(d.id);
-  for (const d of prodSnap.docs) idSet.add(d.id);
-  return [...idSet].sort((a, b) => a.localeCompare(b));
+
+  for (const d of comSnap.docs) {
+    idSet.add(d.id);
+    commercialMap.set(d.id, d.data() as Record<string, unknown>);
+  }
+  for (const d of prodSnap.docs) {
+    idSet.add(d.id);
+    productionMap.set(d.id, d.data() as Record<string, unknown>);
+  }
+
+  return {
+    sortedIds: [...idSet].sort((a, b) => a.localeCompare(b)),
+    commercialMap,
+    productionMap,
+  };
 }
 
 /** Paginación sobre `sortedIds` filtrando por subcadena `qLower` (coincidencias consecutivas en orden). */
@@ -76,6 +98,10 @@ async function paginateLightAgentsWithSearch(
   qLower: string,
   cursor: string | undefined,
   effectiveLimit: number,
+  docsMaps: {
+    commercial: Map<string, Record<string, unknown>>;
+    production: Map<string, Record<string, unknown>>;
+  },
 ): Promise<{ agents: LightAgent[]; nextCursor: string | null }> {
   let startIdx = 0;
   if (cursor) {
@@ -84,17 +110,43 @@ async function paginateLightAgentsWithSearch(
     startIdx = idx >= 0 ? idx + 1 : 0;
   }
   const agents: LightAgent[] = [];
-  for (let i = startIdx; i < sortedIds.length; i++) {
-    const id = sortedIds[i]!;
-    if (!(await agentMatchesSearchQuery(id, qLower))) continue;
-    const row = await buildLightAgentWithDeployment(id);
-    if (row) {
-      agents.push(row);
-      if (agents.length >= effectiveLimit) {
-        return { agents, nextCursor: id };
+
+  // Procesamos en lotes para paralelizar el acceso a subcolecciones de growers
+  const CHUNK_SIZE = 50;
+  for (let i = startIdx; i < sortedIds.length; i += CHUNK_SIZE) {
+    const chunk = sortedIds.slice(i, i + CHUNK_SIZE);
+
+    // 1. Identificar quiénes coinciden (Memoria rápida + Growers paralelo)
+    const matchTasks = chunk.map(async (id) => {
+      const data = docsMaps.commercial.get(id) ?? docsMaps.production.get(id);
+      // Coincidencia rápida en raíz
+      if (data && agentMatchesRootSearchQuery(id, qLower, data)) {
+        return id;
+      }
+      // Coincidencia lenta en growers (paralelizada por el map/Promise.all)
+      const prefetched = {
+        commercial: docsMaps.commercial.get(id) ?? null,
+        production: docsMaps.production.get(id) ?? null,
+      };
+      const ok = await agentMatchesGrowersSearchQuery(id, qLower, prefetched);
+      return ok ? id : null;
+    });
+
+    const results = await Promise.all(matchTasks);
+    const matchesInChunk = results.filter((id): id is string => id !== null);
+
+    // 2. Construir los resultados para este lote
+    for (const id of matchesInChunk) {
+      const row = await buildLightAgentWithDeployment(id);
+      if (row) {
+        agents.push(row);
+        if (agents.length >= effectiveLimit) {
+          return { agents, nextCursor: id };
+        }
       }
     }
   }
+
   return { agents, nextCursor: null };
 }
 
@@ -170,6 +222,7 @@ export const getAgentsInfo = async (
             searchQ,
             cursor,
             effectiveLimit,
+            { commercial: new Map(), production: new Map() },
           );
         return c.json({ agents: agentRows, nextCursor });
       }
@@ -198,7 +251,8 @@ export const getAgentsInfo = async (
 
     if (admin && light) {
       const effectiveLimit = pageLimit ?? 15;
-      const sortedIds = await mergedAgentIdsSorted();
+      const { sortedIds, commercialMap, productionMap } =
+        await mergedAgentIdsAndData();
 
       if (searchQ) {
         if (cursor && isGrowerCursor(cursor)) {
@@ -212,6 +266,7 @@ export const getAgentsInfo = async (
           searchQ,
           cursor,
           effectiveLimit,
+          { commercial: commercialMap, production: productionMap },
         );
         return c.json({ agents, nextCursor });
       }
