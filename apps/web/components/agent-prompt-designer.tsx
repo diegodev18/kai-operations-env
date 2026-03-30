@@ -423,6 +423,18 @@ export function AgentPromptDesigner({
       ? suggestedPrompt ?? undefined
       : undefined);
 
+  const suggestedForUnauth =
+    suggestedPrompts?.unauth ??
+    ((suggestedTarget ?? []).includes("unauth")
+      ? suggestedPrompt ?? undefined
+      : undefined);
+
+  const suggestedForAuth =
+    suggestedPrompts?.auth ??
+    ((suggestedTarget ?? []).includes("auth")
+      ? suggestedPrompt ?? undefined
+      : undefined);
+
   const handleApplySuggestion = () => {
     if (hasMulti && suggestedPrompts) {
       if (suggestedPrompts.base != null) setEditingPrompt(suggestedPrompts.base);
@@ -594,65 +606,113 @@ export function AgentPromptDesigner({
         </div>
       )}
       <div className="flex min-h-0 flex-1 overflow-hidden rounded-lg border">
-        <div className="flex-1 min-w-0 flex flex-col min-h-0">
-          <div className="flex-1 min-h-0 p-3">
-            {showSuggestion &&
-            suggestedForBase != null &&
-            primaryTarget === "base" ? (
-              <PromptDiffView
-                oldText={editingPrompt}
-                newText={suggestedForBase}
-                rejectedSuggestionHunkIds={effectiveRejected}
-                onRejectSuggestionHunk={(hunkId: number) =>
-                  setRejectedSuggestionHunkIds((prev) => {
-                    const next = new Set<number>(prev);
-                    next.add(hunkId);
-                    return next;
-                  })
-                }
-                onAcceptSuggestionHunk={(hunkId: number) =>
-                  setRejectedSuggestionHunkIds((prev) => {
-                    const next = new Set<number>(prev);
-                    next.delete(hunkId);
-                    return next;
-                  })
-                }
-              />
-            ) : hasChanges && editorViewMode === "diff" ? (
-              <PromptDiffView
-                oldText={savedPrompt}
-                newText={editingPrompt}
-                onRevertHunk={(newText) => setEditingPrompt(newText)}
-              />
-            ) : (
-              <Textarea
-                value={editingPrompt}
-                onChange={(e) => setEditingPrompt(e.target.value)}
-                disabled={promptAndChatLocked}
-                className="h-full min-h-[200px] resize-none font-mono text-sm"
-                placeholder="Escribe el prompt del agente…"
-              />
-            )}
+        <div className="flex-1 min-w-0 flex flex-col min-h-0 overflow-y-auto">
+          <div className="flex flex-col gap-2 p-3 min-h-[400px]">
+            <div className="flex items-center gap-2">
+              <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Base Prompt
+              </Label>
+              {isAuthEnabled && (
+                <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">
+                  Modular
+                </span>
+              )}
+            </div>
+            <div className="flex-1 min-h-0">
+              {showSuggestion &&
+              suggestedForBase != null &&
+              primaryTarget === "base" ? (
+                <PromptDiffView
+                  oldText={editingPrompt}
+                  newText={suggestedForBase}
+                  rejectedSuggestionHunkIds={effectiveRejected}
+                  onRejectSuggestionHunk={(hunkId: number) =>
+                    setRejectedSuggestionHunkIds((prev) => {
+                      const next = new Set<number>(prev);
+                      next.add(hunkId);
+                      return next;
+                    })
+                  }
+                  onAcceptSuggestionHunk={(hunkId: number) =>
+                    setRejectedSuggestionHunkIds((prev) => {
+                      const next = new Set<number>(prev);
+                      next.delete(hunkId);
+                      return next;
+                    })
+                  }
+                />
+              ) : hasChanges && editorViewMode === "diff" ? (
+                <PromptDiffView
+                  oldText={savedPrompt}
+                  newText={editingPrompt}
+                  onRevertHunk={(newText) => setEditingPrompt(newText)}
+                />
+              ) : (
+                <Textarea
+                  value={editingPrompt}
+                  onChange={(e) => setEditingPrompt(e.target.value)}
+                  disabled={promptAndChatLocked}
+                  className="h-full min-h-[300px] resize-none font-mono text-sm"
+                  placeholder="Escribe el prompt del agente…"
+                />
+              )}
+            </div>
           </div>
           {isAuthEnabled && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 border-t">
-              <div className="space-y-1 min-h-0">
-                <Label className="text-xs">Unauth</Label>
-                <Textarea
-                  value={editingUnauthPrompt}
-                  onChange={(e) => setEditingUnauthPrompt(e.target.value)}
-                  className="min-h-[100px] font-mono text-xs"
-                  disabled={promptAndChatLocked}
-                />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 p-3 border-t bg-muted/5">
+              <div className="flex flex-col gap-2 min-h-0">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Unauth (Public)
+                </Label>
+                <div className="h-[300px] min-h-0">
+                  {showSuggestion && suggestedForUnauth != null ? (
+                    <PromptDiffView
+                      oldText={editingUnauthPrompt}
+                      newText={suggestedForUnauth}
+                    />
+                  ) : hasChanges && editorViewMode === "diff" ? (
+                    <PromptDiffView
+                      oldText={savedUnauthPrompt}
+                      newText={editingUnauthPrompt}
+                      onRevertHunk={(newText) => setEditingUnauthPrompt(newText)}
+                    />
+                  ) : (
+                    <Textarea
+                      value={editingUnauthPrompt}
+                      onChange={(e) => setEditingUnauthPrompt(e.target.value)}
+                      className="h-full resize-none font-mono text-xs"
+                      disabled={promptAndChatLocked}
+                      placeholder="Prompt para usuarios no autenticados…"
+                    />
+                  )}
+                </div>
               </div>
-              <div className="space-y-1 min-h-0">
-                <Label className="text-xs">Auth</Label>
-                <Textarea
-                  value={editingAuthPrompt}
-                  onChange={(e) => setEditingAuthPrompt(e.target.value)}
-                  className="min-h-[100px] font-mono text-xs"
-                  disabled={promptAndChatLocked}
-                />
+              <div className="flex flex-col gap-2 min-h-0">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-primary/80">
+                  Auth (Verified)
+                </Label>
+                <div className="h-[300px] min-h-0">
+                  {showSuggestion && suggestedForAuth != null ? (
+                    <PromptDiffView
+                      oldText={editingAuthPrompt}
+                      newText={suggestedForAuth}
+                    />
+                  ) : hasChanges && editorViewMode === "diff" ? (
+                    <PromptDiffView
+                      oldText={savedAuthPrompt}
+                      newText={editingAuthPrompt}
+                      onRevertHunk={(newText) => setEditingAuthPrompt(newText)}
+                    />
+                  ) : (
+                    <Textarea
+                      value={editingAuthPrompt}
+                      onChange={(e) => setEditingAuthPrompt(e.target.value)}
+                      className="h-full resize-none font-mono text-xs"
+                      disabled={promptAndChatLocked}
+                      placeholder="Prompt para usuarios autenticados…"
+                    />
+                  )}
+                </div>
               </div>
             </div>
           )}
