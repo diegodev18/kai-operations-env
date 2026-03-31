@@ -62,7 +62,7 @@ export async function promotePromptToProduction(
       return false;
     }
 
-    toast.success("Prompt subido a producción 🚀");
+    toast.success("Prompt subido a producción");
     return true;
   } catch {
     toast.error("Ocurrió un error al subir el prompt a producción");

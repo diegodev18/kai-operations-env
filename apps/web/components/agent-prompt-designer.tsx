@@ -835,7 +835,7 @@ export function AgentPromptDesigner({
               ) : (
                 <RocketIcon className="w-4 h-4 mr-2" />
               )}
-              Subir a producción 🚀
+              Subir a producción
             </Button>
           </div>
         </div>
