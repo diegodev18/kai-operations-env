@@ -41,6 +41,9 @@ import {
   PowerIcon,
   PowerOffIcon,
   RocketIcon,
+  RotateCcwIcon,
+  CheckIcon,
+  AlertTriangleIcon,
 } from "lucide-react";
 import { PROPERTY_DESCRIPTIONS, PROPERTY_TITLES } from "@/lib/property-descriptions";
 import { cn } from "@/lib/utils";
@@ -158,6 +161,14 @@ function valueEquals(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+function normalizeConfirmInput(input: string): string {
+  return input
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 function getPendingDocumentIds(
   formState: AgentPropertiesResponse,
   originalData: AgentPropertiesResponse | null
@@ -173,10 +184,12 @@ function PendingChangesPanel({
   formState,
   originalData,
   className,
+  onRevertDoc,
 }: {
   formState: AgentPropertiesResponse;
   originalData: AgentPropertiesResponse;
   className?: string;
+  onRevertDoc?: (docId: PropertyDocumentId) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
   const pendingIds = useMemo(
@@ -208,10 +221,25 @@ function PendingChangesPanel({
           {pendingIds.map((docId) => (
             <div
               key={docId}
-              className="flex items-center gap-2 text-sm text-foreground"
+              className="flex items-center justify-between gap-2 text-sm text-foreground"
             >
-              <FileEditIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-              <span>{DOCUMENT_LABELS[docId]}</span>
+              <div className="flex items-center gap-2 min-w-0">
+                <FileEditIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <span className="truncate">{DOCUMENT_LABELS[docId]}</span>
+              </div>
+              {onRevertDoc ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRevertDoc(docId);
+                  }}
+                  className="shrink-0 p-1 rounded hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
+                  title={`Restablecer "${DOCUMENT_LABELS[docId]}" a su valor original`}
+                >
+                  <RotateCcwIcon className="w-3.5 h-3.5" />
+                </button>
+              ) : null}
             </div>
           ))}
         </div>
@@ -409,9 +437,60 @@ export function AgentConfigurationEditor({
     }
   }, [agentId, formState, isEnabled, update, refetch, onAgentUpdated]);
 
+  const pendingDocs = useMemo(
+    () => (formState && data ? getPendingDocumentIds(formState, data) : []),
+    [formState, data]
+  );
+
+  const handleDiscardChanges = useCallback(() => {
+    if (!data) return;
+    const raw = JSON.parse(JSON.stringify(data)) as Record<string, unknown>;
+    delete raw.in_commercial;
+    delete raw.in_production;
+    delete raw.primary_source;
+    const next = raw as unknown as AgentPropertiesResponse;
+    if (next.ai) {
+      next.ai.model =
+        next.ai.model ??
+        (data.prompt?.model as string | undefined) ??
+        DEFAULT_LLM_MODEL;
+      next.ai.temperature =
+        next.ai.temperature !== undefined && next.ai.temperature !== null
+          ? Number(next.ai.temperature)
+          : (data.prompt?.temperature !== undefined &&
+            data.prompt?.temperature !== null
+              ? Number(data.prompt.temperature)
+              : getDefaultTemperatureForModel(next.ai.model ?? DEFAULT_LLM_MODEL));
+    }
+    next.limitation = {
+      userLimitation: !!next.limitation?.userLimitation,
+      allowedUsers: Array.isArray(next.limitation?.allowedUsers)
+        ? next.limitation.allowedUsers
+        : [],
+    };
+    setFormState(next);
+    toast.success("Cambios descartados");
+  }, [data]);
+
+  const handleRevertDoc = useCallback(
+    (docId: PropertyDocumentId) => {
+      if (!data) return;
+      setFormState((prev) => {
+        if (!prev) return prev;
+        const originalDoc = (data as unknown as Record<string, unknown>)[docId];
+        const originalCopy = originalDoc
+          ? (JSON.parse(JSON.stringify(originalDoc)) as AgentPropertiesResponse[PropertyDocumentId])
+          : prev[docId];
+        return { ...prev, [docId]: originalCopy };
+      });
+      toast.success(`"${DOCUMENT_LABELS[docId]}" restablecido`);
+    },
+    [data],
+  );
+
   const expectedDisableName = agentNameForConfirm.trim() || agentId;
   const canConfirmDisable =
-    disableConfirmInput.trim() === expectedDisableName && !saving;
+    normalizeConfirmInput(disableConfirmInput) === "confirmar" && !saving;
 
   const handleDisableDialogOpenChange = useCallback((open: boolean) => {
     setIsDisableDialogOpen(open);
@@ -545,9 +624,8 @@ export function AgentConfigurationEditor({
       toast.error("Selecciona al menos una subcolección");
       return;
     }
-    const expected = agentNameForConfirm.trim();
-    if (!expected || promoteConfirmName.trim() !== expected) {
-      toast.error("El nombre no coincide con el agente en comercial");
+    if (normalizeConfirmInput(promoteConfirmName) !== "confirmar") {
+      toast.error("Escribe CONFIRMAR para continuar");
       return;
     }
     setPromoting(true);
@@ -572,7 +650,6 @@ export function AgentConfigurationEditor({
     agentId,
     promoteSubcols,
     promoteConfirmName,
-    agentNameForConfirm,
     refetch,
     onAgentUpdated,
   ]);
@@ -1243,15 +1320,39 @@ export function AgentConfigurationEditor({
                     : "Crear en testing (desde prod)"}
                 </Button>
               ) : null}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleDiscardChanges}
+                disabled={!data || pendingDocs.length === 0 || saving}
+                className="w-fit shrink-0"
+              >
+                <RotateCcwIcon className="mr-1.5 h-4 w-4" />
+                Descartar cambios
+              </Button>
               {data ? (
                 <PendingChangesPanel
                   formState={formState}
                   originalData={data}
                   className="min-w-0 flex-1"
+                  onRevertDoc={handleRevertDoc}
                 />
               ) : null}
             </div>
             <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
+              {inCommercial && pendingDocs.length === 0 && data ? (
+                <span className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400 sm:mr-2">
+                  <CheckIcon className="size-3.5" />
+                  Sincronizado
+                </span>
+              ) : null}
+              {pendingDocs.length > 0 ? (
+                <span className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 sm:mr-2">
+                  <AlertTriangleIcon className="size-3.5" />
+                  {pendingDocs.length} {pendingDocs.length === 1 ? "cambio" : "cambios"} pendiente{pendingDocs.length === 1 ? "" : "s"}
+                </span>
+              ) : null}
               {inCommercial ? (
                 <Button
                   type="button"
@@ -1271,7 +1372,7 @@ export function AgentConfigurationEditor({
                 disabled={
                   saving ||
                   !data ||
-                  getPendingDocumentIds(formState, data).length === 0
+                  pendingDocs.length === 0
                 }
                 className="w-full shrink-0 sm:w-auto"
               >
@@ -1298,12 +1399,9 @@ export function AgentConfigurationEditor({
                 <DialogTitle>Subir a producción</DialogTitle>
                 <DialogDescription>
                   Se copiará el documento del agente y las subcolecciones marcadas
-                  desde asistente comercial hacia kai. Confirma escribiendo el
-                  nombre público del agente (
-                  <span className="font-medium text-foreground">
-                    {agentNameForConfirm || "—"}
-                  </span>
-                  ).
+                  desde asistente comercial hacia kai. Escribe{" "}
+                  <span className="font-medium text-foreground">CONFIRMAR</span>{" "}
+                  para continuar.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-3 py-2">
@@ -1328,12 +1426,12 @@ export function AgentConfigurationEditor({
                   ))}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="promote-confirm-name">Nombre del agente</Label>
+                  <Label htmlFor="promote-confirm-name">Confirmar</Label>
                   <Input
                     id="promote-confirm-name"
                     value={promoteConfirmName}
                     onChange={(e) => setPromoteConfirmName(e.target.value)}
-                    placeholder={agentNameForConfirm}
+                    placeholder="CONFIRMAR"
                     autoComplete="off"
                   />
                 </div>
@@ -1351,7 +1449,7 @@ export function AgentConfigurationEditor({
                   type="button"
                   disabled={
                     promoting ||
-                    promoteConfirmName.trim() !== agentNameForConfirm.trim() ||
+                    normalizeConfirmInput(promoteConfirmName) !== "confirmar" ||
                     !PROMOTE_SUBCOLLECTION_OPTIONS.some(({ id }) => promoteSubcols[id])
                   }
                   onClick={() => void handlePromoteToProduction()}
@@ -1373,20 +1471,17 @@ export function AgentConfigurationEditor({
               <DialogHeader>
                 <DialogTitle>Confirmar apagado del agente</DialogTitle>
                 <p className="text-sm text-muted-foreground">
-                  Para apagar el agente, escribe su nombre exactamente:
-                  {" "}
-                  <span className="font-semibold text-foreground">
-                    {expectedDisableName}
-                  </span>
+                  Para apagar el agente, escribe{" "}
+                  <span className="font-semibold text-foreground">CONFIRMAR</span>
                 </p>
               </DialogHeader>
               <div className="space-y-2">
-                <Label htmlFor="confirm-disable-agent-name">Nombre del agente</Label>
+                <Label htmlFor="confirm-disable-agent-name">Confirmar</Label>
                 <Input
                   id="confirm-disable-agent-name"
                   value={disableConfirmInput}
                   onChange={(e) => setDisableConfirmInput(e.target.value)}
-                  placeholder={expectedDisableName}
+                  placeholder="CONFIRMAR"
                   autoComplete="off"
                 />
               </div>
