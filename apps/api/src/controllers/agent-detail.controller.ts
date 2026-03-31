@@ -479,6 +479,17 @@ export async function patchAgent(
     }
     const docRef = database.collection("agent_configurations").doc(agentId);
     await docRef.update(updateData);
+
+    if ("version" in updateData) {
+      const integrationsSnap = await database
+        .collection("whatsapp_integrations")
+        .where("agentDocId", "==", agentId)
+        .get();
+      for (const integrationDoc of integrationsSnap.docs) {
+        await integrationDoc.ref.update({ version: updateData.version });
+      }
+    }
+
     return c.json({ success: true, updated: updateData });
   } catch (error) {
     const r = handleFirestoreError(c, error, "[agents/:id PATCH]");
