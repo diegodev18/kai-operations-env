@@ -2672,11 +2672,11 @@ export function AgentBuilderChatDiagram() {
               onClick={() => {
                 setAgentCreatedDialogOpen(false);
                 if (!draftId) return;
-                router.push(`/agents/${draftId}/configuration`);
+                router.push(`/agents/${draftId}/prompt-design`);
               }}
               disabled={!draftId}
             >
-              Ir a configuración del agente
+              Ir al diseñador de prompt
             </Button>
             <Button
               type="button"

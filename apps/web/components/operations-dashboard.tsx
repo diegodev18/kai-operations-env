@@ -534,13 +534,13 @@ export function OperationsDashboard(props: {
                         className="border-b border-border transition-colors hover:bg-muted/50 cursor-pointer"
                         onClick={() =>
                           router.push(
-                            `/agents/${encodeURIComponent(agent.id)}/configuration`,
+                            `/agents/${encodeURIComponent(agent.id)}/prompt-design`,
                           )
                         }
-                      >
-                        <td className="p-3 font-medium">
-                          <Link
-                            href={`/agents/${encodeURIComponent(agent.id)}/configuration`}
+                       >
+                         <td className="p-3 font-medium">
+                           <Link
+                             href={`/agents/${encodeURIComponent(agent.id)}/prompt-design`}
                             className="text-primary hover:underline"
                             onClick={(e) => e.stopPropagation()}
                           >
