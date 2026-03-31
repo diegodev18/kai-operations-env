@@ -3,13 +3,20 @@
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { CheckCircleIcon, Home, PowerIcon } from "lucide-react";
+import { CheckCircleIcon, Home, PowerIcon, UserIcon, Loader2Icon, CheckCircle2Icon } from "lucide-react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { UserMenu } from "@/components/user-menu";
 import { useAuth } from "@/hooks/auth";
 import { cn } from "@/lib/utils";
-import { fetchAgentById } from "@/lib/agents-api";
+import { fetchAgentById, assignAgentToUser } from "@/lib/agents-api";
 
 const SECTIONS = [
   { suffix: "prompt-design", label: "Diseño de prompt" },
@@ -103,6 +110,8 @@ export default function AgentDetailLayout({
     inCommercial: boolean;
     inProduction: boolean;
   } | null>(null);
+  const [assigning, setAssigning] = useState(false);
+  const [assigned, setAssigned] = useState(false);
 
   useEffect(() => {
     if (!agentId) return;
@@ -225,6 +234,45 @@ export default function AgentDetailLayout({
             <Badge variant="destructive" className="shrink-0 font-normal">
               Solo en producción
             </Badge>
+          ) : null}
+          {deploymentInfo?.inCommercial ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="size-7 shrink-0"
+                    disabled={assigning || assigned}
+                    onClick={async () => {
+                      setAssigning(true);
+                      try {
+                        const result = await assignAgentToUser(agentId);
+                        if (result.ok) {
+                          toast.success("Agente asignado a kAI Norma");
+                          setAssigned(true);
+                        } else {
+                          toast.error(result.error);
+                        }
+                      } finally {
+                        setAssigning(false);
+                      }
+                    }}
+                  >
+                    {assigning ? (
+                      <Loader2Icon className="size-3.5 animate-spin" />
+                    ) : assigned ? (
+                      <CheckCircle2Icon className="size-3.5 text-green-500" />
+                    ) : (
+                      <UserIcon className="size-3.5" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Asignarme este agente a kAI Norma</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           ) : null}
           {!authPending && session?.user ? (
             <UserMenu

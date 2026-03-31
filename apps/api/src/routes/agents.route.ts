@@ -17,7 +17,7 @@ import {
   postAgentDraft,
 } from "@/controllers/agent-drafts.controller";
 import { postAgentBuilderChat } from "@/controllers/agent-builder-chat.controller";
-import { getAgentsInfo } from "@/controllers/agents.controller";
+import { getAgentsInfo, assignAgentToUser } from "@/controllers/agents.controller";
 import {
   getAgentById,
   getAgentProperties,
@@ -413,6 +413,16 @@ agentsRouter.patch("/:agentId/implementation-tasks/:taskId", async (c) => {
     return c.json({ error: "Agente o tarea no encontrado" }, 404);
   }
   return patchImplementationTask(c, ctx.authCtx, agentId, taskId);
+});
+
+agentsRouter.post("/:agentId/assign-to-user", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return assignAgentToUser(c, ctx.authCtx, agentId);
 });
 
 export default agentsRouter;

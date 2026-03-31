@@ -24,6 +24,10 @@ import {
   isFirebaseConfigError,
 } from "@/utils/firestore/errors";
 import { isOperationsAdmin } from "@/utils/operations-access";
+import { auth } from "@/lib/auth";
+import { db } from "@/db/client";
+import { user } from "@/db/schema/auth";
+import { eq } from "drizzle-orm";
 
 /** Cursor legacy: path growers; nuevo: agent id. */
 function cursorToAgentIdStart(cursor: string): string {
@@ -370,3 +374,52 @@ export const getAgentsInfo = async (
     );
   }
 };
+
+export async function assignAgentToUser(
+  c: Context,
+  _authCtx: AgentsInfoAuthContext,
+  agentId: string,
+) {
+  const commercial = getFirestoreCommercial();
+  const agentSnap = await commercial.collection("agent_configurations").doc(agentId).get();
+  if (!agentSnap.exists) {
+    return c.json({ error: "El agente no existe en asistente comercial" }, 404);
+  }
+
+  const session = await auth.api.getSession({ headers: c.req.raw.headers });
+  if (!session?.user?.id) {
+    return c.json({ error: "No autorizado" }, 401);
+  }
+
+  const userId = session.user.id as string;
+  const rows = await db.select({ phone: user.phone, name: user.name }).from(user).where(eq(user.id, userId)).limit(1);
+  if (!rows[0]) {
+    return c.json({ error: "Usuario no encontrado" }, 404);
+  }
+
+  const phone = rows[0].phone;
+  if (!phone || phone.trim().length === 0) {
+    return c.json({ error: "El usuario no tiene teléfono configurado" }, 400);
+  }
+
+  const phoneId = phone.trim();
+  const userName = rows[0].name ?? session.user.name ?? "";
+  const assignmentRef = commercial.collection("agents_assignment").doc(phoneId);
+  const assignmentSnap = await assignmentRef.get();
+
+  if (assignmentSnap.exists) {
+    await assignmentRef.update({
+      custom_agent_doc_id: agentId,
+      agente: "KAIROUTER",
+      name: userName,
+    });
+  } else {
+    await assignmentRef.set({
+      custom_agent_doc_id: agentId,
+      agente: "KAIROUTER",
+      name: userName,
+    });
+  }
+
+  return c.json({ ok: true });
+}

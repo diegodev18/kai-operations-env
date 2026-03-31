@@ -858,6 +858,30 @@ export async function patchImplementationTask(
       error: data.error ?? "No se pudo actualizar la tarea",
     };
   }
-  if (!data.task) return { ok: false, error: "Respuesta inv?lida del servidor" };
+  if (!data.task) return { ok: false, error: "Respuesta inválida del servidor" };
   return { ok: true, task: data.task };
+}
+
+export async function assignAgentToUser(
+  agentId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/assign-to-user`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+    },
+  );
+  let data: { ok?: boolean; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return { ok: false, error: data.error ?? "No se pudo asignar el agente" };
+  }
+  if (data.ok) return { ok: true };
+  return { ok: false, error: "Respuesta inválida del servidor" };
 }
