@@ -632,7 +632,7 @@ export async function patchAgent(
     credentials: "include",
     body: JSON.stringify(body),
   });
-  let data: { ok?: boolean; error?: string } = {};
+  let data: { ok?: boolean; success?: boolean; error?: string } = {};
   try {
     data = (await res.json()) as typeof data;
   } catch {
@@ -644,7 +644,7 @@ export async function patchAgent(
       error: data.error ?? "No se pudo actualizar el agente",
     };
   }
-  if (data.ok) return { ok: true };
+  if (data.ok || data.success) return { ok: true };
   return { ok: false, error: "Respuesta inválida del servidor" };
 }
 
