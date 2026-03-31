@@ -5,6 +5,7 @@ import {
   Building2Icon,
   CopyIcon,
   Loader2Icon,
+  PhoneIcon,
   ShieldOffIcon,
   ShieldPlusIcon,
   Trash2Icon,
@@ -16,8 +17,23 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAuth } from "@/hooks/auth";
 import {
   copyOrganizationInvitationLink,
@@ -47,8 +63,11 @@ export default function OrganizationPage() {
   const [rowActionId, setRowActionId] = useState<string | null>(null);
   const [copyInviteId, setCopyInviteId] = useState<string | null>(null);
   const [removeInviteId, setRemoveInviteId] = useState<string | null>(null);
-  const [editingPhoneId, setEditingPhoneId] = useState<string | null>(null);
-  const [editingPhoneValue, setEditingPhoneValue] = useState("");
+  const [phoneDialogOpen, setPhoneDialogOpen] = useState(false);
+  const [phoneDialogUser, setPhoneDialogUser] = useState<OrganizationUser | null>(null);
+  const [phoneLada, setPhoneLada] = useState("+52");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [savingPhone, setSavingPhone] = useState(false);
 
   const isAdmin = role === "admin";
   const currentUserId = session?.user?.id as string | undefined;
@@ -213,26 +232,59 @@ export default function OrganizationPage() {
     }
   }
 
-  function startEditingPhone(u: OrganizationUser) {
-    setEditingPhoneId(u.id);
-    setEditingPhoneValue(u.phone ?? "");
+  function openPhoneDialog(u: OrganizationUser) {
+    setPhoneDialogUser(u);
+    const existing = u.phone ?? "";
+    if (existing.startsWith("521") && existing.length > 3) {
+      setPhoneLada("+52");
+      setPhoneNumber(existing.slice(3));
+    } else if (existing.startsWith("52") && existing.length > 2) {
+      setPhoneLada("+52");
+      setPhoneNumber(existing.slice(2));
+    } else if (existing.startsWith("+")) {
+      const match = existing.match(/^\+(\d+)/);
+      if (match) {
+        setPhoneLada("+" + match[1]);
+        setPhoneNumber(existing.replace("+" + match[1], ""));
+      } else {
+        setPhoneLada("+52");
+        setPhoneNumber(existing);
+      }
+    } else {
+      setPhoneLada("+52");
+      setPhoneNumber(existing);
+    }
+    setPhoneDialogOpen(true);
   }
 
-  async function savePhone(u: OrganizationUser) {
-    if (!editingPhoneId) return;
-    setRowActionId(u.id);
+  function closePhoneDialog() {
+    setPhoneDialogOpen(false);
+    setPhoneDialogUser(null);
+    setPhoneNumber("");
+  }
+
+  async function confirmSavePhone() {
+    if (!phoneDialogUser) return;
+    setSavingPhone(true);
     try {
-      const result = await updateUserPhone(u.id, editingPhoneValue.trim() || null);
+      const ladaDigits = phoneLada.replace("+", "");
+      const cleanNumber = phoneNumber.replace(/\D/g, "");
+      let finalPhone: string;
+      if (phoneLada === "+52") {
+        finalPhone = `${ladaDigits}1${cleanNumber}`;
+      } else {
+        finalPhone = `${ladaDigits}${cleanNumber}`;
+      }
+      const result = await updateUserPhone(phoneDialogUser.id, finalPhone);
       if (!result.ok) {
         toast.error(result.error);
         return;
       }
       toast.success("Teléfono actualizado");
       await load();
+      closePhoneDialog();
     } finally {
-      setRowActionId(null);
-      setEditingPhoneId(null);
-      setEditingPhoneValue("");
+      setSavingPhone(false);
     }
   }
 
@@ -325,37 +377,13 @@ export default function OrganizationPage() {
                           </td>
                           <td className="px-3 py-2">
                             {isAdmin ? (
-                              editingPhoneId === u.id ? (
-                                <div className="flex items-center gap-1">
-                                  <Input
-                                    type="tel"
-                                    value={editingPhoneValue}
-                                    onChange={(e) => setEditingPhoneValue(e.target.value)}
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Enter") {
-                                        e.preventDefault();
-                                        void savePhone(u);
-                                      } else if (e.key === "Escape") {
-                                        setEditingPhoneId(null);
-                                        setEditingPhoneValue("");
-                                      }
-                                    }}
-                                    onBlur={() => {
-                                      void savePhone(u);
-                                    }}
-                                    className="h-7 w-36 text-xs"
-                                    autoFocus
-                                    placeholder="+1 234 567 8900"
-                                  />
-                                </div>
-                              ) : (
-                                <span
-                                  className="cursor-pointer text-sm text-muted-foreground hover:text-foreground"
-                                  onClick={() => startEditingPhone(u)}
-                                >
-                                  {u.phone || "—"}
-                                </span>
-                              )
+                              <span
+                                className="inline-flex cursor-pointer items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+                                onClick={() => openPhoneDialog(u)}
+                              >
+                                <PhoneIcon className="size-3.5" />
+                                {u.phone || "—"}
+                              </span>
                             ) : (
                               <span className="text-sm text-muted-foreground">
                                 {u.phone || "—"}
@@ -575,6 +603,67 @@ export default function OrganizationPage() {
             ) : null}
           </>
         )}
+
+        <Dialog open={phoneDialogOpen} onOpenChange={(open) => {
+          if (!open) closePhoneDialog();
+        }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar teléfono</DialogTitle>
+              <DialogDescription>
+                El teléfono se guardará en formato API de WhatsApp.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Lada</Label>
+                <Select value={phoneLada} onValueChange={setPhoneLada}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="+52">🇲🇽 +52 (México)</SelectItem>
+                    <SelectItem value="+1">🇺🇸 +1 (EE.UU.)</SelectItem>
+                    <SelectItem value="+34">🇪🇸 +34 (España)</SelectItem>
+                    <SelectItem value="+54">🇦🇷 +54 (Argentina)</SelectItem>
+                    <SelectItem value="+57">🇨🇴 +57 (Colombia)</SelectItem>
+                    <SelectItem value="+56">🇨🇱 +56 (Chile)</SelectItem>
+                    <SelectItem value="+51">🇵🇪 +51 (Perú)</SelectItem>
+                    <SelectItem value="+593">🇪🇨 +593 (Ecuador)</SelectItem>
+                    <SelectItem value="+507">🇵🇦 +507 (Panamá)</SelectItem>
+                    <SelectItem value="+506">🇨🇷 +506 (Costa Rica)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Número</Label>
+                <Input
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  placeholder="9932639212"
+                />
+              </div>
+              <div className="rounded-md bg-muted px-3 py-2 text-sm">
+                <span className="text-muted-foreground">Formato final: </span>
+                <code className="font-mono">
+                  {phoneLada === "+52"
+                    ? `521${phoneNumber.replace(/\D/g, "")}`
+                    : `${phoneLada.replace("+", "")}${phoneNumber.replace(/\D/g, "")}`}
+                </code>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={closePhoneDialog}>
+                Cancelar
+              </Button>
+              <Button onClick={confirmSavePhone} disabled={savingPhone || !phoneNumber.trim()}>
+                {savingPhone ? <Loader2Icon className="size-4 animate-spin mr-2" /> : null}
+                Guardar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
