@@ -1,4 +1,5 @@
 import type { Context } from "hono";
+import { FieldValue } from "firebase-admin/firestore";
 
 import type { AgentsInfoAuthContext } from "@/types/agents";
 import { resolveAgentWriteDatabase, userCanAccessAgent } from "@/utils/agents";
@@ -201,10 +202,12 @@ export async function createAgentTool(
     const agentRef = database.collection("agent_configurations").doc(agentId);
 
     const toolData: Record<string, unknown> = {
+      createdAt: FieldValue.serverTimestamp(),
       description,
       enabled,
       name,
       type,
+      updatedAt: FieldValue.serverTimestamp(),
     };
     if (displayName) toolData.displayName = displayName;
     if (pathValue) toolData.path = pathValue;
@@ -301,6 +304,8 @@ export async function updateAgentTool(
   if (Object.keys(updates).length === 0) {
     return c.json({ error: "No hay campos válidos para actualizar" }, 400);
   }
+
+  updates.updatedAt = FieldValue.serverTimestamp();
 
   try {
     const { db: database, inCommercial, inProduction } =

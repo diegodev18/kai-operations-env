@@ -14,6 +14,8 @@ export interface AgentTool {
   properties?: Record<string, unknown>;
   path?: string;
   type: AgentToolType;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CreateAgentToolBody {
