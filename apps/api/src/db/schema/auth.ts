@@ -12,6 +12,7 @@ export const user = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
+  phone: text("phone"),
   emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
   /** `admin` ve todos los agentes; `member` solo los asignados en Firestore growers. */

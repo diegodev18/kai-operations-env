@@ -20,6 +20,7 @@ export function RegisterWithInvitation() {
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(true);
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -63,11 +64,13 @@ export function RegisterWithInvitation() {
         email,
         password,
         name: name.trim() || email.split("@")[0] || "Usuario",
+        phone: phone.trim() || undefined,
         invitationToken: token,
       } as {
         email: string;
         password: string;
         name: string;
+        phone?: string;
         invitationToken: string;
       });
       if (result.error) {
@@ -127,6 +130,17 @@ export function RegisterWithInvitation() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Tu nombre"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="reg-phone">Teléfono (opcional)</Label>
+              <Input
+                id="reg-phone"
+                type="tel"
+                autoComplete="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+1 234 567 8900"
               />
             </div>
             <div className="space-y-2">

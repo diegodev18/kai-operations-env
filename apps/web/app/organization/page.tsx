@@ -28,6 +28,7 @@ import {
   fetchOrganizationMe,
   fetchOrganizationUsers,
   updateOrganizationUserRole,
+  updateUserPhone,
   type OrganizationInvitation,
   type OrganizationUser,
 } from "@/lib/organization-api";
@@ -46,6 +47,8 @@ export default function OrganizationPage() {
   const [rowActionId, setRowActionId] = useState<string | null>(null);
   const [copyInviteId, setCopyInviteId] = useState<string | null>(null);
   const [removeInviteId, setRemoveInviteId] = useState<string | null>(null);
+  const [editingPhoneId, setEditingPhoneId] = useState<string | null>(null);
+  const [editingPhoneValue, setEditingPhoneValue] = useState("");
 
   const isAdmin = role === "admin";
   const currentUserId = session?.user?.id as string | undefined;
@@ -210,6 +213,29 @@ export default function OrganizationPage() {
     }
   }
 
+  function startEditingPhone(u: OrganizationUser) {
+    setEditingPhoneId(u.id);
+    setEditingPhoneValue(u.phone ?? "");
+  }
+
+  async function savePhone(u: OrganizationUser) {
+    if (!editingPhoneId) return;
+    setRowActionId(u.id);
+    try {
+      const result = await updateUserPhone(u.id, editingPhoneValue.trim() || null);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Teléfono actualizado");
+      await load();
+    } finally {
+      setRowActionId(null);
+      setEditingPhoneId(null);
+      setEditingPhoneValue("");
+    }
+  }
+
   if ((isPending && !session?.user) || (!session?.user && loading)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
@@ -274,6 +300,7 @@ export default function OrganizationPage() {
                     <tr>
                       <th className="px-3 py-2 font-medium">Nombre</th>
                       <th className="px-3 py-2 font-medium">Correo</th>
+                      <th className="px-3 py-2 font-medium">Teléfono</th>
                       <th className="px-3 py-2 font-medium">Rol</th>
                       {isAdmin ? (
                         <th className="px-3 py-2 font-medium text-right">
@@ -295,6 +322,45 @@ export default function OrganizationPage() {
                           <td className="px-3 py-2">{u.name}</td>
                           <td className="px-3 py-2 text-muted-foreground">
                             {u.email}
+                          </td>
+                          <td className="px-3 py-2">
+                            {isAdmin ? (
+                              editingPhoneId === u.id ? (
+                                <div className="flex items-center gap-1">
+                                  <Input
+                                    type="tel"
+                                    value={editingPhoneValue}
+                                    onChange={(e) => setEditingPhoneValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        void savePhone(u);
+                                      } else if (e.key === "Escape") {
+                                        setEditingPhoneId(null);
+                                        setEditingPhoneValue("");
+                                      }
+                                    }}
+                                    onBlur={() => {
+                                      void savePhone(u);
+                                    }}
+                                    className="h-7 w-36 text-xs"
+                                    autoFocus
+                                    placeholder="+1 234 567 8900"
+                                  />
+                                </div>
+                              ) : (
+                                <span
+                                  className="cursor-pointer text-sm text-muted-foreground hover:text-foreground"
+                                  onClick={() => startEditingPhone(u)}
+                                >
+                                  {u.phone || "—"}
+                                </span>
+                              )
+                            ) : (
+                              <span className="text-sm text-muted-foreground">
+                                {u.phone || "—"}
+                              </span>
+                            )}
                           </td>
                           <td className="px-3 py-2">
                             <Badge

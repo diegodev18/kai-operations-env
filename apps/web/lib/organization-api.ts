@@ -2,6 +2,7 @@ export type OrganizationUser = {
   id: string;
   name: string;
   email: string;
+  phone: string | null;
   role: string;
   createdAt: string | null;
 };
@@ -191,6 +192,32 @@ export async function deleteOrganizationUser(
     return { ok: true };
   }
   let error = "No se pudo eliminar el usuario";
+  try {
+    const data = (await res.json()) as { error?: string };
+    if (data.error) error = data.error;
+  } catch {
+    /* empty */
+  }
+  return { ok: false, error };
+}
+
+export async function updateUserPhone(
+  userId: string,
+  phone: string | null,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const res = await fetch(
+    `/api/organization/users/${encodeURIComponent(userId)}/phone`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ phone }),
+    },
+  );
+  if (res.ok) {
+    return { ok: true };
+  }
+  let error = "No se pudo actualizar el teléfono";
   try {
     const data = (await res.json()) as { error?: string };
     if (data.error) error = data.error;

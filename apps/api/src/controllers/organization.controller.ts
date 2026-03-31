@@ -1,6 +1,10 @@
 import type { Context } from "hono";
 
+import { eq } from "drizzle-orm";
+
 import { WEB_ORIGIN } from "@/config";
+import { db } from "@/db/client";
+import { user } from "@/db/schema/auth";
 import {
   createInvitationRecord,
   findPendingInvitationByToken,
@@ -28,6 +32,7 @@ export const getOrganizationUsers = async (c: Context) => {
       id: u.id,
       name: u.name,
       email: u.email,
+      phone: u.phone ?? null,
       role: u.role,
       createdAt: u.createdAt?.toISOString() ?? null,
     })),
@@ -191,4 +196,40 @@ export const deleteOrganizationUser = async (
     return c.json({ error: result.message }, result.status);
   }
   return c.json({ ok: true });
+};
+
+const PHONE_REGEX = /^[+\d\s()-]{0,20}$/;
+
+export const patchOrganizationUserPhone = async (
+  c: Context,
+  targetUserId: string,
+) => {
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "JSON inválido" }, 400);
+  }
+
+  const phone = (body as { phone?: unknown }).phone;
+  if (phone !== null && phone !== undefined && typeof phone !== "string") {
+    return c.json({ error: "phone debe ser string o null" }, 400);
+  }
+
+  const phoneStr = typeof phone === "string" ? phone.trim() : null;
+  if (phoneStr !== null && phoneStr.length > 0 && !PHONE_REGEX.test(phoneStr)) {
+    return c.json({ error: "Formato de teléfono no válido" }, 400);
+  }
+
+  try {
+    await db
+      .update(user)
+      .set({ phone: phoneStr && phoneStr.length > 0 ? phoneStr : null })
+      .where(eq(user.id, targetUserId));
+    return c.json({ ok: true });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[organization PATCH phone]", msg);
+    return c.json({ error: "Error al actualizar teléfono" }, 500);
+  }
 };

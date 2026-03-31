@@ -9,6 +9,7 @@ import {
   getOrganizationMe,
   getOrganizationUsers,
   patchOrganizationUser,
+  patchOrganizationUserPhone,
   postOrganizationInvitation,
   postOrganizationInvitationLink,
   postOrganizationInvitationRefreshLink,
@@ -54,6 +55,19 @@ organizationRouter.patch("/users/:userId", async (c) => {
     return c.json({ error: "Usuario no encontrado" }, 404);
   }
   return patchOrganizationUser(c, targetUserId);
+});
+
+organizationRouter.patch("/users/:userId/phone", async (c) => {
+  const ctx = await requireSession(c);
+  if ("error" in ctx) return ctx.error;
+  if (!isOperationsAdmin(ctx.role)) {
+    return c.json({ error: "No autorizado" }, 403);
+  }
+  const targetUserId = c.req.param("userId");
+  if (!targetUserId) {
+    return c.json({ error: "Usuario no encontrado" }, 404);
+  }
+  return patchOrganizationUserPhone(c, targetUserId);
 });
 
 organizationRouter.delete("/users/:userId", async (c) => {
