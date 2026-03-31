@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,7 @@ import {
   ListChecksIcon,
   Loader2Icon,
   RotateCcwIcon,
+  RocketIcon,
   ShieldCheckIcon,
   SparklesIcon,
   TerminalIcon,
@@ -50,6 +51,10 @@ import {
 } from "@/hooks/agent-properties";
 import { useAgentTools } from "@/hooks/agent-tools";
 import { updateAgentPrompt } from "@/hooks/agent-prompt";
+import {
+  useProductionPrompt,
+  promotePromptToProduction as promotePromptApi,
+} from "@/hooks/agent-production-prompt";
 import {
   usePromptChat,
   usePromptModels,
@@ -179,6 +184,8 @@ export function AgentPromptDesigner({
   const { data: propertiesData, isLoading: propertiesLoading } =
     useAgentProperties(agentId);
   const { tools: agentTools } = useAgentTools(agentId);
+  const { data: productionPrompt, isLoading: loadingProductionPrompt } =
+    useProductionPrompt(agentId);
 
   const [savedPrompt, setSavedPrompt] = useState("");
   const [editingPrompt, setEditingPrompt] = useState("");
@@ -220,6 +227,7 @@ export function AgentPromptDesigner({
   const [includeToolsContext] = useState(false);
   const [regenerateSystemPromptLoading, setRegenerateSystemPromptLoading] =
     useState(false);
+  const [promoting, setPromoting] = useState(false);
 
   const { models: promptModels, isLoading: modelsLoading } = usePromptModels();
   const isAuthEnabled = propertiesData?.agent?.isAuthEnable === true;
@@ -399,6 +407,36 @@ export function AgentPromptDesigner({
     }
     setIsSaving(false);
     if (ok) setDiffViewRequested(false);
+  };
+
+  const productionPromptDiffers = useMemo(() => {
+    if (!productionPrompt) return false;
+    const baseDiffers = editingPrompt !== productionPrompt.prompt;
+    if (isAuthEnabled && productionPrompt.auth) {
+      const authDiffers = editingAuthPrompt !== productionPrompt.auth.auth;
+      const unauthDiffers = editingUnauthPrompt !== productionPrompt.auth.unauth;
+      return baseDiffers || authDiffers || unauthDiffers;
+    }
+    return baseDiffers;
+  }, [editingPrompt, editingAuthPrompt, editingUnauthPrompt, productionPrompt, isAuthEnabled]);
+
+  const handlePromoteToProduction = async () => {
+    if (!productionPromptDiffers) return;
+    setPromoting(true);
+    try {
+      const payload: { prompt: string; auth?: { auth: string; unauth: string } } = {
+        prompt: editingPrompt,
+      };
+      if (isAuthEnabled) {
+        payload.auth = { auth: editingAuthPrompt, unauth: editingUnauthPrompt };
+      }
+      const ok = await promotePromptApi(agentId, payload);
+      if (ok) {
+        toast.success("Prompt subido a producción 🚀");
+      }
+    } finally {
+      setPromoting(false);
+    }
   };
 
   const primaryTarget = suggestedTarget?.[0] ?? "base";
@@ -772,6 +810,32 @@ export function AgentPromptDesigner({
                 <Loader2Icon className="w-4 h-4 animate-spin mr-2" />
               ) : null}
               Guardar
+            </Button>
+            <Button
+              onClick={handlePromoteToProduction}
+              disabled={
+                !productionPromptDiffers ||
+                promoting ||
+                promptAndChatLocked ||
+                loadingProductionPrompt
+              }
+              className={
+                !productionPromptDiffers || loadingProductionPrompt
+                  ? "opacity-50"
+                  : ""
+              }
+              variant={
+                productionPromptDiffers && !loadingProductionPrompt
+                  ? "default"
+                  : "outline"
+              }
+            >
+              {promoting ? (
+                <Loader2Icon className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <RocketIcon className="w-4 h-4 mr-2" />
+              )}
+              Subir a producción 🚀
             </Button>
           </div>
         </div>

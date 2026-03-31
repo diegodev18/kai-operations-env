@@ -25,6 +25,8 @@ import {
   postAgentSystemPromptRegenerate,
   updateAgentPrompt,
   updateAgentPropertyDocument,
+  getProductionPrompt,
+  promotePromptToProduction,
 } from "@/controllers/agent-detail.controller";
 import {
   createAgentTool,
@@ -274,6 +276,26 @@ agentsRouter.patch("/:agentId/prompt", async (c) => {
     return c.json({ error: "Agente no encontrado" }, 404);
   }
   return updateAgentPrompt(c, ctx.authCtx, agentId);
+});
+
+agentsRouter.get("/:agentId/production-prompt", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return getProductionPrompt(c, ctx.authCtx, agentId);
+});
+
+agentsRouter.post("/:agentId/promote-prompt-to-production", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return promotePromptToProduction(c, ctx.authCtx, agentId);
 });
 
 agentsRouter.post("/:agentId/system-prompt/regenerate", async (c) => {

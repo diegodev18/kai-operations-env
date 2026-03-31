@@ -439,6 +439,117 @@ export async function updateAgentPrompt(
  * Actualiza campos del documento raíz del agente (agent_configurations/{agentId}).
  * Solo permite campos seguros: version.
  */
+export async function getProductionPrompt(
+  c: Context,
+  authCtx: AgentsInfoAuthContext,
+  agentId: string,
+) {
+  const denied = await requireAgentAccess(c, authCtx, agentId);
+  if (denied) return denied;
+
+  try {
+    const prod = getFirestore();
+    const docRef = prod.collection("agent_configurations").doc(agentId);
+    const [agentSnap, promptSnap] = await Promise.all([
+      docRef.get(),
+      docRef.collection("properties").doc("prompt").get(),
+    ]);
+
+    if (!agentSnap.exists) {
+      return c.json({ error: "El agente no existe en producción" }, 404);
+    }
+
+    const agentData = agentSnap.data() ?? {};
+    const mcp = agentData.mcp_configuration as Record<string, unknown> | undefined;
+    const systemPrompt = typeof mcp?.system_prompt === "string" ? mcp.system_prompt : "";
+
+    const promptData = promptSnap.exists ? promptSnap.data() : undefined;
+    const authData = promptData?.auth as Record<string, unknown> | undefined;
+    const authPrompt = authData?.auth as string | undefined;
+    const unauthPrompt = authData?.unauth as string | undefined;
+
+    const result: { prompt: string; auth?: { auth: string; unauth: string } } = {
+      prompt: systemPrompt,
+    };
+    if (authPrompt !== undefined || unauthPrompt !== undefined) {
+      result.auth = {
+        auth: typeof authPrompt === "string" ? authPrompt : "",
+        unauth: typeof unauthPrompt === "string" ? unauthPrompt : "",
+      };
+    }
+
+    return c.json(result);
+  } catch (error) {
+    const r = handleFirestoreError(c, error, "[agents/:id/production-prompt GET]");
+    return r ?? c.json({ error: "Error al leer prompt de producción" }, 500);
+  }
+}
+
+export async function promotePromptToProduction(
+  c: Context,
+  authCtx: AgentsInfoAuthContext,
+  agentId: string,
+) {
+  const denied = await requireAgentAccess(c, authCtx, agentId);
+  if (denied) return denied;
+
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "JSON inválido" }, 400);
+  }
+
+  const prompt =
+    body != null && typeof (body as { prompt?: unknown }).prompt === "string"
+      ? (body as { prompt: string }).prompt
+      : null;
+
+  if (prompt == null) {
+    return c.json({ error: "prompt es obligatorio (string)" }, 400);
+  }
+
+  const authData = (body as { auth?: unknown }).auth;
+  const hasAuth =
+    authData != null &&
+    typeof authData === "object" &&
+    !Array.isArray(authData) &&
+    typeof (authData as { auth?: unknown }).auth === "string" &&
+    typeof (authData as { unauth?: unknown }).unauth === "string";
+
+  try {
+    const prod = getFirestore();
+    const docRef = prod.collection("agent_configurations").doc(agentId);
+    const snap = await docRef.get();
+
+    if (!snap.exists) {
+      return c.json({ error: "El agente no existe en producción" }, 404);
+    }
+
+    await docRef.update({
+      "mcp_configuration.system_prompt": prompt,
+    });
+
+    if (hasAuth) {
+      const promptPropRef = docRef.collection("properties").doc("prompt");
+      await promptPropRef.set(
+        {
+          auth: {
+            auth: (authData as { auth: string }).auth,
+            unauth: (authData as { unauth: string }).unauth,
+          },
+        },
+        { merge: true },
+      );
+    }
+
+    return c.json({ ok: true });
+  } catch (error) {
+    const r = handleFirestoreError(c, error, "[agents/:id/promote-prompt POST]");
+    return r ?? c.json({ error: "Error al subir prompt a producción" }, 500);
+  }
+}
+
 export async function patchAgent(
   c: Context,
   authCtx: AgentsInfoAuthContext,
