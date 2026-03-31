@@ -621,6 +621,33 @@ export async function fetchAgentById(agentId: string): Promise<Agent | null> {
   }
 }
 
+/** Actualiza campos del documento raíz del agente (PATCH /api/agents/:id). */
+export async function patchAgent(
+  agentId: string,
+  body: { version?: string },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const res = await fetch(`/api/agents/${encodeURIComponent(agentId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(body),
+  });
+  let data: { ok?: boolean; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: data.error ?? "No se pudo actualizar el agente",
+    };
+  }
+  if (data.ok) return { ok: true };
+  return { ok: false, error: "Respuesta inválida del servidor" };
+}
+
 /** Producción (kai) → asistente comercial: copia profunda del agente. */
 export async function postAgentSyncFromProduction(
   agentId: string,

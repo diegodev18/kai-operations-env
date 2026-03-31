@@ -38,6 +38,8 @@ export interface Agent {
   inProduction?: boolean;
   /** Origen de lectura preferido en detalle (`GET /agents/:id`). */
   primarySource?: "commercial" | "production";
+  /** Versión del agente. */
+  version?: string;
 }
 
 export interface AgentWithOperations extends Agent {

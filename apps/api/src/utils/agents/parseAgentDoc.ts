@@ -10,6 +10,8 @@ export type ParsedAgentDoc = {
   businessName: string;
   owner: string;
   prompt: string;
+  /** Versión del agente. */
+  version?: string;
   /** `mcp_configuration.system_prompt_generation_status` cuando existe. */
   systemPromptGenerationStatus?: string;
   systemPromptGenerationError?: string | null;
@@ -55,6 +57,8 @@ export function parseAgentDoc(
       typeof data.business_name === "string" ? data.business_name : "";
     const agentName =
       typeof data.agent_name === "string" ? data.agent_name : "";
+    const version =
+      typeof data.version === "string" ? data.version : undefined;
     return {
       id: doc.id,
       name: businessName,
@@ -62,6 +66,7 @@ export function parseAgentDoc(
       businessName,
       owner: typeof data.owner_name === "string" ? data.owner_name : "",
       prompt,
+      ...(version != null ? { version } : {}),
       ...(systemPromptGenerationStatus != null
         ? { systemPromptGenerationStatus }
         : {}),

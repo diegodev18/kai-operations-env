@@ -9,7 +9,7 @@ import {
   updateAgentPropertyDocument,
 } from "@/hooks/agent-properties";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -49,6 +49,7 @@ import {
   deleteAgentGrower,
   fetchAgentById,
   fetchAgentGrowers,
+  patchAgent,
   postAgentGrower,
   postAgentSyncFromProduction,
   postPromoteToProduction,
@@ -57,6 +58,7 @@ import {
   fetchOrganizationUsers,
   type OrganizationUser,
 } from "@/lib/organization-api";
+import { AGENT_VERSIONS } from "@/consts/agent-versions";
 
 const DOCUMENT_IDS: PropertyDocumentId[] = [
   "agent",
@@ -248,6 +250,9 @@ export function AgentConfigurationEditor({
   const [promoteConfirmName, setPromoteConfirmName] = useState("");
   const [syncingFromProd, setSyncingFromProd] = useState(false);
   const [promoting, setPromoting] = useState(false);
+  const [agentVersion, setAgentVersion] = useState<string>("production");
+  const [savingVersion, setSavingVersion] = useState(false);
+  const pendingVersionRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (data) {
@@ -291,6 +296,9 @@ export function AgentConfigurationEditor({
           ? agent.agentName
           : agent?.name) ?? agentId;
       setAgentNameForConfirm(resolvedName);
+      if (agent?.version) {
+        setAgentVersion(agent.version);
+      }
     })();
     return () => {
       cancelled = true;
@@ -569,6 +577,26 @@ export function AgentConfigurationEditor({
     onAgentUpdated,
   ]);
 
+  const handleVersionChange = useCallback(
+    async (newVersion: string) => {
+      if (!agentId) return;
+      setSavingVersion(true);
+      try {
+        const r = await patchAgent(agentId, { version: newVersion });
+        if (r.ok) {
+          setAgentVersion(newVersion);
+          toast.success(`Versión actualizada a ${newVersion}`);
+          onAgentUpdated?.();
+        } else {
+          toast.error(r.error);
+        }
+      } finally {
+        setSavingVersion(false);
+      }
+    },
+    [agentId, onAgentUpdated],
+  );
+
   if (!agentId) return null;
 
   const inCommercial = data?.in_commercial ?? false;
@@ -679,6 +707,35 @@ export function AgentConfigurationEditor({
                       rows={3}
                       className="font-mono text-sm"
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="space-y-1">
+                      <Label htmlFor="agent-version">Versión del agente</Label>
+                      <p className="text-xs text-muted-foreground font-normal">
+                        Selecciona la versión del agente. Cada versión puede tener comportamientos y features distintas.
+                      </p>
+                    </div>
+                    <Select
+                      value={agentVersion}
+                      onValueChange={handleVersionChange}
+                      disabled={savingVersion}
+                    >
+                      <SelectTrigger id="agent-version" className="w-full">
+                        <SelectValue placeholder="Selecciona la versión" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {AGENT_VERSIONS.map((v) => (
+                          <SelectItem key={v.value} value={v.value}>
+                            <div className="flex flex-col gap-0.5">
+                              <span>{v.label}</span>
+                              <span className="text-xs text-muted-foreground font-normal">
+                                {v.description}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </section>

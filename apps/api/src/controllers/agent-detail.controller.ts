@@ -434,3 +434,54 @@ export async function updateAgentPrompt(
     return r ?? c.json({ error: "Error al actualizar prompt" }, 500);
   }
 }
+
+/**
+ * Actualiza campos del documento raíz del agente (agent_configurations/{agentId}).
+ * Solo permite campos seguros: version.
+ */
+export async function patchAgent(
+  c: Context,
+  authCtx: AgentsInfoAuthContext,
+  agentId: string,
+) {
+  const denied = await requireAgentAccess(c, authCtx, agentId);
+  if (denied) return denied;
+
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "JSON inválido" }, 400);
+  }
+
+  if (body == null || typeof body !== "object" || Array.isArray(body)) {
+    return c.json({ error: "El cuerpo debe ser un objeto" }, 400);
+  }
+
+  const bodyObj = body as Record<string, unknown>;
+  const allowedFields = ["version"] as const;
+  const updateData: Record<string, unknown> = {};
+  for (const field of allowedFields) {
+    if (field in bodyObj) {
+      updateData[field] = bodyObj[field];
+    }
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    return c.json({ error: "No hay campos válidos para actualizar" }, 400);
+  }
+
+  try {
+    const { db: database, inCommercial, inProduction } =
+      await resolveAgentWriteDatabase(agentId);
+    if (!inCommercial && !inProduction) {
+      return c.json({ error: "Agente no encontrado" }, 404);
+    }
+    const docRef = database.collection("agent_configurations").doc(agentId);
+    await docRef.update(updateData);
+    return c.json({ success: true, updated: updateData });
+  } catch (error) {
+    const r = handleFirestoreError(c, error, "[agents/:id PATCH]");
+    return r ?? c.json({ error: "Error al actualizar agente" }, 500);
+  }
+}

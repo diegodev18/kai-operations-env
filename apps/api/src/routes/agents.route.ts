@@ -21,6 +21,7 @@ import { getAgentsInfo } from "@/controllers/agents.controller";
 import {
   getAgentById,
   getAgentProperties,
+  patchAgent,
   postAgentSystemPromptRegenerate,
   updateAgentPrompt,
   updateAgentPropertyDocument,
@@ -303,6 +304,16 @@ agentsRouter.post("/:agentId/promote-to-production", async (c) => {
     return c.json({ error: "Agente no encontrado" }, 404);
   }
   return postPromoteToProduction(c, ctx.authCtx, agentId);
+});
+
+agentsRouter.patch("/:agentId", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return patchAgent(c, ctx.authCtx, agentId);
 });
 
 agentsRouter.get("/:agentId", async (c) => {

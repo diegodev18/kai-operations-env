@@ -34,6 +34,8 @@ export interface LightAgent {
   systemPromptGenerationError?: string | null;
   temperature?: number;
   waitTime?: number;
+  /** Versión del agente. */
+  version?: string;
   /** Existe en Firestore asistente comercial (testing). */
   inCommercial?: boolean;
   /** Existe en Firestore kai (producción). */
