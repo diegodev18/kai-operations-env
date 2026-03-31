@@ -11,6 +11,13 @@ import { useToolsCatalog } from "@/hooks/use-tools-catalog";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -451,25 +458,27 @@ function AddToolDialog({
         <div className="min-h-0 overflow-y-auto overflow-x-hidden space-y-4 py-2">
           <div className="space-y-2">
             <Label htmlFor="add-tool-type">Tipo</Label>
-            <select
-              id="add-tool-type"
+            <Select
               value={type}
-              onChange={(e) => {
-                const nextType = e.target.value as AgentToolType;
+              onValueChange={(nextType: AgentToolType) => {
                 setType(nextType);
                 if (nextType !== "default") {
                   setToolPropertiesSchema(null);
                   setAgentPropertiesValues({});
                 }
               }}
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
             >
-              {TOOL_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Selecciona un tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                {TOOL_TYPES.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>
+                    {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label htmlFor={type === "default" ? "add-tool-catalog-search" : "add-tool-name"}>
@@ -757,18 +766,23 @@ function EditToolDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="edit-tool-type">Tipo</Label>
-            <select
-              id="edit-tool-type"
+            <Select
               value={type}
-              onChange={(e) => setType(e.target.value as AgentToolType)}
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+              onValueChange={(nextType: AgentToolType) => {
+                setType(nextType);
+              }}
             >
-              {TOOL_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Selecciona un tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                {TOOL_TYPES.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>
+                    {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           {(type === "default" || type === "preset") && (
             <div className="space-y-2">
