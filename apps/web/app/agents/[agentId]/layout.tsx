@@ -12,11 +12,11 @@ import { cn } from "@/lib/utils";
 import { fetchAgentById } from "@/lib/agents-api";
 
 const SECTIONS = [
-  { suffix: "configuration", label: "Configuración" },
-  { suffix: "tasks", label: "Tareas" },
-  { suffix: "tools", label: "Tools" },
   { suffix: "prompt-design", label: "Diseño de prompt" },
+  { suffix: "tools", label: "Tools" },
   { suffix: "simulator", label: "Simulador" },
+  { suffix: "tasks", label: "Tareas" },
+  { suffix: "configuration", label: "Configuración" },
 ] as const;
 
 /** Título: nombre del agente (énfasis) · nombre del negocio (secundario), como en el diseño de referencia. */
