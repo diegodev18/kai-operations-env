@@ -47,6 +47,9 @@ const patchPersonalitySchema = z.object({
   agent_personality: z.string().trim().min(1),
   /** Idioma de las respuestas al usuario final (el system prompt se genera en inglés). */
   response_language: z.string().trim().min(1).max(80),
+  use_emojis: z.string().trim().min(1),
+  country_accent: z.string().trim().min(1),
+  agent_signature: z.string().trim().min(1),
 });
 
 const patchBusinessSchema = z.object({
@@ -58,7 +61,7 @@ const patchBusinessSchema = z.object({
   agent_description: z.string().trim().min(1),
   target_audience: z.string().trim().min(1),
   escalation_rules: z.string().trim().min(1),
-  country: z.string().trim().optional(),
+  country: z.string().trim().min(1),
   phone_number_id: z.string().trim().optional(),
   whatsapp_token: z.string().trim().optional(),
 });
@@ -318,11 +321,17 @@ export async function patchAgentDraft(
         agent_name: body.agent_name,
         agent_personality: body.agent_personality,
         response_language: body.response_language,
+        use_emojis: body.use_emojis,
+        country_accent: body.country_accent,
+        agent_signature: body.agent_signature,
         "mcp_configuration.system_prompt": systemPrompt,
         "mcp_configuration.agent_personalization.agent_name": body.agent_name,
         "mcp_configuration.agent_personalization.agent_personality": body.agent_personality,
         "mcp_configuration.agent_personalization.response_language":
           body.response_language,
+        "mcp_configuration.agent_personalization.use_emojis": body.use_emojis,
+        "mcp_configuration.agent_personalization.country_accent": body.country_accent,
+        "mcp_configuration.agent_personalization.agent_signature": body.agent_signature,
         creation_step: "personality",
         updated_at: ts,
       });
@@ -341,12 +350,10 @@ export async function patchAgentDraft(
         agent_description: body.agent_description,
         target_audience: body.target_audience,
         escalation_rules: body.escalation_rules,
+        country: body.country,
         creation_step: "business",
         updated_at: ts,
       };
-      if (body.country !== undefined && body.country !== "") {
-        updatePayload.country = body.country;
-      }
       if (isOperationsAdmin(authCtx.userRole)) {
         if (body.phone_number_id !== undefined && body.phone_number_id !== "") {
           updatePayload.phone_number_id = body.phone_number_id;

@@ -160,7 +160,8 @@ type BusinessFieldKey =
   | "target_audience"
   | "agent_description"
   | "escalation_rules"
-  | "business_timezone";
+  | "business_timezone"
+  | "country";
 
 type DraftTextKey =
   | "agent_name"
@@ -210,6 +211,7 @@ const BUSINESS_FLOW: BusinessFieldKey[] = [
   "agent_description",
   "escalation_rules",
   "business_timezone",
+  "country",
 ];
 const FORM_STEPS: FormStep[] = ["business", "tools", "personality", "review"];
 
@@ -222,6 +224,7 @@ const BUSINESS_FIELD_GRAPH: Array<{ key: BusinessFieldKey; label: string }> = [
   { key: "agent_description", label: "Rol del agente" },
   { key: "escalation_rules", label: "Escalamiento" },
   { key: "business_timezone", label: "Zona horaria" },
+  { key: "country", label: "País" },
 ];
 
 function nowId() {
@@ -277,7 +280,10 @@ function isPersonalityComplete(state: DraftState) {
   return (
     !!state.agent_name.trim() &&
     !!state.agent_personality.trim() &&
-    !!state.response_language.trim()
+    !!state.response_language.trim() &&
+    !!state.use_emojis.trim() &&
+    !!state.country_accent.trim() &&
+    !!state.agent_signature.trim()
   );
 }
 
@@ -301,6 +307,15 @@ function getBuilderIncompleteItems(state: DraftState): string[] {
   }
   if (!state.response_language.trim()) {
     items.push("Personalidad — idioma de respuesta al usuario");
+  }
+  if (!state.use_emojis.trim()) {
+    items.push("Personalidad — uso de emojis");
+  }
+  if (!state.country_accent.trim()) {
+    items.push("Personalidad — acento / dialecto");
+  }
+  if (!state.agent_signature.trim()) {
+    items.push("Personalidad — firma / despedida");
   }
   return items;
 }
@@ -1267,7 +1282,7 @@ export function AgentBuilderChatDiagram() {
             target_audience: stepped.target_audience.trim(),
             escalation_rules: stepped.escalation_rules.trim(),
             business_timezone: stepped.business_timezone.trim(),
-            ...(stepped.country.trim() ? { country: stepped.country.trim() } : {}),
+            country: stepped.country.trim(),
           });
           if (res.ok) lastSyncedRef.current.business = businessSig;
           else toast.error(res.error);
@@ -1957,6 +1972,16 @@ export function AgentBuilderChatDiagram() {
                       }
                       rows={2}
                     />
+                    <Label>País</Label>
+                    <Input
+                      value={draftState.country}
+                      onChange={(event) =>
+                        setDraftState((prev) =>
+                          updateStepFromState({ ...prev, country: event.target.value }),
+                        )
+                      }
+                      placeholder="p. ej. México, Colombia"
+                    />
                   </div>
                 ) : null}
                 {formStep === "tools" ? (
@@ -2061,6 +2086,36 @@ export function AgentBuilderChatDiagram() {
                       El system prompt técnico se guarda en inglés; este valor indica en qué idioma
                       debe hablar el agente con tus clientes.
                     </p>
+                    <Label>Uso de emojis</Label>
+                    <Input
+                      value={draftState.use_emojis}
+                      onChange={(event) =>
+                        setDraftState((prev) =>
+                          updateStepFromState({ ...prev, use_emojis: event.target.value }),
+                        )
+                      }
+                      placeholder="p. ej. Sí, usar emojis con moderación"
+                    />
+                    <Label>Acento / Dialecto</Label>
+                    <Input
+                      value={draftState.country_accent}
+                      onChange={(event) =>
+                        setDraftState((prev) =>
+                          updateStepFromState({ ...prev, country_accent: event.target.value }),
+                        )
+                      }
+                      placeholder="p. ej. Español de México"
+                    />
+                    <Label>Firma / Despedida</Label>
+                    <Input
+                      value={draftState.agent_signature}
+                      onChange={(event) =>
+                        setDraftState((prev) =>
+                          updateStepFromState({ ...prev, agent_signature: event.target.value }),
+                        )
+                      }
+                      placeholder="p. ej. Saludos, tu asistente virtual"
+                    />
                   </div>
                 ) : null}
                 {formStep === "review" ? (
@@ -2125,7 +2180,7 @@ export function AgentBuilderChatDiagram() {
                         return;
                       }
                       if (formStep === "personality" && !isPersonalityComplete(draftState)) {
-                        toast.error("Completa nombre y personalidad del agente.");
+                        toast.error("Completa todos los campos de personalidad del agente.");
                         return;
                       }
                       const nextIndex = Math.min(FORM_STEPS.length - 1, formStepIndex + 1);

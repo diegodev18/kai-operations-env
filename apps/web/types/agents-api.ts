@@ -37,9 +37,9 @@ export type AgentDraftPatchBody =
       agent_personality: string;
       /** Idioma de las respuestas al usuario (p. ej. Spanish, English). */
       response_language: string;
-      use_emojis?: string;
-      country_accent?: string;
-      agent_signature?: string;
+      use_emojis: string;
+      country_accent: string;
+      agent_signature: string;
     }
   | {
       step: "business";
@@ -50,7 +50,7 @@ export type AgentDraftPatchBody =
       agent_description: string;
       target_audience: string;
       escalation_rules: string;
-      country?: string;
+      country: string;
       business_timezone?: string;
       phone_number_id?: string;
       whatsapp_token?: string;
