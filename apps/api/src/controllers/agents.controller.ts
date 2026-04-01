@@ -3,7 +3,7 @@ import type { Context } from "hono";
 import { FieldPath, type Query } from "firebase-admin/firestore";
 
 import { AGENTS_INFO_MAX_PAGE_LIMIT } from "@/constants/agents";
-import { getFirestore, getFirestoreCommercial } from "@/lib/firestore";
+import { getFirestore } from "@/lib/firestore";
 import type {
   AgentDocument,
   AgentsInfoAuthContext,
@@ -42,23 +42,21 @@ function cursorToAgentIdStart(cursor: string): string {
 async function buildLightAgentWithDeployment(
   agentId: string,
 ): Promise<LightAgent | null> {
-  const commercial = getFirestoreCommercial();
-  const production = getFirestore();
-  const [comDoc, prodDoc] = await Promise.all([
-    commercial.collection("agent_configurations").doc(agentId).get(),
-    production.collection("agent_configurations").doc(agentId).get(),
+  const db = getFirestore();
+  const [testingDataSnap, prodDoc] = await Promise.all([
+    db.collection("agent_configurations").doc(agentId).collection("testing").doc("data").get(),
+    db.collection("agent_configurations").doc(agentId).get(),
   ]);
-  const inCommercial = comDoc.exists;
+  const hasTestingData = testingDataSnap.exists;
   const inProduction = prodDoc.exists;
-  if (!inCommercial && !inProduction) return null;
+  if (!hasTestingData && !inProduction) return null;
 
-  const primaryDb = inCommercial ? commercial : production;
-  const primaryDoc = inCommercial ? comDoc : prodDoc;
-  const row = await buildLightAgent(primaryDb, primaryDoc as AgentDocument);
+  const primaryDoc = prodDoc;
+  const row = await buildLightAgent(db, primaryDoc as AgentDocument);
   if (!row) return null;
   return {
     ...row,
-    inCommercial,
+    inCommercial: hasTestingData,
     inProduction,
   };
 }
@@ -69,24 +67,24 @@ async function mergedAgentIdsAndData(): Promise<{
   commercialMap: Map<string, Record<string, unknown>>;
   productionMap: Map<string, Record<string, unknown>>;
 }> {
-  const commercial = getFirestoreCommercial();
-  const production = getFirestore();
-  const [comSnap, prodSnap] = await Promise.all([
-    commercial.collection("agent_configurations").get(),
-    production.collection("agent_configurations").get(),
+  const db = getFirestore();
+  const [testingDataColSnap, prodSnap] = await Promise.all([
+    db.collection("agent_configurations").doc("dummy").collection("testing").doc("data").collection("properties").get(),
+    db.collection("agent_configurations").get(),
   ]);
 
   const commercialMap = new Map<string, Record<string, unknown>>();
   const productionMap = new Map<string, Record<string, unknown>>();
   const idSet = new Set<string>();
 
-  for (const d of comSnap.docs) {
-    idSet.add(d.id);
-    commercialMap.set(d.id, d.data() as Record<string, unknown>);
-  }
   for (const d of prodSnap.docs) {
     idSet.add(d.id);
     productionMap.set(d.id, d.data() as Record<string, unknown>);
+    const testingDocRef = db.collection("agent_configurations").doc(d.id).collection("testing").doc("data");
+    const testingSnap = await testingDocRef.get();
+    if (testingSnap.exists) {
+      commercialMap.set(d.id, { _hasTestingData: true });
+    }
   }
 
   return {
@@ -188,8 +186,7 @@ export const getAgentsInfo = async (
   }
 
   try {
-    const commercial = getFirestoreCommercial();
-    const production = getFirestore();
+    const db = getFirestore();
 
     if (light && !admin) {
       if (!emailNorm) {
@@ -197,24 +194,24 @@ export const getAgentsInfo = async (
       }
       const effectiveLimit = Math.min(AGENTS_INFO_MAX_PAGE_LIMIT, pageLimit ?? 15);
 
-      const [growerCom, growerProd] = await Promise.all([
-        commercial
+      const [growerProd, collaboratorTesting] = await Promise.all([
+        db
           .collectionGroup("growers")
           .where("email", "==", emailNorm)
           .get(),
-        production
-          .collectionGroup("growers")
+        db
+          .collectionGroup("collaborators")
           .where("email", "==", emailNorm)
           .get(),
       ]);
 
       const idSet = new Set<string>();
-      for (const d of growerCom.docs) {
+      for (const d of growerProd.docs) {
         const parent = d.ref.parent.parent;
         if (parent) idSet.add(parent.id);
       }
-      for (const d of growerProd.docs) {
-        const parent = d.ref.parent.parent;
+      for (const d of collaboratorTesting.docs) {
+        const parent = d.ref.parent?.parent?.parent?.parent;
         if (parent) idSet.add(parent.id);
       }
       const sortedIds = [...idSet].sort((a, b) => a.localeCompare(b));
@@ -251,7 +248,7 @@ export const getAgentsInfo = async (
       return c.json({ agents: agentRows, nextCursor });
     }
 
-    const collRefProd = production.collection("agent_configurations");
+    const collRefProd = db.collection("agent_configurations");
 
     if (admin && light) {
       const effectiveLimit = pageLimit ?? 15;
@@ -380,10 +377,10 @@ export async function assignAgentToUser(
   _authCtx: AgentsInfoAuthContext,
   agentId: string,
 ) {
-  const commercial = getFirestoreCommercial();
-  const agentSnap = await commercial.collection("agent_configurations").doc(agentId).get();
+  const firestore = getFirestore();
+  const agentSnap = await firestore.collection("agent_configurations").doc(agentId).get();
   if (!agentSnap.exists) {
-    return c.json({ error: "El agente no existe en asistente comercial" }, 404);
+    return c.json({ error: "El agente no existe" }, 404);
   }
 
   const session = await auth.api.getSession({ headers: c.req.raw.headers });
@@ -404,7 +401,7 @@ export async function assignAgentToUser(
 
   const phoneId = phone.trim();
   const userName = rows[0].name ?? session.user.name ?? "";
-  const assignmentRef = commercial.collection("agents_assignment").doc(phoneId);
+  const assignmentRef = firestore.collection("agents_assignment").doc(phoneId);
   const assignmentSnap = await assignmentRef.get();
 
   if (assignmentSnap.exists) {

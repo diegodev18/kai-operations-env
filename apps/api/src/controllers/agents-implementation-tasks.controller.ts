@@ -136,9 +136,9 @@ export async function getImplementationTasks(
   if (denied) return denied;
 
   try {
-    const { db, inCommercial, inProduction } =
+    const { db, hasTestingData, inProduction } =
       await resolveAgentWriteDatabase(agentId);
-    if (!inCommercial && !inProduction) {
+    if (!hasTestingData && !inProduction) {
       return c.json({ error: "Agente no encontrado" }, 404);
     }
     const itemsRef = getTaskItemsCollection(db, agentId);
@@ -199,9 +199,9 @@ export async function createImplementationTask(
   }
 
   try {
-    const { db, inCommercial, inProduction } =
+    const { db, hasTestingData, inProduction } =
       await resolveAgentWriteDatabase(agentId);
-    if (!inCommercial && !inProduction) {
+    if (!hasTestingData && !inProduction) {
       return c.json({ error: "Agente no encontrado" }, 404);
     }
     const agentRef = db.collection("agent_configurations").doc(agentId);
@@ -286,9 +286,9 @@ export async function patchImplementationTask(
   }
 
   try {
-    const { db, inCommercial, inProduction } =
+    const { db, hasTestingData, inProduction } =
       await resolveAgentWriteDatabase(agentId);
-    if (!inCommercial && !inProduction) {
+    if (!hasTestingData && !inProduction) {
       return c.json({ error: "Agente no encontrado" }, 404);
     }
     const agentRef = db.collection("agent_configurations").doc(agentId);

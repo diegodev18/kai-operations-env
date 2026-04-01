@@ -648,7 +648,7 @@ export async function patchAgent(
   return { ok: false, error: "Respuesta inválida del servidor" };
 }
 
-/** Producción (kai) → asistente comercial: copia profunda del agente. */
+/** Producción → testing: setea datos de prod en testing/data/... (merge). */
 export async function postAgentSyncFromProduction(
   agentId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -672,10 +672,10 @@ export async function postAgentSyncFromProduction(
   return { ok: false, error: "Respuesta inválida del servidor" };
 }
 
-/** Asistente comercial → producción (subcolecciones elegidas + nombre exacto). */
+/** Testing → producción: promueve campos individuales seleccionados. */
 export async function postPromoteToProduction(
   agentId: string,
-  body: { subcollections: string[]; confirmation_agent_name: string },
+  body: { fields: Array<{ collection: string; documentId: string; fieldKey: string; value: unknown }>; confirmation_agent_name: string },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const res = await fetch(
     `/api/agents/${encodeURIComponent(agentId)}/promote-to-production`,
@@ -700,6 +700,22 @@ export async function postPromoteToProduction(
   }
   if (data.ok) return { ok: true };
   return { ok: false, error: "Respuesta inválida del servidor" };
+}
+
+/** Obtiene el diff granular entre testing y producción. */
+export async function fetchTestingDiff(
+  agentId: string,
+): Promise<{ diff: Array<{ collection: string; documentId: string; fieldKey: string; testingValue: unknown; productionValue: unknown }> } | null> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/testing/diff`,
+    { credentials: "include", cache: "no-store" },
+  );
+  if (!res.ok) return null;
+  try {
+    return (await res.json()) as { diff: Array<{ collection: string; documentId: string; fieldKey: string; testingValue: unknown; productionValue: unknown }> };
+  } catch {
+    return null;
+  }
 }
 
 /** Proxy de simulaci?n (POST /api/agents-testing/simulate). */

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 export interface ProductionPromptData {
@@ -10,35 +10,28 @@ export function useProductionPrompt(agentId: string) {
   const [data, setData] = useState<ProductionPromptData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
+  const fetchProductionPrompt = useCallback(async () => {
+    if (!agentId) return;
     setIsLoading(true);
-    fetch(`/api/agents/${encodeURIComponent(agentId)}/production-prompt`, {
-      credentials: "include",
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch production prompt");
-        return res.json();
-      })
-      .then((json) => {
-        if (!cancelled) {
-          setData(json as ProductionPromptData);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setData(null);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
+    try {
+      const res = await fetch(`/api/agents/${encodeURIComponent(agentId)}/production-prompt`, {
+        credentials: "include",
       });
-    return () => {
-      cancelled = true;
-    };
+      if (!res.ok) throw new Error("Failed to fetch production prompt");
+      const json = await res.json();
+      setData(json as ProductionPromptData);
+    } catch {
+      setData(null);
+    } finally {
+      setIsLoading(false);
+    }
   }, [agentId]);
 
-  return { data, isLoading };
+  useEffect(() => {
+    fetchProductionPrompt();
+  }, [fetchProductionPrompt]);
+
+  return { data, isLoading, refetch: fetchProductionPrompt };
 }
 
 export async function promotePromptToProduction(

@@ -13,7 +13,7 @@ import {
   syncAiFieldsToDraftRoot,
   writeDefaultAgentProperties,
 } from "@/constants/agentPropertyDefaults";
-import { getFirestore, getFirestoreCommercial, FieldValue } from "@/lib/firestore";
+import { getFirestore, FieldValue } from "@/lib/firestore";
 import logger, { formatError } from "@/lib/logger";
 import {
   runSystemPromptGenerationJob,
@@ -195,7 +195,7 @@ export async function postAgentDraft(
   const { agent_name, agent_personality } = parsed.data;
 
   try {
-    const db = getFirestoreCommercial();
+    const db = getFirestore();
     const draftRef = db.collection(AGENT_CONFIGURATIONS).doc();
     const ts = serverTimestampField();
     const creatorEmail = authCtx.userEmail!.trim().toLowerCase();
@@ -250,7 +250,7 @@ export async function getAgentDraft(
   draftId: string,
 ) {
   try {
-    const db = getFirestoreCommercial();
+    const db = getFirestore();
     const snap = await db.collection(AGENT_CONFIGURATIONS).doc(draftId).get();
     if (!snap.exists) {
       return c.json({ error: "Borrador no encontrado" }, 404);
@@ -290,7 +290,7 @@ export async function patchAgentDraft(
   }
 
   try {
-    const db = getFirestoreCommercial();
+    const db = getFirestore();
     const draftRef = db.collection(AGENT_CONFIGURATIONS).doc(draftId);
     const snap = await draftRef.get();
     if (!snap.exists) {
@@ -580,7 +580,7 @@ async function getAuthorizedDraftRef(
   | { ok: true; draftRef: DocumentReference; draftData: Record<string, unknown> }
   | { ok: false; code: 403 | 404 }
 > {
-  const db = getFirestoreCommercial();
+  const db = getFirestore();
   const draftRef = db.collection(AGENT_CONFIGURATIONS).doc(draftId);
   const snap = await draftRef.get();
   if (!snap.exists) {

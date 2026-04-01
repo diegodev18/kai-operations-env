@@ -1,11 +1,7 @@
 import type { Context } from "hono";
 import { z } from "zod";
 
-import { getFirestore, getFirestoreCommercial } from "@/lib/firestore";
-import {
-  syncAgentFromCommercialToProduction,
-  syncAgentFromProductionToCommercial,
-} from "@/services/agent-firestore-sync";
+import { getFirestore } from "@/lib/firestore";
 import type { AgentsInfoAuthContext } from "@/types/agents";
 import {
   extractFirestoreIndexUrl,
@@ -13,11 +9,6 @@ import {
   isFirebaseConfigError,
 } from "@/utils/firestore/errors";
 import { userCanAccessAgent } from "@/utils/agents";
-
-const promoteBodySchema = z.object({
-  subcollections: z.array(z.string().min(1)).min(1),
-  confirmation_agent_name: z.string().trim().min(1),
-});
 
 function handleError(c: Context, error: unknown, logPrefix: string) {
   if (isFirebaseConfigError(error)) {
@@ -42,9 +33,6 @@ function handleError(c: Context, error: unknown, logPrefix: string) {
   return c.json({ error: msg }, 500);
 }
 
-/**
- * Producción (kai) → asistente comercial (doc + subcolecciones fijas, recursivo).
- */
 export async function postSyncFromProduction(
   c: Context,
   authCtx: AgentsInfoAuthContext,
@@ -55,16 +43,53 @@ export async function postSyncFromProduction(
     if (!ok) {
       return c.json({ error: "No autorizado para este agente" }, 403);
     }
-    const prod = getFirestore();
-    const com = getFirestoreCommercial();
-    const prodSnap = await prod
+    const db = getFirestore();
+    const prodSnap = await db
       .collection("agent_configurations")
       .doc(agentId)
       .get();
     if (!prodSnap.exists) {
       return c.json({ error: "El agente no existe en producción" }, 404);
     }
-    await syncAgentFromProductionToCommercial(prod, com, agentId);
+
+    const testingDataRef = db
+      .collection("agent_configurations")
+      .doc(agentId)
+      .collection("testing")
+      .doc("data");
+
+    const prodPropertiesRef = prodSnap.ref.collection("properties");
+    const prodToolsRef = prodSnap.ref.collection("tools");
+    const prodGrowersRef = prodSnap.ref.collection("growers");
+
+    const testingPropertiesRef = testingDataRef.collection("properties");
+    const testingToolsRef = testingDataRef.collection("tools");
+    const testingCollaboratorsRef = testingDataRef.collection("collaborators");
+
+    const [propsSnap, toolsSnap, growersSnap] = await Promise.all([
+      prodPropertiesRef.get(),
+      prodToolsRef.get(),
+      prodGrowersRef.get(),
+    ]);
+
+    await testingDataRef.set({ _syncedAt: new Date().toISOString() }, { merge: true });
+
+    for (const doc of propsSnap.docs) {
+      await testingPropertiesRef.doc(doc.id).set(doc.data(), { merge: true });
+    }
+
+    for (const doc of toolsSnap.docs) {
+      await testingToolsRef.doc(doc.id).set(doc.data(), { merge: true });
+    }
+
+    for (const doc of growersSnap.docs) {
+      const collaboratorData = {
+        email: doc.data()?.email,
+        name: doc.data()?.name,
+      };
+      await testingCollaboratorsRef.doc(doc.id).set(collaboratorData, { merge: true });
+    }
+
     return c.json({ ok: true });
   } catch (error) {
     const r = handleError(c, error, "[agents sync-from-production]");
@@ -72,9 +97,16 @@ export async function postSyncFromProduction(
   }
 }
 
-/**
- * Asistente comercial → producción (subcolecciones elegidas + nombre del agente).
- */
+const promoteBodySchema = z.object({
+  fields: z.array(z.object({
+    collection: z.string(),
+    documentId: z.string(),
+    fieldKey: z.string(),
+    value: z.any(),
+  })).min(1),
+  confirmation_agent_name: z.string().trim().min(1),
+});
+
 export async function postPromoteToProduction(
   c: Context,
   authCtx: AgentsInfoAuthContext,
@@ -97,13 +129,12 @@ export async function postPromoteToProduction(
     if (!ok) {
       return c.json({ error: "No autorizado para este agente" }, 403);
     }
-    const com = getFirestoreCommercial();
-    const prod = getFirestore();
-    const comRef = com.collection("agent_configurations").doc(agentId);
-    const snap = await comRef.get();
+    const db = getFirestore();
+    const agentRef = db.collection("agent_configurations").doc(agentId);
+    const snap = await agentRef.get();
     if (!snap.exists) {
       return c.json(
-        { error: "El agente no existe en asistente comercial" },
+        { error: "El agente no existe en producción" },
         404,
       );
     }
@@ -117,20 +148,126 @@ export async function postPromoteToProduction(
       return c.json(
         {
           error:
-            "El nombre de confirmación no coincide con el nombre del agente en comercial.",
+            "El nombre de confirmación no coincide con el nombre del agente.",
         },
         400,
       );
     }
-    await syncAgentFromCommercialToProduction(
-      com,
-      prod,
-      agentId,
-      parsed.data.subcollections,
-    );
+
+    for (const field of parsed.data.fields) {
+      if (field.collection === "properties") {
+        const prodDocRef = agentRef.collection("properties").doc(field.documentId);
+        await prodDocRef.set({ [field.fieldKey]: field.value }, { merge: true });
+
+        if (
+          field.documentId === "prompt" &&
+          field.fieldKey === "base" &&
+          typeof field.value === "string"
+        ) {
+          await agentRef.update({
+            "mcp_configuration.system_prompt": field.value,
+          });
+        }
+      } else if (field.collection === "tools") {
+        const prodToolRef = agentRef.collection("tools").doc(field.documentId);
+        await prodToolRef.set({ [field.fieldKey]: field.value }, { merge: true });
+      } else if (field.collection === "collaborators") {
+        const prodGrowerRef = agentRef.collection("growers").doc(field.documentId);
+        await prodGrowerRef.set({ [field.fieldKey]: field.value }, { merge: true });
+      }
+    }
+
     return c.json({ ok: true });
   } catch (error) {
     const r = handleError(c, error, "[agents promote-to-production]");
     return r ?? c.json({ error: "No se pudo promover a producción." }, 500);
+  }
+}
+
+export async function getTestingDiff(
+  c: Context,
+  authCtx: AgentsInfoAuthContext,
+  agentId: string,
+) {
+  try {
+    const ok = await userCanAccessAgent(authCtx, agentId);
+    if (!ok) {
+      return c.json({ error: "No autorizado para este agente" }, 403);
+    }
+    const db = getFirestore();
+    const agentRef = db.collection("agent_configurations").doc(agentId);
+
+    const testingDataRef = agentRef.collection("testing").doc("data");
+    const testingDataSnap = await testingDataRef.get();
+    if (!testingDataSnap.exists) {
+      return c.json({ error: "No hay datos de testing" }, 404);
+    }
+
+    const [prodPropsSnap, testingPropsSnap] = await Promise.all([
+      agentRef.collection("properties").get(),
+      testingDataRef.collection("properties").get(),
+    ]);
+
+    const diff: Array<{
+      collection: string;
+      documentId: string;
+      fieldKey: string;
+      testingValue: unknown;
+      productionValue: unknown;
+    }> = [];
+
+    const normalize = (v: any) => {
+      if (v === undefined) return null;
+      try {
+        // Para evitar problemas de prototipos y referencias de Firestore SDK
+        return JSON.parse(JSON.stringify(v));
+      } catch {
+        return v;
+      }
+    };
+
+    // Properties Diff
+    const allPropDocIds = new Set([
+      ...prodPropsSnap.docs.map((d) => d.id),
+      ...testingPropsSnap.docs.map((d) => d.id),
+    ]);
+
+    for (const docId of allPropDocIds) {
+      const testingDoc = testingPropsSnap.docs.find((d) => d.id === docId);
+      const prodDoc = prodPropsSnap.docs.find((d) => d.id === docId);
+
+      const testingData = (testingDoc?.data() as Record<string, unknown>) || {};
+      const prodData = (prodDoc?.data() as Record<string, unknown>) || {};
+
+      const allKeys = new Set([
+        ...Object.keys(testingData),
+        ...Object.keys(prodData),
+      ]);
+
+      for (const key of allKeys) {
+        if (key.startsWith("_")) continue;
+
+        const tVal = testingData[key];
+        const pVal = prodData[key];
+
+        const tNorm = normalize(tVal);
+        const pNorm = normalize(pVal);
+
+        if (JSON.stringify(tNorm) !== JSON.stringify(pNorm)) {
+          diff.push({
+            collection: "properties",
+            documentId: docId,
+            fieldKey: key,
+            testingValue: tNorm,
+            productionValue: pNorm,
+          });
+        }
+      }
+    }
+
+    return c.json({ diff });
+  } catch (error) {
+    const r = handleError(c, error, "[agents testing diff]");
+    return r ?? c.json({ error: "No se pudo obtener el diff." }, 500);
   }
 }

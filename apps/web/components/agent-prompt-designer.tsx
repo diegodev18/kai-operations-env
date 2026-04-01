@@ -11,6 +11,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -49,6 +58,10 @@ import {
   useAgentProperties,
   updateAgentPropertyDocument,
 } from "@/hooks/agent-properties";
+import {
+  useTestingProperties,
+  updateTestingPropertyDocument,
+} from "@/hooks/agent-testing-properties";
 import { useAgentTools } from "@/hooks/agent-tools";
 import {
   useProductionPrompt,
@@ -182,9 +195,16 @@ export function AgentPromptDesigner({
   const [loadingAgent, setLoadingAgent] = useState(true);
   const { data: propertiesData, isLoading: propertiesLoading } =
     useAgentProperties(agentId);
+  const { data: testingPropertiesData } = useTestingProperties(agentId);
   const { tools: agentTools } = useAgentTools(agentId);
-  const { data: productionPrompt, isLoading: loadingProductionPrompt } =
-    useProductionPrompt(agentId);
+  const {
+    data: productionPrompt,
+    isLoading: loadingProductionPrompt,
+    refetch: refetchProductionPrompt,
+  } = useProductionPrompt(agentId);
+
+  const hasTestingData = testingPropertiesData != null;
+  const effectiveProperties = hasTestingData ? testingPropertiesData : propertiesData;
 
   const [savedPrompt, setSavedPrompt] = useState("");
   const [editingPrompt, setEditingPrompt] = useState("");
@@ -275,7 +295,12 @@ export function AgentPromptDesigner({
   const systemPromptGenInProgress =
     isSystemPromptGenerationInProgress(systemPromptGenStatus);
   const systemPromptGenFailed = systemPromptGenStatus === "failed";
-  const promptAndChatLocked = propertiesLoading || systemPromptGenInProgress;
+  
+  const inProduction = agent?.inProduction ?? false;
+  const inCommercial = agent?.inCommercial ?? false; // Esto ahora significa hasTestingData
+  const needsSync = inProduction && !inCommercial;
+  
+  const promptAndChatLocked = propertiesLoading || systemPromptGenInProgress || needsSync;
 
   useEffect(() => {
     if (!agentId || !systemPromptGenInProgress) return;
@@ -307,26 +332,26 @@ export function AgentPromptDesigner({
   useEffect(() => {
     if (!agent) return;
     if (propertiesLoading) return;
-    const baseFromProperties = propertiesData?.prompt?.base ?? "";
+    const baseFromProperties = effectiveProperties?.prompt?.base ?? "";
     const promptValue = baseFromProperties || (agent.prompt ?? "");
     queueMicrotask(() => {
       setSavedPrompt(promptValue);
       setEditingPrompt(promptValue);
       reset();
     });
-  }, [agent, propertiesData, propertiesLoading, reset]);
+  }, [agent, effectiveProperties, propertiesLoading, reset]);
 
   useEffect(() => {
-    if (!isAuthEnabled || !propertiesData?.prompt) return;
-    const auth = propertiesData.prompt.auth?.auth ?? "";
-    const unauth = propertiesData.prompt.auth?.unauth ?? "";
+    if (!isAuthEnabled || !effectiveProperties?.prompt) return;
+    const auth = effectiveProperties.prompt.auth?.auth ?? "";
+    const unauth = effectiveProperties.prompt.auth?.unauth ?? "";
     queueMicrotask(() => {
       setSavedAuthPrompt(auth);
       setSavedUnauthPrompt(unauth);
       setEditingAuthPrompt(auth);
       setEditingUnauthPrompt(unauth);
     });
-  }, [isAuthEnabled, propertiesData?.prompt]);
+  }, [isAuthEnabled, effectiveProperties?.prompt]);
 
   useEffect(() => {
     try {
@@ -369,7 +394,7 @@ export function AgentPromptDesigner({
     setIsSaving(true);
     let ok = true;
     if (editingPrompt !== savedPrompt) {
-      const saved = await updateAgentPropertyDocument(
+      const saved = await updateTestingPropertyDocument(
         agentId,
         "prompt",
         { base: editingPrompt },
@@ -382,7 +407,7 @@ export function AgentPromptDesigner({
       isAuthEnabled &&
       (editingAuthPrompt !== savedAuthPrompt ||
         editingUnauthPrompt !== savedUnauthPrompt) &&
-      propertiesData?.prompt
+      effectiveProperties?.prompt
     ) {
       const payload = {
         auth: {
@@ -390,15 +415,15 @@ export function AgentPromptDesigner({
           unauth: editingUnauthPrompt,
         },
         isMultiFunctionCallingEnable:
-          propertiesData.prompt.isMultiFunctionCallingEnable,
-        model: propertiesData.prompt.model ?? "gemini-2.5-flash",
+          effectiveProperties.prompt.isMultiFunctionCallingEnable,
+        model: effectiveProperties.prompt.model ?? "gemini-2.5-flash",
         temperature:
-          propertiesData.prompt.temperature !== undefined &&
-          propertiesData.prompt.temperature !== null
-            ? Number(propertiesData.prompt.temperature)
+          effectiveProperties.prompt.temperature !== undefined &&
+          effectiveProperties.prompt.temperature !== null
+            ? Number(effectiveProperties.prompt.temperature)
             : 0.4,
       };
-      const saved = await updateAgentPropertyDocument(
+      const saved = await updateTestingPropertyDocument(
         agentId,
         "prompt",
         payload,
@@ -423,19 +448,52 @@ export function AgentPromptDesigner({
     return baseDiffers;
   }, [editingPrompt, editingAuthPrompt, editingUnauthPrompt, productionPrompt, isAuthEnabled]);
 
+  const [isPromoteDialogOpen, setIsPromoteDialogOpen] = useState(false);
+  const [promoteIncludeAuth, setPromoteIncludeAuth] = useState(true);
+  const [promoteIncludeUnauth, setPromoteIncludeUnauth] = useState(true);
+
   const handlePromoteToProduction = async () => {
     if (!productionPromptDiffers) return;
+
+    let authDiffers = false;
+    let unauthDiffers = false;
+    if (isAuthEnabled && productionPrompt?.auth) {
+      authDiffers = editingAuthPrompt !== productionPrompt.auth.auth;
+      unauthDiffers = editingUnauthPrompt !== productionPrompt.auth.unauth;
+    }
+
+    if (authDiffers || unauthDiffers) {
+      // Mostrar modal para seleccionar
+      setPromoteIncludeAuth(authDiffers);
+      setPromoteIncludeUnauth(unauthDiffers);
+      setIsPromoteDialogOpen(true);
+      return;
+    }
+
+    // Directo
+    await executePromote({ includeAuth: false, includeUnauth: false });
+  };
+
+  const executePromote = async ({ includeAuth, includeUnauth }: { includeAuth: boolean; includeUnauth: boolean }) => {
     setPromoting(true);
     try {
       const payload: { prompt: string; auth?: { auth: string; unauth: string } } = {
         prompt: editingPrompt,
       };
-      if (isAuthEnabled) {
-        payload.auth = { auth: editingAuthPrompt, unauth: editingUnauthPrompt };
+      
+      // Si decidimos incluir auth, lo enviamos todo al API (actualiza el documento auth entero)
+      if (isAuthEnabled && (includeAuth || includeUnauth || !productionPrompt?.auth)) {
+        payload.auth = {
+          auth: includeAuth ? editingAuthPrompt : (productionPrompt?.auth?.auth ?? editingAuthPrompt),
+          unauth: includeUnauth ? editingUnauthPrompt : (productionPrompt?.auth?.unauth ?? editingUnauthPrompt),
+        };
       }
+
       const ok = await promotePromptApi(agentId, payload);
       if (ok) {
         toast.success("Prompt subido a producción 🚀");
+        setIsPromoteDialogOpen(false);
+        await refetchProductionPrompt();
       }
     } finally {
       setPromoting(false);
@@ -647,6 +705,49 @@ export function AgentPromptDesigner({
         </div>
       )}
       <div className="flex min-h-0 flex-1 overflow-hidden rounded-lg border">
+        <Dialog open={isPromoteDialogOpen} onOpenChange={setIsPromoteDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Opciones de promoción</DialogTitle>
+              <DialogDescription>
+                Hay cambios en los prompts de autenticación. ¿Qué deseas promover?
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="promote-auth"
+                  checked={promoteIncludeAuth}
+                  onCheckedChange={(c: boolean) => setPromoteIncludeAuth(c === true)}
+                />
+                <Label htmlFor="promote-auth">Prompt de usuarios autenticados</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="promote-unauth"
+                  checked={promoteIncludeUnauth}
+                  onCheckedChange={(c: boolean) => setPromoteIncludeUnauth(c === true)}
+                />
+                <Label htmlFor="promote-unauth">Prompt de usuarios no autenticados</Label>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsPromoteDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => void executePromote({
+                  includeAuth: promoteIncludeAuth,
+                  includeUnauth: promoteIncludeUnauth,
+                })}
+                disabled={promoting}
+              >
+                {promoting && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
+                Promover
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         <div className="flex-1 min-w-0 flex flex-col min-h-0">
           <div className="flex-1 min-h-0 flex flex-col p-3 gap-4 overflow-hidden bg-background">
           <div className="flex-[3] min-h-0 flex flex-col gap-2 overflow-hidden">

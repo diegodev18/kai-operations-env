@@ -47,7 +47,12 @@ import {
 import {
   postPromoteToProduction,
   postSyncFromProduction,
+  getTestingDiff,
 } from "@/controllers/agent-sync.controller";
+import {
+  getTestingProperties,
+  updateTestingPropertyDocument,
+} from "@/controllers/agent-testing.controller";
 import {
   getAgentBilling,
   patchAgentBillingConfig,
@@ -314,6 +319,27 @@ agentsRouter.post("/:agentId/system-prompt/regenerate", async (c) => {
   return postAgentSystemPromptRegenerate(c, ctx.authCtx, agentId);
 });
 
+agentsRouter.get("/:agentId/testing/properties", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return getTestingProperties(c, ctx.authCtx, agentId);
+});
+
+agentsRouter.patch("/:agentId/testing/properties/:documentId", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  const documentId = c.req.param("documentId")?.trim() ?? "";
+  if (!agentId || !documentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente o documento no encontrado" }, 404);
+  }
+  return updateTestingPropertyDocument(c, ctx.authCtx, agentId, documentId);
+});
+
 agentsRouter.post("/:agentId/sync-from-production", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
@@ -332,6 +358,16 @@ agentsRouter.post("/:agentId/promote-to-production", async (c) => {
     return c.json({ error: "Agente no encontrado" }, 404);
   }
   return postPromoteToProduction(c, ctx.authCtx, agentId);
+});
+
+agentsRouter.get("/:agentId/testing/diff", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return getTestingDiff(c, ctx.authCtx, agentId);
 });
 
 agentsRouter.patch("/:agentId", async (c) => {

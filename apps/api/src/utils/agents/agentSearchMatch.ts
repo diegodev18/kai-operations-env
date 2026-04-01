@@ -4,7 +4,7 @@
  */
 import type { Firestore } from "firebase-admin/firestore";
 
-import { getFirestore, getFirestoreCommercial } from "@/lib/firestore";
+import { getFirestore } from "@/lib/firestore";
 import type { AgentDocument } from "@/types/agents";
 
 import { fetchGrowersForAgent } from "./growers";
@@ -68,24 +68,16 @@ export async function agentMatchesGrowersSearchQuery(
     production?: Record<string, unknown> | null;
   },
 ): Promise<boolean> {
-  const commercial = getFirestoreCommercial();
-  const production = getFirestore();
+  const db = getFirestore();
 
-  let comData = prefetchedData?.commercial;
   let prodData = prefetchedData?.production;
 
   if (prefetchedData === undefined) {
-    const [comDoc, prodDoc] = await Promise.all([
-      commercial.collection("agent_configurations").doc(agentId).get(),
-      production.collection("agent_configurations").doc(agentId).get(),
-    ]);
-    comData = comDoc.exists ? (comDoc.data() as Record<string, unknown>) : null;
+    const prodDoc = await db.collection("agent_configurations").doc(agentId).get();
     prodData = prodDoc.exists ? (prodDoc.data() as Record<string, unknown>) : null;
   }
 
-  const inCommercial = comData != null;
-  const primaryDb: Firestore = inCommercial ? commercial : production;
-  const agentRef = primaryDb.collection("agent_configurations").doc(agentId);
+  const agentRef = db.collection("agent_configurations").doc(agentId);
   const growers = await fetchGrowersForAgent(agentRef);
 
   return growers.some(
@@ -106,9 +98,8 @@ export async function agentMatchesSearchQuery(
     production?: Record<string, unknown> | null;
   },
 ): Promise<boolean> {
-  const comData = prefetchedData?.commercial;
   const prodData = prefetchedData?.production;
-  const data = comData ?? prodData;
+  const data = prodData;
 
   if (data && agentMatchesRootSearchQuery(agentId, qLower, data)) {
     return true;

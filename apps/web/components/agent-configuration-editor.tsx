@@ -8,6 +8,7 @@ import {
   useAgentProperties,
   updateAgentPropertyDocument,
 } from "@/hooks/agent-properties";
+import { useTestingDiff } from "@/hooks/agent-testing";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -55,13 +56,13 @@ import {
   patchAgent,
   postAgentGrower,
   postAgentSyncFromProduction,
-  postPromoteToProduction,
 } from "@/lib/agents-api";
 import {
   fetchOrganizationUsers,
   type OrganizationUser,
 } from "@/lib/organization-api";
 import { AGENT_VERSIONS } from "@/consts/agent-versions";
+import { PromoteDiffDialog } from "@/components/promote-diff-dialog";
 
 const DOCUMENT_IDS: PropertyDocumentId[] = [
   "agent",
@@ -76,28 +77,6 @@ const DOCUMENT_IDS: PropertyDocumentId[] = [
 ];
 
 const DEFAULT_LLM_MODEL = "gemini-2.5-flash";
-
-/** Subcolecciones permitidas en POST promote-to-production (alineado con API). */
-const PROMOTE_SUBCOLLECTION_OPTIONS: { id: string; label: string }[] = [
-  { id: "tools", label: "Herramientas" },
-  { id: "knowledgeBase", label: "Base de conocimiento" },
-  { id: "properties", label: "Propiedades" },
-  { id: "wallet", label: "Wallet" },
-  { id: "pipelines", label: "Pipelines" },
-  { id: "growers", label: "Growers" },
-  { id: "commands", label: "Comandos" },
-  { id: "faqs", label: "FAQs" },
-  { id: "chats", label: "Chats" },
-  { id: "orders", label: "Pedidos" },
-];
-
-function defaultPromoteSelection(): Record<string, boolean> {
-  const o: Record<string, boolean> = {};
-  for (const { id } of PROMOTE_SUBCOLLECTION_OPTIONS) {
-    o[id] = ["chats", "orders", "commands", "faqs"].includes(id) ? false : true;
-  }
-  return o;
-}
 
 const AGENT_LLM_MODELS = [
   "gemini-2.5-flash",
@@ -272,15 +251,11 @@ export function AgentConfigurationEditor({
     null,
   );
   const [promoteDialogOpen, setPromoteDialogOpen] = useState(false);
-  const [promoteSubcols, setPromoteSubcols] = useState<Record<string, boolean>>(
-    () => defaultPromoteSelection(),
-  );
-  const [promoteConfirmName, setPromoteConfirmName] = useState("");
   const [syncingFromProd, setSyncingFromProd] = useState(false);
-  const [promoting, setPromoting] = useState(false);
   const [agentVersion, setAgentVersion] = useState<string>("production");
   const [savingVersion, setSavingVersion] = useState(false);
   const pendingVersionRef = useRef<string | null>(null);
+  const { data: diffData, isLoading: isDiffLoading, refetch: refetchDiff } = useTestingDiff(agentId);
 
   useEffect(() => {
     if (data) {
@@ -596,9 +571,10 @@ export function AgentConfigurationEditor({
       const r = await postAgentSyncFromProduction(agentId);
       if (r.ok) {
         toast.success(
-          "Copia actualizada en asistente comercial (desde producción)",
+          "Datos actualizados en testing (desde producción)",
         );
         await refetch();
+        refetchDiff();
         onAgentUpdated?.();
         window.dispatchEvent(new Event("kai-agent-deployment-changed"));
       } else {
@@ -607,52 +583,19 @@ export function AgentConfigurationEditor({
     } finally {
       setSyncingFromProd(false);
     }
-  }, [agentId, refetch, onAgentUpdated]);
+  }, [agentId, refetch, refetchDiff, onAgentUpdated]);
 
   const openPromoteDialog = useCallback(() => {
-    setPromoteSubcols(defaultPromoteSelection());
-    setPromoteConfirmName("");
+    refetchDiff();
     setPromoteDialogOpen(true);
-  }, []);
+  }, [refetchDiff]);
 
-  const handlePromoteToProduction = useCallback(async () => {
-    if (!agentId) return;
-    const subcollections = PROMOTE_SUBCOLLECTION_OPTIONS.filter(
-      ({ id }) => promoteSubcols[id],
-    ).map(({ id }) => id);
-    if (subcollections.length === 0) {
-      toast.error("Selecciona al menos una subcolección");
-      return;
-    }
-    if (normalizeConfirmInput(promoteConfirmName) !== "confirmar") {
-      toast.error("Escribe CONFIRMAR para continuar");
-      return;
-    }
-    setPromoting(true);
-    try {
-      const r = await postPromoteToProduction(agentId, {
-        subcollections,
-        confirmation_agent_name: promoteConfirmName.trim(),
-      });
-      if (r.ok) {
-        toast.success("Agente copiado a producción (kai)");
-        setPromoteDialogOpen(false);
-        await refetch();
-        onAgentUpdated?.();
-        window.dispatchEvent(new Event("kai-agent-deployment-changed"));
-      } else {
-        toast.error(r.error);
-      }
-    } finally {
-      setPromoting(false);
-    }
-  }, [
-    agentId,
-    promoteSubcols,
-    promoteConfirmName,
-    refetch,
-    onAgentUpdated,
-  ]);
+  const handlePromoteSuccess = useCallback(async () => {
+    await refetch();
+    refetchDiff();
+    onAgentUpdated?.();
+    window.dispatchEvent(new Event("kai-agent-deployment-changed"));
+  }, [refetch, refetchDiff, onAgentUpdated]);
 
   const handleVersionChange = useCallback(
     async (newVersion: string) => {
@@ -1387,85 +1330,15 @@ export function AgentConfigurationEditor({
               </Button>
             </div>
           </div>
-          <Dialog
+          <PromoteDiffDialog
             open={promoteDialogOpen}
-            onOpenChange={(open) => {
-              setPromoteDialogOpen(open);
-              if (!open) setPromoting(false);
-            }}
-          >
-            <DialogContent className="max-h-[min(90vh,36rem)] overflow-y-auto sm:max-w-lg" showClose>
-              <DialogHeader>
-                <DialogTitle>Subir a producción</DialogTitle>
-                <DialogDescription>
-                  Se copiará el documento del agente y las subcolecciones marcadas
-                  desde asistente comercial hacia kai. Escribe{" "}
-                  <span className="font-medium text-foreground">CONFIRMAR</span>{" "}
-                  para continuar.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-3 py-2">
-                <p className="text-sm font-medium">Subcolecciones</p>
-                <div className="grid max-h-48 gap-2 overflow-y-auto rounded-md border p-3 sm:grid-cols-2">
-                  {PROMOTE_SUBCOLLECTION_OPTIONS.map(({ id, label }) => (
-                    <label
-                      key={id}
-                      className="flex cursor-pointer items-center gap-2 text-sm"
-                    >
-                      <Checkbox
-                        checked={!!promoteSubcols[id]}
-                        onCheckedChange={(v) =>
-                          setPromoteSubcols((prev) => ({
-                            ...prev,
-                            [id]: v === true,
-                          }))
-                        }
-                      />
-                      {label}
-                    </label>
-                  ))}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="promote-confirm-name">Confirmar</Label>
-                  <Input
-                    id="promote-confirm-name"
-                    value={promoteConfirmName}
-                    onChange={(e) => setPromoteConfirmName(e.target.value)}
-                    placeholder="CONFIRMAR"
-                    autoComplete="off"
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setPromoteDialogOpen(false)}
-                  disabled={promoting}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="button"
-                  disabled={
-                    promoting ||
-                    normalizeConfirmInput(promoteConfirmName) !== "confirmar" ||
-                    !PROMOTE_SUBCOLLECTION_OPTIONS.some(({ id }) => promoteSubcols[id])
-                  }
-                  onClick={() => void handlePromoteToProduction()}
-                >
-                  {promoting ? (
-                    <>
-                      <Loader2Icon className="mr-2 size-4 animate-spin" />
-                      Subiendo…
-                    </>
-                  ) : (
-                    "Promover"
-                  )}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+            onOpenChange={setPromoteDialogOpen}
+            diff={diffData}
+            isLoading={isDiffLoading}
+            agentId={agentId}
+            agentNameForConfirm={agentNameForConfirm}
+            onSuccess={handlePromoteSuccess}
+          />
           <Dialog open={isDisableDialogOpen} onOpenChange={handleDisableDialogOpenChange}>
             <DialogContent className="max-w-md" showClose>
               <DialogHeader>

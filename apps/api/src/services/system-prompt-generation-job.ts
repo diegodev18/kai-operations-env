@@ -1,6 +1,6 @@
 import type { Firestore } from "firebase-admin/firestore";
 
-import { getFirestoreCommercial, FieldValue } from "@/lib/firestore";
+import { getFirestore, FieldValue } from "@/lib/firestore";
 import logger, { formatError } from "@/lib/logger";
 import {
   type BuilderContextPayload,
@@ -119,6 +119,7 @@ async function markReady(
   agentId: string,
   systemPrompt: string,
 ): Promise<void> {
+  const agentRef = db.collection(AGENT_CONFIG).doc(agentId);
   const patch = {
     "mcp_configuration.system_prompt": systemPrompt,
     "mcp_configuration.system_prompt_generation_status": "ready",
@@ -126,14 +127,22 @@ async function markReady(
     "mcp_configuration.system_prompt_generation_updated_at":
       FieldValue.serverTimestamp(),
   };
-  await applyMcpGenerationPatch(db, agentId, patch);
+  await Promise.all([
+    agentRef.update(patch),
+    agentRef.collection("properties").doc("prompt").set(
+      {
+        base: systemPrompt,
+      },
+      { merge: true },
+    ),
+  ]);
 }
 
 /**
  * Generación multi-fase del system prompt en `agent_configurations` (asistente comercial).
  */
 export async function runSystemPromptGenerationJob(agentId: string): Promise<void> {
-  const db = getFirestoreCommercial();
+  const db = getFirestore();
   const context = await loadAgentContext(db, agentId);
   if (!context) {
     logger.warn("system prompt job: no agent document", agentId);
@@ -162,7 +171,7 @@ export async function runSystemPromptGenerationJob(agentId: string): Promise<voi
 
 /** Marca el documento como en generación (reintento manual). */
 export async function setSystemPromptGeneratingFlags(agentId: string): Promise<void> {
-  const db = getFirestoreCommercial();
+  const db = getFirestore();
   const patch = {
     "mcp_configuration.system_prompt_generation_status": "generating",
     "mcp_configuration.system_prompt_generation_error": null,

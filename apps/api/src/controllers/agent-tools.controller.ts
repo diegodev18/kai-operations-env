@@ -105,14 +105,18 @@ export async function getAgentTools(
   if (denied) return denied;
 
   try {
-    const { db: database, inCommercial, inProduction } =
+    const { db: database, hasTestingData, inProduction } =
       await resolveAgentWriteDatabase(agentId);
-    if (!inCommercial && !inProduction) {
+    if (!hasTestingData && !inProduction) {
       return c.json({ error: "Agente no encontrado" }, 404);
     }
     const agentRef = database.collection("agent_configurations").doc(agentId);
 
-    const toolsSnap = await agentRef.collection("tools").get();
+    const toolsRef = hasTestingData
+      ? agentRef.collection("testing").doc("data").collection("tools")
+      : agentRef.collection("tools");
+
+    const toolsSnap = await toolsRef.get();
     const tools = toolsSnap.docs.map((doc) =>
       parseToolDoc(doc.id, doc.data() as Record<string, unknown>),
     );
@@ -194,12 +198,16 @@ export async function createAgentTool(
   }
 
   try {
-    const { db: database, inCommercial, inProduction } =
+    const { db: database, hasTestingData, inProduction } =
       await resolveAgentWriteDatabase(agentId);
-    if (!inCommercial && !inProduction) {
+    if (!hasTestingData && !inProduction) {
       return c.json({ error: "Agente no encontrado" }, 404);
     }
     const agentRef = database.collection("agent_configurations").doc(agentId);
+
+    const toolsRef = hasTestingData
+      ? agentRef.collection("testing").doc("data").collection("tools")
+      : agentRef.collection("tools");
 
     const toolData: Record<string, unknown> = {
       createdAt: FieldValue.serverTimestamp(),
@@ -221,7 +229,7 @@ export async function createAgentTool(
       toolData.required_agent_properties = required_agent_properties;
     }
 
-    const ref = await agentRef.collection("tools").add(toolData);
+    const ref = await toolsRef.add(toolData);
     await ref.update({ id: ref.id });
 
     const created = parseToolDoc(ref.id, { ...toolData, id: ref.id });
@@ -308,16 +316,17 @@ export async function updateAgentTool(
   updates.updatedAt = FieldValue.serverTimestamp();
 
   try {
-    const { db: database, inCommercial, inProduction } =
+    const { db: database, hasTestingData, inProduction } =
       await resolveAgentWriteDatabase(agentId);
-    if (!inCommercial && !inProduction) {
+    if (!hasTestingData && !inProduction) {
       return c.json({ error: "Agente no encontrado" }, 404);
     }
-    const toolRef = database
-      .collection("agent_configurations")
-      .doc(agentId)
-      .collection("tools")
-      .doc(toolId);
+    const agentRef = database.collection("agent_configurations").doc(agentId);
+
+    const toolsRef = hasTestingData
+      ? agentRef.collection("testing").doc("data").collection("tools")
+      : agentRef.collection("tools");
+    const toolRef = toolsRef.doc(toolId);
     const toolSnap = await toolRef.get();
     if (!toolSnap.exists) {
       return c.json({ error: "Tool no encontrada" }, 404);
@@ -344,14 +353,17 @@ export async function deleteAgentTool(
   if (denied) return denied;
 
   try {
-    const { db: database, inCommercial, inProduction } =
+    const { db: database, hasTestingData, inProduction } =
       await resolveAgentWriteDatabase(agentId);
-    if (!inCommercial && !inProduction) {
+    if (!hasTestingData && !inProduction) {
       return c.json({ error: "Agente no encontrado" }, 404);
     }
     const agentRef = database.collection("agent_configurations").doc(agentId);
 
-    const toolRef = agentRef.collection("tools").doc(toolId);
+    const toolsRef = hasTestingData
+      ? agentRef.collection("testing").doc("data").collection("tools")
+      : agentRef.collection("tools");
+    const toolRef = toolsRef.doc(toolId);
     const toolSnap = await toolRef.get();
     if (!toolSnap.exists) {
       return c.json({ error: "Tool no encontrada" }, 404);

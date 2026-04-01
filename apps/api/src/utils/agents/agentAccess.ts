@@ -1,14 +1,11 @@
 import type { Firestore } from "firebase-admin/firestore";
 
-import { getFirestore, getFirestoreCommercial } from "@/lib/firestore";
+import { getFirestore } from "@/lib/firestore";
 import type { AgentsInfoAuthContext } from "@/types/agents";
 import { isOperationsAdmin } from "@/utils/operations-access";
 
 import { mapGrowerDocsToPayload } from "./growers";
 
-/**
- * Admin de operaciones o grower del agente (email en subcolección growers en comercial o producción).
- */
 export async function userCanAccessAgent(
   authCtx: AgentsInfoAuthContext,
   agentId: string,
@@ -17,51 +14,45 @@ export async function userCanAccessAgent(
   const emailNorm = authCtx.userEmail?.toLowerCase().trim() ?? "";
   if (!emailNorm) return false;
 
-  const prod = getFirestore();
-  const com = getFirestoreCommercial();
-  const [snapProd, snapCom] = await Promise.all([
-    prod.collection("agent_configurations").doc(agentId).collection("growers").get(),
-    com.collection("agent_configurations").doc(agentId).collection("growers").get(),
+  const db = getFirestore();
+  const [prodGrowersSnap, testingGrowersSnap] = await Promise.all([
+    db.collection("agent_configurations").doc(agentId).collection("growers").get(),
+    db.collection("agent_configurations").doc(agentId).collection("testing").doc("data").collection("collaborators").get(),
   ]);
-  const growers = [
-    ...mapGrowerDocsToPayload(snapProd.docs),
-    ...mapGrowerDocsToPayload(snapCom.docs),
+  const prodGrowers = mapGrowerDocsToPayload(prodGrowersSnap.docs);
+  const testingCollaborators = testingGrowersSnap.docs.map(d => ({
+    email: (d.data()?.email as string)?.toLowerCase().trim() ?? "",
+  }));
+  const allEmails = [
+    ...prodGrowers.map(g => g.email),
+    ...testingCollaborators.map(c => c.email),
   ];
-  return growers.some((g) => g.email === emailNorm);
+  return allEmails.some(email => email === emailNorm);
 }
 
-/** Base de datos donde editar el agente: comercial si existe, si no producción. */
 export async function resolveAgentWriteDatabase(
   agentId: string,
-): Promise<{ db: Firestore; inCommercial: boolean; inProduction: boolean }> {
-  const prod = getFirestore();
-  const com = getFirestoreCommercial();
-  const [comSnap, prodSnap] = await Promise.all([
-    com.collection("agent_configurations").doc(agentId).get(),
-    prod.collection("agent_configurations").doc(agentId).get(),
+): Promise<{ db: Firestore; hasTestingData: boolean; inProduction: boolean }> {
+  const db = getFirestore();
+  const [prodSnap, testingDataSnap] = await Promise.all([
+    db.collection("agent_configurations").doc(agentId).get(),
+    db.collection("agent_configurations").doc(agentId).collection("testing").doc("data").get(),
   ]);
-  const inCommercial = comSnap.exists;
   const inProduction = prodSnap.exists;
-  if (inCommercial) {
-    return { db: com, inCommercial, inProduction };
-  }
-  if (inProduction) {
-    return { db: prod, inCommercial, inProduction };
-  }
-  return { db: prod, inCommercial: false, inProduction: false };
+  const hasTestingData = testingDataSnap.exists;
+  return { db, hasTestingData, inProduction };
 }
 
 export async function getAgentDeploymentFlags(
   agentId: string,
-): Promise<{ inCommercial: boolean; inProduction: boolean }> {
-  const prod = getFirestore();
-  const com = getFirestoreCommercial();
-  const [comSnap, prodSnap] = await Promise.all([
-    com.collection("agent_configurations").doc(agentId).get(),
-    prod.collection("agent_configurations").doc(agentId).get(),
+): Promise<{ hasTestingData: boolean; inProduction: boolean }> {
+  const db = getFirestore();
+  const [prodSnap, testingDataSnap] = await Promise.all([
+    db.collection("agent_configurations").doc(agentId).get(),
+    db.collection("agent_configurations").doc(agentId).collection("testing").doc("data").get(),
   ]);
   return {
-    inCommercial: comSnap.exists,
+    hasTestingData: testingDataSnap.exists,
     inProduction: prodSnap.exists,
   };
 }
