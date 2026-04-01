@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircleIcon,
   BanknoteIcon,
@@ -685,9 +685,8 @@ export function OperationsDashboard(props: {
                   </thead>
                   <tbody>
                     {filteredAgents.map((agent) => (
-                      <>
+                      <Fragment key={agent.id}>
                       <tr
-                        key={agent.id}
                         className="border-b border-border transition-colors hover:bg-muted/50 cursor-pointer"
                         onClick={() =>
                           router.push(
@@ -1026,7 +1025,7 @@ export function OperationsDashboard(props: {
                           </td>
                         </tr>
                       )}
-                      </>
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>
