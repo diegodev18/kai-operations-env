@@ -50,7 +50,6 @@ import {
   updateAgentPropertyDocument,
 } from "@/hooks/agent-properties";
 import { useAgentTools } from "@/hooks/agent-tools";
-import { updateAgentPrompt } from "@/hooks/agent-prompt";
 import {
   useProductionPrompt,
   promotePromptToProduction as promotePromptApi,
@@ -307,12 +306,15 @@ export function AgentPromptDesigner({
 
   useEffect(() => {
     if (!agent) return;
+    if (propertiesLoading) return;
+    const baseFromProperties = propertiesData?.prompt?.base ?? "";
+    const promptValue = baseFromProperties || (agent.prompt ?? "");
     queueMicrotask(() => {
-      setSavedPrompt(agent.prompt ?? "");
-      setEditingPrompt(agent.prompt ?? "");
+      setSavedPrompt(promptValue);
+      setEditingPrompt(promptValue);
       reset();
     });
-  }, [agent, reset]);
+  }, [agent, propertiesData, propertiesLoading, reset]);
 
   useEffect(() => {
     if (!isAuthEnabled || !propertiesData?.prompt) return;
@@ -367,11 +369,12 @@ export function AgentPromptDesigner({
     setIsSaving(true);
     let ok = true;
     if (editingPrompt !== savedPrompt) {
-      const updated = await updateAgentPrompt({
+      const saved = await updateAgentPropertyDocument(
         agentId,
-        prompt: editingPrompt,
-      });
-      if (updated != null) setSavedPrompt(updated);
+        "prompt",
+        { base: editingPrompt },
+      );
+      if (saved) setSavedPrompt(editingPrompt);
       else ok = false;
     }
     if (

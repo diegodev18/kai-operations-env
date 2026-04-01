@@ -37,6 +37,7 @@ export const PROPERTY_DEFAULTS = {
     limit: 15,
   },
   prompt: {
+    base: "",
     auth: { auth: "", unauth: "" },
     isMultiFunctionCallingEnable: true,
     model: "gemini-2.5-flash",

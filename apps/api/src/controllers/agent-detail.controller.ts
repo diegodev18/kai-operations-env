@@ -315,6 +315,16 @@ export async function updateAgentPropertyDocument(
     const docRef = agentRef.collection("properties").doc(documentId);
     await docRef.set(body as Record<string, unknown>, { merge: true });
 
+    if (documentId === "prompt" && "base" in bodyObj) {
+      const otherDb = inCommercial ? getFirestore() : getFirestoreCommercial();
+      const otherSnap = await otherDb.collection("agent_configurations").doc(agentId).get();
+      if (otherSnap.exists) {
+        const otherAgentRef = otherDb.collection("agent_configurations").doc(agentId);
+        const otherDocRef = otherAgentRef.collection("properties").doc(documentId);
+        await otherDocRef.set(body as Record<string, unknown>, { merge: true });
+      }
+    }
+
     if (documentId === "ai") {
       const aiBody = body as Record<string, unknown>;
       const model =

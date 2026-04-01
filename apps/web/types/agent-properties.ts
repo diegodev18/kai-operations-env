@@ -54,6 +54,7 @@ export interface TimePropertyDoc {
 }
 
 export interface PromptPropertyDoc {
+  base?: string;
   auth?: { auth?: string; unauth?: string };
   isMultiFunctionCallingEnable?: boolean;
   model?: string;
