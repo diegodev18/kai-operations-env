@@ -48,6 +48,12 @@ import {
   postPromoteToProduction,
   postSyncFromProduction,
 } from "@/controllers/agent-sync.controller";
+import {
+  getAgentBilling,
+  patchAgentBillingConfig,
+  createPaymentRecord,
+  deletePaymentRecord,
+} from "@/controllers/agent-billing.controller";
 import { resolveAgentsAuthContext } from "@/routes/agents-auth";
 
 const agentsRouter = new Hono();
@@ -423,6 +429,47 @@ agentsRouter.post("/:agentId/assign-to-user", async (c) => {
     return c.json({ error: "Agente no encontrado" }, 404);
   }
   return assignAgentToUser(c, ctx.authCtx, agentId);
+});
+
+agentsRouter.get("/:agentId/billing", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return getAgentBilling(c, ctx.authCtx, agentId);
+});
+
+agentsRouter.patch("/:agentId/billing", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return patchAgentBillingConfig(c, ctx.authCtx, agentId);
+});
+
+agentsRouter.post("/:agentId/billing/payments", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return createPaymentRecord(c, ctx.authCtx, agentId);
+});
+
+agentsRouter.delete("/:agentId/billing/payments/:paymentId", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  const paymentId = c.req.param("paymentId")?.trim() ?? "";
+  if (!agentId || !paymentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente o pago no encontrado" }, 404);
+  }
+  return deletePaymentRecord(c, ctx.authCtx, agentId, paymentId);
 });
 
 export default agentsRouter;

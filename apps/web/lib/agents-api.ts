@@ -1,5 +1,5 @@
 import type { Agent } from "@/lib/agent";
-import { toAgentWithOperations, type AgentWithOperations } from "@/lib/agent";
+import { toAgentWithOperations, type AgentWithOperations, type AgentBilling, type PaymentRecord } from "@/lib/agent";
 import type {
   AgentDraftClient,
   AgentDraftPatchBody,
@@ -881,6 +881,111 @@ export async function assignAgentToUser(
   }
   if (!res.ok) {
     return { ok: false, error: data.error ?? "No se pudo asignar el agente" };
+  }
+  if (data.ok) return { ok: true };
+  return { ok: false, error: "Respuesta inválida del servidor" };
+}
+
+export async function fetchAgentBilling(
+  agentId: string,
+): Promise<{ billing: AgentBilling; payments: PaymentRecord[] } | null> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/billing`,
+    {
+      credentials: "include",
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) return null;
+  try {
+    return (await res.json()) as { billing: AgentBilling; payments: PaymentRecord[] };
+  } catch {
+    return null;
+  }
+}
+
+export async function patchAgentBillingConfig(
+  agentId: string,
+  body: {
+    domiciliated?: boolean;
+    defaultPaymentAmount?: number;
+    paymentDueDate?: string | null;
+  },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/billing`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    },
+  );
+  let data: { ok?: boolean; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return { ok: false, error: data.error ?? "No se pudo actualizar la configuración" };
+  }
+  if (data.ok) return { ok: true };
+  return { ok: false, error: "Respuesta inválida del servidor" };
+}
+
+export async function createPaymentRecord(
+  agentId: string,
+  body: {
+    amount: number;
+    period: string;
+    paymentMethod: string;
+    reference?: string;
+    notes?: string;
+    receiptUrl?: string;
+  },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/billing/payments`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    },
+  );
+  let data: { ok?: boolean; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return { ok: false, error: data.error ?? "No se pudo registrar el pago" };
+  }
+  if (data.ok) return { ok: true };
+  return { ok: false, error: "Respuesta inválida del servidor" };
+}
+
+export async function deletePaymentRecord(
+  agentId: string,
+  paymentId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/billing/payments/${encodeURIComponent(paymentId)}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+    },
+  );
+  let data: { ok?: boolean; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return { ok: false, error: data.error ?? "No se pudo eliminar el pago" };
   }
   if (data.ok) return { ok: true };
   return { ok: false, error: "Respuesta inválida del servidor" };

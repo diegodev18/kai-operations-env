@@ -3,15 +3,23 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircleIcon,
+  BanknoteIcon,
+  Building2Icon,
+  CalendarIcon,
   CheckCircleIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
   CloudDownloadIcon,
   LayoutDashboardIcon,
   LayoutGridIcon,
   Loader2Icon,
   PauseCircleIcon,
+  PencilIcon,
   PlusIcon,
   PowerIcon,
   SearchIcon,
+  Trash2Icon,
+  XIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -35,7 +43,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { AgentOperationalStatus, AgentWithOperations } from "@/lib/agent";
+import type { AgentOperationalStatus, AgentWithOperations, PaymentRecord } from "@/lib/agent";
 import {
   AGENTS_PAGE_SIZE,
   type AgentGrowerRow,
@@ -44,6 +52,10 @@ import {
   fetchAgentsPage,
   postAgentGrower,
   postAgentSyncFromProduction,
+  fetchAgentBilling,
+  patchAgentBillingConfig,
+  createPaymentRecord,
+  deletePaymentRecord,
 } from "@/lib/agents-api";
 import {
   fetchOrganizationUsers,
@@ -97,6 +109,25 @@ export function OperationsDashboard(props: {
     null,
   );
   const [syncingAgentId, setSyncingAgentId] = useState<string | null>(null);
+  type CobranzaFilter = "all" | "domiciliated" | "non-domiciliated" | "overdue";
+  const [cobranzaFilter, setCobranzaFilter] = useState<CobranzaFilter>("all");
+  const [lastPaymentFrom, setLastPaymentFrom] = useState("");
+  const [lastPaymentTo, setLastPaymentTo] = useState("");
+  const [expandedAgentId, setExpandedAgentId] = useState<string | null>(null);
+  const [expandedPayments, setExpandedPayments] = useState<PaymentRecord[]>([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [billingDialogAgent, setBillingDialogAgent] = useState<AgentWithOperations | null>(null);
+  const [billingSaving, setBillingSaving] = useState(false);
+  const [billingDomiciliated, setBillingDomiciliated] = useState(false);
+  const [billingDefaultAmount, setBillingDefaultAmount] = useState("");
+  const [billingDueDate, setBillingDueDate] = useState("");
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentPeriod, setPaymentPeriod] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("transferencia");
+  const [paymentReference, setPaymentReference] = useState("");
+  const [paymentNotes, setPaymentNotes] = useState("");
+  const [paymentSaving, setPaymentSaving] = useState(false);
 
   useEffect(() => {
     const trimmed = search.trim();
@@ -387,6 +418,29 @@ export function OperationsDashboard(props: {
     if (billingAlertOnly) {
       list = list.filter((a) => a.billing.paymentAlert);
     }
+    if (cobranzaFilter === "domiciliated") {
+      list = list.filter((a) => a.billing.domiciliated);
+    }
+    if (cobranzaFilter === "non-domiciliated") {
+      list = list.filter((a) => !a.billing.domiciliated);
+    }
+    if (cobranzaFilter === "overdue") {
+      list = list.filter((a) => a.billing.paymentAlert);
+    }
+    if (lastPaymentFrom) {
+      list = list.filter((a) => {
+        const d = a.billing.lastPaymentDate;
+        if (!d) return false;
+        return d >= lastPaymentFrom;
+      });
+    }
+    if (lastPaymentTo) {
+      list = list.filter((a) => {
+        const d = a.billing.lastPaymentDate;
+        if (!d) return false;
+        return d <= lastPaymentTo;
+      });
+    }
     return list;
   }, [
     agents,
@@ -394,6 +448,9 @@ export function OperationsDashboard(props: {
     serverSearchActive,
     statusFilter,
     billingAlertOnly,
+    cobranzaFilter,
+    lastPaymentFrom,
+    lastPaymentTo,
   ]);
 
   const hasMore = nextCursor != null && nextCursor !== undefined;
@@ -505,6 +562,103 @@ export function OperationsDashboard(props: {
               </TooltipTrigger>
               <TooltipContent>Solo alerta de pago</TooltipContent>
             </Tooltip>
+            <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-1">
+              <span className="px-2 py-1.5 text-xs text-muted-foreground">
+                Cobranza
+              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={cobranzaFilter === "all" ? "secondary" : "ghost"}
+                    size="icon-sm"
+                    className="size-8"
+                    onClick={() => setCobranzaFilter("all")}
+                  >
+                    <LayoutGridIcon className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Todos</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={cobranzaFilter === "domiciliated" ? "secondary" : "ghost"}
+                    size="icon-sm"
+                    className="size-8"
+                    onClick={() => setCobranzaFilter("domiciliated")}
+                  >
+                    <Building2Icon className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Domiciliados</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={cobranzaFilter === "non-domiciliated" ? "secondary" : "ghost"}
+                    size="icon-sm"
+                    className="size-8"
+                    onClick={() => setCobranzaFilter("non-domiciliated")}
+                  >
+                    <BanknoteIcon className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>No domiciliados</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={cobranzaFilter === "overdue" ? "secondary" : "ghost"}
+                    size="icon-sm"
+                    className="size-8"
+                    onClick={() => setCobranzaFilter("overdue")}
+                  >
+                    <AlertCircleIcon className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Alerta de falta de pago</TooltipContent>
+              </Tooltip>
+            </div>
+            {cobranzaFilter !== "all" && (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <CalendarIcon className="size-3.5 text-muted-foreground" />
+                  <Input
+                    type="date"
+                    value={lastPaymentFrom}
+                    onChange={(e) => setLastPaymentFrom(e.target.value)}
+                    className="h-8 w-36 text-xs"
+                    placeholder="Desde"
+                  />
+                </div>
+                <span className="text-xs text-muted-foreground">a</span>
+                <Input
+                  type="date"
+                  value={lastPaymentTo}
+                  onChange={(e) => setLastPaymentTo(e.target.value)}
+                  className="h-8 w-36 text-xs"
+                  placeholder="Hasta"
+                />
+                {(lastPaymentFrom || lastPaymentTo) && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="size-7"
+                    onClick={() => {
+                      setLastPaymentFrom("");
+                      setLastPaymentTo("");
+                    }}
+                  >
+                    <XIcon className="size-3" />
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -520,15 +674,18 @@ export function OperationsDashboard(props: {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border bg-muted/50">
+                      <th className="p-3 text-left font-medium w-8"></th>
                       <th className="p-3 text-left font-medium">Agente</th>
                       <th className="p-3 text-left font-medium">Entornos</th>
                       <th className="p-3 text-left font-medium">Industria</th>
                       <th className="p-3 text-left font-medium">Estatus</th>
+                      <th className="p-3 text-left font-medium">Cobranza</th>
                       <th className="p-3 text-left font-medium">Growers</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredAgents.map((agent) => (
+                      <>
                       <tr
                         key={agent.id}
                         className="border-b border-border transition-colors hover:bg-muted/50 cursor-pointer"
@@ -538,6 +695,34 @@ export function OperationsDashboard(props: {
                           )
                         }
                        >
+                        <td className="p-3">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            className="size-7"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void (async () => {
+                                if (expandedAgentId === agent.id) {
+                                  setExpandedAgentId(null);
+                                  return;
+                                }
+                                setExpandedAgentId(agent.id);
+                                setPaymentsLoading(true);
+                                const res = await fetchAgentBilling(agent.id);
+                                setExpandedPayments(res?.payments ?? []);
+                                setPaymentsLoading(false);
+                              })();
+                            }}
+                          >
+                            {expandedAgentId === agent.id ? (
+                              <ChevronDownIcon className="size-4" />
+                            ) : (
+                              <ChevronRightIcon className="size-4" />
+                            )}
+                          </Button>
+                        </td>
                          <td className="p-3 font-medium">
                            <Link
                              href={`/agents/${encodeURIComponent(agent.id)}/prompt-design`}
@@ -652,6 +837,51 @@ export function OperationsDashboard(props: {
                             {STATUS_LABELS[agent.operationalStatus]}
                           </Badge>
                         </td>
+                        <td className="p-3">
+                          <div className="flex items-center gap-2">
+                            {agent.billing.domiciliated ? (
+                              <Badge variant="outline" className="gap-1">
+                                <Building2Icon className="size-3" />
+                                Domiciliado
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary">No domiciliado</Badge>
+                            )}
+                            {agent.billing.paymentAlert && (
+                              <Badge variant="destructive" className="gap-1">
+                                <AlertCircleIcon className="size-3" />
+                                Falta de pago
+                              </Badge>
+                            )}
+                            {!agent.billing.domiciliated && agent.billing.lastPaymentDate && (
+                              <span className="text-xs text-muted-foreground">
+                                Último: {new Date(agent.billing.lastPaymentDate).toLocaleDateString("es-MX")}
+                              </span>
+                            )}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setBillingDialogAgent(agent);
+                                setBillingDomiciliated(agent.billing.domiciliated);
+                                setBillingDefaultAmount(
+                                  agent.billing.defaultPaymentAmount
+                                    ? String(agent.billing.defaultPaymentAmount)
+                                    : "",
+                                );
+                                setBillingDueDate(
+                                  agent.billing.paymentDueDate
+                                    ? agent.billing.paymentDueDate.slice(0, 10)
+                                    : "",
+                                );
+                              }}
+                            >
+                              <PencilIcon className="size-3" />
+                            </Button>
+                          </div>
+                        </td>
                         <td className="p-3 text-muted-foreground">
                           <div className="flex flex-wrap items-center gap-2">
                             <div className="min-w-0 flex-1">
@@ -708,6 +938,95 @@ export function OperationsDashboard(props: {
                           </div>
                         </td>
                       </tr>
+                      {expandedAgentId === agent.id && (
+                        <tr className="bg-muted/30">
+                          <td colSpan={7} className="p-4">
+                            {agent.billing.domiciliated ? (
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Building2Icon className="size-4" />
+                                Los pagos domiciliados se renuevan automáticamente cada mes. No se requiere registro manual.
+                              </div>
+                            ) : paymentsLoading ? (
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Loader2Icon className="size-4 animate-spin" />
+                                Cargando historial...
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <h4 className="text-sm font-medium">Historial de Pagos</h4>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      setPaymentAmount(
+                                        agent.billing.defaultPaymentAmount
+                                          ? String(agent.billing.defaultPaymentAmount)
+                                          : "",
+                                      );
+                                      const now = new Date();
+                                      const months = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+                                      setPaymentPeriod(`${months[now.getMonth()]} ${now.getFullYear()}`);
+                                      setPaymentMethod("transferencia");
+                                      setPaymentReference("");
+                                      setPaymentNotes("");
+                                      setPaymentDialogOpen(true);
+                                    }}
+                                  >
+                                    <PlusIcon className="size-3 mr-1" /> Registrar pago
+                                  </Button>
+                                </div>
+                                {expandedPayments.length === 0 ? (
+                                  <p className="text-sm text-muted-foreground">Sin pagos registrados</p>
+                                ) : (
+                                  <table className="w-full text-xs">
+                                    <thead>
+                                      <tr className="border-b">
+                                        <th className="p-2 text-left">Período</th>
+                                        <th className="p-2 text-left">Monto</th>
+                                        <th className="p-2 text-left">Método</th>
+                                        <th className="p-2 text-left">Referencia</th>
+                                        <th className="p-2 text-left">Fecha</th>
+                                        <th className="p-2 text-left">Notas</th>
+                                        <th className="p-2 text-left">Acciones</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {expandedPayments.map((p) => (
+                                        <tr key={p.id} className="border-b border-border/50">
+                                          <td className="p-2">{p.period}</td>
+                                          <td className="p-2 font-mono">${p.amount.toFixed(2)}</td>
+                                          <td className="p-2">{p.paymentMethod}</td>
+                                          <td className="p-2 text-muted-foreground">{p.reference || "—"}</td>
+                                          <td className="p-2">{new Date(p.paidAt).toLocaleDateString("es-MX")}</td>
+                                          <td className="p-2 max-w-[200px] truncate">{p.notes || "—"}</td>
+                                          <td className="p-2">
+                                            <Button
+                                              variant="ghost"
+                                              size="icon-sm"
+                                              onClick={async () => {
+                                                const r = await deletePaymentRecord(agent.id, p.id);
+                                                if (r.ok) {
+                                                  setExpandedPayments((prev) => prev.filter((x) => x.id !== p.id));
+                                                  toast.success("Pago eliminado");
+                                                } else {
+                                                  toast.error(r.error);
+                                                }
+                                              }}
+                                            >
+                                              <Trash2Icon className="size-3 text-destructive" />
+                                            </Button>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                      </>
                     ))}
                   </tbody>
                 </table>
@@ -839,6 +1158,211 @@ export function OperationsDashboard(props: {
               onClick={() => setGrowerTarget(null)}
             >
               Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={billingDialogAgent != null}
+        onOpenChange={(open) => {
+          if (!open) setBillingDialogAgent(null);
+        }}
+      >
+        <DialogContent showClose>
+          <DialogHeader>
+            <DialogTitle>Configuración de Cobranza</DialogTitle>
+            <DialogDescription>
+              Agente:{" "}
+              <span className="font-medium text-foreground">
+                {billingDialogAgent?.name}
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="billing-domiciliated"
+                checked={billingDomiciliated}
+                onCheckedChange={(v) => setBillingDomiciliated(v === true)}
+              />
+              <label
+                htmlFor="billing-domiciliated"
+                className="text-sm cursor-pointer"
+              >
+                Cliente domiciliado (pago automático mensual)
+              </label>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Monto mensual</label>
+              <Input
+                type="number"
+                value={billingDefaultAmount}
+                onChange={(e) => setBillingDefaultAmount(e.target.value)}
+                placeholder="p. ej. 1500"
+              />
+            </div>
+            {!billingDomiciliated && (
+              <div>
+                <label className="text-sm font-medium">Fecha límite de pago</label>
+                <Input
+                  type="date"
+                  value={billingDueDate}
+                  onChange={(e) => setBillingDueDate(e.target.value)}
+                />
+              </div>
+            )}
+            {billingDialogAgent?.billing.lastPaymentDate && (
+              <p className="text-xs text-muted-foreground">
+                Último pago: {new Date(billingDialogAgent.billing.lastPaymentDate).toLocaleDateString("es-MX")}
+              </p>
+            )}
+            {billingDomiciliated && (
+              <p className="text-xs text-muted-foreground bg-muted/50 rounded-md p-2">
+                Los pagos domiciliados se renuevan automáticamente cada mes. No se requiere acción manual.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setBillingDialogAgent(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              disabled={billingSaving}
+              onClick={async () => {
+                if (!billingDialogAgent) return;
+                setBillingSaving(true);
+                try {
+                  const r = await patchAgentBillingConfig(billingDialogAgent.id, {
+                    domiciliated: billingDomiciliated,
+                    defaultPaymentAmount: billingDefaultAmount ? Number(billingDefaultAmount) : undefined,
+                    paymentDueDate: billingDueDate || null,
+                  });
+                  if (r.ok) {
+                    toast.success("Configuración actualizada");
+                    void fetchAgents();
+                    setBillingDialogAgent(null);
+                  } else {
+                    toast.error(r.error);
+                  }
+                } finally {
+                  setBillingSaving(false);
+                }
+              }}
+            >
+              Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={paymentDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) setPaymentDialogOpen(false);
+        }}
+      >
+        <DialogContent showClose>
+          <DialogHeader>
+            <DialogTitle>Registrar Pago</DialogTitle>
+            <DialogDescription>
+              Agente:{" "}
+              <span className="font-medium text-foreground">
+                {billingDialogAgent?.name}
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-sm font-medium">Monto</label>
+              <Input
+                type="number"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+                placeholder="p. ej. 1500"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Período</label>
+              <Input
+                value={paymentPeriod}
+                onChange={(e) => setPaymentPeriod(e.target.value)}
+                placeholder="p. ej. Abril 2026"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Método de pago</label>
+              <select
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+              >
+                <option value="transferencia">Transferencia</option>
+                <option value="efectivo">Efectivo</option>
+                <option value="tarjeta">Tarjeta</option>
+                <option value="cheque">Cheque</option>
+                <option value="otro">Otro</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Referencia (opcional)</label>
+              <Input
+                value={paymentReference}
+                onChange={(e) => setPaymentReference(e.target.value)}
+                placeholder="p. ej. REF-12345"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Notas (opcional)</label>
+              <Input
+                value={paymentNotes}
+                onChange={(e) => setPaymentNotes(e.target.value)}
+                placeholder="Notas adicionales"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPaymentDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              disabled={paymentSaving || !paymentAmount || !paymentPeriod}
+              onClick={async () => {
+                if (!billingDialogAgent) return;
+                setPaymentSaving(true);
+                try {
+                  const r = await createPaymentRecord(billingDialogAgent.id, {
+                    amount: Number(paymentAmount),
+                    period: paymentPeriod,
+                    paymentMethod,
+                    reference: paymentReference || undefined,
+                    notes: paymentNotes || undefined,
+                  });
+                  if (r.ok) {
+                    toast.success("Pago registrado");
+                    setPaymentDialogOpen(false);
+                    const res = await fetchAgentBilling(billingDialogAgent.id);
+                    setExpandedPayments(res?.payments ?? []);
+                    void fetchAgents();
+                  } else {
+                    toast.error(r.error);
+                  }
+                } finally {
+                  setPaymentSaving(false);
+                }
+              }}
+            >
+              Registrar
             </Button>
           </DialogFooter>
         </DialogContent>

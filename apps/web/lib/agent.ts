@@ -7,8 +7,23 @@ export type AgentOperationalStatus =
 
 export type AgentBilling = {
   domiciliated: boolean;
+  defaultPaymentAmount?: number;
   lastPaymentDate?: string | null;
+  paymentDueDate?: string | null;
   paymentAlert: boolean;
+};
+
+export type PaymentRecord = {
+  id: string;
+  amount: number;
+  period: string;
+  paymentMethod: string;
+  reference?: string;
+  notes?: string;
+  receiptUrl?: string;
+  paidAt: string;
+  markedBy: string;
+  createdAt: string;
 };
 
 export type GrowerRef = {

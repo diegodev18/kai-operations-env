@@ -4,6 +4,7 @@ import type { AgentDocument, LightAgent } from "@/types/agents";
 
 import { fetchGrowersForAgent } from "./growers";
 import { parseAgentDoc } from "./parseAgentDoc";
+import { parseBillingDoc } from "./parseBillingDoc";
 
 export async function buildLightAgent(
   database: Firestore,
@@ -12,12 +13,13 @@ export async function buildLightAgent(
   const parsed = parseAgentDoc(doc, false);
   if (!parsed) return null;
   const agentRef = database.collection("agent_configurations").doc(doc.id);
-  const [agentSnap, aiSnap, promptSnap, responseSnap, growers] =
+  const [agentSnap, aiSnap, promptSnap, responseSnap, billingSnap, growers] =
     await Promise.all([
       agentRef.collection("properties").doc("agent").get(),
       agentRef.collection("properties").doc("ai").get(),
       agentRef.collection("properties").doc("prompt").get(),
       agentRef.collection("properties").doc("response").get(),
+      agentRef.collection("billing").doc("main").get(),
       fetchGrowersForAgent(agentRef),
     ]);
   const agentData = agentSnap.exists ? agentSnap.data() : undefined;
@@ -66,5 +68,6 @@ export async function buildLightAgent(
     omitFirstEchoes: agentData?.omitFirstEchoes as boolean | undefined,
     temperature: Number.isFinite(temperature) ? temperature : undefined,
     waitTime: Number.isFinite(waitTime) ? waitTime : undefined,
+    billing: billingSnap.exists ? parseBillingDoc(billingSnap) : undefined,
   };
 }

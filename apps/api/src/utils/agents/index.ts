@@ -16,6 +16,11 @@ export {
   type ParsedAgentDoc,
 } from "./parseAgentDoc";
 export {
+  parseBillingDoc,
+  parsePaymentRecordDoc,
+  type ParsedPaymentRecord,
+} from "./parseBillingDoc";
+export {
   agentMatchesGrowersSearchQuery,
   agentMatchesRootSearchQuery,
   agentMatchesSearchQuery,

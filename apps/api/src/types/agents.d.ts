@@ -13,6 +13,14 @@ export type AgentsInfoAuthContext = {
 
 export type AgentDocument = QueryDocumentSnapshot;
 
+export interface AgentBilling {
+  domiciliated: boolean;
+  defaultPaymentAmount?: number;
+  lastPaymentDate: string | null;
+  paymentDueDate: string | null;
+  paymentAlert: boolean;
+}
+
 export interface LightAgent {
   enabled: boolean;
   growers: GrowerPayload[];
@@ -40,6 +48,8 @@ export interface LightAgent {
   inCommercial?: boolean;
   /** Existe en Firestore kai (producción). */
   inProduction?: boolean;
+  /** Datos de cobranza del agente. */
+  billing?: AgentBilling;
 }
 
 export type ImplementationTaskStatus = "pending" | "completed";
