@@ -773,6 +773,14 @@ export function AgentConfigurationEditor({
     [agentId, onAgentUpdated],
   );
 
+  useEffect(() => {
+    const model = formState?.ai?.model;
+    if (!model || agentVersion === "2.0.0") return;
+    if (/gemini-3/i.test(model)) {
+      handleVersionChange("2.0.0");
+    }
+  }, [formState?.ai?.model, agentVersion, handleVersionChange]);
+
   if (!agentId) return null;
 
   const inCommercial = data?.in_commercial ?? false;
