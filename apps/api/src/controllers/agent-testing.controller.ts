@@ -185,7 +185,7 @@ export async function updateTestingPropertyDocument(
     const testingDataRef = agentRef.collection("testing").doc("data");
     const testingDataSnap = await testingDataRef.get();
     if (!testingDataSnap.exists) {
-      return c.json({ error: "No hay datos de testing. Sincroniza desde producción primero." }, 404);
+      await testingDataRef.set({ _createdAt: new Date().toISOString() }, { merge: true });
     }
 
     const docRef = testingDataRef.collection("properties").doc(documentId);

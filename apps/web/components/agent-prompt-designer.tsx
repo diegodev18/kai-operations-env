@@ -297,8 +297,9 @@ export function AgentPromptDesigner({
   const systemPromptGenFailed = systemPromptGenStatus === "failed";
   
   const inProduction = agent?.inProduction ?? false;
-  const inCommercial = agent?.inCommercial ?? false; // Esto ahora significa hasTestingData
-  const needsSync = inProduction && !inCommercial;
+  const inCommercial = agent?.inCommercial ?? false;
+  const hasPromptInMcp = Boolean(agent?.prompt);
+  const needsSync = inProduction && !inCommercial && !hasPromptInMcp;
   
   const promptAndChatLocked = propertiesLoading || systemPromptGenInProgress || needsSync;
 
@@ -332,14 +333,16 @@ export function AgentPromptDesigner({
   useEffect(() => {
     if (!agent) return;
     if (propertiesLoading) return;
-    const baseFromProperties = effectiveProperties?.prompt?.base ?? "";
-    const promptValue = baseFromProperties || (agent.prompt ?? "");
+    const baseFromTesting = testingPropertiesData?.prompt?.base ?? "";
+    const baseFromProperties = propertiesData?.prompt?.base ?? "";
+    const fallbackFromMcp = agent.prompt ?? "";
+    const promptValue = baseFromTesting || baseFromProperties || fallbackFromMcp;
     queueMicrotask(() => {
       setSavedPrompt(promptValue);
       setEditingPrompt(promptValue);
       reset();
     });
-  }, [agent, effectiveProperties, propertiesLoading, reset]);
+  }, [agent, testingPropertiesData, propertiesData, propertiesLoading, reset]);
 
   useEffect(() => {
     if (!isAuthEnabled || !effectiveProperties?.prompt) return;
