@@ -1,17 +1,17 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -26,13 +26,25 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
   BotIcon,
   CheckCircle2Icon,
   ChevronRightIcon,
   Loader2Icon,
   PlayIcon,
+  PlusIcon,
   RotateCcwIcon,
+  Settings2Icon,
+  Trash2Icon,
   User2Icon,
+  XIcon,
 } from "lucide-react";
 import { postAgentsTestingSimulate } from "@/lib/agents-api";
 import type {
@@ -261,275 +273,430 @@ function ResultEventCard({ event }: { event: SSEEvent }) {
   );
 }
 
+interface ConversationState {
+  id: string;
+  prompt: string;
+  streamEvents: SSEEvent[];
+  error: string | null;
+  isSending: boolean;
+}
+
+function generateId() {
+  return `conv-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function ConversationCard({
+  index,
+  conversation,
+  onSend,
+  onReset,
+  onRemove,
+  canRemove,
+  onUpdatePrompt,
+}: {
+  index: number;
+  conversation: ConversationState;
+  onSend: () => void;
+  onReset: () => void;
+  onRemove: () => void;
+  canRemove: boolean;
+  onUpdatePrompt: (prompt: string) => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [conversation.streamEvents, conversation.isSending]);
+
+  return (
+    <Card className="flex h-full flex-col overflow-hidden gap-0">
+      <CardHeader className="pb-1 pt-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm font-medium">
+            Conversación {index + 1}
+          </CardTitle>
+          {canRemove && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={onRemove}
+                  className="rounded-md p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2Icon className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Eliminar conversación</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="flex flex-1 min-h-0 flex-col gap-2 overflow-hidden pt-0">
+        <div className="flex flex-col gap-2">
+          <Textarea
+            placeholder="Instrucción para esta prueba (opcional)"
+            value={conversation.prompt}
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+              onUpdatePrompt(e.target.value);
+            }}
+            onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !conversation.isSending) {
+                e.preventDefault();
+                onSend();
+              }
+            }}
+            rows={3}
+            className="resize-none text-sm"
+          />
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              onClick={onSend}
+              disabled={conversation.isSending}
+              size="sm"
+              className="gap-1.5"
+            >
+              {conversation.isSending ? (
+                <Loader2Icon className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <PlayIcon className="h-3.5 w-3.5" />
+              )}
+              Ejecutar
+            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onReset}
+                  disabled={conversation.isSending}
+                  size="sm"
+                >
+                  <RotateCcwIcon className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Limpiar resultados</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+
+        <div
+          ref={scrollRef}
+          className="min-h-0 flex-1 overflow-y-auto rounded-md border border-border/50 bg-muted/10 p-3"
+        >
+          {conversation.error && (
+            <div className="mb-3 rounded-md bg-destructive/10 p-3 text-destructive">
+              <p className="whitespace-pre-wrap text-sm">{conversation.error}</p>
+            </div>
+          )}
+          {conversation.streamEvents.length === 0 && !conversation.error && !conversation.isSending ? (
+            <p className="text-sm text-muted-foreground">Aún no hay resultados.</p>
+          ) : (
+            <ul className="space-y-3">
+              {conversation.streamEvents.map((ev, i) => (
+                <li key={i}>
+                  <ResultEventCard event={ev} />
+                </li>
+              ))}
+            </ul>
+          )}
+          {conversation.isSending && (
+            <p className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
+              <Loader2Icon className="h-4 w-4 animate-spin" />
+              Enviando…
+            </p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function AgentSimulator({
   agentId,
 }: {
   agentId: string;
 }) {
-  const [messageLimit, setMessageLimit] = useState<string>("1");
-  const [prompt, setPrompt] = useState("");
+  const [messageLimit, setMessageLimit] = useState<string>("10");
   const [simulatorMode, setSimulatorMode] =
-    useState<SimulatorMode>("questions_only");
-  const [enableTools, setEnableTools] = useState(false);
+    useState<SimulatorMode>("full");
   const [stream, setStream] = useState(true);
   const [testMode, setTestMode] = useState(false);
 
-  const [isSending, setIsSending] = useState(false);
-  const [streamEvents, setStreamEvents] = useState<SSEEvent[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  const body = useMemo((): SimulateBody | null => {
-    const agent: SimulateBody["agent"] = {};
-    if (messageLimit !== "" && Number.isFinite(Number(messageLimit))) {
-      const raw = Number(messageLimit);
-      agent.message = {
-        limit: Math.min(MESSAGE_LIMIT_MAX, Math.max(1, raw)),
-      };
-    }
-    agent.personality = { limit: 1 };
-    if (prompt.trim()) agent.prompt = prompt.trim();
-    agent.simulatorMode = simulatorMode;
-    return {
-      config: {
-        AGENT_DOC_ID: agentId,
-        AGENT_LONG_LIVED_TOKEN: DEFAULT_TOKEN,
-        AGENT_PHONE_NUMBER_ID: DEFAULT_PHONE_ID,
-      },
-      agent,
-      enableTools,
-      stream,
-      testingMode: testMode,
-    };
-  }, [
-    agentId,
-    messageLimit,
-    prompt,
-    simulatorMode,
-    enableTools,
-    stream,
-    testMode,
+  const [conversations, setConversations] = useState<ConversationState[]>([
+    { id: generateId(), prompt: "", streamEvents: [], error: null, isSending: false },
   ]);
 
-  const sendRequest = useCallback(async () => {
-    if (!body) return;
-    setError(null);
-    setStreamEvents([]);
-    setIsSending(true);
-    try {
-      const response = await postAgentsTestingSimulate(
-        body as unknown as Record<string, unknown>,
-      );
-      if (!response.ok) {
-        const errBody = await response.json().catch(() => ({}));
-        const msg = (errBody as { error?: string }).error ?? response.statusText;
-        setError(msg);
-        toast.error(msg);
-        return;
+  const buildBody = useCallback(
+    (prompt: string): SimulateBody | null => {
+      const agent: SimulateBody["agent"] = {};
+      if (messageLimit !== "" && Number.isFinite(Number(messageLimit))) {
+        const raw = Number(messageLimit);
+        agent.message = {
+          limit: Math.min(MESSAGE_LIMIT_MAX, Math.max(1, raw)),
+        };
       }
-      if (stream) {
-        const contentType = response.headers.get("content-type") ?? "";
-        if (contentType.includes("text/event-stream") && response.body) {
-          await parseSSEStream(response.body, (ev) => {
-            setStreamEvents((prev) => [...prev, ev]);
-          });
+      agent.personality = { limit: 1 };
+      if (prompt.trim()) agent.prompt = prompt.trim();
+      agent.simulatorMode = simulatorMode;
+      return {
+        config: {
+          AGENT_DOC_ID: agentId,
+          AGENT_LONG_LIVED_TOKEN: DEFAULT_TOKEN,
+          AGENT_PHONE_NUMBER_ID: DEFAULT_PHONE_ID,
+        },
+        agent,
+        enableTools: true,
+        stream,
+        testingMode: testMode,
+      };
+    },
+    [agentId, messageLimit, simulatorMode, stream, testMode]
+  );
+
+  const sendRequest = useCallback(
+    async (convId: string) => {
+      const conv = conversations.find((c) => c.id === convId);
+      if (!conv) return;
+
+      const body = buildBody(conv.prompt);
+      if (!body) return;
+
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === convId ? { ...c, error: null, streamEvents: [], isSending: true } : c
+        )
+      );
+
+      try {
+        const response = await postAgentsTestingSimulate(
+          body as unknown as Record<string, unknown>,
+        );
+        if (!response.ok) {
+          const errBody = await response.json().catch(() => ({}));
+          const msg = (errBody as { error?: string }).error ?? response.statusText;
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === convId ? { ...c, error: msg, isSending: false } : c
+            )
+          );
+          toast.error(msg);
+          return;
+        }
+        if (stream) {
+          const contentType = response.headers.get("content-type") ?? "";
+          if (contentType.includes("text/event-stream") && response.body) {
+            await parseSSEStream(response.body, (ev: SSEEvent) => {
+              setConversations((prev) =>
+                prev.map((c) =>
+                  c.id === convId
+                    ? { ...c, streamEvents: [...c.streamEvents, ev] }
+                    : c
+                )
+              );
+            });
+            setConversations((prev) =>
+              prev.map((c) => (c.id === convId ? { ...c, isSending: false } : c))
+            );
+            return;
+          }
+          const data = await response.json();
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === convId
+                ? {
+                    ...c,
+                    streamEvents: [
+                      { type: "message", data: { content: JSON.stringify(data) } },
+                    ],
+                    isSending: false,
+                  }
+                : c
+            )
+          );
           return;
         }
         const data = await response.json();
-        setStreamEvents([{ type: "message", data: { content: JSON.stringify(data) } }]);
-        return;
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === convId
+              ? {
+                  ...c,
+                  streamEvents: [
+                    { type: "message", data: { content: JSON.stringify(data) } },
+                  ],
+                  isSending: false,
+                }
+              : c
+          )
+        );
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "Error de red";
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === convId ? { ...c, error: message, isSending: false } : c
+          )
+        );
+        toast.error(message);
       }
-      const data = await response.json();
-      setStreamEvents([{ type: "message", data: { content: JSON.stringify(data) } }]);
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Error de red";
-      setError(message);
-      toast.error(message);
-    } finally {
-      setIsSending(false);
-    }
-  }, [body, stream]);
+    },
+    [conversations, buildBody, stream]
+  );
 
-  const resetOutput = () => {
-    setStreamEvents([]);
-    setError(null);
+  const resetConversation = useCallback((convId: string) => {
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === convId
+          ? { ...c, streamEvents: [], error: null }
+          : c
+      )
+    );
+  }, []);
+
+  const removeConversation = useCallback((convId: string) => {
+    setConversations((prev) => prev.filter((c) => c.id !== convId));
+  }, []);
+
+  const addConversation = () => {
+    setConversations((prev) => [
+      ...prev,
+      { id: generateId(), prompt: "", streamEvents: [], error: null, isSending: false },
+    ]);
   };
 
   return (
-    <div className="h-full w-full">
-      <div className="grid h-full w-full gap-4 md:grid-cols-2">
-        <Card className="flex h-full min-h-0 flex-col overflow-hidden">
-          <CardHeader>
-            <CardTitle className="text-base">Parámetros</CardTitle>
-            <CardDescription>
-              Elige cómo quieres hacer la prueba. También puedes agregar una
-              instrucción extra solo para esta ejecución.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex-1 min-h-0 space-y-3 overflow-y-auto">
-            <div className="space-y-1">
-              <Label htmlFor="sim-limit">
-                Cantidad máxima de mensajes (1–{MESSAGE_LIMIT_MAX})
-              </Label>
-              <Input
-                id="sim-limit"
-                type="number"
-                min={1}
-                max={MESSAGE_LIMIT_MAX}
-                value={messageLimit}
-                onChange={(e) => setMessageLimit(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Define hasta cuántos mensajes se usarán en la simulación.
-              </p>
-            </div>
-            <div className="space-y-1">
-              <Label>Tipo de simulación</Label>
-              <Select
-                value={simulatorMode}
-                onValueChange={(v) => setSimulatorMode(v as SimulatorMode)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="questions_only">Solo preguntas</SelectItem>
-                  <SelectItem value="full">Conversación completa</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                “Solo preguntas” hace una prueba breve. “Conversación completa”
-                intenta una prueba más amplia.
-              </p>
-            </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={enableTools}
-                onChange={(e) => setEnableTools(e.target.checked)}
-              />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="cursor-help">
-                    Permitir uso de funciones (el agente puede ejecutar acciones durante la prueba)
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Habilitar tools</p>
-                </TooltipContent>
-              </Tooltip>
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={stream}
-                onChange={(e) => setStream(e.target.checked)}
-              />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="cursor-help">
-                    Ver respuestas en tiempo real (se muestran a medida que van llegando)
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Stream (SSE)</p>
-                </TooltipContent>
-              </Tooltip>
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={testMode}
-                onChange={(e) => setTestMode(e.target.checked)}
-              />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="cursor-help">
-                    Modo de prueba segura (evita acciones reales y usa entorno de prueba)
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Modo testing</p>
-                </TooltipContent>
-              </Tooltip>
-            </label>
-            <div className="space-y-1">
-              <Label htmlFor="sim-prompt">
-                Instrucción adicional para esta prueba (opcional)
-              </Label>
-              <Textarea
-                id="sim-prompt"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                rows={4}
-                className="font-mono text-xs"
-                placeholder="Mensaje extra para esta prueba. No cambia la forma habitual en que responde el agente."
-              />
-              <p className="text-xs text-muted-foreground">
-                Úsalo para guiar esta ejecución puntual. Es temporal y no guarda
-                cambios en el agente.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2 pt-2">
-              <Button
-                type="button"
-                onClick={sendRequest}
-                disabled={isSending}
-                className="gap-2"
-              >
-                {isSending ? (
-                  <Loader2Icon className="h-4 w-4 animate-spin" />
-                ) : (
-                  <PlayIcon className="h-4 w-4" />
-                )}
-                Ejecutar simulación
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={resetOutput}
-                disabled={isSending}
-                className="gap-2"
-              >
-                <RotateCcwIcon className="h-4 w-4" />
-                Limpiar salida
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="flex h-full min-h-0 flex-col overflow-hidden">
-          <CardHeader>
-            <CardTitle className="text-base">Resultado</CardTitle>
-            <CardDescription>
-              Aquí ves el paso a paso de la prueba: mensajes, funciones usadas y
-              el resumen final.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex min-h-0 flex-1 flex-col overflow-y-auto text-sm">
-            {error && (
-              <div className="mb-3 rounded-md bg-destructive/10 p-3 text-destructive">
-                <p className="whitespace-pre-wrap">{error}</p>
+    <div className="flex h-full w-full flex-col">
+      <div className="flex items-center justify-between py-2">
+        <h2 className="text-lg font-semibold">Simulador de Agente</h2>
+        <Dialog>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <Settings2Icon className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Editar parámetros</p>
+            </TooltipContent>
+          </Tooltip>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Parámetros de simulación</DialogTitle>
+              <DialogDescription>
+                Configura cómo quieres hacer la prueba. Estos parámetros se aplican a todas las conversaciones.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-1">
+                <Label htmlFor="sim-limit">
+                  Cantidad máxima de mensajes: {messageLimit}
+                </Label>
+                <Slider
+                  id="sim-limit"
+                  min={10}
+                  max={MESSAGE_LIMIT_MAX}
+                  step={1}
+                  value={[Number(messageLimit)]}
+                  onValueChange={(v: number[]) => setMessageLimit(String(v[0]))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Desliza para ajustar la duración de la conversación. Recomendado: 10–20 para conversaciones completas.
+                </p>
               </div>
-            )}
-            {streamEvents.length === 0 && !error && !isSending ? (
-              <p className="text-muted-foreground">Aún no hay resultados.</p>
-            ) : (
-              <ul className="space-y-3">
-                {streamEvents.map((ev, i) => (
-                  <li key={i}>
-                    <ResultEventCard event={ev} />
-                  </li>
-                ))}
-              </ul>
-            )}
-            {isSending && (
-              <p className="flex items-center gap-2 text-muted-foreground mt-2">
-                <Loader2Icon className="h-4 w-4 animate-spin" />
-                Enviando…
-              </p>
-            )}
-          </CardContent>
-        </Card>
+              <div className="space-y-1">
+                <Label>Tipo de simulación</Label>
+                <Select
+                  value={simulatorMode}
+                  onValueChange={(v: string) => setSimulatorMode(v as SimulatorMode)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="questions_only">Solo preguntas</SelectItem>
+                    <SelectItem value="full">Conversación completa</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  "Solo preguntas" hace una prueba breve. "Conversación completa"
+                  intenta una prueba más amplia.
+                </p>
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={stream}
+                  onChange={(e) => setStream(e.target.checked)}
+                />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="cursor-help">
+                      Ver respuestas en tiempo real (se muestran a medida que van llegando)
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Stream (SSE)</p>
+                  </TooltipContent>
+                </Tooltip>
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={testMode}
+                  onChange={(e) => setTestMode(e.target.checked)}
+                />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="cursor-help">
+                      Modo de prueba segura (evita acciones reales y usa entorno de prueba)
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Modo testing</p>
+                  </TooltipContent>
+                </Tooltip>
+              </label>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="flex min-h-0 flex-1 items-stretch gap-4 overflow-x-auto pb-4">
+        {conversations.map((conv, index) => (
+          <div key={conv.id} className="flex min-w-[480px] max-w-[600px] flex-shrink-0 flex-col">
+            <ConversationCard
+              index={index}
+              conversation={conv}
+              onSend={() => sendRequest(conv.id)}
+              onReset={() => resetConversation(conv.id)}
+              onRemove={() => removeConversation(conv.id)}
+              canRemove={conversations.length > 1}
+              onUpdatePrompt={(prompt) =>
+                setConversations((prev) =>
+                  prev.map((c) => (c.id === conv.id ? { ...c, prompt } : c))
+                )
+              }
+            />
+          </div>
+        ))}
+
+        <Button
+          type="button"
+          variant="outline"
+          onClick={addConversation}
+          className="h-auto min-h-full min-w-[160px] shrink-0 flex-col gap-2 border-dashed py-8"
+        >
+          <PlusIcon className="h-6 w-6" />
+          <span>Agregar conversación</span>
+        </Button>
       </div>
     </div>
   );
