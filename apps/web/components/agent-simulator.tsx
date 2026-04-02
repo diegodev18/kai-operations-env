@@ -29,6 +29,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -42,6 +43,7 @@ import {
   PlusIcon,
   RotateCcwIcon,
   Settings2Icon,
+  SquareIcon,
   Trash2Icon,
   User2Icon,
   XIcon,
@@ -57,6 +59,31 @@ import { parseSSEStream } from "@/utils/integration-sse";
 const DEFAULT_TOKEN = "test-whatsapp-token";
 const DEFAULT_PHONE_ID = "test-phone-number-id";
 const MESSAGE_LIMIT_MAX = 25;
+const STORAGE_KEY = "simulator-params";
+
+const DEFAULT_PARAMS = {
+  messageLimit: "10",
+  simulatorMode: "full" as SimulatorMode,
+  stream: true,
+  testMode: false,
+};
+
+function loadParams() {
+  if (typeof window === "undefined") return DEFAULT_PARAMS;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return DEFAULT_PARAMS;
+    const parsed = JSON.parse(raw) as Partial<typeof DEFAULT_PARAMS>;
+    return { ...DEFAULT_PARAMS, ...parsed };
+  } catch {
+    return DEFAULT_PARAMS;
+  }
+}
+
+function saveParams(params: typeof DEFAULT_PARAMS) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(params));
+}
 
 function getMessageContent(data: unknown): string {
   if (typeof data === "string") return data;
@@ -289,6 +316,7 @@ function ConversationCard({
   index,
   conversation,
   onSend,
+  onStop,
   onReset,
   onRemove,
   canRemove,
@@ -297,6 +325,7 @@ function ConversationCard({
   index: number;
   conversation: ConversationState;
   onSend: () => void;
+  onStop: () => void;
   onReset: () => void;
   onRemove: () => void;
   canRemove: boolean;
@@ -353,20 +382,28 @@ function ConversationCard({
             className="resize-none text-sm"
           />
           <div className="flex gap-2">
-            <Button
-              type="button"
-              onClick={onSend}
-              disabled={conversation.isSending}
-              size="sm"
-              className="gap-1.5"
-            >
-              {conversation.isSending ? (
-                <Loader2Icon className="h-3.5 w-3.5 animate-spin" />
-              ) : (
+            {conversation.isSending ? (
+              <Button
+                type="button"
+                onClick={onStop}
+                variant="destructive"
+                size="sm"
+                className="gap-1.5"
+              >
+                <SquareIcon className="h-3.5 w-3.5" />
+                Detener
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                onClick={onSend}
+                size="sm"
+                className="gap-1.5"
+              >
                 <PlayIcon className="h-3.5 w-3.5" />
-              )}
-              Ejecutar
-            </Button>
+                Ejecutar
+              </Button>
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -423,11 +460,16 @@ export function AgentSimulator({
 }: {
   agentId: string;
 }) {
-  const [messageLimit, setMessageLimit] = useState<string>("10");
+  const savedParams = useMemo(() => loadParams(), []);
+  const [messageLimit, setMessageLimit] = useState<string>(savedParams.messageLimit);
   const [simulatorMode, setSimulatorMode] =
-    useState<SimulatorMode>("full");
-  const [stream, setStream] = useState(true);
-  const [testMode, setTestMode] = useState(false);
+    useState<SimulatorMode>(savedParams.simulatorMode);
+  const [stream, setStream] = useState(savedParams.stream);
+  const [testMode, setTestMode] = useState(savedParams.testMode);
+
+  useEffect(() => {
+    saveParams({ messageLimit, simulatorMode, stream, testMode });
+  }, [messageLimit, simulatorMode, stream, testMode]);
 
   const [conversations, setConversations] = useState<ConversationState[]>([
     { id: generateId(), prompt: "", streamEvents: [], error: null, isSending: false },
@@ -460,6 +502,8 @@ export function AgentSimulator({
     [agentId, messageLimit, simulatorMode, stream, testMode]
   );
 
+  const abortRef = useRef<Record<string, AbortController>>({});
+
   const sendRequest = useCallback(
     async (convId: string) => {
       const conv = conversations.find((c) => c.id === convId);
@@ -467,6 +511,9 @@ export function AgentSimulator({
 
       const body = buildBody(conv.prompt);
       if (!body) return;
+
+      const controller = new AbortController();
+      abortRef.current[convId] = controller;
 
       setConversations((prev) =>
         prev.map((c) =>
@@ -477,6 +524,7 @@ export function AgentSimulator({
       try {
         const response = await postAgentsTestingSimulate(
           body as unknown as Record<string, unknown>,
+          controller.signal,
         );
         if (!response.ok) {
           const errBody = await response.json().catch(() => ({}));
@@ -537,6 +585,14 @@ export function AgentSimulator({
           )
         );
       } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") {
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === convId ? { ...c, isSending: false } : c
+            )
+          );
+          return;
+        }
         const message = e instanceof Error ? e.message : "Error de red";
         setConversations((prev) =>
           prev.map((c) =>
@@ -548,6 +604,14 @@ export function AgentSimulator({
     },
     [conversations, buildBody, stream]
   );
+
+  const stopRequest = useCallback((convId: string) => {
+    const controller = abortRef.current[convId];
+    if (controller) {
+      controller.abort();
+      delete abortRef.current[convId];
+    }
+  }, []);
 
   const resetConversation = useCallback((convId: string) => {
     setConversations((prev) =>
@@ -676,6 +740,7 @@ export function AgentSimulator({
               index={index}
               conversation={conv}
               onSend={() => sendRequest(conv.id)}
+              onStop={() => stopRequest(conv.id)}
               onReset={() => resetConversation(conv.id)}
               onRemove={() => removeConversation(conv.id)}
               canRemove={conversations.length > 1}

@@ -725,12 +725,14 @@ export async function fetchTestingDiff(
 /** Proxy de simulaci?n (POST /api/agents-testing/simulate). */
 export async function postAgentsTestingSimulate(
   body: Record<string, unknown>,
+  signal?: AbortSignal,
 ): Promise<Response> {
   return fetch("/api/agents-testing/simulate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify(body),
+    signal,
   });
 }
 
