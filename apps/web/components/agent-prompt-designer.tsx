@@ -437,23 +437,23 @@ export function AgentPromptDesigner({
     if (ok) setDiffViewRequested(false);
   };
 
-  const productionPromptDiffers = useMemo(() => {
+  const savedTestingDiffersFromProduction = useMemo(() => {
     if (!productionPrompt) return false;
-    const baseDiffers = editingPrompt !== productionPrompt.prompt;
+    const baseDiffers = savedPrompt !== productionPrompt.prompt;
     if (isAuthEnabled && productionPrompt.auth) {
-      const authDiffers = editingAuthPrompt !== productionPrompt.auth.auth;
-      const unauthDiffers = editingUnauthPrompt !== productionPrompt.auth.unauth;
+      const authDiffers = savedAuthPrompt !== productionPrompt.auth.auth;
+      const unauthDiffers = savedUnauthPrompt !== productionPrompt.auth.unauth;
       return baseDiffers || authDiffers || unauthDiffers;
     }
     return baseDiffers;
-  }, [editingPrompt, editingAuthPrompt, editingUnauthPrompt, productionPrompt, isAuthEnabled]);
+  }, [savedPrompt, savedAuthPrompt, savedUnauthPrompt, productionPrompt, isAuthEnabled]);
 
   const [isPromoteDialogOpen, setIsPromoteDialogOpen] = useState(false);
   const [promoteIncludeAuth, setPromoteIncludeAuth] = useState(true);
   const [promoteIncludeUnauth, setPromoteIncludeUnauth] = useState(true);
 
   const handlePromoteToProduction = async () => {
-    if (!productionPromptDiffers) return;
+    if (!savedTestingDiffersFromProduction) return;
 
     let authDiffers = false;
     let unauthDiffers = false;
@@ -906,41 +906,59 @@ export function AgentPromptDesigner({
             >
               Deshacer
             </Button>
-            <Button
-              onClick={handleSave}
-              disabled={!hasChanges || isSaving || promptAndChatLocked}
-            >
-              {isSaving ? (
-                <Loader2Icon className="w-4 h-4 animate-spin mr-2" />
-              ) : null}
-              Guardar
-            </Button>
-            <Button
-              onClick={handlePromoteToProduction}
-              disabled={
-                !productionPromptDiffers ||
-                promoting ||
-                promptAndChatLocked ||
-                loadingProductionPrompt
-              }
-              className={
-                !productionPromptDiffers || loadingProductionPrompt
-                  ? "opacity-50"
-                  : ""
-              }
-              variant={
-                productionPromptDiffers && !loadingProductionPrompt
-                  ? "default"
-                  : "outline"
-              }
-            >
-              {promoting ? (
-                <Loader2Icon className="w-4 h-4 animate-spin mr-2" />
-              ) : (
-                <RocketIcon className="w-4 h-4 mr-2" />
-              )}
-              Subir a producción
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={handleSave}
+                  disabled={!hasChanges || isSaving || promptAndChatLocked}
+                >
+                  {isSaving ? (
+                    <Loader2Icon className="w-4 h-4 animate-spin mr-2" />
+                  ) : null}
+                  Guardar
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                Guarda los cambios en Testing para poder probarlos en &quot;Pruebas con kAI&quot;
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={handlePromoteToProduction}
+                  disabled={
+                    !savedTestingDiffersFromProduction ||
+                    promoting ||
+                    promptAndChatLocked ||
+                    loadingProductionPrompt
+                  }
+                  className={
+                    !savedTestingDiffersFromProduction || loadingProductionPrompt
+                      ? "opacity-50"
+                      : ""
+                  }
+                  variant={
+                    savedTestingDiffersFromProduction && !loadingProductionPrompt
+                      ? "default"
+                      : "outline"
+                  }
+                >
+                  {promoting ? (
+                    <Loader2Icon className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <RocketIcon className="w-4 h-4 mr-2" />
+                  )}
+                  Subir a producción
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {!hasChanges
+                  ? "Guarda primero los cambios en Testing para poder subir a producción. Esto los hará visibles para los usuarios."
+                  : !savedTestingDiffersFromProduction
+                    ? "Guarda los cambios para que difieran de producción y puedas subir. Esto los hará visibles para los usuarios."
+                    : "Sube los cambios guardados en Testing a producción. Esto los hará visibles para los usuarios."}
+              </TooltipContent>
+            </Tooltip>
           </div>
         </div>
 
