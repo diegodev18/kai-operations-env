@@ -18,6 +18,7 @@ import {
   PlusIcon,
   PowerIcon,
   SearchIcon,
+  Settings2Icon,
   Trash2Icon,
   XIcon,
 } from "lucide-react";
@@ -128,6 +129,15 @@ export function OperationsDashboard(props: {
   const [paymentReference, setPaymentReference] = useState("");
   const [paymentNotes, setPaymentNotes] = useState("");
   const [paymentSaving, setPaymentSaving] = useState(false);
+  const [defaultModeDialogOpen, setDefaultModeDialogOpen] = useState(false);
+  const [defaultBuilderMode, setDefaultBuilderMode] = useState<"form" | "conversational">("form");
+
+  useEffect(() => {
+    const stored = localStorage.getItem("agent-builder-default-mode");
+    if (stored === "form" || stored === "conversational") {
+      setDefaultBuilderMode(stored);
+    }
+  }, []);
 
   useEffect(() => {
     const trimmed = search.trim();
@@ -475,12 +485,27 @@ export function OperationsDashboard(props: {
             <h1 className="text-2xl font-semibold tracking-tight">
               Dashboard de Operaciones
             </h1>
-            <Button type="button" className="gap-2" asChild>
-              <Link href="/agents/new">
-                <PlusIcon className="size-4" />
-                Crear nuevo agente
-              </Link>
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button type="button" className="gap-2" asChild>
+                <Link href={`/agents/new?mode=${defaultBuilderMode}`}>
+                  <PlusIcon className="size-4" />
+                  Crear nuevo agente
+                </Link>
+              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setDefaultModeDialogOpen(true)}
+                  >
+                    <Settings2Icon className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Configurar modo por defecto</TooltipContent>
+              </Tooltip>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -1362,6 +1387,63 @@ export function OperationsDashboard(props: {
               }}
             >
               Registrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={defaultModeDialogOpen} onOpenChange={setDefaultModeDialogOpen}>
+        <DialogContent showClose>
+          <DialogHeader>
+            <DialogTitle>Modo por defecto para crear agente</DialogTitle>
+            <DialogDescription>
+              Elige el modo que se abrirá por defecto al hacer clic en "Crear nuevo agente".
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex items-center space-x-2">
+              <input
+                type="radio"
+                id="mode-form"
+                name="builder-mode"
+                checked={defaultBuilderMode === "form"}
+                onChange={() => setDefaultBuilderMode("form")}
+                className="h-4 w-4"
+              />
+              <label htmlFor="mode-form" className="text-sm font-medium cursor-pointer">
+                Formulario
+              </label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="radio"
+                id="mode-conversational"
+                name="builder-mode"
+                checked={defaultBuilderMode === "conversational"}
+                onChange={() => setDefaultBuilderMode("conversational")}
+                className="h-4 w-4"
+              />
+              <label htmlFor="mode-conversational" className="text-sm font-medium cursor-pointer">
+                Conversacional
+              </label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDefaultModeDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                localStorage.setItem("agent-builder-default-mode", defaultBuilderMode);
+                toast.success("Modo por defecto guardado");
+                setDefaultModeDialogOpen(false);
+              }}
+            >
+              Guardar
             </Button>
           </DialogFooter>
         </DialogContent>

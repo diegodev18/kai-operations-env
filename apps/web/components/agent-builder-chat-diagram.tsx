@@ -852,7 +852,7 @@ const CHAT_COMPOSER_MIN_HEIGHT_PX = CHAT_COMPOSER_LINE_HEIGHT_PX + CHAT_COMPOSER
 const CHAT_COMPOSER_MAX_HEIGHT_PX =
   CHAT_COMPOSER_LINE_HEIGHT_PX * 4 + CHAT_COMPOSER_PAD_Y_PX;
 
-export function AgentBuilderChatDiagram() {
+export function AgentBuilderChatDiagram(props?: { initialMode?: "form" | "conversational" }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const draftFromUrl = searchParams.get("draft")?.trim() ?? "";
@@ -874,7 +874,8 @@ export function AgentBuilderChatDiagram() {
   const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
   const [isHydratingDraft, setIsHydratingDraft] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [builderMode, setBuilderMode] = useState<BuilderMode>("unselected");
+  const initialMode = props?.initialMode ?? "form";
+  const [builderMode, setBuilderMode] = useState<BuilderMode>(initialMode === "conversational" ? "conversational" : "form");
   const [formStep, setFormStep] = useState<FormStep>("business");
 
   const [draftState, setDraftState] = useState<DraftState>({
@@ -1373,8 +1374,18 @@ export function AgentBuilderChatDiagram() {
 
   useEffect(() => {
     if (!draftFromUrl) {
-      setBuilderMode("unselected");
+      const mode = initialMode === "conversational" ? "conversational" : "form";
+      setBuilderMode(mode);
       setFormStep("business");
+      if (mode === "conversational") {
+        setChatMessages([
+          {
+            id: nowId(),
+            role: "assistant",
+            text: "Empezamos en modo conversacional con IA. Cuéntame sobre tu negocio y el agente que quieres construir.",
+          },
+        ]);
+      }
       hasHydratedDraftRef.current = true;
       skipDraftPersistenceRef.current = false;
       setLoadingDraft(false);
@@ -1858,35 +1869,6 @@ export function AgentBuilderChatDiagram() {
             </p>
           </header>
           <div className="flex-1 space-y-3 overflow-y-auto p-4">
-            {builderMode === "unselected" ? (
-              <div className="rounded-xl border border-border bg-muted/30 p-4">
-                <p className="text-sm font-medium">Elige el constructor inicial</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Antes del primer mensaje, selecciona cómo quieres construir este agente.
-                </p>
-                <div className="mt-4 grid gap-2">
-                  <Button
-                    type="button"
-                    variant="default"
-                    className="justify-start"
-                    onClick={launchConversationalMode}
-                  >
-                    Constructor conversacional
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="justify-start"
-                    onClick={() => {
-                      setBuilderMode("form");
-                      setFormStep("business");
-                    }}
-                  >
-                    Constructor formulario
-                  </Button>
-                </div>
-              </div>
-            ) : null}
             {builderMode === "form" ? (
               <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-3">
                 <div className="flex items-center justify-between">
@@ -2288,84 +2270,92 @@ export function AgentBuilderChatDiagram() {
           aria-label="Redimensionar panel del chat"
         />
 
-        <section className="h-[calc(100vh-110px)] min-h-[700px] flex-1 rounded-xl border border-border bg-card p-3">
-          <div className="h-full overflow-hidden rounded-lg border border-border">
-            <ReactFlow
-              nodes={nodes}
-              edges={graph.edges}
-              onNodesChange={onNodesChange}
-              nodesDraggable
-              onNodeClick={(_event, node) => {
-                if (node.id === "tool-add") {
-                  setEditingToolId(null);
-                  setToolsDialogOpen(true);
-                  return;
-                }
-                if (node.id.startsWith("tool-")) {
-                  const toolId = node.id.slice("tool-".length);
-                  setEditingToolId(toolId);
-                  setToolsDialogOpen(true);
-                  return;
-                }
-                if (node.id === "business-add-manual") {
-                  openManualNodeDialog("business");
-                  return;
-                }
-                if (node.id === "personality-add-manual") {
-                  openManualNodeDialog("personality");
-                  return;
-                }
-                if (node.id.startsWith("business-manual-")) {
-                  const nodeId = node.id.slice("business-manual-".length);
-                  const target = manualNodesBusiness.find((item) => item.id === nodeId);
-                  if (target) openManualNodeDialog("business", target);
-                  return;
-                }
-                if (node.id.startsWith("personality-manual-")) {
-                  const nodeId = node.id.slice("personality-manual-".length);
-                  const target = manualNodesPersonality.find((item) => item.id === nodeId);
-                  if (target) openManualNodeDialog("personality", target);
-                  return;
-                }
-                if (node.id.startsWith("business-")) {
-                  const key = node.id.slice("business-".length) as BusinessFieldKey;
-                  const field = BUSINESS_FIELD_GRAPH.find((item) => item.key === key);
-                  if (field) openRequiredNodeDialog(key, field.label);
-                  return;
-                }
-                if (node.id === "personality-name") {
-                  openRequiredNodeDialog("agent_name", "Nombre del agente");
-                  return;
-                }
-                if (node.id === "personality-style") {
-                  openRequiredNodeDialog("agent_personality", "Estilo");
-                  return;
-                }
-                if (node.id === "personality-language") {
-                  openRequiredNodeDialog(
-                    "response_language",
-                    "Idioma de las respuestas al usuario",
-                  );
-                  return;
-                }
-                if (node.id.startsWith("tech-")) {
-                  const rest = node.id.slice("tech-".length);
-                  const firstDash = rest.indexOf("-");
-                  if (firstDash > 0) {
-                    const docId = rest.slice(0, firstDash);
-                    const fieldKey = rest.slice(firstDash + 1);
-                    openTechnicalPropertyDialog(docId, fieldKey);
+        {builderMode !== "form" ? (
+          <section className="h-[calc(100vh-110px)] min-h-[700px] flex-1 rounded-xl border border-border bg-card p-3">
+            <div className="h-full overflow-hidden rounded-lg border border-border">
+              <ReactFlow
+                nodes={nodes}
+                edges={graph.edges}
+                onNodesChange={onNodesChange}
+                nodesDraggable
+                onNodeClick={(_event, node) => {
+                  if (node.id === "tool-add") {
+                    setEditingToolId(null);
+                    setToolsDialogOpen(true);
+                    return;
                   }
-                }
-              }}
-              fitView
-              minZoom={0.3}
-              maxZoom={1.8}
-            >
-              <Background />
-            </ReactFlow>
-          </div>
-        </section>
+                  if (node.id.startsWith("tool-")) {
+                    const toolId = node.id.slice("tool-".length);
+                    setEditingToolId(toolId);
+                    setToolsDialogOpen(true);
+                    return;
+                  }
+                  if (node.id === "business-add-manual") {
+                    openManualNodeDialog("business");
+                    return;
+                  }
+                  if (node.id === "personality-add-manual") {
+                    openManualNodeDialog("personality");
+                    return;
+                  }
+                  if (node.id.startsWith("business-manual-")) {
+                    const nodeId = node.id.slice("business-manual-".length);
+                    const target = manualNodesBusiness.find((item) => item.id === nodeId);
+                    if (target) openManualNodeDialog("business", target);
+                    return;
+                  }
+                  if (node.id.startsWith("personality-manual-")) {
+                    const nodeId = node.id.slice("personality-manual-".length);
+                    const target = manualNodesPersonality.find((item) => item.id === nodeId);
+                    if (target) openManualNodeDialog("personality", target);
+                    return;
+                  }
+                  if (node.id.startsWith("business-")) {
+                    const key = node.id.slice("business-".length) as BusinessFieldKey;
+                    const field = BUSINESS_FIELD_GRAPH.find((item) => item.key === key);
+                    if (field) openRequiredNodeDialog(key, field.label);
+                    return;
+                  }
+                  if (node.id === "personality-name") {
+                    openRequiredNodeDialog("agent_name", "Nombre del agente");
+                    return;
+                  }
+                  if (node.id === "personality-style") {
+                    openRequiredNodeDialog("agent_personality", "Estilo");
+                    return;
+                  }
+                  if (node.id === "personality-language") {
+                    openRequiredNodeDialog(
+                      "response_language",
+                      "Idioma de las respuestas al usuario",
+                    );
+                    return;
+                  }
+                  if (node.id.startsWith("tech-")) {
+                    const rest = node.id.slice("tech-".length);
+                    const firstDash = rest.indexOf("-");
+                    if (firstDash > 0) {
+                      const docId = rest.slice(0, firstDash);
+                      const fieldKey = rest.slice(firstDash + 1);
+                      openTechnicalPropertyDialog(docId, fieldKey);
+                    }
+                  }
+                }}
+                fitView
+                minZoom={0.3}
+                maxZoom={1.8}
+              >
+                <Background />
+              </ReactFlow>
+            </div>
+          </section>
+        ) : (
+          <section className="h-[calc(100vh-110px)] min-h-[700px] flex-1 rounded-xl border border-border bg-card p-3 flex items-center justify-center">
+            <p className="text-muted-foreground text-sm">
+              Completa el formulario para ver el diagrama de tu agente
+            </p>
+          </section>
+        )}
       </div>
       <Dialog open={toolsDialogOpen} onOpenChange={setToolsDialogOpen}>
         <DialogContent className="sm:max-w-xl">
