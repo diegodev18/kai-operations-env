@@ -138,13 +138,12 @@ export async function postPromoteToProduction(
         404,
       );
     }
-    const data = snap.data() ?? {};
-    const agentName =
-      typeof data.agent_name === "string" ? data.agent_name.trim() : "";
-    if (
-      parsed.data.confirmation_agent_name.trim() !== agentName ||
-      agentName.length === 0
-    ) {
+    const normalizedInput = parsed.data.confirmation_agent_name
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+    if (normalizedInput !== "confirmar") {
       return c.json(
         {
           error:
