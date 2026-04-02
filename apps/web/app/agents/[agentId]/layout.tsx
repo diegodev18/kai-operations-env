@@ -19,10 +19,10 @@ import { cn } from "@/lib/utils";
 import { fetchAgentById, assignAgentToUser } from "@/lib/agents-api";
 
 const SECTIONS = [
-  { suffix: "prompt-design", label: "Diseño de prompt" },
-  { suffix: "tools", label: "Tools" },
-  { suffix: "simulator", label: "Simulador" },
   { suffix: "tasks", label: "Tareas" },
+  { suffix: "simulator", label: "Simulador" },
+  { suffix: "tools", label: "Tools" },
+  { suffix: "prompt-design", label: "Diseño de prompt" },
   { suffix: "configuration", label: "Configuración" },
 ] as const;
 

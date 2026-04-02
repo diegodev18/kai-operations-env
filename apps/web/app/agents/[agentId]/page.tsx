@@ -6,5 +6,5 @@ export default async function AgentDetailIndexPage({
   params: Promise<{ agentId: string }>;
 }) {
   const { agentId } = await params;
-  redirect(`/agents/${encodeURIComponent(agentId)}/prompt-design`);
+  redirect(`/agents/${encodeURIComponent(agentId)}/tasks`);
 }

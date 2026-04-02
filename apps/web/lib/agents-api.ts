@@ -7,6 +7,8 @@ import type {
   AgentGrowerRow,
   ImplementationTask,
   ImplementationTaskStatus,
+  ImplementationTaskType,
+  ImplementationTaskAttachment,
   ToolsCatalogItem,
   BuilderChatDraftPatch,
   BuilderChatMessage,
@@ -20,6 +22,8 @@ export type {
   AgentGrowerRow,
   ImplementationTask,
   ImplementationTaskStatus,
+  ImplementationTaskType,
+  ImplementationTaskAttachment,
   ToolsCatalogItem,
   BuilderChatDraftPatch,
   BuilderChatMessage,
@@ -849,6 +853,7 @@ export async function patchImplementationTask(
     status?: ImplementationTaskStatus;
     dueDate?: string | null;
     assigneeEmails?: string[];
+    attachments?: ImplementationTaskAttachment[];
   },
 ): Promise<
   { ok: true; task: ImplementationTask } | { ok: false; error: string }
@@ -1005,4 +1010,40 @@ export async function deletePaymentRecord(
   }
   if (data.ok) return { ok: true };
   return { ok: false, error: "Respuesta inválida del servidor" };
+}
+
+export async function uploadAgentFile(
+  agentId: string,
+  taskId: string,
+  file: File,
+): Promise<
+  | { ok: true; file: { name: string; url: string; uploadedAt: string; type: string; size: number } }
+  | { ok: false; error: string }
+> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("taskId", taskId);
+
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/files/upload`,
+    {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    },
+  );
+  let data: {
+    file?: { name: string; url: string; uploadedAt: string; type: string; size: number };
+    error?: string;
+  } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return { ok: false, error: data.error ?? "No se pudo subir el archivo" };
+  }
+  if (!data.file) return { ok: false, error: "Respuesta inválida del servidor" };
+  return { ok: true, file: data.file };
 }

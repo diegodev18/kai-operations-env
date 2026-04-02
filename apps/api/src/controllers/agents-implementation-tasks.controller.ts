@@ -16,6 +16,19 @@ import { isValidEmail } from "@/utils/validation";
 
 type ImplementationTaskStatus = "pending" | "completed";
 
+type ImplementationTaskType =
+  | "connect-number"
+  | "csf-request"
+  | "payment-domiciliation"
+  | "quote-sent"
+  | "custom";
+
+type ImplementationTaskAttachment = {
+  name: string;
+  url: string;
+  uploadedAt: string;
+};
+
 type ImplementationTaskRow = {
   id: string;
   title: string;
@@ -26,7 +39,42 @@ type ImplementationTaskRow = {
   createdByEmail?: string;
   createdAt?: string | null;
   updatedAt?: string | null;
+  mandatory?: boolean;
+  taskType?: ImplementationTaskType;
+  attachments?: ImplementationTaskAttachment[];
 };
+
+const MANDATORY_TASKS: Array<{
+  id: string;
+  title: string;
+  taskType: ImplementationTaskType;
+  description: string;
+}> = [
+  {
+    id: "mandatory-connect-number",
+    title: "Conectar número",
+    taskType: "connect-number",
+    description: "Conectar el número de WhatsApp del cliente.",
+  },
+  {
+    id: "mandatory-csf-request",
+    title: "Solicitud de CSF",
+    taskType: "csf-request",
+    description: "Solicitar la CSF al cliente.",
+  },
+  {
+    id: "mandatory-payment-domiciliation",
+    title: "Domiciliación del pago",
+    taskType: "payment-domiciliation",
+    description: "Configurar la domiciliación del pago.",
+  },
+  {
+    id: "mandatory-quote-sent",
+    title: "Cotización enviada",
+    taskType: "quote-sent",
+    description: "Enviar la cotización al cliente.",
+  },
+];
 
 function getTaskItemsCollection(db: Firestore, agentId: string) {
   return db
@@ -74,6 +122,20 @@ function mapTaskDoc(doc: QueryDocumentSnapshot): ImplementationTaskRow {
   const assigneeEmails = normalizeAssigneeEmails(data.assigneeEmails) ?? [];
   const status: ImplementationTaskStatus =
     data.status === "completed" ? "completed" : "pending";
+
+  const attachmentsRaw = data.attachments;
+  let attachments: ImplementationTaskAttachment[] | undefined;
+  if (Array.isArray(attachmentsRaw)) {
+    attachments = attachmentsRaw
+      .filter((a): a is Record<string, unknown> => typeof a === "object" && a !== null)
+      .map((a) => ({
+        name: typeof a.name === "string" ? a.name : "",
+        url: typeof a.url === "string" ? a.url : "",
+        uploadedAt: typeof a.uploadedAt === "string" ? a.uploadedAt : "",
+      }))
+      .filter((a) => a.name && a.url);
+  }
+
   return {
     id: doc.id,
     title: typeof data.title === "string" ? data.title : "",
@@ -85,6 +147,9 @@ function mapTaskDoc(doc: QueryDocumentSnapshot): ImplementationTaskRow {
       typeof data.createdByEmail === "string" ? data.createdByEmail : undefined,
     createdAt: toIsoOrNull(data.createdAt),
     updatedAt: toIsoOrNull(data.updatedAt),
+    mandatory: data.mandatory === true,
+    taskType: typeof data.taskType === "string" ? (data.taskType as ImplementationTaskType) : "custom",
+    attachments,
   };
 }
 
@@ -149,7 +214,36 @@ export async function getImplementationTasks(
     if (!agentSnap.exists) {
       return c.json({ error: "Agente no encontrado" }, 404);
     }
-    const tasks = snap.docs.map((doc) => mapTaskDoc(doc as QueryDocumentSnapshot));
+
+    const existingTasks = snap.docs.map((doc) => mapTaskDoc(doc as QueryDocumentSnapshot));
+    const existingIds = new Set(existingTasks.map((t) => t.id));
+
+    const now = FieldValue.serverTimestamp();
+    const missingMandatory = MANDATORY_TASKS.filter((mt) => !existingIds.has(mt.id));
+    for (const mt of missingMandatory) {
+      const payload = {
+        id: mt.id,
+        title: mt.title,
+        description: mt.description,
+        status: "pending" as ImplementationTaskStatus,
+        dueDate: null,
+        assigneeEmails: [],
+        createdByEmail: null,
+        mandatory: true,
+        taskType: mt.taskType,
+        attachments: [],
+        createdAt: now,
+        updatedAt: now,
+      };
+      await itemsRef.doc(mt.id).set(payload);
+    }
+
+    const tasks = missingMandatory.length > 0
+      ? (await itemsRef.orderBy("createdAt", "desc").get()).docs.map((doc) =>
+          mapTaskDoc(doc as QueryDocumentSnapshot),
+        )
+      : existingTasks;
+
     return c.json({ tasks });
   } catch (error) {
     return handleFirestoreError(c, error, "[implementation tasks GET]");
@@ -278,9 +372,25 @@ export async function patchImplementationTask(
     patch.assigneeEmails = assigneeEmails;
   }
 
+  if (Object.prototype.hasOwnProperty.call(body, "attachments")) {
+    const attachmentsRaw = (body as { attachments?: unknown }).attachments;
+    if (!Array.isArray(attachmentsRaw)) {
+      return c.json({ error: "attachments debe ser un array" }, 400);
+    }
+    const attachments = attachmentsRaw
+      .filter((a): a is Record<string, unknown> => typeof a === "object" && a !== null)
+      .map((a) => ({
+        name: typeof a.name === "string" ? a.name.trim() : "",
+        url: typeof a.url === "string" ? a.url.trim() : "",
+        uploadedAt: typeof a.uploadedAt === "string" ? a.uploadedAt : new Date().toISOString(),
+      }))
+      .filter((a) => a.name && a.url);
+    patch.attachments = attachments;
+  }
+
   if (Object.keys(patch).length === 1) {
     return c.json(
-      { error: "No hay campos para actualizar (status, dueDate, assigneeEmails)" },
+      { error: "No hay campos para actualizar (status, dueDate, assigneeEmails, attachments)" },
       400,
     );
   }

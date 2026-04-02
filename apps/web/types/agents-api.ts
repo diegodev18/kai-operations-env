@@ -4,6 +4,19 @@ export type AgentGrowerRow = { email: string; name: string };
 
 export type ImplementationTaskStatus = "pending" | "completed";
 
+export type ImplementationTaskAttachment = {
+  name: string;
+  url: string;
+  uploadedAt: string;
+};
+
+export type ImplementationTaskType =
+  | "connect-number"
+  | "csf-request"
+  | "payment-domiciliation"
+  | "quote-sent"
+  | "custom";
+
 export type ImplementationTask = {
   id: string;
   title: string;
@@ -14,6 +27,9 @@ export type ImplementationTask = {
   createdByEmail?: string;
   createdAt?: string | null;
   updatedAt?: string | null;
+  mandatory?: boolean;
+  taskType?: ImplementationTaskType;
+  attachments?: ImplementationTaskAttachment[];
 };
 
 export type ToolsCatalogItem = {

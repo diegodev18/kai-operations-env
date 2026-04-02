@@ -59,6 +59,7 @@ import {
   createPaymentRecord,
   deletePaymentRecord,
 } from "@/controllers/agent-billing.controller";
+import { uploadAgentFile } from "@/controllers/agent-file-upload.controller";
 import { resolveAgentsAuthContext } from "@/routes/agents-auth";
 
 const agentsRouter = new Hono();
@@ -506,6 +507,16 @@ agentsRouter.delete("/:agentId/billing/payments/:paymentId", async (c) => {
     return c.json({ error: "Agente o pago no encontrado" }, 404);
   }
   return deletePaymentRecord(c, ctx.authCtx, agentId, paymentId);
+});
+
+agentsRouter.post("/:agentId/files/upload", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return uploadAgentFile(c, ctx.authCtx, agentId);
 });
 
 export default agentsRouter;
