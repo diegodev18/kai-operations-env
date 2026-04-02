@@ -364,13 +364,23 @@ export function AgentConfigurationEditor({
     if (!agentId) return;
     let cancelled = false;
     void (async () => {
-      const me = await fetchOrganizationMe();
+      const [me, growersRes, techLeadsRes] = await Promise.all([
+        fetchOrganizationMe(),
+        fetchAgentGrowers(agentId),
+        fetchAgentTechLeads(agentId),
+      ]);
       if (cancelled) return;
       if (me) {
         setUserRole(me.role);
         if (me.email) {
           setUserEmail(me.email);
         }
+      }
+      if (growersRes?.growers) {
+        setDialogGrowers(growersRes.growers);
+      }
+      if (techLeadsRes?.techLeads) {
+        setDialogTechLeads(techLeadsRes.techLeads);
       }
     })();
     return () => {
