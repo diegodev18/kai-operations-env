@@ -37,11 +37,11 @@ function errorMessageFromBody(
   return `${fallback} (HTTP ${status})`;
 }
 
-export async function fetchOrganizationMe(): Promise<{ role: string } | null> {
+export async function fetchOrganizationMe(): Promise<{ role: string; email?: string | null } | null> {
   const res = await fetch("/api/organization/me", {
     credentials: "include",
   });
-  return parseJson<{ role: string }>(res);
+  return parseJson<{ role: string; email?: string | null }>(res);
 }
 
 export async function fetchOrganizationUsers(): Promise<{

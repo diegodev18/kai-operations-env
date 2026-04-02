@@ -21,8 +21,12 @@ import { isValidEmail } from "@/utils/validation";
 export const getOrganizationMe = async (
   c: Context,
   userRole: string | undefined,
+  sessionUser?: { email?: string | null },
 ) => {
-  return c.json({ role: userRole ?? "member" });
+  return c.json({ 
+    role: userRole ?? "member",
+    email: sessionUser?.email ?? null,
+  });
 };
 
 export const getOrganizationUsers = async (c: Context) => {

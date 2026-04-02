@@ -5,6 +5,7 @@ import type {
   AgentDraftPatchBody,
   DraftPendingTask,
   AgentGrowerRow,
+  AgentTechLeadRow,
   ImplementationTask,
   ImplementationTaskStatus,
   ImplementationTaskType,
@@ -20,6 +21,7 @@ export type {
   AgentDraftPatchBody,
   DraftPendingTask,
   AgentGrowerRow,
+  AgentTechLeadRow,
   ImplementationTask,
   ImplementationTaskStatus,
   ImplementationTaskType,
@@ -169,6 +171,92 @@ export async function deleteAgentGrower(
     return {
       ok: false,
       error: data.error ?? "No se pudo quitar el grower",
+    };
+  }
+  if (data.ok) {
+    return { ok: true };
+  }
+  return { ok: false, error: "Respuesta inv?lida del servidor" };
+}
+
+export async function postAgentTechLead(
+  agentId: string,
+  body: { email: string; name?: string },
+): Promise<
+  | { ok: true; techLead: { email: string; name: string } }
+  | { ok: false; error: string }
+> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/techLeads`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    },
+  );
+  let data: {
+    ok?: boolean;
+    techLead?: { email: string; name: string };
+    error?: string;
+  } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: data.error ?? "No se pudo agregar el tech lead",
+    };
+  }
+  if (data.ok && data.techLead) {
+    return { ok: true, techLead: data.techLead };
+  }
+  return { ok: false, error: "Respuesta inv?lida del servidor" };
+}
+
+export async function fetchAgentTechLeads(
+  agentId: string,
+): Promise<{ techLeads: AgentTechLeadRow[] } | null> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/techLeads`,
+    {
+      credentials: "include",
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) return null;
+  try {
+    return (await res.json()) as { techLeads: AgentTechLeadRow[] };
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteAgentTechLead(
+  agentId: string,
+  email: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const enc = encodeURIComponent(email.trim().toLowerCase());
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/techLeads/${enc}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+    },
+  );
+  let data: { ok?: boolean; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: data.error ?? "No se pudo quitar el tech lead",
     };
   }
   if (data.ok) {

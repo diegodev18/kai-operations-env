@@ -40,6 +40,11 @@ import {
   postAgentGrower,
 } from "@/controllers/agents-growers.controller";
 import {
+  deleteAgentTechLead,
+  getAgentTechLeads,
+  postAgentTechLead,
+} from "@/controllers/agents-tech-leads.controller";
+import {
   createImplementationTask,
   getImplementationTasks,
   patchImplementationTask,
@@ -425,6 +430,42 @@ agentsRouter.delete("/:agentId/growers/:growerEmail", async (c) => {
     return c.json({ error: "Agente o grower no encontrado" }, 404);
   }
   return deleteAgentGrower(c, ctx.authCtx, agentId, growerEmail);
+});
+
+agentsRouter.get("/:agentId/techLeads", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim();
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return getAgentTechLeads(c, ctx.authCtx, agentId);
+});
+
+agentsRouter.post("/:agentId/techLeads", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim();
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return postAgentTechLead(c, ctx.authCtx, agentId);
+});
+
+agentsRouter.delete("/:agentId/techLeads/:techLeadEmail", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim();
+  const techLeadEmail = c.req.param("techLeadEmail");
+  if (
+    !agentId ||
+    techLeadEmail == null ||
+    techLeadEmail === "" ||
+    isReservedAgentPathSegment(agentId)
+  ) {
+    return c.json({ error: "Agente o tech lead no encontrado" }, 404);
+  }
+  return deleteAgentTechLead(c, ctx.authCtx, agentId, techLeadEmail);
 });
 
 agentsRouter.get("/:agentId/implementation-tasks", async (c) => {

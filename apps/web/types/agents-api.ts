@@ -2,6 +2,8 @@
 
 export type AgentGrowerRow = { email: string; name: string };
 
+export type AgentTechLeadRow = { email: string; name: string };
+
 export type ImplementationTaskStatus = "pending" | "completed";
 
 export type ImplementationTaskAttachment = {

@@ -50,14 +50,19 @@ import { PROPERTY_DESCRIPTIONS, PROPERTY_TITLES } from "@/lib/property-descripti
 import { cn } from "@/lib/utils";
 import {
   type AgentGrowerRow,
+  type AgentTechLeadRow,
   deleteAgentGrower,
   fetchAgentById,
   fetchAgentGrowers,
+  fetchAgentTechLeads,
   patchAgent,
   postAgentGrower,
+  postAgentTechLead,
   postAgentSyncFromProduction,
+  deleteAgentTechLead,
 } from "@/lib/agents-api";
 import {
+  fetchOrganizationMe,
   fetchOrganizationUsers,
   type OrganizationUser,
 } from "@/lib/organization-api";
@@ -250,6 +255,14 @@ export function AgentConfigurationEditor({
   const [addingGrowerUserId, setAddingGrowerUserId] = useState<string | null>(
     null,
   );
+  const [isTechLeadsDialogOpen, setIsTechLeadsDialogOpen] = useState(false);
+  const [dialogTechLeads, setDialogTechLeads] = useState<AgentTechLeadRow[]>([]);
+  const [dialogTechLeadsLoading, setDialogTechLeadsLoading] = useState(false);
+  const [addingTechLeadUserId, setAddingTechLeadUserId] = useState<string | null>(
+    null,
+  );
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [promoteDialogOpen, setPromoteDialogOpen] = useState(false);
   const [syncingFromProd, setSyncingFromProd] = useState(false);
   const [agentVersion, setAgentVersion] = useState<string>("production");
@@ -346,6 +359,63 @@ export function AgentConfigurationEditor({
       cancelled = true;
     };
   }, [isGrowersDialogOpen, agentId]);
+
+  useEffect(() => {
+    if (!agentId) return;
+    let cancelled = false;
+    void (async () => {
+      const me = await fetchOrganizationMe();
+      if (cancelled) return;
+      if (me) {
+        setUserRole(me.role);
+        if (me.email) {
+          setUserEmail(me.email);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [agentId]);
+
+  useEffect(() => {
+    if (!isTechLeadsDialogOpen || !agentId) {
+      if (!isTechLeadsDialogOpen) {
+        setDialogTechLeads([]);
+        setOrgUsers([]);
+      }
+      return;
+    }
+    let cancelled = false;
+    setDialogTechLeadsLoading(true);
+    setOrgUsersLoading(true);
+    void (async () => {
+      const [usersRes, techLeadsRes] = await Promise.all([
+        fetchOrganizationUsers(),
+        fetchAgentTechLeads(agentId),
+      ]);
+      if (cancelled) return;
+      setDialogTechLeadsLoading(false);
+      setOrgUsersLoading(false);
+      if (usersRes?.users) {
+        setOrgUsers(usersRes.users);
+      } else {
+        setOrgUsers([]);
+        toast.error("No se pudieron cargar los usuarios de la organización");
+      }
+      if (techLeadsRes === null) {
+        setDialogTechLeads([]);
+        toast.error("No se pudieron cargar los tech leads del agente");
+      } else {
+        setDialogTechLeads(
+          Array.isArray(techLeadsRes.techLeads) ? techLeadsRes.techLeads : [],
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isTechLeadsDialogOpen, agentId]);
 
   const update = useCallback(
     <K extends keyof AgentPropertiesResponse>(
@@ -556,6 +626,82 @@ export function AgentConfigurationEditor({
     [agentId, checkIsGrower],
   );
 
+  const techLeadsByEmail = useMemo(() => {
+    const byEmail = new Map<string, AgentTechLeadRow>();
+    for (const tl of dialogTechLeads) {
+      const email = tl.email.trim().toLowerCase();
+      if (email) byEmail.set(email, { email, name: tl.name });
+    }
+    return byEmail;
+  }, [dialogTechLeads]);
+
+  const checkIsTechLead = useCallback(
+    (u: OrganizationUser) => {
+      const email = u.email.trim().toLowerCase();
+      if (techLeadsByEmail.has(email)) return true;
+      const name = u.name.trim().toLowerCase();
+      if (!name) return false;
+      for (const tl of techLeadsByEmail.values()) {
+        if (tl.name.trim().toLowerCase() === name) return true;
+      }
+      return false;
+    },
+    [techLeadsByEmail],
+  );
+
+  const onCheckAddTechLead = useCallback(
+    async (orgUser: OrganizationUser) => {
+      if (!agentId) return;
+      if (checkIsTechLead(orgUser)) return;
+      const emailNorm = orgUser.email.trim().toLowerCase();
+      setAddingTechLeadUserId(orgUser.id);
+      try {
+        const displayName = orgUser.name.trim() || orgUser.email.trim();
+        const result = await postAgentTechLead(agentId, {
+          email: orgUser.email.trim(),
+          name: displayName,
+        });
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success(`${displayName} agregado como tech lead`);
+        const row: AgentTechLeadRow = { email: emailNorm, name: displayName };
+        setDialogTechLeads((prev) =>
+          prev.some((tl) => tl.email.trim().toLowerCase() === emailNorm)
+            ? prev
+            : [...prev, row],
+        );
+      } finally {
+        setAddingTechLeadUserId(null);
+      }
+    },
+    [agentId, checkIsTechLead],
+  );
+
+  const onUncheckRemoveTechLead = useCallback(
+    async (orgUser: OrganizationUser) => {
+      if (!agentId) return;
+      if (!checkIsTechLead(orgUser)) return;
+      const emailNorm = orgUser.email.trim().toLowerCase();
+      setAddingTechLeadUserId(orgUser.id);
+      try {
+        const result = await deleteAgentTechLead(agentId, orgUser.email);
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success("Tech lead quitado");
+        setDialogTechLeads((prev) =>
+          prev.filter((tl) => tl.email.trim().toLowerCase() !== emailNorm),
+        );
+      } finally {
+        setAddingTechLeadUserId(null);
+      }
+    },
+    [agentId, checkIsTechLead],
+  );
+
   const sortedOrgUsers = useMemo(() => {
     return [...orgUsers].sort((a, b) =>
       a.name.localeCompare(b.name, "es", { sensitivity: "base" }),
@@ -622,6 +768,17 @@ export function AgentConfigurationEditor({
   const inCommercial = data?.in_commercial ?? false;
   const inProduction = data?.in_production ?? false;
 
+  const isAdmin = userRole === "admin";
+  const isTechLead = isAdmin || dialogTechLeads.some(
+    (tl) => tl.email.trim().toLowerCase() === userEmail?.trim().toLowerCase()
+  );
+  const isGrower = !isTechLead && dialogGrowers.some(
+    (g) => g.email.trim().toLowerCase() === userEmail?.trim().toLowerCase()
+  );
+
+  const showAllSections = isTechLead;
+  const showGrowerSections = !isTechLead && (isGrower || isAdmin);
+
   return (
     <div
       className="flex w-full min-h-0 flex-1 flex-col"
@@ -664,7 +821,13 @@ export function AgentConfigurationEditor({
                       "omitFirstEchoes",
                       "isValidatorAgentEnable",
                     ] as const
-                  ).map((key) => (
+                  ).filter((key) => {
+                    if (showAllSections) return true;
+                    if (showGrowerSections) {
+                      return ["injectCommandsInPrompt", "isMemoryEnable", "isValidatorAgentEnable"].includes(key);
+                    }
+                    return false;
+                  }).map((key) => (
                     <div key={key} className="flex items-center gap-2">
                       <input
                         type="checkbox"
@@ -681,6 +844,8 @@ export function AgentConfigurationEditor({
                       <FieldLabel docId="agent" fieldKey={key} id={`agent-${key}`} />
                     </div>
                   ))}
+                  {showAllSections && (
+                    <>
                   <div className="space-y-2">
                     <FieldLabel
                       docId="agent"
@@ -757,10 +922,13 @@ export function AgentConfigurationEditor({
                       </SelectContent>
                     </Select>
                   </div>
+                    </>
+                  )}
                 </div>
               </section>
 
               {/* Limitación: lista blanca (MCP-KAI-AGENTS properties/limitation) */}
+              {(showAllSections || showGrowerSections) && (
               <section className="space-y-4">
                 <h3 className="text-sm font-semibold tracking-tight text-foreground">
                   {DOCUMENT_LABELS.limitation}
@@ -810,8 +978,10 @@ export function AgentConfigurationEditor({
                   </div>
                 </div>
               </section>
+              )}
 
               {/* Answer */}
+              {(showAllSections || showGrowerSections) && (
               <section className="space-y-4">
                 <h3 className="text-sm font-semibold tracking-tight text-foreground">
                   {DOCUMENT_LABELS.answer}
@@ -831,8 +1001,10 @@ export function AgentConfigurationEditor({
                   />
                 </div>
               </section>
+              )}
 
               {/* AI (thinking) - model and temperature are source of truth here */}
+              {showAllSections && (
               <section className="space-y-4">
                 <h3 className="text-sm font-semibold tracking-tight text-foreground">
                   {DOCUMENT_LABELS.ai}
@@ -1013,8 +1185,10 @@ export function AgentConfigurationEditor({
                   </div>
                 </div>
               </section>
+              )}
 
               {/* Response */}
+              {(showAllSections || showGrowerSections) && (
               <section className="space-y-4">
                 <h3 className="text-sm font-semibold tracking-tight text-foreground">
                   {DOCUMENT_LABELS.response}
@@ -1080,9 +1254,11 @@ export function AgentConfigurationEditor({
                   )}
                 </div>
               </section>
+              )}
           </div>
           <div className="min-w-0 space-y-12 border-t border-border pt-12 lg:border-t-0 lg:border-l lg:border-border lg:pt-0 lg:pl-8">
               {/* Time */}
+              {showAllSections && (
               <section className="space-y-4">
                 <h3 className="text-sm font-semibold tracking-tight text-foreground">
                   {DOCUMENT_LABELS.time}
@@ -1114,8 +1290,10 @@ export function AgentConfigurationEditor({
                   />
                 </div>
               </section>
+              )}
 
               {/* Prompt */}
+              {showAllSections && (
               <section className="space-y-4">
                 <h3 className="text-sm font-semibold tracking-tight text-foreground">
                   {DOCUMENT_LABELS.prompt}
@@ -1142,8 +1320,10 @@ export function AgentConfigurationEditor({
                   </div>
                 </div>
               </section>
+              )}
 
               {/* Memory */}
+              {(showAllSections || showGrowerSections) && (
               <section className="space-y-4">
                 <h3 className="text-sm font-semibold tracking-tight text-foreground">
                   {DOCUMENT_LABELS.memory}
@@ -1164,8 +1344,10 @@ export function AgentConfigurationEditor({
                   />
                 </div>
               </section>
+              )}
 
               {/* MCP (Validador) - solo editable si isValidatorAgentEnable está activo */}
+              {(showAllSections || showGrowerSections) && (
               <section
                 className={cn(
                   "space-y-4",
@@ -1202,6 +1384,7 @@ export function AgentConfigurationEditor({
                   )}
                 </div>
               </section>
+              )}
           </div>
         </div>
           </div>
@@ -1244,6 +1427,19 @@ export function AgentConfigurationEditor({
                 <PlusIcon className="mr-1.5 h-4 w-4" />
                 Gestionar growers
               </Button>
+              {showAllSections && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsTechLeadsDialogOpen(true)}
+                  disabled={saving}
+                  className="w-fit shrink-0"
+                >
+                  <PlusIcon className="mr-1.5 h-4 w-4" />
+                  Gestionar tech leads
+                </Button>
+              )}
               {data && inProduction ? (
                 <Button
                   type="button"
@@ -1436,11 +1632,6 @@ export function AgentConfigurationEditor({
                               </div>
                               <div className="truncate text-xs text-muted-foreground">
                                 {u.email}
-                                {u.role === "admin" ? (
-                                  <span className="ml-2 text-foreground/80">
-                                    · admin
-                                  </span>
-                                ) : null}
                               </div>
                             </div>
                             {busy ? (
@@ -1461,6 +1652,89 @@ export function AgentConfigurationEditor({
                   type="button"
                   variant="outline"
                   onClick={() => setIsGrowersDialogOpen(false)}
+                >
+                  Cerrar
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          <Dialog
+            open={isTechLeadsDialogOpen}
+            onOpenChange={(open) => {
+              setIsTechLeadsDialogOpen(open);
+              if (!open) setAddingTechLeadUserId(null);
+            }}
+          >
+            <DialogContent showClose className="max-h-[min(90vh,32rem)]">
+              <DialogHeader>
+                <DialogTitle>Gestionar tech leads</DialogTitle>
+                <DialogDescription>
+                  Los usuarios de la organización aparecen con un tick si ya son
+                  tech leads; marca para añadir o desmarca para quitar. Un usuario no puede ser grower y tech lead a la vez.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="min-h-0 flex-1 overflow-hidden py-2">
+                {dialogTechLeadsLoading ? (
+                  <div className="flex items-center justify-center gap-2 py-10 text-muted-foreground">
+                    <Loader2Icon className="size-5 animate-spin" />
+                    <span>Cargando tech leads…</span>
+                  </div>
+                ) : sortedOrgUsers.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-muted-foreground">
+                    No hay usuarios en la organización.
+                  </p>
+                ) : (
+                  <ul className="max-h-64 space-y-1 overflow-y-auto pr-1">
+                    {sortedOrgUsers.map((u) => {
+                      const alreadyTechLead = dialogTechLeads.some(
+                        (tl) => tl.email.trim().toLowerCase() === u.email.trim().toLowerCase()
+                      );
+                      const alreadyGrower = dialogGrowers.some(
+                        (g) => g.email.trim().toLowerCase() === u.email.trim().toLowerCase()
+                      );
+                      const busy = addingTechLeadUserId === u.id;
+                      return (
+                        <li key={u.id}>
+                          <label className="flex cursor-pointer items-center gap-3 rounded-md border border-transparent px-2 py-2 hover:bg-muted/50">
+                            <Checkbox
+                              checked={alreadyTechLead}
+                              disabled={busy || dialogTechLeadsLoading || !agentId || alreadyGrower}
+                              onCheckedChange={(v) => {
+                                if (v === true) void onCheckAddTechLead(u);
+                                else void onUncheckRemoveTechLead(u);
+                              }}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-sm font-medium">
+                                {u.name}
+                              </div>
+                              <div className="truncate text-xs text-muted-foreground">
+                                {u.email}
+                                {alreadyGrower && (
+                                  <span className="ml-2 text-amber-600">
+                                    · grower
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {busy ? (
+                              <Loader2Icon
+                                className="size-4 shrink-0 animate-spin text-muted-foreground"
+                                aria-hidden
+                              />
+                            ) : null}
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsTechLeadsDialogOpen(false)}
                 >
                   Cerrar
                 </Button>

@@ -27,7 +27,7 @@ async function requireSession(c: Context) {
   if (!session?.user) {
     return { error: c.json({ error: "No autorizado" }, 401) as Response };
   }
-  const u = session.user as { id?: string; role?: string | null };
+  const u = session.user as { id?: string; role?: string | null; email?: string | null };
   const role = await resolveSessionUserRole(u);
   return { sessionUser: u, role };
 }
@@ -35,7 +35,7 @@ async function requireSession(c: Context) {
 organizationRouter.get("/me", async (c) => {
   const ctx = await requireSession(c);
   if ("error" in ctx) return ctx.error;
-  return getOrganizationMe(c, ctx.role);
+  return getOrganizationMe(c, ctx.role, ctx.sessionUser);
 });
 
 organizationRouter.get("/users", async (c) => {

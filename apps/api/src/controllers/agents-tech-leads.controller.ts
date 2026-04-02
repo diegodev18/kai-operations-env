@@ -13,13 +13,89 @@ import {
 } from "@/utils/firestore/errors";
 import { resolveAgentWriteDatabase } from "@/utils/agents";
 import { userCanAddGrowerToAgent } from "@/utils/agents/growerAccess";
-import {
-  fetchGrowersForAgent,
-  mapGrowerDocsToPayload,
-} from "@/utils/agents/growers";
 import { isValidEmail } from "@/utils/validation";
 
-export async function postAgentGrower(
+export type TechLeadPayload = {
+  name: string;
+  email: string;
+};
+
+function emailFromTechLeadData(data: Record<string, unknown>): string {
+  const tryKeys = [
+    "email",
+    "mail",
+    "correo",
+    "userEmail",
+    "user_email",
+    "correo_electronico",
+  ] as const;
+  for (const k of tryKeys) {
+    const v = data[k];
+    if (typeof v === "string" && v.includes("@")) {
+      return v.trim().toLowerCase();
+    }
+  }
+  return "";
+}
+
+function mapTechLeadDocsToPayload(
+  docs: QueryDocumentSnapshot[],
+): TechLeadPayload[] {
+  const out: TechLeadPayload[] = [];
+  for (const d of docs) {
+    const data = d.data() as Record<string, unknown>;
+    const fromField = emailFromTechLeadData(data);
+    const fromId =
+      !fromField && d.id.includes("@")
+        ? d.id.trim().toLowerCase()
+        : "";
+    const emailRaw = fromField || fromId;
+    if (!emailRaw) continue;
+    const nameRaw =
+      typeof data.name === "string"
+        ? data.name.trim()
+        : typeof data.displayName === "string"
+          ? data.displayName.trim()
+          : "";
+    out.push({
+      email: emailRaw,
+      name: nameRaw.length > 0 ? nameRaw : emailRaw,
+    });
+  }
+  return out;
+}
+
+async function fetchTechLeadsForAgent(
+  agentRef: DocumentReference,
+): Promise<TechLeadPayload[]> {
+  const snap = await agentRef.collection("techLeads").get();
+  return mapTechLeadDocsToPayload(snap.docs);
+}
+
+async function userIsTechLeadForAgent(
+  agentRef: DocumentReference,
+  email: string,
+): Promise<boolean> {
+  const snap = await agentRef.collection("techLeads").doc(email).get();
+  return snap.exists;
+}
+
+async function userIsGrowerForAgent(
+  agentRef: DocumentReference,
+  email: string,
+): Promise<boolean> {
+  const snap = await agentRef.collection("growers").doc(email).get();
+  if (snap.exists) return true;
+  const all = await agentRef.collection("growers").get();
+  const normalizedEmail = email.trim().toLowerCase();
+  for (const d of all.docs) {
+    const data = d.data() as Record<string, unknown>;
+    if (data.email === normalizedEmail) return true;
+  }
+  return false;
+}
+
+export async function postAgentTechLead(
   c: Context,
   authCtx: AgentsInfoAuthContext,
   agentId: string,
@@ -53,19 +129,21 @@ export async function postAgentGrower(
       return c.json({ error: "No autorizado" }, 403);
     }
     const agentRef = db.collection("agent_configurations").doc(agentId);
-    const growerRef = agentRef.collection("growers").doc(normalizedEmail);
-    const existing = await growerRef.get();
-    if (existing.exists) {
-      return c.json({ error: "Ya existe ese grower" }, 409);
-    }
+    
     const existingTechLead = await agentRef.collection("techLeads").doc(normalizedEmail).get();
     if (existingTechLead.exists) {
-      return c.json({ error: "El usuario ya es tech lead de este agente" }, 409);
+      return c.json({ error: "Ya existe ese tech lead" }, 409);
     }
-    await growerRef.set({ email: normalizedEmail, name });
+    
+    const isGrower = await userIsGrowerForAgent(agentRef, normalizedEmail);
+    if (isGrower) {
+      return c.json({ error: "El usuario ya es grower de este agente" }, 409);
+    }
+    
+    await agentRef.collection("techLeads").doc(normalizedEmail).set({ email: normalizedEmail, name });
     return c.json({
       ok: true,
-      grower: { email: normalizedEmail, name },
+      techLead: { email: normalizedEmail, name },
     });
   } catch (error) {
     if (isFirebaseConfigError(error)) {
@@ -80,7 +158,7 @@ export async function postAgentGrower(
     const hint = firestoreFailureHint(error);
     const msg = error instanceof Error ? error.message : String(error);
     const createIndexUrl = extractFirestoreIndexUrl(msg);
-    console.error("[agents/growers] Firestore:", msg);
+    console.error("[agents/techLeads] Firestore:", msg);
     if (hint) {
       return c.json(
         {
@@ -90,11 +168,11 @@ export async function postAgentGrower(
         503,
       );
     }
-    return c.json({ error: "Error al guardar el grower en Firestore." }, 500);
+    return c.json({ error: "Error al guardar el tech lead en Firestore." }, 500);
   }
 }
 
-export async function getAgentGrowers(
+export async function getAgentTechLeads(
   c: Context,
   authCtx: AgentsInfoAuthContext,
   agentId: string,
@@ -110,8 +188,8 @@ export async function getAgentGrowers(
     if (!allowed) {
       return c.json({ error: "No autorizado" }, 403);
     }
-    const growersProd = await fetchGrowersForAgent(agentRef);
-    return c.json({ growers: growersProd });
+    const techLeadsProd = await fetchTechLeadsForAgent(agentRef);
+    return c.json({ techLeads: techLeadsProd });
   } catch (error) {
     if (isFirebaseConfigError(error)) {
       return c.json(
@@ -125,7 +203,7 @@ export async function getAgentGrowers(
     const hint = firestoreFailureHint(error);
     const msg = error instanceof Error ? error.message : String(error);
     const createIndexUrl = extractFirestoreIndexUrl(msg);
-    console.error("[agents/growers GET] Firestore:", msg);
+    console.error("[agents/techLeads GET] Firestore:", msg);
     if (hint) {
       return c.json(
         {
@@ -135,19 +213,19 @@ export async function getAgentGrowers(
         503,
       );
     }
-    return c.json({ error: "Error al leer growers desde Firestore." }, 500);
+    return c.json({ error: "Error al leer tech leads desde Firestore." }, 500);
   }
 }
 
-export async function deleteAgentGrower(
+export async function deleteAgentTechLead(
   c: Context,
   authCtx: AgentsInfoAuthContext,
   agentId: string,
-  growerEmailParam: string,
+  techLeadEmailParam: string,
 ) {
   let normalizedEmail: string;
   try {
-    normalizedEmail = decodeURIComponent(growerEmailParam).trim().toLowerCase();
+    normalizedEmail = decodeURIComponent(techLeadEmailParam).trim().toLowerCase();
   } catch {
     return c.json({ error: "Email inválido" }, 400);
   }
@@ -168,7 +246,7 @@ export async function deleteAgentGrower(
     }
 
     const tryDeleteFrom = async (agentRef: DocumentReference): Promise<boolean> => {
-      const col = agentRef.collection("growers");
+      const col = agentRef.collection("techLeads");
       const direct = await col.doc(normalizedEmail).get();
       if (direct.exists) {
         await direct.ref.delete();
@@ -176,7 +254,7 @@ export async function deleteAgentGrower(
       }
       const all = await col.get();
       for (const d of all.docs) {
-        const mapped = mapGrowerDocsToPayload([d as QueryDocumentSnapshot]);
+        const mapped = mapTechLeadDocsToPayload([d as QueryDocumentSnapshot]);
         if (mapped[0]?.email === normalizedEmail) {
           await d.ref.delete();
           return true;
@@ -188,7 +266,7 @@ export async function deleteAgentGrower(
     const deleted = await tryDeleteFrom(agentRef);
 
     if (!deleted) {
-      return c.json({ error: "Grower no encontrado" }, 404);
+      return c.json({ error: "Tech lead no encontrado" }, 404);
     }
     return c.json({ ok: true });
   } catch (error) {
@@ -204,7 +282,7 @@ export async function deleteAgentGrower(
     const hint = firestoreFailureHint(error);
     const msg = error instanceof Error ? error.message : String(error);
     const createIndexUrl = extractFirestoreIndexUrl(msg);
-    console.error("[agents/growers DELETE] Firestore:", msg);
+    console.error("[agents/techLeads DELETE] Firestore:", msg);
     if (hint) {
       return c.json(
         {
@@ -214,6 +292,6 @@ export async function deleteAgentGrower(
         503,
       );
     }
-    return c.json({ error: "Error al eliminar el grower en Firestore." }, 500);
+    return c.json({ error: "Error al eliminar el tech lead en Firestore." }, 500);
   }
 }
