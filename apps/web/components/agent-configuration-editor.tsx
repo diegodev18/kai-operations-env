@@ -440,12 +440,36 @@ export function AgentConfigurationEditor({
     []
   );
 
+  const handleVersionChange = useCallback(
+    async (newVersion: string) => {
+      if (!agentId) return;
+      setSavingVersion(true);
+      try {
+        const r = await patchAgent(agentId, { version: newVersion });
+        if (r.ok) {
+          setAgentVersion(newVersion);
+          toast.success(`Versión actualizada a ${newVersion}`);
+          onAgentUpdated?.();
+        } else {
+          toast.error(r.error);
+        }
+      } finally {
+        setSavingVersion(false);
+      }
+    },
+    [agentId, onAgentUpdated],
+  );
+
   const handleSave = useCallback(async () => {
     if (!agentId || !formState || !data) return;
     const idsToSave = getPendingDocumentIds(formState, data);
-    if (idsToSave.length === 0) return;
+    if (idsToSave.length === 0 && !pendingVersionRef.current) return;
     setSaving(true);
     try {
+      if (pendingVersionRef.current) {
+        await handleVersionChange(pendingVersionRef.current);
+        pendingVersionRef.current = null;
+      }
       let ok = true;
       for (const docId of idsToSave) {
         const payload = buildPartialPayloadForDocument(docId, formState, data);
@@ -465,7 +489,7 @@ export function AgentConfigurationEditor({
     } finally {
       setSaving(false);
     }
-  }, [agentId, formState, data, refetch, onAgentUpdated]);
+  }, [agentId, formState, data, refetch, onAgentUpdated, handleVersionChange]);
 
   const isEnabled = formState?.agent.enabled !== false;
 
@@ -753,33 +777,18 @@ export function AgentConfigurationEditor({
     window.dispatchEvent(new Event("kai-agent-deployment-changed"));
   }, [refetch, refetchDiff, onAgentUpdated]);
 
-  const handleVersionChange = useCallback(
-    async (newVersion: string) => {
-      if (!agentId) return;
-      setSavingVersion(true);
-      try {
-        const r = await patchAgent(agentId, { version: newVersion });
-        if (r.ok) {
-          setAgentVersion(newVersion);
-          toast.success(`Versión actualizada a ${newVersion}`);
-          onAgentUpdated?.();
-        } else {
-          toast.error(r.error);
-        }
-      } finally {
-        setSavingVersion(false);
-      }
-    },
-    [agentId, onAgentUpdated],
-  );
-
   useEffect(() => {
     const model = formState?.ai?.model;
-    if (!model || agentVersion === "2.0.0") return;
-    if (/gemini-3/i.test(model)) {
-      handleVersionChange("2.0.0");
+    if (!model || agentVersion === "2.0.0") {
+      pendingVersionRef.current = null;
+      return;
     }
-  }, [formState?.ai?.model, agentVersion, handleVersionChange]);
+    if (/gemini-3/i.test(model)) {
+      pendingVersionRef.current = "2.0.0";
+    }
+  }, [formState?.ai?.model, agentVersion]);
+
+  const displayVersion = pendingVersionRef.current ?? agentVersion;
 
   if (!agentId) return null;
 
@@ -919,8 +928,11 @@ export function AgentConfigurationEditor({
                       </p>
                     </div>
                     <Select
-                      value={agentVersion}
-                      onValueChange={handleVersionChange}
+                      value={displayVersion}
+                      onValueChange={(value) => {
+                        pendingVersionRef.current = null;
+                        handleVersionChange(value);
+                      }}
                       disabled={savingVersion}
                     >
                       <SelectTrigger id="agent-version" className="w-full">
