@@ -1,6 +1,6 @@
 /**
  * Búsqueda de agentes para GET /api/agents/info?q=...
- * Replica el criterio del dashboard (nombre, dueño, industria, growers) sobre IDs ya autorizados.
+ * Replica el criterio del dashboard (nombre, dueño, industria, growers, tech leads) sobre IDs ya autorizados.
  */
 import type { Firestore } from "firebase-admin/firestore";
 
@@ -8,6 +8,7 @@ import { getFirestore } from "@/lib/firestore";
 import type { AgentDocument } from "@/types/agents";
 
 import { fetchGrowersForAgent } from "./growers";
+import { fetchTechLeadsForAgent } from "./techLeads";
 import { parseAgentDoc } from "./parseAgentDoc";
 
 /** q normalizado (minúsculas, trim) o null si no hay búsqueda activa. */
@@ -57,7 +58,7 @@ function industryFromRootData(data: Record<string, unknown>): string {
 }
 
 /**
- * Busca coincidencia específicamente en la subcolección de growers.
+ * Busca coincidencia en subcolecciones de growers y tech leads.
  * Asíncrono y lento.
  */
 export async function agentMatchesGrowersSearchQuery(
@@ -78,17 +79,23 @@ export async function agentMatchesGrowersSearchQuery(
   }
 
   const agentRef = db.collection("agent_configurations").doc(agentId);
-  const growers = await fetchGrowersForAgent(agentRef);
+  const [growers, techLeads] = await Promise.all([
+    fetchGrowersForAgent(agentRef),
+    fetchTechLeadsForAgent(agentRef),
+  ]);
 
-  return growers.some(
-    (g) =>
-      g.name.toLowerCase().includes(qLower) ||
-      g.email.toLowerCase().includes(qLower),
+  const matchNameOrEmail = (name: string, email: string) =>
+    name.toLowerCase().includes(qLower) ||
+    email.toLowerCase().includes(qLower);
+
+  return (
+    growers.some((g) => matchNameOrEmail(g.name, g.email)) ||
+    techLeads.some((t) => matchNameOrEmail(t.name, t.email))
   );
 }
 
 /**
- * Legacy/Simple: Indica si un agente coincide por raíz O growers.
+ * Legacy/Simple: Indica si un agente coincide por raíz, growers o tech leads.
  */
 export async function agentMatchesSearchQuery(
   agentId: string,
