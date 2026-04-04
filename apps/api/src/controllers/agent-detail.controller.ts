@@ -18,13 +18,14 @@ import {
   parseAgentDoc,
   resolveAgentWriteDatabase,
   userCanAccessAgent,
+  userCanEditAgent,
 } from "@/utils/agents";
 import {
   extractFirestoreIndexUrl,
   firestoreFailureHint,
   isFirebaseConfigError,
 } from "@/utils/firestore/errors";
-import { isOperationsAdmin } from "@/utils/operations-access";
+import { isOperationsAdmin, isOperationsCommercial } from "@/utils/operations-access";
 
 function handleFirestoreError(c: Context, error: unknown, logPrefix: string) {
   if (isFirebaseConfigError(error)) {
@@ -273,6 +274,14 @@ export async function updateAgentPropertyDocument(
 ) {
   const denied = await requireAgentAccess(c, authCtx, agentId);
   if (denied) return denied;
+
+  const canEdit = await userCanEditAgent(authCtx, agentId);
+  if (!canEdit) {
+    return c.json(
+      { error: "No tienes permisos para editar este agente" },
+      403,
+    );
+  }
 
   const isKnownDoc = PROPERTY_DOC_IDS.includes(documentId as PropertyDocId);
   const isValidDynamicDoc = /^[a-zA-Z0-9_-]{1,64}$/.test(documentId);

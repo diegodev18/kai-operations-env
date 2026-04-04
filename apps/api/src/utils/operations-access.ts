@@ -1,3 +1,7 @@
 export function isOperationsAdmin(role: string | null | undefined): boolean {
   return (role ?? "").toLowerCase().trim() === "admin";
 }
+
+export function isOperationsCommercial(role: string | null | undefined): boolean {
+  return (role ?? "").toLowerCase().trim() === "commercial";
+}

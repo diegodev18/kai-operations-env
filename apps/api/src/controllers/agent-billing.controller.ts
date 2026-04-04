@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { getFirestore } from "@/lib/firestore";
 import type { AgentsInfoAuthContext } from "@/types/agents";
-import { isOperationsAdmin } from "@/utils/operations-access";
+import { isOperationsAdmin, isOperationsCommercial } from "@/utils/operations-access";
 import { parseBillingDoc, parsePaymentRecordDoc } from "@/utils/agents";
 
 function serverTimestampField() {
@@ -31,7 +31,7 @@ export async function getAgentBilling(
   authCtx: AgentsInfoAuthContext,
   agentId: string,
 ) {
-  if (!isOperationsAdmin(authCtx.userRole)) {
+  if (!isOperationsAdmin(authCtx.userRole) && !isOperationsCommercial(authCtx.userRole)) {
     return c.json({ error: "No autorizado" }, 403);
   }
 
@@ -58,7 +58,7 @@ export async function patchAgentBillingConfig(
   authCtx: AgentsInfoAuthContext,
   agentId: string,
 ) {
-  if (!isOperationsAdmin(authCtx.userRole)) {
+  if (!isOperationsAdmin(authCtx.userRole) && !isOperationsCommercial(authCtx.userRole)) {
     return c.json({ error: "No autorizado" }, 403);
   }
 
@@ -121,7 +121,7 @@ export async function createPaymentRecord(
   authCtx: AgentsInfoAuthContext,
   agentId: string,
 ) {
-  if (!isOperationsAdmin(authCtx.userRole)) {
+  if (!isOperationsAdmin(authCtx.userRole) && !isOperationsCommercial(authCtx.userRole)) {
     return c.json({ error: "No autorizado" }, 403);
   }
 
@@ -179,7 +179,7 @@ export async function deletePaymentRecord(
   agentId: string,
   paymentId: string,
 ) {
-  if (!isOperationsAdmin(authCtx.userRole)) {
+  if (!isOperationsAdmin(authCtx.userRole) && !isOperationsCommercial(authCtx.userRole)) {
     return c.json({ error: "No autorizado" }, 403);
   }
 

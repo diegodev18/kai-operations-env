@@ -1,5 +1,6 @@
 export {
   userCanAccessAgent,
+  userCanEditAgent,
   getAgentDeploymentFlags,
   resolveAgentWriteDatabase,
 } from "./agentAccess";

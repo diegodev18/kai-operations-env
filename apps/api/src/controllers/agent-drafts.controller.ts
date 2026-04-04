@@ -25,7 +25,7 @@ import {
   firestoreFailureHint,
   isFirebaseConfigError,
 } from "@/utils/firestore/errors";
-import { isOperationsAdmin } from "@/utils/operations-access";
+import { isOperationsAdmin, isOperationsCommercial } from "@/utils/operations-access";
 
 /** Builder: un solo doc por agente en asistente comercial. */
 const AGENT_CONFIGURATIONS = "agent_configurations";
@@ -113,6 +113,7 @@ function canAccessDraft(
   draftData: Record<string, unknown>,
 ): boolean {
   if (isOperationsAdmin(authCtx.userRole)) return true;
+  if (isOperationsCommercial(authCtx.userRole)) return true;
   const hasLegacy =
     draftData.creator_email == null &&
     draftData.creator_user_id == null;

@@ -191,7 +191,7 @@ export default function OrganizationPage() {
     }
   }
 
-  async function onChangeRole(u: OrganizationUser, newRole: "admin" | "member") {
+  async function onChangeRole(u: OrganizationUser, newRole: "admin" | "member" | "commercial") {
     setRowActionId(u.id);
     try {
       const result = await updateOrganizationUserRole(u.id, newRole);
@@ -393,7 +393,11 @@ export default function OrganizationPage() {
                           <td className="px-3 py-2">
                             <Badge
                               variant={
-                                u.role === "admin" ? "default" : "secondary"
+                                u.role === "admin"
+                                  ? "default"
+                                  : u.role === "commercial"
+                                  ? "outline"
+                                  : "secondary"
                               }
                             >
                               {u.role}
@@ -402,7 +406,7 @@ export default function OrganizationPage() {
                           {isAdmin ? (
                             <td className="px-3 py-2 text-right">
                               {isSelf ? (
-                                u.role === "admin" && canDemoteAdmin ? (
+                                (u.role === "admin" && canDemoteAdmin) || u.role === "commercial" ? (
                                   <Button
                                     type="button"
                                     variant="outline"
@@ -425,27 +429,64 @@ export default function OrganizationPage() {
                                     —
                                   </span>
                                 )
-                              ) : (
-                                <div className="flex flex-wrap items-center justify-end gap-2">
-                                  {u.role === "member" ? (
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      className="gap-1"
-                                      disabled={busy}
-                                      onClick={() => {
-                                        void onChangeRole(u, "admin");
-                                      }}
-                                    >
-                                      {busy ? (
-                                        <Loader2Icon className="size-3.5 animate-spin" />
-                                      ) : (
-                                        <ShieldPlusIcon className="size-3.5" />
-                                      )}
-                                      Hacer admin
-                                    </Button>
-                                  ) : canDemoteAdmin ? (
+                                  ) : (
+                                    <div className="flex flex-wrap items-center justify-end gap-2">
+                                      {u.role === "member" ? (
+                                        <>
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="gap-1"
+                                            disabled={busy}
+                                            onClick={() => {
+                                              void onChangeRole(u, "admin");
+                                            }}
+                                          >
+                                            {busy ? (
+                                              <Loader2Icon className="size-3.5 animate-spin" />
+                                            ) : (
+                                              <ShieldPlusIcon className="size-3.5" />
+                                            )}
+                                            Hacer admin
+                                          </Button>
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="gap-1"
+                                            disabled={busy}
+                                            onClick={() => {
+                                              void onChangeRole(u, "commercial");
+                                            }}
+                                          >
+                                            {busy ? (
+                                              <Loader2Icon className="size-3.5 animate-spin" />
+                                            ) : (
+                                              <ShieldPlusIcon className="size-3.5" />
+                                            )}
+                                            Hacer comercial
+                                          </Button>
+                                        </>
+                                      ) : u.role === "commercial" ? (
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          className="gap-1"
+                                          disabled={busy}
+                                          onClick={() => {
+                                            void onChangeRole(u, "member");
+                                          }}
+                                        >
+                                          {busy ? (
+                                            <Loader2Icon className="size-3.5 animate-spin" />
+                                          ) : (
+                                            <ShieldOffIcon className="size-3.5" />
+                                          )}
+                                          Quitar comercial
+                                        </Button>
+                                      ) : canDemoteAdmin ? (
                                     <Button
                                       type="button"
                                       variant="outline"

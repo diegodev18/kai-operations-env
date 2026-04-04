@@ -154,7 +154,7 @@ export async function fetchInvitationPreview(
 
 export async function updateOrganizationUserRole(
   userId: string,
-  role: "admin" | "member",
+  role: "admin" | "member" | "commercial",
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const res = await fetch(
     `/api/organization/users/${encodeURIComponent(userId)}`,

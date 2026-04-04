@@ -23,7 +23,7 @@ import {
   firestoreFailureHint,
   isFirebaseConfigError,
 } from "@/utils/firestore/errors";
-import { isOperationsAdmin } from "@/utils/operations-access";
+import { isOperationsAdmin, isOperationsCommercial } from "@/utils/operations-access";
 import { auth } from "@/lib/auth";
 import { db } from "@/db/client";
 import { user } from "@/db/schema/auth";
@@ -157,6 +157,8 @@ export const getAgentsInfo = async (
   authCtx: AgentsInfoAuthContext,
 ) => {
   const admin = isOperationsAdmin(authCtx.userRole);
+  const commercial = isOperationsCommercial(authCtx.userRole);
+  const isPrivileged = admin || commercial;
   const emailNorm = authCtx.userEmail?.toLowerCase().trim() ?? "";
 
   const light = c.req.query("light") === "1";
@@ -178,7 +180,7 @@ export const getAgentsInfo = async (
 
   const searchQ = normalizeAgentsSearchQuery(c.req.query("q"));
 
-  if (!light && !admin) {
+  if (!light && !isPrivileged) {
     return c.json(
       { error: "Este listado no está disponible para tu rol." },
       403,
@@ -188,7 +190,7 @@ export const getAgentsInfo = async (
   try {
     const db = getFirestore();
 
-    if (light && !admin) {
+    if (light && !isPrivileged) {
       if (!emailNorm) {
         return c.json({ agents: [], nextCursor: null });
       }
@@ -250,7 +252,7 @@ export const getAgentsInfo = async (
 
     const collRefProd = db.collection("agent_configurations");
 
-    if (admin && light) {
+    if (isPrivileged && light) {
       const effectiveLimit = pageLimit ?? 15;
       const { sortedIds, commercialMap, productionMap } =
         await mergedAgentIdsAndData();
