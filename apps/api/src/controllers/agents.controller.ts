@@ -113,7 +113,7 @@ async function paginateLightAgentsWithSearch(
   }
   const agents: LightAgent[] = [];
 
-  // Procesamos en lotes para paralelizar el acceso a subcolecciones de growers
+  // Procesamos en lotes para paralelizar el acceso a subcolecciones de growers / tech leads
   const CHUNK_SIZE = 50;
   for (let i = startIdx; i < sortedIds.length; i += CHUNK_SIZE) {
     const chunk = sortedIds.slice(i, i + CHUNK_SIZE);
@@ -196,13 +196,17 @@ export const getAgentsInfo = async (
       }
       const effectiveLimit = Math.min(AGENTS_INFO_MAX_PAGE_LIMIT, pageLimit ?? 15);
 
-      const [growerProd, collaboratorTesting] = await Promise.all([
+      const [growerProd, collaboratorTesting, techLeadProd] = await Promise.all([
         db
           .collectionGroup("growers")
           .where("email", "==", emailNorm)
           .get(),
         db
           .collectionGroup("collaborators")
+          .where("email", "==", emailNorm)
+          .get(),
+        db
+          .collectionGroup("techLeads")
           .where("email", "==", emailNorm)
           .get(),
       ]);
@@ -214,6 +218,10 @@ export const getAgentsInfo = async (
       }
       for (const d of collaboratorTesting.docs) {
         const parent = d.ref.parent?.parent?.parent?.parent;
+        if (parent) idSet.add(parent.id);
+      }
+      for (const d of techLeadProd.docs) {
+        const parent = d.ref.parent.parent;
         if (parent) idSet.add(parent.id);
       }
       const sortedIds = [...idSet].sort((a, b) => a.localeCompare(b));

@@ -13,6 +13,11 @@ export {
   type GrowerPayload,
 } from "./growers";
 export {
+  fetchTechLeadsForAgent,
+  mapTechLeadDocsToPayload,
+  type TechLeadPayload,
+} from "./techLeads";
+export {
   parseAgentDoc,
   type ParsedAgentDoc,
 } from "./parseAgentDoc";

@@ -16,10 +16,11 @@ export async function userCanAccessAgent(
   if (!emailNorm) return false;
 
   const db = getFirestore();
+  const agentRef = db.collection("agent_configurations").doc(agentId);
   const [prodGrowersSnap, testingGrowersSnap, techLeadsSnap] = await Promise.all([
-    db.collection("agent_configurations").doc(agentId).collection("growers").get(),
-    db.collection("agent_configurations").doc(agentId).collection("testing").doc("data").collection("collaborators").get(),
-    db.collection("agent_configurations").doc(agentId).collection("techLeads").get(),
+    agentRef.collection("growers").get(),
+    agentRef.collection("testing").doc("data").collection("collaborators").get(),
+    agentRef.collection("techLeads").get(),
   ]);
   const prodGrowers = mapGrowerDocsToPayload(prodGrowersSnap.docs);
   const testingCollaborators = testingGrowersSnap.docs.map(d => ({
