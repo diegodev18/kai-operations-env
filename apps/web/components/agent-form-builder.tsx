@@ -940,8 +940,8 @@ export function AgentFormBuilder() {
   const currentIndex = sections.findIndex((s) => s.id === currentSection);
 
   return (
-    <div className="flex h-[calc(100vh-110px)] min-h-[700px] flex-col">
-      <div className="flex items-center gap-2 border-b px-4 py-3">
+    <div className="flex h-[calc(100vh-80px)] flex-col">
+      <div className="shrink-0 flex items-center gap-2 border-b px-4 py-3">
         {sections.map((section, index) => (
           <button
             key={section.id}
@@ -963,7 +963,7 @@ export function AgentFormBuilder() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
-        <div className="mx-auto max-w-2xl">
+        <div className="mx-auto max-w-2xl pb-4">
           <div className="mb-6">
             <h2 className="text-xl font-semibold">{sections[currentIndex]?.title}</h2>
             <p className="text-sm text-muted-foreground">
