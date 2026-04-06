@@ -982,7 +982,7 @@ export function AgentFormBuilder() {
       </div>
 
       {currentSection !== "templates" && currentSection !== "review" && (
-        <div className="flex items-center justify-between border-t px-4 py-3">
+        <div className="mt-auto flex items-center justify-between border-t px-4 py-3">
           <Button
             variant="outline"
             onClick={handlePrev}
