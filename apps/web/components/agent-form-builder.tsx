@@ -123,7 +123,9 @@ function SectionBusiness({ state, onChange }: SectionProps) {
   return (
     <div className="space-y-4">
       <div>
-        <label className="text-sm font-medium">Descripción del negocio</label>
+        <label className="text-sm font-medium">
+          Descripción del negocio <span className="text-destructive">*</span>
+        </label>
         <textarea
           value={state.description}
           onChange={(e) => onChange({ description: e.target.value })}
@@ -131,14 +133,13 @@ function SectionBusiness({ state, onChange }: SectionProps) {
           rows={3}
           className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
         />
-        <p className="mt-1 text-xs text-muted-foreground">
-          Describe brevemente tu negocio para que el agente pueda entender el contexto
-        </p>
       </div>
 
       {hasIndustry && (
         <div>
-          <label className="text-sm font-medium">Audiencia objetivo</label>
+          <label className="text-sm font-medium">
+            Audiencia objetivo <span className="text-destructive">*</span>
+          </label>
           <textarea
             value={state.target_audience}
             onChange={(e) => onChange({ target_audience: e.target.value })}
@@ -151,7 +152,9 @@ function SectionBusiness({ state, onChange }: SectionProps) {
 
       {hasAudience && (
         <div>
-          <label className="text-sm font-medium">Rol del agente</label>
+          <label className="text-sm font-medium">
+            Rol del agente <span className="text-destructive">*</span>
+          </label>
           <textarea
             value={state.agent_description}
             onChange={(e) => onChange({ agent_description: e.target.value })}
@@ -164,11 +167,13 @@ function SectionBusiness({ state, onChange }: SectionProps) {
 
       {hasRole && (
         <div>
-          <label className="text-sm font-medium">Reglas de escalamiento</label>
+          <label className="text-sm font-medium">
+            Reglas de escalamiento <span className="text-destructive">*</span>
+          </label>
           <textarea
             value={state.escalation_rules}
             onChange={(e) => onChange({ escalation_rules: e.target.value })}
-            placeholder="¿En qué situaciones debe transferir a un humano? ¿Qué дела el agente cuando no puede resolver un problema?"
+            placeholder="¿En qué situaciones debe transferir a un humano? ¿Qué hace el agente cuando no puede resolver un problema?"
             rows={3}
             className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           />
@@ -176,7 +181,9 @@ function SectionBusiness({ state, onChange }: SectionProps) {
       )}
 
       <div>
-        <label className="text-sm font-medium">País</label>
+        <label className="text-sm font-medium">
+          País <span className="text-destructive">*</span>
+        </label>
         <select
           value={state.country}
           onChange={(e) => onChange({ country: e.target.value })}
@@ -420,7 +427,9 @@ function SectionPersonality({ state, onChange, isSaving }: SectionProps) {
       </div>
 
       <div>
-        <label className="text-sm font-medium">Personalidad</label>
+        <label className="text-sm font-medium">
+          Personalidad <span className="text-destructive">*</span>
+        </label>
         <textarea
           value={state.agent_personality}
           onChange={(e) => onChange({ agent_personality: e.target.value })}
@@ -468,7 +477,9 @@ function SectionPersonality({ state, onChange, isSaving }: SectionProps) {
       </div>
 
       <div>
-        <label className="text-sm font-medium">Idioma</label>
+        <label className="text-sm font-medium">
+          Idioma <span className="text-destructive">*</span>
+        </label>
         <select
           value={state.response_language}
           onChange={(e) => onChange({ response_language: e.target.value })}
@@ -481,7 +492,9 @@ function SectionPersonality({ state, onChange, isSaving }: SectionProps) {
       </div>
 
       <div>
-        <label className="text-sm font-medium">Uso de emojis</label>
+        <label className="text-sm font-medium">
+          Uso de emojis <span className="text-destructive">*</span>
+        </label>
         <div className="mt-2 flex gap-2">
           {(["never", "moderate", "always"] as const).map((pref) => (
             <button
@@ -534,39 +547,6 @@ function SectionPersonality({ state, onChange, isSaving }: SectionProps) {
 function SectionAdvanced({ state, onChange }: SectionProps) {
   return (
     <div className="space-y-6">
-      <div>
-        <p className="mb-3 text-sm font-medium">Canales de comunicación</p>
-        <div className="flex flex-wrap gap-3">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={state.whatsapp_enabled}
-              onChange={(e) => onChange({ whatsapp_enabled: e.target.checked })}
-              className="size-4"
-            />
-            <span>WhatsApp</span>
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={state.email_enabled}
-              onChange={(e) => onChange({ email_enabled: e.target.checked })}
-              className="size-4"
-            />
-            <span>Email</span>
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={state.chat_enabled}
-              onChange={(e) => onChange({ chat_enabled: e.target.checked })}
-              className="size-4"
-            />
-            <span>Chat web</span>
-          </label>
-        </div>
-      </div>
-
       <div>
         <label className="text-sm font-medium">Horario de atención</label>
         <select
@@ -827,11 +807,14 @@ export function AgentFormBuilder() {
             : !!state.industry;
           return !!state.business_name && !!state.owner_name && industryValid;
         case "business":
-          return true;
+          const businessValid = state.industry === "Otro" 
+            ? !!state.custom_industry 
+            : !!state.industry;
+          return businessValid && !!state.description && !!state.target_audience && !!state.agent_description && !!state.escalation_rules && !!state.country;
         case "tools":
           return state.selected_tools.length > 0;
         case "personality":
-          return !!state.agent_name && !!state.agent_personality;
+          return !!state.agent_name && !!state.agent_personality && !!state.response_language && !!state.use_emojis;
         case "review":
           const reviewIndustryValid = state.industry === "Otro" 
             ? !!state.custom_industry 
@@ -859,12 +842,21 @@ export function AgentFormBuilder() {
           if (!state.industry) errorMsg += "\n• Industria";
           if (state.industry === "Otro" && !state.custom_industry) errorMsg += "\n• Especifica tu industria";
           break;
+        case "business":
+          if (!state.description) errorMsg += "\n• Descripción del negocio";
+          if (!state.target_audience) errorMsg += "\n• Audiencia objetivo";
+          if (!state.agent_description) errorMsg += "\n• Rol del agente";
+          if (!state.escalation_rules) errorMsg += "\n• Reglas de escalamiento";
+          if (!state.country) errorMsg += "\n• País";
+          break;
         case "tools":
           if (state.selected_tools.length === 0) errorMsg += "\n• Selecciona al menos una herramienta";
           break;
         case "personality":
           if (!state.agent_name) errorMsg += "\n• Nombre del agente";
           if (!state.agent_personality) errorMsg += "\n• Personalidad del agente";
+          if (!state.response_language) errorMsg += "\n• Idioma";
+          if (!state.use_emojis) errorMsg += "\n• Uso de emojis";
           break;
       }
       
