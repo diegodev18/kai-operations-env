@@ -98,6 +98,17 @@ function SectionBasics({ state, onChange, isSaving, userName }: SectionProps) {
           <option value="Inmobiliaria">Inmobiliaria</option>
           <option value="Otro">Otro</option>
         </select>
+        {state.industry === "Otro" && (
+          <div className="mt-2">
+            <input
+              type="text"
+              value={state.custom_industry}
+              onChange={(e) => onChange({ custom_industry: e.target.value, industry: e.target.value })}
+              placeholder="Especifica tu industria"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -811,7 +822,10 @@ export function AgentFormBuilder() {
     (section: FormSectionId): boolean => {
       switch (section) {
         case "basics":
-          return !!state.business_name && !!state.owner_name && !!state.industry;
+          const industryValid = state.industry === "Otro" 
+            ? !!state.custom_industry 
+            : !!state.industry;
+          return !!state.business_name && !!state.owner_name && industryValid;
         case "business":
           return true;
         case "tools":
@@ -819,9 +833,12 @@ export function AgentFormBuilder() {
         case "personality":
           return !!state.agent_name && !!state.agent_personality;
         case "review":
+          const reviewIndustryValid = state.industry === "Otro" 
+            ? !!state.custom_industry 
+            : !!state.industry;
           return (
             !!state.business_name &&
-            !!state.industry &&
+            reviewIndustryValid &&
             state.selected_tools.length > 0 &&
             !!state.agent_name
           );

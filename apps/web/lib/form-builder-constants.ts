@@ -81,6 +81,7 @@ export interface FormBuilderState {
   business_name: string;
   owner_name: string;
   industry: string;
+  custom_industry: string;
   description: string;
   target_audience: string;
   agent_description: string;
@@ -106,6 +107,7 @@ export const DEFAULT_FORM_STATE: FormBuilderState = {
   business_name: "",
   owner_name: "",
   industry: "",
+  custom_industry: "",
   description: "",
   target_audience: "",
   agent_description: "",
