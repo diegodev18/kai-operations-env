@@ -900,6 +900,95 @@ export async function postAgentBuilderChat(body: {
   };
 }
 
+export interface DynamicQuestion {
+  field: string;
+  label: string;
+  type: "text" | "textarea" | "select";
+  required: boolean;
+  section: "basics" | "business" | "personality";
+  options?: string[];
+  placeholder?: string;
+  aiReason?: string;
+}
+
+export async function analyzeAgentWithAI(
+  currentSection: string,
+  draftData: Record<string, unknown>
+): Promise<DynamicQuestion[] | null> {
+  const prompt = `
+Eres un asistente que ayuda a configurar agentes de WhatsApp.
+Analiza esta configuración y genera hasta 5 preguntas adicionales si son necesarias para completar la información del agente.
+
+Datos actuales del agente:
+- Sección actual: ${currentSection}
+- Industria: ${draftData.industry || "no especificada"}
+- Descripción del negocio: ${draftData.description || "no especificada"}
+- Audiencia objetivo: ${draftData.target_audience || "no especificada"}
+- Rol del agente: ${draftData.agent_description || "no especificado"}
+- Herramientas seleccionadas: ${(draftData.selected_tools as string[])?.join(", ") || "ninguna"}
+- Nombre del agente: ${draftData.agent_name || "no especificado"}
+- Personalidad: ${draftData.agent_personality || "no especificada"}
+
+Reglas importantes:
+1. Solo genera preguntas para las secciones: basics, business, personality
+2. Si la información está completa y no faltan datos importantes → retorna array vacío []
+3. Las preguntas deben ser accionables, específicas y relevantes para crear un agente efectivo
+4. Cada pregunta debe indicar en qué sección pertenece (basics/business/personality)
+5. Incluye un campo "aiReason" explicando brevemente por qué es necesaria esa pregunta
+6. Usa tipo "text" para respuestas cortas, "textarea" para explicaciones, "select" si hay opciones predefinidas
+7. Si usas "select", incluye un array "options" con las opciones disponibles
+
+Ejemplo de respuesta:
+[
+  {"field": "business_size", "label": "¿Cuál es el tamaño de tu negocio?", "type": "select", "required": true, "section": "business", "options": ["Pequeño (1-10)", "Mediano (11-50)", "Grande (51+)", "No especificado"], "aiReason": "El tamaño del negocio ayuda a calibrar la complejidad de las interacciones"},
+  {"field": "main_channels", "label": "¿Por qué canales principales interactúas con tus clientes?", "type": "textarea", "required": false, "section": "business", "placeholder": "WhatsApp, Instagram, Web...", "aiReason": "Conocer los canales ayuda a integrar las herramientas correctas"}
+]
+
+Si no necesitas más preguntas, retorna un array vacío: []
+`;
+
+  try {
+    const res = await fetch("/api/agents/builder/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        messages: [{ role: "user", text: prompt }],
+        draftState: draftData,
+        isAnalysis: true,
+      }),
+    });
+
+    if (!res.ok) {
+      console.error("AI analysis failed:", res.status);
+      return null;
+    }
+
+    const data = await res.json();
+    
+    if (!data.assistantMessage) {
+      return null;
+    }
+
+    // Parse the JSON response from the AI
+    try {
+      // The AI should return a JSON array in its message
+      const jsonMatch = data.assistantMessage.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return parsed.filter((q: DynamicQuestion) => q && q.field && q.label);
+      }
+    } catch (parseError) {
+      console.error("Failed to parse AI response:", parseError);
+    }
+    
+    return null;
+  } catch (error) {
+    console.error("Error calling AI analysis:", error);
+    return null;
+  }
+}
+
 export async function createImplementationTask(
   agentId: string,
   body: {
