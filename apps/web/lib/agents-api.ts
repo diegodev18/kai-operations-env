@@ -900,6 +900,80 @@ export async function postAgentBuilderChat(body: {
   };
 }
 
+export type RecommendToolsPayload = {
+  business_name?: string;
+  owner_name?: string;
+  industry?: string;
+  custom_industry?: string;
+  description?: string;
+  target_audience?: string;
+  agent_description?: string;
+  escalation_rules?: string;
+  country?: string;
+  business_timezone?: string;
+  agent_name?: string;
+  agent_personality?: string;
+  response_language?: string;
+  business_hours?: string;
+  require_auth?: boolean;
+  tools_context_data_actions?: string;
+  tools_context_commerce_reservations?: string;
+  tools_context_integrations?: string;
+};
+
+export type RecommendToolsPerItem = { id: string; reason: string };
+
+export async function recommendAgentTools(
+  payload: RecommendToolsPayload,
+): Promise<
+  | {
+      ok: true;
+      toolIds: string[];
+      rationale: string | null;
+      perTool: RecommendToolsPerItem[];
+      warnings: string[];
+    }
+  | { ok: false; error: string }
+> {
+  try {
+    const res = await fetch("/api/agents/builder/recommend-tools", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    });
+    const data = (await res.json()) as {
+      error?: string;
+      toolIds?: string[];
+      rationale?: string | null;
+      perTool?: RecommendToolsPerItem[];
+      warnings?: string[];
+    };
+    if (!res.ok) {
+      return {
+        ok: false,
+        error: data.error ?? "No se pudo obtener la recomendación de herramientas",
+      };
+    }
+    if (!Array.isArray(data.toolIds)) {
+      return { ok: false, error: "Respuesta inválida del servidor" };
+    }
+    return {
+      ok: true,
+      toolIds: data.toolIds,
+      rationale: data.rationale ?? null,
+      perTool: Array.isArray(data.perTool) ? data.perTool : [],
+      warnings: Array.isArray(data.warnings) ? data.warnings : [],
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      error:
+        e instanceof Error ? e.message : "Error de red al recomendar herramientas",
+    };
+  }
+}
+
 export interface DynamicQuestion {
   field: string;
   label: string;

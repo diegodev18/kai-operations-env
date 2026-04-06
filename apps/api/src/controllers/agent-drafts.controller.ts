@@ -20,6 +20,7 @@ import {
   setSystemPromptGeneratingFlags,
 } from "@/services/system-prompt-generation-job";
 import type { AgentsInfoAuthContext } from "@/types/agents";
+import { mergeMandatoryToolDocIds } from "@/controllers/agent-recommend-tools.controller";
 import {
   extractFirestoreIndexUrl,
   firestoreFailureHint,
@@ -377,7 +378,11 @@ export async function patchAgentDraft(
 
     if (body.step === "tools") {
       const catalog = await loadActiveToolsCatalogByDocId(getFirestore());
-      const missing = body.selected_tools.filter((id) => !catalog.has(id));
+      const selectedWithMandatory = mergeMandatoryToolDocIds(
+        catalog,
+        body.selected_tools,
+      );
+      const missing = selectedWithMandatory.filter((id) => !catalog.has(id));
       if (missing.length > 0) {
         return c.json(
           {
@@ -388,10 +393,10 @@ export async function patchAgentDraft(
         );
       }
 
-      await replaceDraftTools(draftRef, catalog, body.selected_tools);
+      await replaceDraftTools(draftRef, catalog, selectedWithMandatory);
 
       await draftRef.update({
-        selected_tools: body.selected_tools,
+        selected_tools: selectedWithMandatory,
         creation_step: "tools",
         updated_at: ts,
       });
@@ -399,7 +404,7 @@ export async function patchAgentDraft(
       return c.json({
         id: draftId,
         creation_step: "tools",
-        selected_tools: body.selected_tools,
+        selected_tools: selectedWithMandatory,
       });
     }
 

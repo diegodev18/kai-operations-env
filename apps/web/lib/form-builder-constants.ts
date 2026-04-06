@@ -101,6 +101,10 @@ export interface FormBuilderState {
   chat_enabled: boolean;
   business_hours: string;
   require_auth: boolean;
+  /** Contexto opcional para la recomendación de herramientas (paso Herramientas). */
+  tools_context_data_actions: string;
+  tools_context_commerce_reservations: string;
+  tools_context_integrations: string;
 }
 
 export const DEFAULT_FORM_STATE: FormBuilderState = {
@@ -127,6 +131,9 @@ export const DEFAULT_FORM_STATE: FormBuilderState = {
   chat_enabled: false,
   business_hours: "",
   require_auth: false,
+  tools_context_data_actions: "",
+  tools_context_commerce_reservations: "",
+  tools_context_integrations: "",
 };
 
 export const FORM_SECTIONS: FormSection[] = [
@@ -159,18 +166,19 @@ export const FORM_SECTIONS: FormSection[] = [
     required: true,
   },
   {
-    id: "tools",
-    title: "Herramientas",
-    description: "Selecciona las tools que usará tu agente",
-    icon: "🔧",
-    required: true,
-  },
-  {
     id: "advanced",
     title: "Avanzado",
-    description: "Configuración adicional",
+    description: "Horarios, autenticación y preferencias operativas",
     icon: "⚙️",
     required: false,
+  },
+  {
+    id: "tools",
+    title: "Herramientas",
+    description:
+      "La IA propone herramientas según tu negocio; puedes afinar el contexto y regenerar",
+    icon: "🔧",
+    required: true,
   },
   {
     id: "review",

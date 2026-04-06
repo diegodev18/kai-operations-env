@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
   CheckIcon,
   Loader2Icon,
-  PlusIcon,
   XIcon,
   BuildingIcon,
   WrenchIcon,
@@ -22,10 +21,11 @@ import {
   patchAgentDraft,
   fetchToolsCatalog,
   analyzeAgentWithAI,
+  recommendAgentTools,
   type ToolsCatalogItem,
   type DynamicQuestion,
 } from "@/lib/agents-api";
-import { DEFAULT_FORM_STATE, FORM_SECTIONS, type FormBuilderState, type FormSectionId, type PersonalityTrait, type EmojiPreference, type AgentTemplate, PERSONALITY_PRESETS } from "@/lib/form-builder-constants";
+import { DEFAULT_FORM_STATE, FORM_SECTIONS, type FormBuilderState, type FormSectionId, type PersonalityTrait, PERSONALITY_PRESETS } from "@/lib/form-builder-constants";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/auth";
 
@@ -39,6 +39,89 @@ const ICONS: Record<string, React.ReactNode> = {
   review: <CheckIcon className="size-5" />,
 };
 
+function industryIsComplete(state: FormBuilderState): boolean {
+  if (!state.industry) return false;
+  if (state.industry === "Otro") return !!state.custom_industry.trim();
+  return true;
+}
+
+function areToolsPrerequisitesMet(state: FormBuilderState): boolean {
+  const basics =
+    !!state.business_name.trim() &&
+    !!state.owner_name.trim() &&
+    industryIsComplete(state);
+  const business =
+    industryIsComplete(state) &&
+    !!state.description.trim() &&
+    !!state.target_audience.trim() &&
+    !!state.agent_description.trim() &&
+    !!state.escalation_rules.trim() &&
+    !!state.country.trim();
+  const personality =
+    !!state.agent_name.trim() &&
+    !!state.agent_personality.trim() &&
+    !!state.response_language.trim() &&
+    !!state.use_emojis;
+  return basics && business && personality;
+}
+
+function getFirstIncompleteSectionForTools(
+  state: FormBuilderState,
+): FormSectionId | null {
+  if (
+    !state.business_name.trim() ||
+    !state.owner_name.trim() ||
+    !industryIsComplete(state)
+  ) {
+    return "basics";
+  }
+  if (
+    !state.description.trim() ||
+    !state.target_audience.trim() ||
+    !state.agent_description.trim() ||
+    !state.escalation_rules.trim() ||
+    !state.country.trim()
+  ) {
+    return "business";
+  }
+  if (
+    !state.agent_name.trim() ||
+    !state.agent_personality.trim() ||
+    !state.response_language.trim() ||
+    !state.use_emojis
+  ) {
+    return "personality";
+  }
+  return null;
+}
+
+function buildToolsRecommendContextHash(state: FormBuilderState): string {
+  return JSON.stringify({
+    business_name: state.business_name,
+    owner_name: state.owner_name,
+    industry: state.industry,
+    custom_industry: state.custom_industry,
+    description: state.description,
+    target_audience: state.target_audience,
+    agent_description: state.agent_description,
+    escalation_rules: state.escalation_rules,
+    country: state.country,
+    business_timezone: state.business_timezone,
+    agent_name: state.agent_name,
+    agent_personality: state.agent_personality,
+    response_language: state.response_language,
+    use_emojis: state.use_emojis,
+    country_accent: state.country_accent,
+    agent_signature: state.agent_signature,
+    personality_traits: state.personality_traits,
+    business_hours: state.business_hours,
+    require_auth: state.require_auth,
+    tools_context_data_actions: state.tools_context_data_actions,
+    tools_context_commerce_reservations: state.tools_context_commerce_reservations,
+    tools_context_integrations: state.tools_context_integrations,
+  });
+}
+
 interface SectionProps {
   state: FormBuilderState;
   onChange: (updates: Partial<FormBuilderState>) => void;
@@ -48,7 +131,7 @@ interface SectionProps {
   onValidationError?: (section: string, error: string) => void;
 }
 
-function SectionBasics({ state, onChange, isSaving, userName }: SectionProps) {
+function SectionBasics({ state, onChange, userName }: SectionProps) {
   useEffect(() => {
     if (userName && !state.owner_name) {
       onChange({ owner_name: userName });
@@ -231,143 +314,193 @@ function SectionBusiness({ state, onChange }: SectionProps) {
   );
 }
 
-function SectionTools({ state, onChange, catalog, isSaving }: SectionProps) {
-  const [search, setSearch] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+type SectionToolsProps = SectionProps & {
+  prerequisitesMet: boolean;
+  firstBlockedSection: FormSectionId | null;
+  onGoToSection: (id: FormSectionId) => void;
+  recommendLoading: boolean;
+  recommendError: string | null;
+  onRegenerateTools: () => void;
+  toolsRationale: string | null;
+  toolsWarnings: string[];
+  toolReasonById: Record<string, string>;
+};
 
-  const filteredTools = catalog.filter((tool) => {
-    const matchesSearch =
-      !search ||
-      tool.name.toLowerCase().includes(search.toLowerCase()) ||
-      tool.displayName.toLowerCase().includes(search.toLowerCase()) ||
-      tool.description.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = !selectedCategory || tool.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+function sectionTitle(id: FormSectionId): string {
+  return FORM_SECTIONS.find((s) => s.id === id)?.title ?? id;
+}
 
-  const toggleTool = useCallback(
-    (toolId: string) => {
-      const newTools = state.selected_tools.includes(toolId)
-        ? state.selected_tools.filter((id) => id !== toolId)
-        : [...state.selected_tools, toolId];
-      onChange({ selected_tools: newTools });
-    },
-    [state.selected_tools, onChange]
-  );
-
-  const categories = [...new Set(catalog.map((t) => t.category).filter(Boolean))];
+function SectionTools({
+  state,
+  onChange,
+  catalog,
+  isSaving,
+  prerequisitesMet,
+  firstBlockedSection,
+  onGoToSection,
+  recommendLoading,
+  recommendError,
+  onRegenerateTools,
+  toolsRationale,
+  toolsWarnings,
+  toolReasonById,
+}: SectionToolsProps) {
+  if (!prerequisitesMet) {
+    return (
+      <div className="space-y-4 rounded-lg border border-amber-500/40 bg-amber-500/5 p-4">
+        <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+          Para recomendar herramientas con IA, completa primero los pasos anteriores.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Faltan datos en:{" "}
+          {firstBlockedSection ? sectionTitle(firstBlockedSection) : "pasos previos"}.
+        </p>
+        {firstBlockedSection ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => onGoToSection(firstBlockedSection)}
+          >
+            Ir a {sectionTitle(firstBlockedSection)}
+          </Button>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      <p className="text-sm text-muted-foreground">
+        Opcional: añade detalles para afinar la recomendación. Luego generamos la lista de
+        herramientas según tu negocio y personalidad.
+      </p>
+
       <div>
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="🔍 ¿Qué necesita hacer tu agente? (ej: guardar clientes, enviar correos)"
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        <label className="text-sm font-medium">
+          ¿Qué debe poder hacer el agente con datos reales?
+        </label>
+        <textarea
+          value={state.tools_context_data_actions}
+          onChange={(e) => onChange({ tools_context_data_actions: e.target.value })}
+          placeholder="Ej: agendar citas, tomar pedidos, registrar clientes, enviar cotizaciones…"
+          rows={3}
+          disabled={isSaving || recommendLoading}
+          className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
         />
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <button
+      <div>
+        <label className="text-sm font-medium">
+          ¿Venden online, manejan inventario o reservas?
+        </label>
+        <textarea
+          value={state.tools_context_commerce_reservations}
+          onChange={(e) =>
+            onChange({ tools_context_commerce_reservations: e.target.value })
+          }
+          placeholder="Ej: Sí vendemos por web / solo mostrador / citas por WhatsApp…"
+          rows={2}
+          disabled={isSaving || recommendLoading}
+          className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        />
+      </div>
+
+      <div>
+        <label className="text-sm font-medium">Integraciones o herramientas que ya usan</label>
+        <textarea
+          value={state.tools_context_integrations}
+          onChange={(e) => onChange({ tools_context_integrations: e.target.value })}
+          placeholder="Ej: Google Sheets, Shopify, calendario, CRM…"
+          rows={2}
+          disabled={isSaving || recommendLoading}
+          className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
           type="button"
-          onClick={() => setSelectedCategory(null)}
-          className={cn(
-            "rounded-full px-3 py-1 text-xs font-medium transition-colors",
-            !selectedCategory
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-muted-foreground hover:bg-muted/80"
-          )}
+          variant="outline"
+          size="sm"
+          onClick={onRegenerateTools}
+          disabled={isSaving || recommendLoading || catalog.length === 0}
         >
-          Todas
-        </button>
-        {categories.map((cat) => (
-          <button
-            key={cat}
-            type="button"
-            onClick={() => setSelectedCategory(cat)}
-            className={cn(
-              "rounded-full px-3 py-1 text-xs font-medium transition-colors",
-              selectedCategory === cat
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            )}
-          >
-            {cat}
-          </button>
-        ))}
+          {recommendLoading ? (
+            <>
+              <Loader2Icon className="mr-2 size-4 animate-spin" />
+              Generando…
+            </>
+          ) : (
+            "Regenerar recomendación"
+          )}
+        </Button>
       </div>
 
-      <div className="max-h-[300px] space-y-2 overflow-y-auto">
-        {filteredTools.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">
-            No se encontraron herramientas
-          </p>
-        ) : (
-          filteredTools.map((tool) => (
-            <div
-              key={tool.id}
-              className={cn(
-                "flex items-center justify-between rounded-lg border p-3 transition-colors",
-                state.selected_tools.includes(tool.id)
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:bg-muted/50"
-              )}
-            >
-              <div className="flex-1">
-                <p className="font-medium">{tool.displayName || tool.name}</p>
-                <p className="text-sm text-muted-foreground">{tool.description}</p>
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                variant={state.selected_tools.includes(tool.id) ? "default" : "outline"}
-                onClick={() => toggleTool(tool.id)}
-                disabled={isSaving}
-              >
-                {state.selected_tools.includes(tool.id) ? (
-                  <>
-                    <CheckIcon className="mr-1 size-4" /> Agregado
-                  </>
-                ) : (
-                  <>
-                    <PlusIcon className="mr-1 size-4" /> Agregar
-                  </>
-                )}
-              </Button>
-            </div>
-          ))
-        )}
-      </div>
+      {recommendError ? (
+        <div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive">
+          {recommendError}
+        </div>
+      ) : null}
 
-      {state.selected_tools.length > 0 && (
-        <div className="rounded-lg border bg-muted/30 p-3">
-          <p className="mb-2 text-sm font-medium">
-            Herramientas seleccionadas ({state.selected_tools.length}):
+      {toolsWarnings.length > 0 ? (
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-sm text-amber-900 dark:text-amber-100">
+          <p className="font-medium">Avisos</p>
+          <ul className="mt-1 list-inside list-disc">
+            {toolsWarnings.map((w) => (
+              <li key={w}>{w}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {toolsRationale ? (
+        <div className="rounded-lg border bg-muted/30 p-3 text-sm">
+          <p className="font-medium text-foreground">Resumen</p>
+          <p className="mt-1 text-muted-foreground">{toolsRationale}</p>
+        </div>
+      ) : null}
+
+      {recommendLoading && state.selected_tools.length === 0 ? (
+        <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+          <Loader2Icon className="size-5 animate-spin" />
+          Generando herramientas recomendadas…
+        </div>
+      ) : null}
+
+      {state.selected_tools.length > 0 ? (
+        <div className="space-y-2">
+          <p className="text-sm font-medium">
+            Herramientas propuestas ({state.selected_tools.length})
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="max-h-[360px] space-y-2 overflow-y-auto">
             {state.selected_tools.map((toolId) => {
               const tool = catalog.find((t) => t.id === toolId);
-              return tool ? (
-                <span
+              const reason = toolReasonById[toolId];
+              return (
+                <div
                   key={toolId}
-                  className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-xs"
+                  className="rounded-lg border border-border bg-card p-3 text-sm"
                 >
-                  {tool.displayName || tool.name}
-                  <button
-                    type="button"
-                    onClick={() => toggleTool(toolId)}
-                    className="ml-1 text-muted-foreground hover:text-destructive"
-                  >
-                    <XIcon className="size-3" />
-                  </button>
-                </span>
-              ) : null;
+                  <p className="font-medium">
+                    {tool?.displayName || tool?.name || toolId}
+                  </p>
+                  {reason ? (
+                    <p className="mt-1 text-muted-foreground">{reason}</p>
+                  ) : tool?.description ? (
+                    <p className="mt-1 text-muted-foreground">{tool.description}</p>
+                  ) : null}
+                </div>
+              );
             })}
           </div>
         </div>
-      )}
+      ) : !recommendLoading ? (
+        <p className="text-sm text-muted-foreground">
+          Aún no hay herramientas. Pulsa &quot;Regenerar recomendación&quot; o espera a que se
+          genere automáticamente.
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -596,7 +729,9 @@ function SectionReview({ state, catalog, isSaving, onSubmit }: SectionProps & { 
   if (!state.business_name) missingFields.push("Nombre del negocio");
   if (!state.owner_name) missingFields.push("Responsable");
   if (!state.industry) missingFields.push("Industria");
-  if (state.selected_tools.length === 0) missingFields.push("Seleccionar al menos 1 herramienta");
+  if (state.selected_tools.length === 0) {
+    missingFields.push("Herramientas recomendadas por IA");
+  }
   if (!state.agent_name) missingFields.push("Nombre del agente");
 
   return (
@@ -700,11 +835,9 @@ function SectionReview({ state, catalog, isSaving, onSubmit }: SectionProps & { 
 }
 
 function TemplatesSection({
-  state,
   onChange,
   onNext,
 }: {
-  state: FormBuilderState;
   onChange: (updates: Partial<FormBuilderState>) => void;
   onNext?: () => void;
 }) {
@@ -807,6 +940,43 @@ export function AgentFormBuilder() {
   const [dynamicQuestions, setDynamicQuestions] = useState<DynamicQuestion[]>([]);
   const [dynamicAnswers, setDynamicAnswers] = useState<Record<string, string>>({});
   const [isAnalyzingAI, setIsAnalyzingAI] = useState(false);
+  const [toolsRegenerateNonce, setToolsRegenerateNonce] = useState(0);
+  const [toolsRecommendLoading, setToolsRecommendLoading] = useState(false);
+  const [toolsRecommendError, setToolsRecommendError] = useState<string | null>(null);
+  const [toolsRationale, setToolsRationale] = useState<string | null>(null);
+  const [toolsWarnings, setToolsWarnings] = useState<string[]>([]);
+  const [toolReasonById, setToolReasonById] = useState<Record<string, string>>({});
+  const lastToolsSuccessHashRef = useRef<string | null>(null);
+  const lastToolsRegenNonceRef = useRef(0);
+
+  /* eslint-disable react-hooks/exhaustive-deps -- recomendación tools: deps campo a campo alineados con buildToolsRecommendContextHash */
+  const toolsContextHash = useMemo(
+    () => buildToolsRecommendContextHash(state),
+    [
+      state.business_name,
+      state.owner_name,
+      state.industry,
+      state.custom_industry,
+      state.description,
+      state.target_audience,
+      state.agent_description,
+      state.escalation_rules,
+      state.country,
+      state.business_timezone,
+      state.agent_name,
+      state.agent_personality,
+      state.response_language,
+      state.use_emojis,
+      state.country_accent,
+      state.agent_signature,
+      state.personality_traits,
+      state.business_hours,
+      state.require_auth,
+      state.tools_context_data_actions,
+      state.tools_context_commerce_reservations,
+      state.tools_context_integrations,
+    ],
+  );
 
   useEffect(() => {
     void (async () => {
@@ -815,6 +985,98 @@ export function AgentFormBuilder() {
       setIsLoadingCatalog(false);
     })();
   }, []);
+
+  useEffect(() => {
+    if (currentSection !== "tools") return;
+    if (!areToolsPrerequisitesMet(state)) return;
+    if (catalog.length === 0) return;
+
+    const hash = toolsContextHash;
+    const regen = toolsRegenerateNonce;
+
+    const shouldFetch =
+      regen > lastToolsRegenNonceRef.current ||
+      lastToolsSuccessHashRef.current !== hash ||
+      state.selected_tools.length === 0;
+
+    if (!shouldFetch) return;
+
+    lastToolsRegenNonceRef.current = regen;
+
+    let cancelled = false;
+    setToolsRecommendLoading(true);
+    setToolsRecommendError(null);
+
+    void (async () => {
+      const res = await recommendAgentTools({
+        business_name: state.business_name,
+        owner_name: state.owner_name,
+        industry: state.industry,
+        custom_industry: state.custom_industry,
+        description: state.description,
+        target_audience: state.target_audience,
+        agent_description: state.agent_description,
+        escalation_rules: state.escalation_rules,
+        country: state.country,
+        business_timezone: state.business_timezone,
+        agent_name: state.agent_name,
+        agent_personality: state.agent_personality,
+        response_language: state.response_language,
+        business_hours: state.business_hours,
+        require_auth: state.require_auth,
+        tools_context_data_actions: state.tools_context_data_actions,
+        tools_context_commerce_reservations: state.tools_context_commerce_reservations,
+        tools_context_integrations: state.tools_context_integrations,
+      });
+
+      if (cancelled) return;
+
+      if (res.ok) {
+        setState((prev) => ({ ...prev, selected_tools: res.toolIds }));
+        const map: Record<string, string> = {};
+        for (const p of res.perTool) {
+          map[p.id] = p.reason;
+        }
+        setToolReasonById(map);
+        setToolsRationale(res.rationale);
+        setToolsWarnings(res.warnings);
+        lastToolsSuccessHashRef.current = hash;
+      } else {
+        setToolsRecommendError(res.error);
+      }
+      setToolsRecommendLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+      setToolsRecommendLoading(false);
+    };
+  }, [
+    currentSection,
+    toolsContextHash,
+    catalog.length,
+    toolsRegenerateNonce,
+    state.selected_tools.length,
+    state.business_name,
+    state.owner_name,
+    state.industry,
+    state.custom_industry,
+    state.description,
+    state.target_audience,
+    state.agent_description,
+    state.escalation_rules,
+    state.country,
+    state.business_timezone,
+    state.agent_name,
+    state.agent_personality,
+    state.response_language,
+    state.business_hours,
+    state.require_auth,
+    state.tools_context_data_actions,
+    state.tools_context_commerce_reservations,
+    state.tools_context_integrations,
+  ]);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   const handleChange = useCallback((updates: Partial<FormBuilderState>) => {
     setState((prev) => ({ ...prev, ...updates }));
@@ -828,34 +1090,41 @@ export function AgentFormBuilder() {
     (section: FormSectionId): boolean => {
       switch (section) {
         case "basics":
-          const industryValid = state.industry === "Otro" 
-            ? !!state.custom_industry 
-            : !!state.industry;
-          return !!state.business_name && !!state.owner_name && industryValid;
+          return (
+            !!state.business_name.trim() &&
+            !!state.owner_name.trim() &&
+            industryIsComplete(state)
+          );
         case "business":
-          const businessValid = state.industry === "Otro" 
-            ? !!state.custom_industry 
-            : !!state.industry;
-          return businessValid && !!state.description && !!state.target_audience && !!state.agent_description && !!state.escalation_rules && !!state.country;
+          return (
+            industryIsComplete(state) &&
+            !!state.description.trim() &&
+            !!state.target_audience.trim() &&
+            !!state.agent_description.trim() &&
+            !!state.escalation_rules.trim() &&
+            !!state.country.trim()
+          );
         case "personality":
-          return !!state.agent_name && !!state.agent_personality && !!state.response_language && !!state.use_emojis;
+          return (
+            !!state.agent_name.trim() &&
+            !!state.agent_personality.trim() &&
+            !!state.response_language.trim() &&
+            !!state.use_emojis
+          );
         case "tools":
           return state.selected_tools.length > 0;
         case "review":
-          const reviewIndustryValid = state.industry === "Otro" 
-            ? !!state.custom_industry 
-            : !!state.industry;
           return (
-            !!state.business_name &&
-            reviewIndustryValid &&
+            !!state.business_name.trim() &&
+            industryIsComplete(state) &&
             state.selected_tools.length > 0 &&
-            !!state.agent_name
+            !!state.agent_name.trim()
           );
         default:
           return true;
       }
     },
-    [state]
+    [state],
   );
 
   const shouldAnalyzeWithAI = (section: FormSectionId): boolean => {
@@ -899,7 +1168,9 @@ export function AgentFormBuilder() {
           if (!state.use_emojis) errorMsg += "\n• Uso de emojis";
           break;
         case "tools":
-          if (state.selected_tools.length === 0) errorMsg += "\n• Selecciona al menos una herramienta";
+          if (state.selected_tools.length === 0) {
+            errorMsg += "\n• Genera o espera la recomendación de herramientas";
+          }
           break;
       }
       
@@ -961,6 +1232,13 @@ export function AgentFormBuilder() {
       setCurrentSection(sections[currentIndex - 1]);
     }
   }, [currentSection]);
+
+  const handleRegenerateTools = useCallback(() => {
+    setToolsRegenerateNonce((n) => n + 1);
+  }, []);
+
+  const toolsPrerequisitesMet = areToolsPrerequisitesMet(state);
+  const toolsFirstBlocked = getFirstIncompleteSectionForTools(state);
 
   const handleSubmit = useCallback(async () => {
     if (!canProceed("review")) {
@@ -1033,17 +1311,30 @@ export function AgentFormBuilder() {
 
     switch (currentSection) {
       case "templates":
-        return <TemplatesSection state={state} onChange={handleChange} onNext={() => handleNext()} />;
+        return <TemplatesSection onChange={handleChange} onNext={() => handleNext()} />;
       case "basics":
         return <SectionBasics {...sectionProps} />;
       case "business":
         return <SectionBusiness {...sectionProps} />;
       case "personality":
         return <SectionPersonality {...sectionProps} />;
-      case "tools":
-        return <SectionTools {...sectionProps} />;
       case "advanced":
         return <SectionAdvanced {...sectionProps} />;
+      case "tools":
+        return (
+          <SectionTools
+            {...sectionProps}
+            prerequisitesMet={toolsPrerequisitesMet}
+            firstBlockedSection={toolsFirstBlocked}
+            onGoToSection={setCurrentSection}
+            recommendLoading={toolsRecommendLoading}
+            recommendError={toolsRecommendError}
+            onRegenerateTools={handleRegenerateTools}
+            toolsRationale={toolsRationale}
+            toolsWarnings={toolsWarnings}
+            toolReasonById={toolReasonById}
+          />
+        );
       case "review":
         return <SectionReview {...sectionProps} onSubmit={handleSubmit} />;
       default:
@@ -1057,7 +1348,7 @@ export function AgentFormBuilder() {
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <div className="shrink-0 flex items-center gap-2 border-b px-4 py-3">
-        {sections.map((section, index) => (
+        {sections.map((section) => (
           <button
             key={section.id}
             type="button"
@@ -1160,7 +1451,14 @@ export function AgentFormBuilder() {
             <ArrowLeftIcon className="mr-2 size-4" />
             Anterior
           </Button>
-          <Button onClick={handleNext} disabled={!canProceed(currentSection) || isAnalyzingAI}>
+          <Button
+            onClick={handleNext}
+            disabled={
+              !canProceed(currentSection) ||
+              isAnalyzingAI ||
+              (currentSection === "tools" && toolsRecommendLoading)
+            }
+          >
             {isAnalyzingAI ? (
               <>
                 <Loader2Icon className="mr-2 size-4 animate-spin" />

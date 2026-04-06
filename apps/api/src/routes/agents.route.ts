@@ -17,6 +17,7 @@ import {
   postAgentDraft,
 } from "@/controllers/agent-drafts.controller";
 import { postAgentBuilderChat } from "@/controllers/agent-builder-chat.controller";
+import { postAgentRecommendTools } from "@/controllers/agent-recommend-tools.controller";
 import { getAgentsInfo, assignAgentToUser } from "@/controllers/agents.controller";
 import {
   getAgentById,
@@ -90,6 +91,12 @@ agentsRouter.post("/builder/chat", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   return postAgentBuilderChat(c, ctx.authCtx);
+});
+
+agentsRouter.post("/builder/recommend-tools", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  return postAgentRecommendTools(c, ctx.authCtx);
 });
 
 agentsRouter.post("/drafts", async (c) => {
