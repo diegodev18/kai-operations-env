@@ -189,6 +189,88 @@ interface SectionProps {
   onValidationError?: (section: string, error: string) => void;
 }
 
+function parseEscalationRuleLines(raw: string): string[] {
+  return raw
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+/** Lista editable; el valor persistido son las reglas unidas con saltos de línea. */
+function EscalationRulesInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const items = useMemo(() => parseEscalationRuleLines(value), [value]);
+  const [draft, setDraft] = useState("");
+
+  const setItems = (next: string[]) => {
+    onChange(next.join("\n"));
+  };
+
+  const addRule = () => {
+    const t = draft.trim();
+    if (!t) return;
+    setItems([...items, t]);
+    setDraft("");
+  };
+
+  const removeAt = (index: number) => {
+    setItems(items.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="mt-1 space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <input
+          type="text"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              addRule();
+            }
+          }}
+          placeholder="Ej: Si pide hablar con un humano, ofrecer transferencia"
+          className="flex h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+        />
+        <Button type="button" variant="secondary" className="shrink-0" onClick={addRule}>
+          Añadir
+        </Button>
+      </div>
+      {items.length === 0 ? (
+        <p className="text-xs text-muted-foreground">
+          Escribe una regla y pulsa Añadir o Enter. Puedes tener varias y quitar las que no apliquen.
+        </p>
+      ) : (
+        <ul className="space-y-2 rounded-md border border-input bg-muted/30 p-2">
+          {items.map((item, index) => (
+            <li
+              key={`${index}-${item.slice(0, 48)}`}
+              className="flex items-start gap-2 rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
+            >
+              <span className="mt-0.5 shrink-0 font-medium text-muted-foreground">{index + 1}.</span>
+              <span className="min-w-0 flex-1 break-words">{item}</span>
+              <button
+                type="button"
+                onClick={() => removeAt(index)}
+                className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                aria-label={`Eliminar regla ${index + 1}`}
+              >
+                <XIcon className="size-4" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function SectionBusiness({ state, onChange, userName }: SectionProps) {
   useEffect(() => {
     if (userName && !state.owner_name) {
@@ -307,12 +389,13 @@ function SectionBusiness({ state, onChange, userName }: SectionProps) {
           <label className="text-sm font-medium">
             Reglas de escalamiento <span className="text-destructive">*</span>
           </label>
-          <textarea
+          <p className="mt-1 text-xs text-muted-foreground">
+            Añade una fila por situación (transferir a humano, temas sensibles, etc.). Se guardan como texto
+            separado por líneas.
+          </p>
+          <EscalationRulesInput
             value={state.escalation_rules}
-            onChange={(e) => onChange({ escalation_rules: e.target.value })}
-            placeholder="¿En qué situaciones debe transferir a un humano? ¿Qué hace el agente cuando no puede resolver un problema?"
-            rows={3}
-            className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            onChange={(escalation_rules) => onChange({ escalation_rules })}
           />
         </div>
       )}
