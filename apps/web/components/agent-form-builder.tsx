@@ -35,10 +35,6 @@ import {
   type PersonalityTrait,
   type AgentFlowQuestion,
   PERSONALITY_PRESETS,
-  composeToolsContextStrings,
-  TOOLS_STEP_ACTION_EXAMPLES,
-  TOOLS_STEP_COMMERCE_EXAMPLES,
-  TOOLS_STEP_INTEGRATION_EXAMPLES,
 } from "@/lib/form-builder-constants";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/auth";
@@ -181,12 +177,6 @@ function buildToolsRecommendContextHash(state: FormBuilderState): string {
     business_hours: state.business_hours,
     require_auth: state.require_auth,
     operational_context: buildOperationalContextNarrative(state),
-    tools_hint_actions_selected: state.tools_hint_actions_selected,
-    tools_hint_actions_other: state.tools_hint_actions_other,
-    tools_hint_commerce_selected: state.tools_hint_commerce_selected,
-    tools_hint_commerce_other: state.tools_hint_commerce_other,
-    tools_hint_integrations_selected: state.tools_hint_integrations_selected,
-    tools_hint_integrations_other: state.tools_hint_integrations_other,
   });
 }
 
@@ -757,148 +747,6 @@ function FlowQuestionField({
   );
 }
 
-function ToolsStepContextPickers({
-  state,
-  onChange,
-  disabled,
-}: {
-  state: FormBuilderState;
-  onChange: SectionProps["onChange"];
-  disabled: boolean;
-}) {
-  const toggleMulti = (
-    field: "tools_hint_actions_selected" | "tools_hint_integrations_selected",
-    label: string,
-  ) => {
-    const cur = state[field];
-    const next = cur.includes(label)
-      ? cur.filter((x) => x !== label)
-      : [...cur, label];
-    onChange({ [field]: next });
-  };
-
-  const setCommerce = (label: string) => {
-    onChange({
-      tools_hint_commerce_selected:
-        state.tools_hint_commerce_selected === label ? "" : label,
-    });
-  };
-
-  return (
-    <div className="space-y-6 border-t pt-6">
-      <p className="text-sm font-medium">Afinar la recomendación (opcional)</p>
-      <p className="text-xs text-muted-foreground">
-        Pulsa los ejemplos para añadirlos sin escribir. Usa &quot;Otro&quot; para respuestas abiertas.
-      </p>
-
-      <div>
-        <label className="text-sm font-medium">
-          ¿Qué debe poder hacer el agente con datos reales? (varias opciones)
-        </label>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {TOOLS_STEP_ACTION_EXAMPLES.map((label) => (
-            <button
-              key={label}
-              type="button"
-              disabled={disabled}
-              onClick={() => toggleMulti("tools_hint_actions_selected", label)}
-              className={cn(
-                "rounded-full border px-3 py-1.5 text-left text-sm transition-colors",
-                state.tools_hint_actions_selected.includes(label)
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-background hover:bg-muted/80",
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <label className="mt-3 block text-xs font-medium text-muted-foreground">
-          Otro (texto libre)
-        </label>
-        <textarea
-          value={state.tools_hint_actions_other}
-          onChange={(e) => onChange({ tools_hint_actions_other: e.target.value })}
-          disabled={disabled}
-          rows={2}
-          className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-        />
-      </div>
-
-      <div>
-        <label className="text-sm font-medium">
-          Venta online, inventario o reservas (una opción)
-        </label>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Elige la que mejor encaje; amplía en &quot;Detalle&quot; si hace falta.
-        </p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {TOOLS_STEP_COMMERCE_EXAMPLES.map((label) => (
-            <button
-              key={label}
-              type="button"
-              disabled={disabled}
-              onClick={() => setCommerce(label)}
-              className={cn(
-                "rounded-full border px-3 py-1.5 text-left text-sm transition-colors",
-                state.tools_hint_commerce_selected === label
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-background hover:bg-muted/80",
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <label className="mt-3 block text-xs font-medium text-muted-foreground">
-          Detalle u otro
-        </label>
-        <textarea
-          value={state.tools_hint_commerce_other}
-          onChange={(e) => onChange({ tools_hint_commerce_other: e.target.value })}
-          disabled={disabled}
-          rows={2}
-          className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-        />
-      </div>
-
-      <div>
-        <label className="text-sm font-medium">
-          Integraciones o herramientas que ya usan (varias opciones)
-        </label>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {TOOLS_STEP_INTEGRATION_EXAMPLES.map((label) => (
-            <button
-              key={label}
-              type="button"
-              disabled={disabled}
-              onClick={() => toggleMulti("tools_hint_integrations_selected", label)}
-              className={cn(
-                "rounded-full border px-3 py-1.5 text-left text-sm transition-colors",
-                state.tools_hint_integrations_selected.includes(label)
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-background hover:bg-muted/80",
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <label className="mt-3 block text-xs font-medium text-muted-foreground">
-          Otro (texto libre)
-        </label>
-        <textarea
-          value={state.tools_hint_integrations_other}
-          onChange={(e) => onChange({ tools_hint_integrations_other: e.target.value })}
-          disabled={disabled}
-          rows={2}
-          className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-        />
-      </div>
-    </div>
-  );
-}
-
 type SectionFlowsProps = SectionProps & {
   coreComplete: boolean;
   firstCoreIncomplete: FormSectionId | null;
@@ -1038,7 +886,7 @@ type SectionToolsProps = SectionProps & {
 
 function SectionTools({
   state,
-  onChange,
+  onChange: _onChange,
   catalog,
   isSaving,
   prerequisitesMet,
@@ -1091,12 +939,6 @@ function SectionTools({
           </pre>
         </div>
       ) : null}
-
-      <ToolsStepContextPickers
-        state={state}
-        onChange={onChange}
-        disabled={isSaving || recommendLoading}
-      />
 
       <div className="flex flex-wrap items-center gap-2">
         <Button
@@ -1685,12 +1527,6 @@ export function AgentFormBuilder() {
       state.require_auth,
       JSON.stringify(state.flow_answers),
       JSON.stringify(state.flow_questions),
-      JSON.stringify(state.tools_hint_actions_selected),
-      state.tools_hint_actions_other,
-      state.tools_hint_commerce_selected,
-      state.tools_hint_commerce_other,
-      JSON.stringify(state.tools_hint_integrations_selected),
-      state.tools_hint_integrations_other,
     ],
   );
 
@@ -1825,7 +1661,6 @@ export function AgentFormBuilder() {
         business_hours: state.business_hours,
         require_auth: state.require_auth,
         operational_context: buildOperationalContextNarrative(state),
-        ...composeToolsContextStrings(state),
       });
 
       if (cancelled) return;
@@ -1873,12 +1708,6 @@ export function AgentFormBuilder() {
     state.require_auth,
     JSON.stringify(state.flow_answers),
     JSON.stringify(state.flow_questions),
-    JSON.stringify(state.tools_hint_actions_selected),
-    state.tools_hint_actions_other,
-    state.tools_hint_commerce_selected,
-    state.tools_hint_commerce_other,
-    JSON.stringify(state.tools_hint_integrations_selected),
-    state.tools_hint_integrations_other,
   ]);
   /* eslint-enable react-hooks/exhaustive-deps */
 

@@ -89,75 +89,6 @@ export type AgentFlowQuestion = {
   required?: boolean;
 };
 
-/** Ejemplos rápidos en el paso Herramientas (chips). */
-export const TOOLS_STEP_ACTION_EXAMPLES = [
-  "Agendar citas o reservas",
-  "Tomar pedidos o cotizaciones",
-  "Registrar clientes o leads",
-  "Cobros o enlaces de pago",
-  "Enviar catálogo o disponibilidad",
-  "Soporte o seguimiento de tickets",
-] as const;
-
-export const TOOLS_STEP_COMMERCE_EXAMPLES = [
-  "Venta online y envíos",
-  "Solo tienda física / mostrador",
-  "Mixto: online y local",
-  "Servicios sin inventario físico",
-  "Reservas o citas como foco principal",
-  "Solo informar; aún no vendemos",
-] as const;
-
-export const TOOLS_STEP_INTEGRATION_EXAMPLES = [
-  "Google Sheets",
-  "Google Calendar / agenda",
-  "Shopify u otra tienda online",
-  "CRM (HubSpot, Pipedrive, etc.)",
-  "WhatsApp Business / catálogo",
-  "Ninguna integración aún",
-] as const;
-
-/** Serializa selección del paso Herramientas para el API de recomendación. */
-export function composeToolsContextStrings(state: {
-  tools_hint_actions_selected: string[];
-  tools_hint_actions_other: string;
-  tools_hint_commerce_selected: string;
-  tools_hint_commerce_other: string;
-  tools_hint_integrations_selected: string[];
-  tools_hint_integrations_other: string;
-}): {
-  tools_context_data_actions: string;
-  tools_context_commerce_reservations: string;
-  tools_context_integrations: string;
-} {
-  const actions = [
-    ...state.tools_hint_actions_selected,
-    state.tools_hint_actions_other.trim() &&
-      `Otro: ${state.tools_hint_actions_other.trim()}`,
-  ]
-    .filter(Boolean)
-    .join("; ");
-  const commerce = [
-    state.tools_hint_commerce_selected.trim(),
-    state.tools_hint_commerce_other.trim() &&
-      `Detalle: ${state.tools_hint_commerce_other.trim()}`,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-  const integrations = [
-    ...state.tools_hint_integrations_selected,
-    state.tools_hint_integrations_other.trim() &&
-      `Otro: ${state.tools_hint_integrations_other.trim()}`,
-  ]
-    .filter(Boolean)
-    .join("; ");
-  return {
-    tools_context_data_actions: actions,
-    tools_context_commerce_reservations: commerce,
-    tools_context_integrations: integrations,
-  };
-}
-
 export interface FormBuilderState {
   business_name: string;
   owner_name: string;
@@ -186,15 +117,6 @@ export interface FormBuilderState {
   flow_questions: AgentFlowQuestion[];
   /** Respuestas del usuario (field → texto). */
   flow_answers: Record<string, string>;
-  /** Paso Herramientas: acciones con datos (selección múltiple + otro). */
-  tools_hint_actions_selected: string[];
-  tools_hint_actions_other: string;
-  /** Paso Herramientas: venta / inventario / reservas (una opción + detalle). */
-  tools_hint_commerce_selected: string;
-  tools_hint_commerce_other: string;
-  /** Paso Herramientas: integraciones (múltiple + otro). */
-  tools_hint_integrations_selected: string[];
-  tools_hint_integrations_other: string;
 }
 
 export const DEFAULT_FORM_STATE: FormBuilderState = {
@@ -223,12 +145,6 @@ export const DEFAULT_FORM_STATE: FormBuilderState = {
   require_auth: false,
   flow_questions: [],
   flow_answers: {},
-  tools_hint_actions_selected: [],
-  tools_hint_actions_other: "",
-  tools_hint_commerce_selected: "",
-  tools_hint_commerce_other: "",
-  tools_hint_integrations_selected: [],
-  tools_hint_integrations_other: "",
 };
 
 export const FORM_SECTIONS: FormSection[] = [
