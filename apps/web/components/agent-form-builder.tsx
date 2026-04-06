@@ -35,6 +35,10 @@ import {
   type PersonalityTrait,
   type AgentFlowQuestion,
   PERSONALITY_PRESETS,
+  composeToolsContextStrings,
+  TOOLS_STEP_ACTION_EXAMPLES,
+  TOOLS_STEP_COMMERCE_EXAMPLES,
+  TOOLS_STEP_INTEGRATION_EXAMPLES,
 } from "@/lib/form-builder-constants";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/auth";
@@ -177,6 +181,12 @@ function buildToolsRecommendContextHash(state: FormBuilderState): string {
     business_hours: state.business_hours,
     require_auth: state.require_auth,
     operational_context: buildOperationalContextNarrative(state),
+    tools_hint_actions_selected: state.tools_hint_actions_selected,
+    tools_hint_actions_other: state.tools_hint_actions_other,
+    tools_hint_commerce_selected: state.tools_hint_commerce_selected,
+    tools_hint_commerce_other: state.tools_hint_commerce_other,
+    tools_hint_integrations_selected: state.tools_hint_integrations_selected,
+    tools_hint_integrations_other: state.tools_hint_integrations_other,
   });
 }
 
@@ -454,6 +464,441 @@ function sectionTitle(id: FormSectionId): string {
   return FORM_SECTIONS.find((s) => s.id === id)?.title ?? id;
 }
 
+const FLOW_SELECT_OTRO = "\nOtro:";
+const FLOW_SUGGEST_EXTRA_SEP = " | ";
+
+function parseFlowSelectValue(value: string, options: string[]) {
+  const i = value.indexOf(FLOW_SELECT_OTRO);
+  if (i >= 0) {
+    const main = value.slice(0, i).trim();
+    const rest = value.slice(i + FLOW_SELECT_OTRO.length).trim();
+    if (options.includes(main)) return { main, other: rest };
+    return { main: "", other: value.trim() };
+  }
+  const t = value.trim();
+  if (options.includes(t)) return { main: t, other: "" };
+  return { main: "", other: t };
+}
+
+function composeFlowSelect(main: string, other: string) {
+  const o = other.trim();
+  if (!main && !o) return "";
+  if (main && o) return `${main}${FLOW_SELECT_OTRO}${o}`;
+  if (main) return main;
+  return o;
+}
+
+function parseFlowSuggestionsMulti(value: string, suggestions: string[]) {
+  const idx = value.indexOf(FLOW_SUGGEST_EXTRA_SEP);
+  const head = (idx < 0 ? value : value.slice(0, idx)).trim();
+  const extra = idx < 0 ? "" : value.slice(idx + FLOW_SUGGEST_EXTRA_SEP.length).trim();
+  const tokens = head ? head.split(";").map((s) => s.trim()).filter(Boolean) : [];
+  const picked = tokens.filter((t) => suggestions.includes(t));
+  const stray = tokens.filter((t) => !suggestions.includes(t));
+  const mergedExtra = [stray.join("; "), extra].filter(Boolean).join("; ").trim();
+  return { picked: new Set(picked), extra: mergedExtra };
+}
+
+function composeFlowSuggestionsMulti(picked: Set<string>, extra: string) {
+  const chips = [...picked].join("; ");
+  const e = extra.trim();
+  if (chips && e) return `${chips}${FLOW_SUGGEST_EXTRA_SEP}${e}`;
+  if (chips) return chips;
+  return e;
+}
+
+function parseFlowSuggestionsSingle(value: string, suggestions: string[]) {
+  const idx = value.indexOf(FLOW_SUGGEST_EXTRA_SEP);
+  const head = (idx < 0 ? value : value.slice(0, idx)).trim();
+  const extra = idx < 0 ? "" : value.slice(idx + FLOW_SUGGEST_EXTRA_SEP.length).trim();
+  if (suggestions.includes(head)) return { picked: head, extra };
+  return { picked: "", extra: value.trim() };
+}
+
+function composeFlowSuggestionsSingle(picked: string, extra: string) {
+  const e = extra.trim();
+  if (picked && e) return `${picked}${FLOW_SUGGEST_EXTRA_SEP}${e}`;
+  return picked || e;
+}
+
+function FlowSelectChips({
+  options,
+  value,
+  onChange,
+  disabled,
+}: {
+  options: string[];
+  value: string;
+  onChange: (v: string) => void;
+  disabled: boolean;
+}) {
+  const { main, other } = parseFlowSelectValue(value, options);
+  return (
+    <div className="mt-1 space-y-3">
+      <p className="text-xs text-muted-foreground">
+        Elige una opción (puedes pulsar un ejemplo). Opcional: detalle u otra respuesta abajo.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {options.map((opt) => (
+          <button
+            key={opt}
+            type="button"
+            disabled={disabled}
+            onClick={() =>
+              onChange(composeFlowSelect(main === opt ? "" : opt, other))
+            }
+            className={cn(
+              "rounded-full border px-3 py-1.5 text-left text-sm transition-colors",
+              main === opt
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-background hover:bg-muted/80",
+            )}
+          >
+            {opt}
+          </button>
+        ))}
+      </div>
+      <div>
+        <label className="text-xs font-medium text-muted-foreground">Otro / aclarar</label>
+        <textarea
+          value={other}
+          onChange={(e) => onChange(composeFlowSelect(main, e.target.value))}
+          disabled={disabled}
+          rows={2}
+          placeholder="Texto libre si ninguna opción encaja del todo…"
+          className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        />
+      </div>
+    </div>
+  );
+}
+
+function FlowSuggestionsMulti({
+  suggestions,
+  value,
+  onChange,
+  disabled,
+  rows,
+}: {
+  suggestions: string[];
+  value: string;
+  onChange: (v: string) => void;
+  disabled: boolean;
+  rows: number;
+}) {
+  const { picked, extra } = useMemo(
+    () => parseFlowSuggestionsMulti(value, suggestions),
+    [value, suggestions],
+  );
+  const toggle = (label: string) => {
+    const next = new Set(picked);
+    if (next.has(label)) next.delete(label);
+    else next.add(label);
+    onChange(composeFlowSuggestionsMulti(next, extra));
+  };
+  return (
+    <div className="mt-1 space-y-3">
+      <p className="text-xs text-muted-foreground">
+        Puedes elegir varias respuestas ejemplo. Añade detalle u otra información abajo.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {suggestions.map((s) => (
+          <button
+            key={s}
+            type="button"
+            disabled={disabled}
+            onClick={() => toggle(s)}
+            className={cn(
+              "rounded-full border px-3 py-1.5 text-left text-sm transition-colors",
+              picked.has(s)
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-background hover:bg-muted/80",
+            )}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+      <textarea
+        value={extra}
+        onChange={(e) => onChange(composeFlowSuggestionsMulti(picked, e.target.value))}
+        disabled={disabled}
+        rows={rows}
+        placeholder="Otro contexto o detalle adicional…"
+        className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+      />
+    </div>
+  );
+}
+
+function FlowSuggestionsSingle({
+  suggestions,
+  value,
+  onChange,
+  disabled,
+  rows,
+}: {
+  suggestions: string[];
+  value: string;
+  onChange: (v: string) => void;
+  disabled: boolean;
+  rows: number;
+}) {
+  const { picked, extra } = useMemo(
+    () => parseFlowSuggestionsSingle(value, suggestions),
+    [value, suggestions],
+  );
+  return (
+    <div className="mt-1 space-y-3">
+      <p className="text-xs text-muted-foreground">
+        Una respuesta ejemplo, o escribe en &quot;Otro&quot; abajo.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {suggestions.map((s) => (
+          <button
+            key={s}
+            type="button"
+            disabled={disabled}
+            onClick={() =>
+              onChange(composeFlowSuggestionsSingle(picked === s ? "" : s, extra))
+            }
+            className={cn(
+              "rounded-full border px-3 py-1.5 text-left text-sm transition-colors",
+              picked === s
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-background hover:bg-muted/80",
+            )}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+      <textarea
+        value={extra}
+        onChange={(e) =>
+          onChange(composeFlowSuggestionsSingle(picked, e.target.value))
+        }
+        disabled={disabled}
+        rows={rows}
+        placeholder="Otro / complementar la respuesta…"
+        className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+      />
+    </div>
+  );
+}
+
+function FlowQuestionField({
+  q,
+  value,
+  onChange,
+  disabled,
+}: {
+  q: AgentFlowQuestion;
+  value: string;
+  onChange: (v: string) => void;
+  disabled: boolean;
+}) {
+  if (q.type === "select" && q.options?.length) {
+    return (
+      <FlowSelectChips
+        options={q.options}
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+      />
+    );
+  }
+  if (
+    (q.type === "text" || q.type === "textarea") &&
+    q.suggestions?.length
+  ) {
+    const mode =
+      q.suggestion_mode ?? (q.type === "textarea" ? "multi" : "single");
+    const rows = q.type === "textarea" ? 3 : 2;
+    return mode === "multi" ? (
+      <FlowSuggestionsMulti
+        suggestions={q.suggestions}
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        rows={rows}
+      />
+    ) : (
+      <FlowSuggestionsSingle
+        suggestions={q.suggestions}
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        rows={rows}
+      />
+    );
+  }
+  if (q.type === "textarea") {
+    return (
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={q.placeholder}
+        rows={3}
+        disabled={disabled}
+        className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+      />
+    );
+  }
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={q.placeholder}
+      disabled={disabled}
+      className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+    />
+  );
+}
+
+function ToolsStepContextPickers({
+  state,
+  onChange,
+  disabled,
+}: {
+  state: FormBuilderState;
+  onChange: SectionProps["onChange"];
+  disabled: boolean;
+}) {
+  const toggleMulti = (
+    field: "tools_hint_actions_selected" | "tools_hint_integrations_selected",
+    label: string,
+  ) => {
+    const cur = state[field];
+    const next = cur.includes(label)
+      ? cur.filter((x) => x !== label)
+      : [...cur, label];
+    onChange({ [field]: next });
+  };
+
+  const setCommerce = (label: string) => {
+    onChange({
+      tools_hint_commerce_selected:
+        state.tools_hint_commerce_selected === label ? "" : label,
+    });
+  };
+
+  return (
+    <div className="space-y-6 border-t pt-6">
+      <p className="text-sm font-medium">Afinar la recomendación (opcional)</p>
+      <p className="text-xs text-muted-foreground">
+        Pulsa los ejemplos para añadirlos sin escribir. Usa &quot;Otro&quot; para respuestas abiertas.
+      </p>
+
+      <div>
+        <label className="text-sm font-medium">
+          ¿Qué debe poder hacer el agente con datos reales? (varias opciones)
+        </label>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {TOOLS_STEP_ACTION_EXAMPLES.map((label) => (
+            <button
+              key={label}
+              type="button"
+              disabled={disabled}
+              onClick={() => toggleMulti("tools_hint_actions_selected", label)}
+              className={cn(
+                "rounded-full border px-3 py-1.5 text-left text-sm transition-colors",
+                state.tools_hint_actions_selected.includes(label)
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-background hover:bg-muted/80",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <label className="mt-3 block text-xs font-medium text-muted-foreground">
+          Otro (texto libre)
+        </label>
+        <textarea
+          value={state.tools_hint_actions_other}
+          onChange={(e) => onChange({ tools_hint_actions_other: e.target.value })}
+          disabled={disabled}
+          rows={2}
+          className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        />
+      </div>
+
+      <div>
+        <label className="text-sm font-medium">
+          Venta online, inventario o reservas (una opción)
+        </label>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Elige la que mejor encaje; amplía en &quot;Detalle&quot; si hace falta.
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {TOOLS_STEP_COMMERCE_EXAMPLES.map((label) => (
+            <button
+              key={label}
+              type="button"
+              disabled={disabled}
+              onClick={() => setCommerce(label)}
+              className={cn(
+                "rounded-full border px-3 py-1.5 text-left text-sm transition-colors",
+                state.tools_hint_commerce_selected === label
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-background hover:bg-muted/80",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <label className="mt-3 block text-xs font-medium text-muted-foreground">
+          Detalle u otro
+        </label>
+        <textarea
+          value={state.tools_hint_commerce_other}
+          onChange={(e) => onChange({ tools_hint_commerce_other: e.target.value })}
+          disabled={disabled}
+          rows={2}
+          className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        />
+      </div>
+
+      <div>
+        <label className="text-sm font-medium">
+          Integraciones o herramientas que ya usan (varias opciones)
+        </label>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {TOOLS_STEP_INTEGRATION_EXAMPLES.map((label) => (
+            <button
+              key={label}
+              type="button"
+              disabled={disabled}
+              onClick={() => toggleMulti("tools_hint_integrations_selected", label)}
+              className={cn(
+                "rounded-full border px-3 py-1.5 text-left text-sm transition-colors",
+                state.tools_hint_integrations_selected.includes(label)
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-background hover:bg-muted/80",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <label className="mt-3 block text-xs font-medium text-muted-foreground">
+          Otro (texto libre)
+        </label>
+        <textarea
+          value={state.tools_hint_integrations_other}
+          onChange={(e) => onChange({ tools_hint_integrations_other: e.target.value })}
+          disabled={disabled}
+          rows={2}
+          className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        />
+      </div>
+    </div>
+  );
+}
+
 type SectionFlowsProps = SectionProps & {
   coreComplete: boolean;
   firstCoreIncomplete: FormSectionId | null;
@@ -543,39 +988,12 @@ function SectionFlows({
               <span className="text-destructive ml-1">*</span>
             ) : null}
           </label>
-          {q.type === "select" && q.options?.length ? (
-            <select
-              value={state.flow_answers[q.field] ?? ""}
-              onChange={(e) => setAnswer(q.field, e.target.value)}
-              disabled={isSaving || flowQuestionsLoading}
-              className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            >
-              <option value="">Elige una opción</option>
-              {q.options.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-          ) : q.type === "textarea" ? (
-            <textarea
-              value={state.flow_answers[q.field] ?? ""}
-              onChange={(e) => setAnswer(q.field, e.target.value)}
-              placeholder={q.placeholder}
-              rows={3}
-              disabled={isSaving || flowQuestionsLoading}
-              className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            />
-          ) : (
-            <input
-              type="text"
-              value={state.flow_answers[q.field] ?? ""}
-              onChange={(e) => setAnswer(q.field, e.target.value)}
-              placeholder={q.placeholder}
-              disabled={isSaving || flowQuestionsLoading}
-              className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            />
-          )}
+          <FlowQuestionField
+            q={q}
+            value={state.flow_answers[q.field] ?? ""}
+            onChange={(v) => setAnswer(q.field, v)}
+            disabled={isSaving || flowQuestionsLoading}
+          />
         </div>
       ))}
 
@@ -620,7 +1038,7 @@ type SectionToolsProps = SectionProps & {
 
 function SectionTools({
   state,
-  onChange: _onChange,
+  onChange,
   catalog,
   isSaving,
   prerequisitesMet,
@@ -673,6 +1091,12 @@ function SectionTools({
           </pre>
         </div>
       ) : null}
+
+      <ToolsStepContextPickers
+        state={state}
+        onChange={onChange}
+        disabled={isSaving || recommendLoading}
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         <Button
@@ -1261,6 +1685,12 @@ export function AgentFormBuilder() {
       state.require_auth,
       JSON.stringify(state.flow_answers),
       JSON.stringify(state.flow_questions),
+      JSON.stringify(state.tools_hint_actions_selected),
+      state.tools_hint_actions_other,
+      state.tools_hint_commerce_selected,
+      state.tools_hint_commerce_other,
+      JSON.stringify(state.tools_hint_integrations_selected),
+      state.tools_hint_integrations_other,
     ],
   );
 
@@ -1395,6 +1825,7 @@ export function AgentFormBuilder() {
         business_hours: state.business_hours,
         require_auth: state.require_auth,
         operational_context: buildOperationalContextNarrative(state),
+        ...composeToolsContextStrings(state),
       });
 
       if (cancelled) return;
@@ -1442,6 +1873,12 @@ export function AgentFormBuilder() {
     state.require_auth,
     JSON.stringify(state.flow_answers),
     JSON.stringify(state.flow_questions),
+    JSON.stringify(state.tools_hint_actions_selected),
+    state.tools_hint_actions_other,
+    state.tools_hint_commerce_selected,
+    state.tools_hint_commerce_other,
+    JSON.stringify(state.tools_hint_integrations_selected),
+    state.tools_hint_integrations_other,
   ]);
   /* eslint-enable react-hooks/exhaustive-deps */
 

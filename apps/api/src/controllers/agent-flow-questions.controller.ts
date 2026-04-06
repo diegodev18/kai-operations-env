@@ -53,6 +53,10 @@ const flowQuestionSchema = z.object({
   type: z.enum(["text", "textarea", "select"]),
   placeholder: z.string().max(280).optional(),
   options: z.array(z.string().min(1).max(120)).max(16).optional(),
+  /** Para text/textarea: respuestas ejemplo (chips en la UI). */
+  suggestions: z.array(z.string().min(1).max(140)).max(10).optional(),
+  /** Con suggestions: una o varias opciones a la vez. */
+  suggestion_mode: z.enum(["single", "multi"]).optional(),
   required: z.boolean().optional().default(true),
 });
 
@@ -218,6 +222,8 @@ Output STRICT JSON only: a single JSON array (no markdown, no prose). Each eleme
 - "type": "text" | "textarea" | "select"
 - "placeholder": optional short hint (plain language)
 - "options": required only if type is "select" — array of short Spanish choices (2–8 options)
+- "suggestions": optional — for type "text" or "textarea" only: 2–6 short example answers in Spanish the user can tap instead of typing (e.g. "Sí, por WhatsApp", "Solo en tienda")
+- "suggestion_mode": optional — only with "suggestions": "single" (pick one example) or "multi" (combine several). Default if omitted: use "multi" for textarea and "single" for text.
 - "required": optional boolean, default true
 
 Rules:
@@ -226,7 +232,8 @@ Rules:
 3. Cover these areas with natural wording (not as section titles): what the assistant should actually do in the chat (orders, quotes, appointments, payments info, handoff to human), how they sell or serve (in person, delivery, online, stock), and how they run day-to-day (calendar, spreadsheet, another app they already mention or typical for their sector).
 4. One question per topic when possible; avoid repeating the same idea.
 5. Prefer "select" when there are clear mutually exclusive options; use "textarea" when you need a sentence or two.
-6. Labels must sound like a human consultant, not a form from IT.
+6. For at least 3 questions with type text or textarea, include "suggestions" and "suggestion_mode" so users can tap realistic answers.
+7. Labels must sound like a human consultant, not a form from IT.
 
 Return only the JSON array.`;
 
@@ -265,7 +272,11 @@ Return only the JSON array.`;
       if (seen.has(one.data.field)) continue;
       seen.add(one.data.field);
       if (one.data.type === "select" && !one.data.options?.length) continue;
-      questions.push(one.data);
+      let row = one.data;
+      if (row.type === "select") {
+        row = { ...row, suggestions: undefined, suggestion_mode: undefined };
+      }
+      questions.push(row);
     }
 
     if (questions.length < 5) {

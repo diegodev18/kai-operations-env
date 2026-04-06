@@ -947,6 +947,8 @@ export type FlowQuestionItem = {
   type: "text" | "textarea" | "select";
   placeholder?: string;
   options?: string[];
+  suggestions?: string[];
+  suggestion_mode?: "single" | "multi";
   required?: boolean;
 };
 

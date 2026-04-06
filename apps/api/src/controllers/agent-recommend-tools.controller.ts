@@ -358,19 +358,19 @@ export async function postAgentRecommendTools(
       target_audience: body.target_audience,
     });
 
-    const operationalFromFlows =
-      body.operational_context.trim().length > 0
-        ? body.operational_context.trim()
-        : [
-            body.tools_context_data_actions.trim() &&
-              `Qué debe hacer con datos reales: ${body.tools_context_data_actions.trim()}`,
-            body.tools_context_commerce_reservations.trim() &&
-              `Venta / inventario / reservas: ${body.tools_context_commerce_reservations.trim()}`,
-            body.tools_context_integrations.trim() &&
-              `Herramientas que ya usan: ${body.tools_context_integrations.trim()}`,
-          ]
-            .filter(Boolean)
-            .join("\n");
+    const toolsHintLines = [
+      body.tools_context_data_actions.trim() &&
+        `Qué debe hacer con datos reales: ${body.tools_context_data_actions.trim()}`,
+      body.tools_context_commerce_reservations.trim() &&
+        `Venta / inventario / reservas: ${body.tools_context_commerce_reservations.trim()}`,
+      body.tools_context_integrations.trim() &&
+        `Herramientas que ya usan: ${body.tools_context_integrations.trim()}`,
+    ].filter(Boolean);
+    const flowsBlock = body.operational_context.trim();
+    const hintsBlock = toolsHintLines.join("\n");
+    const operationalFromFlows = [flowsBlock, hintsBlock]
+      .filter(Boolean)
+      .join("\n\n---\n\n");
 
     const profile = {
       business_name: body.business_name,
