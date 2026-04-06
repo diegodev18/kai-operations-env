@@ -23,17 +23,9 @@ import {
   fetchToolsCatalog,
   type ToolsCatalogItem,
 } from "@/lib/agents-api";
-import {
-  DEFAULT_FORM_STATE,
-  FORM_SECTIONS,
-  type FormBuilderState,
-  type FormSectionId,
-  type PersonalityTrait,
-  type EmojiPreference,
-  type AgentTemplate,
-  PERSONALITY_PRESETS,
-} from "@/lib/form-builder-constants";
+import { DEFAULT_FORM_STATE, FORM_SECTIONS, type FormBuilderState, type FormSectionId, type PersonalityTrait, type EmojiPreference, type AgentTemplate, PERSONALITY_PRESETS } from "@/lib/form-builder-constants";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/auth";
 
 const ICONS: Record<string, React.ReactNode> = {
   templates: <RocketIcon className="size-5" />,
@@ -50,10 +42,17 @@ interface SectionProps {
   onChange: (updates: Partial<FormBuilderState>) => void;
   catalog: ToolsCatalogItem[];
   isSaving: boolean;
+  userName?: string;
   onValidationError?: (section: string, error: string) => void;
 }
 
-function SectionBasics({ state, onChange, isSaving }: SectionProps) {
+function SectionBasics({ state, onChange, isSaving, userName }: SectionProps) {
+  useEffect(() => {
+    if (userName && !state.owner_name) {
+      onChange({ owner_name: userName });
+    }
+  }, [userName, state.owner_name, onChange]);
+  
   return (
     <div className="space-y-4">
       <div>
@@ -75,9 +74,8 @@ function SectionBasics({ state, onChange, isSaving }: SectionProps) {
         <input
           type="text"
           value={state.owner_name}
-          onChange={(e) => onChange({ owner_name: e.target.value })}
-          placeholder="Nombre del responsable"
-          className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          readOnly
+          className="mt-1 flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm text-muted-foreground"
         />
       </div>
       <div>
@@ -784,7 +782,13 @@ function TemplatesSection({
 }
 
 export function AgentFormBuilder() {
-  const [state, setState] = useState<FormBuilderState>(DEFAULT_FORM_STATE);
+  const { session } = useAuth();
+  const userName = session?.user?.name ?? session?.user?.email ?? "";
+  
+  const [state, setState] = useState<FormBuilderState>(() => ({
+    ...DEFAULT_FORM_STATE,
+    owner_name: userName,
+  }));
   const [currentSection, setCurrentSection] = useState<FormSectionId>("templates");
   const [completedSections, setCompletedSections] = useState<Set<FormSectionId>>(new Set());
   const [catalog, setCatalog] = useState<ToolsCatalogItem[]>([]);
@@ -914,6 +918,7 @@ export function AgentFormBuilder() {
       onChange: handleChange,
       catalog,
       isSaving,
+      userName,
     };
 
     switch (currentSection) {
