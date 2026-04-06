@@ -307,36 +307,21 @@ export async function patchAgentDraft(
     const ts = serverTimestampField();
 
     if (body.step === "personality") {
-      const prev = snap.data() ?? {};
-      const prevMcp =
-        prev.mcp_configuration != null && typeof prev.mcp_configuration === "object"
-          ? (prev.mcp_configuration as Record<string, unknown>)
-          : {};
-      const systemPrompt =
-        typeof prevMcp.system_prompt === "string" ? prevMcp.system_prompt : "";
-      /**
-       * No sustituir el mapa `mcp_configuration` entero: si otro PATCH (p. ej. step
-       * `complete`) ya escribió `system_prompt_generation_status`, un update
-       * concurrente con `{ ...prevMcp }` leído antes borraba el estado de generación.
-       */
       await draftRef.update({
-        agent_name: body.agent_name,
-        agent_personality: body.agent_personality,
-        response_language: body.response_language,
-        use_emojis: body.use_emojis,
-        country_accent: body.country_accent,
-        agent_signature: body.agent_signature,
-        "mcp_configuration.system_prompt": systemPrompt,
-        "mcp_configuration.agent_personalization.agent_name": body.agent_name,
-        "mcp_configuration.agent_personalization.agent_personality": body.agent_personality,
-        "mcp_configuration.agent_personalization.response_language":
-          body.response_language,
-        "mcp_configuration.agent_personalization.use_emojis": body.use_emojis,
-        "mcp_configuration.agent_personalization.country_accent": body.country_accent,
-        "mcp_configuration.agent_personalization.agent_signature": body.agent_signature,
         creation_step: "personality",
         updated_at: ts,
       });
+
+      const personalityRef = draftRef.collection("properties").doc("personality");
+      await personalityRef.set({
+        agentName: body.agent_name,
+        agentPersonality: body.agent_personality,
+        responseLanguage: body.response_language,
+        useEmojis: body.use_emojis,
+        countryAccent: body.country_accent,
+        agentSignature: body.agent_signature,
+      });
+
       return c.json({
         id: draftId,
         creation_step: "personality",
@@ -344,28 +329,32 @@ export async function patchAgentDraft(
     }
 
     if (body.step === "business") {
-      const updatePayload: Record<string, unknown> = {
-        business_name: body.business_name,
-        owner_name: body.owner_name,
-        industry: body.industry,
-        description: body.description,
-        agent_description: body.agent_description,
-        target_audience: body.target_audience,
-        escalation_rules: body.escalation_rules,
-        country: body.country,
+      await draftRef.update({
         creation_step: "business",
         updated_at: ts,
+      });
+
+      const businessData: Record<string, unknown> = {
+        businessName: body.business_name,
+        ownerName: body.owner_name,
+        industry: body.industry,
+        description: body.description,
+        agentDescription: body.agent_description,
+        targetAudience: body.target_audience,
+        escalationRules: body.escalation_rules,
+        country: body.country,
       };
       if (isOperationsAdmin(authCtx.userRole)) {
         if (body.phone_number_id !== undefined && body.phone_number_id !== "") {
-          updatePayload.phone_number_id = body.phone_number_id;
+          businessData.phoneNumberId = body.phone_number_id;
         }
         if (body.whatsapp_token !== undefined && body.whatsapp_token !== "") {
-          updatePayload.whatsappToken = body.whatsapp_token;
+          businessData.whatsappToken = body.whatsapp_token;
         }
       }
 
-      await draftRef.update(updatePayload);
+      const businessRef = draftRef.collection("properties").doc("business");
+      await businessRef.set(businessData);
 
       const agentProp = await draftRef.collection("properties").doc("agent").get();
       if (!agentProp.exists) {
