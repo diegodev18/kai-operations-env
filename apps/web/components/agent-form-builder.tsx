@@ -850,16 +850,36 @@ export function AgentFormBuilder() {
   );
 
   const handleNext = useCallback(() => {
+    if (!canProceed(currentSection)) {
+      let errorMsg = "Completa los campos requeridos:";
+      
+      switch (currentSection) {
+        case "basics":
+          if (!state.business_name) errorMsg += "\n• Nombre del negocio";
+          if (!state.industry) errorMsg += "\n• Industria";
+          if (state.industry === "Otro" && !state.custom_industry) errorMsg += "\n• Especifica tu industria";
+          break;
+        case "tools":
+          if (state.selected_tools.length === 0) errorMsg += "\n• Selecciona al menos una herramienta";
+          break;
+        case "personality":
+          if (!state.agent_name) errorMsg += "\n• Nombre del agente";
+          if (!state.agent_personality) errorMsg += "\n• Personalidad del agente";
+          break;
+      }
+      
+      alert(errorMsg);
+      return;
+    }
+    
     const sections = FORM_SECTIONS.map((s) => s.id);
     const currentIndex = sections.indexOf(currentSection);
     if (currentIndex < sections.length - 1) {
       const nextSection = sections[currentIndex + 1];
       setCurrentSection(nextSection);
-      if (canProceed(currentSection)) {
-        setCompletedSections((prev) => new Set([...prev, currentSection]));
-      }
+      setCompletedSections((prev) => new Set([...prev, currentSection]));
     }
-  }, [currentSection, canProceed]);
+  }, [currentSection, canProceed, state]);
 
   const handlePrev = useCallback(() => {
     const sections = FORM_SECTIONS.map((s) => s.id);
