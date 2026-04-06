@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 
 import { AgentBuilderChatDiagram } from "@/components/agent-builder-chat-diagram";
+import { AgentFormBuilder } from "@/components/agent-form-builder";
 import { LoginPage } from "@/components/login-page";
 import { useAuth } from "@/hooks/auth";
 
@@ -43,6 +44,10 @@ function NewAgentPageInner() {
         Cargando...
       </div>
     );
+  }
+
+  if (initialMode === "form") {
+    return <AgentFormBuilder />;
   }
 
   return <AgentBuilderChatDiagram initialMode={initialMode} />;
