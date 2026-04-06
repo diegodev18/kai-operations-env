@@ -15,7 +15,6 @@ export type EmojiPreference = "never" | "moderate" | "always";
 
 export type FormSectionId =
   | "templates"
-  | "basics"
   | "business"
   | "tools"
   | "personality"
@@ -155,16 +154,9 @@ export const FORM_SECTIONS: FormSection[] = [
     required: false,
   },
   {
-    id: "basics",
-    title: "Datos básicos",
-    description: "Información fundamental de tu negocio",
-    icon: "📋",
-    required: true,
-  },
-  {
     id: "business",
     title: "Negocio",
-    description: "Detalles sobre tu negocio y clientes",
+    description: "Nombre, industria y detalles de tu negocio y clientes",
     icon: "🏢",
     required: true,
   },

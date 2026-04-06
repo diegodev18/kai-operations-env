@@ -1051,7 +1051,7 @@ export interface DynamicQuestion {
   label: string;
   type: "text" | "textarea" | "select";
   required: boolean;
-  section: "basics" | "business" | "personality";
+  section: "business" | "personality";
   options?: string[];
   placeholder?: string;
   aiReason?: string;
@@ -1076,10 +1076,10 @@ Datos actuales del agente:
 - Personalidad: ${draftData.agent_personality || "no especificada"}
 
 Reglas importantes:
-1. Solo genera preguntas para las secciones: basics, business, personality
+1. Solo genera preguntas para las secciones: business, personality
 2. Si la información está completa y no faltan datos importantes → retorna array vacío []
 3. Las preguntas deben ser accionables, específicas y relevantes para crear un agente efectivo
-4. Cada pregunta debe indicar en qué sección pertenece (basics/business/personality)
+4. Cada pregunta debe indicar en qué sección pertenece (business o personality)
 5. Incluye un campo "aiReason" explicando brevemente por qué es necesaria esa pregunta
 6. Usa tipo "text" para respuestas cortas, "textarea" para explicaciones, "select" si hay opciones predefinidas
 7. Si usas "select", incluye un array "options" con las opciones disponibles
@@ -1140,8 +1140,15 @@ Si no necesitas más preguntas, retorna un array vacío: []
     try {
       const jsonMatch = data.assistantMessage.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        return parsed.filter((q: DynamicQuestion) => q && q.field && q.label);
+        const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>[];
+        return parsed
+          .filter((q) => q && q.field && q.label)
+          .map((q) => {
+            const sec = String(q.section ?? "");
+            const section =
+              sec === "basics" ? "business" : sec === "personality" ? "personality" : "business";
+            return { ...q, section } as DynamicQuestion;
+          });
       }
     } catch (parseError) {
       console.error("Failed to parse AI response:", parseError);

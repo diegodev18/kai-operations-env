@@ -41,7 +41,6 @@ import { useAuth } from "@/hooks/auth";
 
 const ICONS: Record<string, React.ReactNode> = {
   templates: <RocketIcon className="size-5" />,
-  basics: <BuildingIcon className="size-5" />,
   business: <BuildingIcon className="size-5" />,
   tools: <WrenchIcon className="size-5" />,
   personality: <UserIcon className="size-5" />,
@@ -56,13 +55,11 @@ function industryIsComplete(state: FormBuilderState): boolean {
   return true;
 }
 
-/** Datos básicos + negocio + personalidad (antes de Flujos). */
+/** Negocio (incl. nombre e industria) + personalidad (antes de Flujos). */
 function areCoreProfileComplete(state: FormBuilderState): boolean {
-  const basics =
+  const business =
     !!state.business_name.trim() &&
     !!state.owner_name.trim() &&
-    industryIsComplete(state);
-  const business =
     industryIsComplete(state) &&
     !!state.description.trim() &&
     !!state.target_audience.trim() &&
@@ -74,7 +71,7 @@ function areCoreProfileComplete(state: FormBuilderState): boolean {
     !!state.agent_personality.trim() &&
     !!state.response_language.trim() &&
     !!state.use_emojis;
-  return basics && business && personality;
+  return business && personality;
 }
 
 function isFlowsStepComplete(state: FormBuilderState): boolean {
@@ -96,11 +93,7 @@ function getFirstCoreIncompleteSection(
   if (
     !state.business_name.trim() ||
     !state.owner_name.trim() ||
-    !industryIsComplete(state)
-  ) {
-    return "basics";
-  }
-  if (
+    !industryIsComplete(state) ||
     !state.description.trim() ||
     !state.target_audience.trim() ||
     !state.agent_description.trim() ||
@@ -196,13 +189,18 @@ interface SectionProps {
   onValidationError?: (section: string, error: string) => void;
 }
 
-function SectionBasics({ state, onChange, userName }: SectionProps) {
+function SectionBusiness({ state, onChange, userName }: SectionProps) {
   useEffect(() => {
     if (userName && !state.owner_name) {
       onChange({ owner_name: userName });
     }
   }, [userName, state.owner_name, onChange]);
-  
+
+  const hasIndustry = !!state.industry;
+  const hasAudience = !!state.target_audience;
+  const hasRole = !!state.agent_description;
+  const hasCountry = !!state.country;
+
   return (
     <div className="space-y-4">
       <div>
@@ -260,18 +258,7 @@ function SectionBasics({ state, onChange, userName }: SectionProps) {
           </div>
         )}
       </div>
-    </div>
-  );
-}
 
-function SectionBusiness({ state, onChange }: SectionProps) {
-  const hasIndustry = !!state.industry;
-  const hasAudience = !!state.target_audience;
-  const hasRole = !!state.agent_description;
-  const hasCountry = !!state.country;
-
-  return (
-    <div className="space-y-4">
       <div>
         <label className="text-sm font-medium">
           Descripción del negocio <span className="text-destructive">*</span>
@@ -372,7 +359,8 @@ function SectionBusiness({ state, onChange }: SectionProps) {
 
       {!hasIndustry && (
         <p className="text-sm text-muted-foreground">
-          Completa la sección de Datos Básicos para ver más preguntas sobre tu negocio
+          Selecciona una industria arriba para continuar con la descripción del negocio y el resto de
+          preguntas
         </p>
       )}
     </div>
@@ -1385,14 +1373,10 @@ export function AgentFormBuilder() {
   const canProceed = useCallback(
     (section: FormSectionId): boolean => {
       switch (section) {
-        case "basics":
+        case "business":
           return (
             !!state.business_name.trim() &&
             !!state.owner_name.trim() &&
-            industryIsComplete(state)
-          );
-        case "business":
-          return (
             industryIsComplete(state) &&
             !!state.description.trim() &&
             !!state.target_audience.trim() &&
@@ -1430,8 +1414,14 @@ export function AgentFormBuilder() {
   );
 
   const shouldAnalyzeWithAI = (section: FormSectionId): boolean => {
-    if (section === "basics") return !!state.industry;
-    if (section === "business") return !!state.description || !!state.target_audience || !!state.agent_description;
+    if (section === "business") {
+      return (
+        !!state.industry ||
+        !!state.description ||
+        !!state.target_audience ||
+        !!state.agent_description
+      );
+    }
     if (section === "personality") return !!state.agent_personality || !!state.agent_name;
     return false;
   };
@@ -1451,12 +1441,11 @@ export function AgentFormBuilder() {
       let errorMsg = "Completa los campos requeridos:";
       
       switch (currentSection) {
-        case "basics":
+        case "business":
           if (!state.business_name) errorMsg += "\n• Nombre del negocio";
+          if (!state.owner_name?.trim()) errorMsg += "\n• Responsable";
           if (!state.industry) errorMsg += "\n• Industria";
           if (state.industry === "Otro" && !state.custom_industry) errorMsg += "\n• Especifica tu industria";
-          break;
-        case "business":
           if (!state.description) errorMsg += "\n• Descripción del negocio";
           if (!state.target_audience) errorMsg += "\n• Audiencia objetivo";
           if (!state.agent_description) errorMsg += "\n• Rol del agente";
@@ -1493,10 +1482,7 @@ export function AgentFormBuilder() {
       try {
         const questions = await analyzeAgentWithAI(currentSection, state as unknown as Record<string, unknown>);
         if (questions && questions.length > 0) {
-          const relevantQuestions = questions.filter(q => 
-            q.section === currentSection || 
-            (currentSection === "basics" && q.section === "business")
-          );
+          const relevantQuestions = questions.filter((q) => q.section === currentSection);
           if (relevantQuestions.length > 0) {
             setDynamicQuestions(relevantQuestions);
             setDynamicAnswers({});
@@ -1633,8 +1619,6 @@ export function AgentFormBuilder() {
     switch (currentSection) {
       case "templates":
         return <TemplatesSection onChange={handleChange} onNext={() => handleNext()} />;
-      case "basics":
-        return <SectionBasics {...sectionProps} />;
       case "business":
         return <SectionBusiness {...sectionProps} />;
       case "personality":
