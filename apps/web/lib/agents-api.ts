@@ -965,6 +965,7 @@ Si no necesitas más preguntas, retorna un array vacío: []
     agent_signature: String(draftData.agent_signature || ""),
     business_timezone: String(draftData.business_timezone || ""),
     selected_tools: Array.isArray(draftData.selected_tools) ? draftData.selected_tools : [],
+    creation_step: "personality",
   };
 
   try {
