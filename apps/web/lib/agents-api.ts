@@ -947,6 +947,26 @@ Ejemplo de respuesta:
 Si no necesitas más preguntas, retorna un array vacío: []
 `;
 
+  // Prepare draft state with required schema fields
+  const draftState = {
+    agent_name: String(draftData.agent_name || ""),
+    agent_personality: String(draftData.agent_personality || ""),
+    response_language: String(draftData.response_language || "Spanish"),
+    business_name: String(draftData.business_name || ""),
+    owner_name: String(draftData.owner_name || ""),
+    industry: String(draftData.industry || ""),
+    description: String(draftData.description || ""),
+    agent_description: String(draftData.agent_description || ""),
+    target_audience: String(draftData.target_audience || ""),
+    escalation_rules: String(draftData.escalation_rules || ""),
+    country: String(draftData.country || ""),
+    use_emojis: String(draftData.use_emojis || ""),
+    country_accent: String(draftData.country_accent || ""),
+    agent_signature: String(draftData.agent_signature || ""),
+    business_timezone: String(draftData.business_timezone || ""),
+    selected_tools: Array.isArray(draftData.selected_tools) ? draftData.selected_tools : [],
+  };
+
   try {
     const res = await fetch("/api/agents/builder/chat", {
       method: "POST",
@@ -954,13 +974,13 @@ Si no necesitas más preguntas, retorna un array vacío: []
       credentials: "include",
       body: JSON.stringify({
         messages: [{ role: "user", text: prompt }],
-        draftState: draftData,
-        isAnalysis: true,
+        draftState,
+        pendingTasksCount: 0,
       }),
     });
 
     if (!res.ok) {
-      console.error("AI analysis failed:", res.status);
+      console.error("AI analysis failed:", res.status, await res.text());
       return null;
     }
 
@@ -970,9 +990,7 @@ Si no necesitas más preguntas, retorna un array vacío: []
       return null;
     }
 
-    // Parse the JSON response from the AI
     try {
-      // The AI should return a JSON array in its message
       const jsonMatch = data.assistantMessage.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
