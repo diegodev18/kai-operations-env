@@ -700,9 +700,11 @@ function SectionReview({ state, catalog, isSaving, onSubmit }: SectionProps & { 
 function TemplatesSection({
   state,
   onChange,
+  onNext,
 }: {
   state: FormBuilderState;
   onChange: (updates: Partial<FormBuilderState>) => void;
+  onNext?: () => void;
 }) {
   const templates = [
     {
@@ -757,6 +759,9 @@ function TemplatesSection({
                 agent_description: `Soy un ${template.label.toLowerCase()} que ayuda a los clientes...`,
               });
               toast.success(`Plantilla "${template.label}" aplicada`);
+            }
+            if (onNext) {
+              setTimeout(() => onNext(), 300);
             }
           }}
           className="flex items-start gap-3 rounded-lg border border-border p-4 text-left transition-colors hover:bg-muted/50"
@@ -952,7 +957,7 @@ export function AgentFormBuilder() {
 
     switch (currentSection) {
       case "templates":
-        return <TemplatesSection state={state} onChange={handleChange} />;
+        return <TemplatesSection state={state} onChange={handleChange} onNext={() => handleNext()} />;
       case "basics":
         return <SectionBasics {...sectionProps} />;
       case "business":
