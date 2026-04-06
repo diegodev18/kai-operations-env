@@ -103,7 +103,7 @@ function SectionBasics({ state, onChange, isSaving, userName }: SectionProps) {
             <input
               type="text"
               value={state.custom_industry}
-              onChange={(e) => onChange({ custom_industry: e.target.value, industry: e.target.value })}
+              onChange={(e) => onChange({ custom_industry: e.target.value })}
               placeholder="Especifica tu industria"
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             />
