@@ -12,7 +12,7 @@ import type { AgentsInfoAuthContext } from "@/types/agents";
 
 const TOOLS_CATALOG = "toolsCatalog";
 const TOOLS_DOCS_STORE_DISPLAY_NAME = "agents-tools-default-docs";
-const MODEL = "gemini-2.5-pro";
+const MODEL = "gemini-3-flash-preview";
 const TOOLS_DOCS_STORE_NAME_ENV =
   process.env.GEMINI_TOOLS_DOCS_STORE_NAME?.trim() ?? "";
 
