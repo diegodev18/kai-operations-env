@@ -713,6 +713,7 @@ function TemplatesSection({
       description: "Configuración completa para ventas, con gestión de clientes",
       icon: "🛒",
       industry: "Retail",
+      personalityPreset: "sales",
     },
     {
       id: "support",
@@ -720,6 +721,7 @@ function TemplatesSection({
       description: "Ayuda a clientes con problemas técnicos",
       icon: "📞",
       industry: "Servicios",
+      personalityPreset: "support",
     },
     {
       id: "admin",
@@ -727,6 +729,7 @@ function TemplatesSection({
       description: "Gestión de citas, agenda y tareas",
       icon: "💼",
       industry: "Servicios",
+      personalityPreset: "admin",
     },
     {
       id: "concierge",
@@ -734,6 +737,7 @@ function TemplatesSection({
       description: "Atención al cliente cálida y personalizada",
       icon: "🏨",
       industry: "Servicios",
+      personalityPreset: "concierge",
     },
     {
       id: "custom",
@@ -741,6 +745,7 @@ function TemplatesSection({
       description: "Construye tu agente paso a paso",
       icon: "✨",
       industry: "",
+      personalityPreset: null,
     },
   ];
 
@@ -751,12 +756,19 @@ function TemplatesSection({
           key={template.id}
           type="button"
           onClick={() => {
+            const preset = template.personalityPreset 
+              ? PERSONALITY_PRESETS.find(p => p.id === template.personalityPreset)
+              : null;
+            
             if (template.id === "custom") {
               onChange({ industry: "" });
             } else {
               onChange({
                 industry: template.industry || "Servicios",
                 agent_description: `Soy un ${template.label.toLowerCase()} que ayuda a los clientes...`,
+                agent_personality: preset?.agent_personality || "",
+                use_emojis: preset?.use_emojis || "moderate",
+                personality_traits: preset?.traits || [],
               });
               toast.success(`Plantilla "${template.label}" aplicada`);
             }
