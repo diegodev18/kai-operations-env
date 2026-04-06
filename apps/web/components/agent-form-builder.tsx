@@ -12,6 +12,7 @@ import {
   UserIcon,
   SettingsIcon,
   RocketIcon,
+  ListChecks,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -22,10 +23,19 @@ import {
   fetchToolsCatalog,
   analyzeAgentWithAI,
   recommendAgentTools,
+  fetchAgentFlowQuestions,
   type ToolsCatalogItem,
   type DynamicQuestion,
 } from "@/lib/agents-api";
-import { DEFAULT_FORM_STATE, FORM_SECTIONS, type FormBuilderState, type FormSectionId, type PersonalityTrait, PERSONALITY_PRESETS } from "@/lib/form-builder-constants";
+import {
+  DEFAULT_FORM_STATE,
+  FORM_SECTIONS,
+  type FormBuilderState,
+  type FormSectionId,
+  type PersonalityTrait,
+  type AgentFlowQuestion,
+  PERSONALITY_PRESETS,
+} from "@/lib/form-builder-constants";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/auth";
 
@@ -36,6 +46,7 @@ const ICONS: Record<string, React.ReactNode> = {
   tools: <WrenchIcon className="size-5" />,
   personality: <UserIcon className="size-5" />,
   advanced: <SettingsIcon className="size-5" />,
+  flows: <ListChecks className="size-5" />,
   review: <CheckIcon className="size-5" />,
 };
 
@@ -45,7 +56,8 @@ function industryIsComplete(state: FormBuilderState): boolean {
   return true;
 }
 
-function areToolsPrerequisitesMet(state: FormBuilderState): boolean {
+/** Datos básicos + negocio + personalidad (antes de Flujos). */
+function areCoreProfileComplete(state: FormBuilderState): boolean {
   const basics =
     !!state.business_name.trim() &&
     !!state.owner_name.trim() &&
@@ -65,7 +77,20 @@ function areToolsPrerequisitesMet(state: FormBuilderState): boolean {
   return basics && business && personality;
 }
 
-function getFirstIncompleteSectionForTools(
+function isFlowsStepComplete(state: FormBuilderState): boolean {
+  if (state.flow_questions.length === 0) return false;
+  return state.flow_questions.every((q) => {
+    if (q.required === false) return true;
+    return !!(state.flow_answers[q.field]?.trim());
+  });
+}
+
+/** Para el paso Herramientas: perfil core + Flujos contestado. */
+function areToolsPrerequisitesMet(state: FormBuilderState): boolean {
+  return areCoreProfileComplete(state) && isFlowsStepComplete(state);
+}
+
+function getFirstCoreIncompleteSection(
   state: FormBuilderState,
 ): FormSectionId | null {
   if (
@@ -95,6 +120,48 @@ function getFirstIncompleteSectionForTools(
   return null;
 }
 
+function getFirstIncompleteSectionForTools(
+  state: FormBuilderState,
+): FormSectionId | null {
+  const core = getFirstCoreIncompleteSection(state);
+  if (core) return core;
+  if (!isFlowsStepComplete(state)) return "flows";
+  return null;
+}
+
+function buildFlowQuestionsTriggerHash(state: FormBuilderState): string {
+  return JSON.stringify({
+    business_name: state.business_name,
+    owner_name: state.owner_name,
+    industry: state.industry,
+    custom_industry: state.custom_industry,
+    description: state.description,
+    target_audience: state.target_audience,
+    agent_description: state.agent_description,
+    escalation_rules: state.escalation_rules,
+    country: state.country,
+    business_timezone: state.business_timezone,
+    agent_name: state.agent_name,
+    agent_personality: state.agent_personality,
+    response_language: state.response_language,
+    use_emojis: state.use_emojis,
+    country_accent: state.country_accent,
+    agent_signature: state.agent_signature,
+    personality_traits: state.personality_traits,
+    business_hours: state.business_hours,
+    require_auth: state.require_auth,
+  });
+}
+
+function buildOperationalContextNarrative(state: FormBuilderState): string {
+  return state.flow_questions
+    .map((q) => {
+      const a = state.flow_answers[q.field]?.trim() || "";
+      return `${q.label}\nRespuesta: ${a || "(sin respuesta)"}`;
+    })
+    .join("\n\n---\n\n");
+}
+
 function buildToolsRecommendContextHash(state: FormBuilderState): string {
   return JSON.stringify({
     business_name: state.business_name,
@@ -116,9 +183,7 @@ function buildToolsRecommendContextHash(state: FormBuilderState): string {
     personality_traits: state.personality_traits,
     business_hours: state.business_hours,
     require_auth: state.require_auth,
-    tools_context_data_actions: state.tools_context_data_actions,
-    tools_context_commerce_reservations: state.tools_context_commerce_reservations,
-    tools_context_integrations: state.tools_context_integrations,
+    operational_context: buildOperationalContextNarrative(state),
   });
 }
 
@@ -314,6 +379,161 @@ function SectionBusiness({ state, onChange }: SectionProps) {
   );
 }
 
+function sectionTitle(id: FormSectionId): string {
+  return FORM_SECTIONS.find((s) => s.id === id)?.title ?? id;
+}
+
+type SectionFlowsProps = SectionProps & {
+  coreComplete: boolean;
+  firstCoreIncomplete: FormSectionId | null;
+  onGoToSection: (id: FormSectionId) => void;
+  flowQuestionsLoading: boolean;
+  flowQuestionsError: string | null;
+  onRetryFlowQuestions: () => void;
+  onRegenerateFlowQuestions: () => void;
+};
+
+function SectionFlows({
+  state,
+  onChange,
+  isSaving,
+  coreComplete,
+  firstCoreIncomplete,
+  onGoToSection,
+  flowQuestionsLoading,
+  flowQuestionsError,
+  onRetryFlowQuestions,
+  onRegenerateFlowQuestions,
+}: SectionFlowsProps) {
+  const setAnswer = useCallback(
+    (field: string, value: string) => {
+      onChange({
+        flow_answers: { ...state.flow_answers, [field]: value },
+      });
+    },
+    [onChange, state.flow_answers],
+  );
+
+  if (!coreComplete) {
+    return (
+      <div className="space-y-4 rounded-lg border border-amber-500/40 bg-amber-500/5 p-4">
+        <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+          Para generar preguntas sobre cómo trabajará tu asistente, completa primero los pasos
+          anteriores.
+        </p>
+        {firstCoreIncomplete ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => onGoToSection(firstCoreIncomplete)}
+          >
+            Ir a {sectionTitle(firstCoreIncomplete)}
+          </Button>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (flowQuestionsLoading && state.flow_questions.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 py-12 text-sm text-muted-foreground">
+        <Loader2Icon className="size-8 animate-spin" />
+        <p>Preparando preguntas adaptadas a tu negocio…</p>
+      </div>
+    );
+  }
+
+  if (flowQuestionsError && state.flow_questions.length === 0) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive">
+          {flowQuestionsError}
+        </div>
+        <Button type="button" variant="outline" size="sm" onClick={onRetryFlowQuestions}>
+          Reintentar
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <p className="text-sm text-muted-foreground">
+        Son unas preguntas cortas, en lenguaje sencillo, pensadas para tu tipo de negocio. Tus
+        respuestas ayudan a elegir las mejores funciones para el asistente.
+      </p>
+
+      {state.flow_questions.map((q: AgentFlowQuestion) => (
+        <div key={q.field}>
+          <label className="text-sm font-medium">
+            {q.label}
+            {q.required !== false ? (
+              <span className="text-destructive ml-1">*</span>
+            ) : null}
+          </label>
+          {q.type === "select" && q.options?.length ? (
+            <select
+              value={state.flow_answers[q.field] ?? ""}
+              onChange={(e) => setAnswer(q.field, e.target.value)}
+              disabled={isSaving || flowQuestionsLoading}
+              className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Elige una opción</option>
+              {q.options.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+          ) : q.type === "textarea" ? (
+            <textarea
+              value={state.flow_answers[q.field] ?? ""}
+              onChange={(e) => setAnswer(q.field, e.target.value)}
+              placeholder={q.placeholder}
+              rows={3}
+              disabled={isSaving || flowQuestionsLoading}
+              className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            />
+          ) : (
+            <input
+              type="text"
+              value={state.flow_answers[q.field] ?? ""}
+              onChange={(e) => setAnswer(q.field, e.target.value)}
+              placeholder={q.placeholder}
+              disabled={isSaving || flowQuestionsLoading}
+              className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            />
+          )}
+        </div>
+      ))}
+
+      <div className="flex flex-wrap gap-2 border-t pt-4">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onRegenerateFlowQuestions}
+          disabled={isSaving || flowQuestionsLoading}
+        >
+          {flowQuestionsLoading ? (
+            <>
+              <Loader2Icon className="mr-2 size-4 animate-spin" />
+              Generando…
+            </>
+          ) : (
+            "Generar otras preguntas"
+          )}
+        </Button>
+        <p className="w-full text-xs text-muted-foreground">
+          Si cambias de idea, puedes regenerar; se borrarán las respuestas actuales y obtendrás un
+          nuevo cuestionario.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 type SectionToolsProps = SectionProps & {
   prerequisitesMet: boolean;
   firstBlockedSection: FormSectionId | null;
@@ -324,15 +544,12 @@ type SectionToolsProps = SectionProps & {
   toolsRationale: string | null;
   toolsWarnings: string[];
   toolReasonById: Record<string, string>;
+  operationalSummary: string;
 };
-
-function sectionTitle(id: FormSectionId): string {
-  return FORM_SECTIONS.find((s) => s.id === id)?.title ?? id;
-}
 
 function SectionTools({
   state,
-  onChange,
+  onChange: _onChange,
   catalog,
   isSaving,
   prerequisitesMet,
@@ -344,6 +561,7 @@ function SectionTools({
   toolsRationale,
   toolsWarnings,
   toolReasonById,
+  operationalSummary,
 }: SectionToolsProps) {
   if (!prerequisitesMet) {
     return (
@@ -372,51 +590,18 @@ function SectionTools({
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted-foreground">
-        Opcional: añade detalles para afinar la recomendación. Luego generamos la lista de
-        herramientas según tu negocio y personalidad.
+        Usamos lo que contaste en <strong>Flujos</strong> más tu negocio y personalidad. Puedes
+        regenerar la lista si cambias algo en pasos anteriores.
       </p>
 
-      <div>
-        <label className="text-sm font-medium">
-          ¿Qué debe poder hacer el agente con datos reales?
-        </label>
-        <textarea
-          value={state.tools_context_data_actions}
-          onChange={(e) => onChange({ tools_context_data_actions: e.target.value })}
-          placeholder="Ej: agendar citas, tomar pedidos, registrar clientes, enviar cotizaciones…"
-          rows={3}
-          disabled={isSaving || recommendLoading}
-          className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-        />
-      </div>
-
-      <div>
-        <label className="text-sm font-medium">
-          ¿Venden online, manejan inventario o reservas?
-        </label>
-        <textarea
-          value={state.tools_context_commerce_reservations}
-          onChange={(e) =>
-            onChange({ tools_context_commerce_reservations: e.target.value })
-          }
-          placeholder="Ej: Sí vendemos por web / solo mostrador / citas por WhatsApp…"
-          rows={2}
-          disabled={isSaving || recommendLoading}
-          className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-        />
-      </div>
-
-      <div>
-        <label className="text-sm font-medium">Integraciones o herramientas que ya usan</label>
-        <textarea
-          value={state.tools_context_integrations}
-          onChange={(e) => onChange({ tools_context_integrations: e.target.value })}
-          placeholder="Ej: Google Sheets, Shopify, calendario, CRM…"
-          rows={2}
-          disabled={isSaving || recommendLoading}
-          className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-        />
-      </div>
+      {operationalSummary.trim() ? (
+        <div className="rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground">
+          <p className="mb-1 font-medium text-foreground">Resumen de lo que nos contaste en Flujos</p>
+          <pre className="max-h-40 overflow-y-auto whitespace-pre-wrap font-sans">
+            {operationalSummary}
+          </pre>
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
         <Button
@@ -948,6 +1133,37 @@ export function AgentFormBuilder() {
   const [toolReasonById, setToolReasonById] = useState<Record<string, string>>({});
   const lastToolsSuccessHashRef = useRef<string | null>(null);
   const lastToolsRegenNonceRef = useRef(0);
+  const [flowQuestionsLoading, setFlowQuestionsLoading] = useState(false);
+  const [flowQuestionsError, setFlowQuestionsError] = useState<string | null>(null);
+  const [flowQuestionsRegenNonce, setFlowQuestionsRegenNonce] = useState(0);
+  const lastFlowSuccessHashRef = useRef<string | null>(null);
+  const lastFlowRegenNonceRef = useRef(0);
+
+  /* eslint-disable react-hooks/exhaustive-deps -- hash Flujos: campos que disparan nuevas preguntas */
+  const flowQuestionsTriggerHash = useMemo(
+    () => buildFlowQuestionsTriggerHash(state),
+    [
+      state.business_name,
+      state.owner_name,
+      state.industry,
+      state.custom_industry,
+      state.description,
+      state.target_audience,
+      state.agent_description,
+      state.escalation_rules,
+      state.country,
+      state.business_timezone,
+      state.agent_name,
+      state.agent_personality,
+      state.response_language,
+      state.use_emojis,
+      state.country_accent,
+      state.agent_signature,
+      state.personality_traits,
+      state.business_hours,
+      state.require_auth,
+    ],
+  );
 
   /* eslint-disable react-hooks/exhaustive-deps -- recomendación tools: deps campo a campo alineados con buildToolsRecommendContextHash */
   const toolsContextHash = useMemo(
@@ -972,9 +1188,8 @@ export function AgentFormBuilder() {
       state.personality_traits,
       state.business_hours,
       state.require_auth,
-      state.tools_context_data_actions,
-      state.tools_context_commerce_reservations,
-      state.tools_context_integrations,
+      JSON.stringify(state.flow_answers),
+      JSON.stringify(state.flow_questions),
     ],
   );
 
@@ -985,6 +1200,90 @@ export function AgentFormBuilder() {
       setIsLoadingCatalog(false);
     })();
   }, []);
+
+  useEffect(() => {
+    if (currentSection !== "flows") return;
+    if (!areCoreProfileComplete(state)) return;
+
+    const h = flowQuestionsTriggerHash;
+    const regen = flowQuestionsRegenNonce;
+
+    const shouldFetch =
+      regen > lastFlowRegenNonceRef.current ||
+      lastFlowSuccessHashRef.current !== h ||
+      state.flow_questions.length === 0;
+
+    if (!shouldFetch) return;
+
+    lastFlowRegenNonceRef.current = regen;
+
+    let cancelled = false;
+    setFlowQuestionsLoading(true);
+    setFlowQuestionsError(null);
+
+    void (async () => {
+      const res = await fetchAgentFlowQuestions({
+        business_name: state.business_name,
+        owner_name: state.owner_name,
+        industry: state.industry,
+        custom_industry: state.custom_industry,
+        description: state.description,
+        target_audience: state.target_audience,
+        agent_description: state.agent_description,
+        escalation_rules: state.escalation_rules,
+        country: state.country,
+        business_timezone: state.business_timezone,
+        agent_name: state.agent_name,
+        agent_personality: state.agent_personality,
+        response_language: state.response_language,
+        business_hours: state.business_hours,
+        require_auth: state.require_auth,
+      });
+
+      if (cancelled) return;
+
+      if (res.ok) {
+        setState((prev) => ({
+          ...prev,
+          flow_questions: res.questions as AgentFlowQuestion[],
+          flow_answers: {},
+        }));
+        lastFlowSuccessHashRef.current = h;
+      } else {
+        setFlowQuestionsError(res.error);
+      }
+      setFlowQuestionsLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+      setFlowQuestionsLoading(false);
+    };
+  }, [
+    currentSection,
+    flowQuestionsTriggerHash,
+    flowQuestionsRegenNonce,
+    state.flow_questions.length,
+    state.business_name,
+    state.owner_name,
+    state.industry,
+    state.custom_industry,
+    state.description,
+    state.target_audience,
+    state.agent_description,
+    state.escalation_rules,
+    state.country,
+    state.business_timezone,
+    state.agent_name,
+    state.agent_personality,
+    state.response_language,
+    state.business_hours,
+    state.require_auth,
+    state.use_emojis,
+    state.country_accent,
+    state.agent_signature,
+    state.personality_traits,
+  ]);
 
   useEffect(() => {
     if (currentSection !== "tools") return;
@@ -1024,9 +1323,7 @@ export function AgentFormBuilder() {
         response_language: state.response_language,
         business_hours: state.business_hours,
         require_auth: state.require_auth,
-        tools_context_data_actions: state.tools_context_data_actions,
-        tools_context_commerce_reservations: state.tools_context_commerce_reservations,
-        tools_context_integrations: state.tools_context_integrations,
+        operational_context: buildOperationalContextNarrative(state),
       });
 
       if (cancelled) return;
@@ -1072,9 +1369,8 @@ export function AgentFormBuilder() {
     state.response_language,
     state.business_hours,
     state.require_auth,
-    state.tools_context_data_actions,
-    state.tools_context_commerce_reservations,
-    state.tools_context_integrations,
+    JSON.stringify(state.flow_answers),
+    JSON.stringify(state.flow_questions),
   ]);
   /* eslint-enable react-hooks/exhaustive-deps */
 
@@ -1110,6 +1406,12 @@ export function AgentFormBuilder() {
             !!state.agent_personality.trim() &&
             !!state.response_language.trim() &&
             !!state.use_emojis
+          );
+        case "flows":
+          return (
+            areCoreProfileComplete(state) &&
+            state.flow_questions.length > 0 &&
+            isFlowsStepComplete(state)
           );
         case "tools":
           return state.selected_tools.length > 0;
@@ -1166,6 +1468,13 @@ export function AgentFormBuilder() {
           if (!state.agent_personality) errorMsg += "\n• Personalidad del agente";
           if (!state.response_language) errorMsg += "\n• Idioma";
           if (!state.use_emojis) errorMsg += "\n• Uso de emojis";
+          break;
+        case "flows":
+          if (state.flow_questions.length === 0) {
+            errorMsg += "\n• Espera a que se generen las preguntas o reintenta";
+          } else if (!isFlowsStepComplete(state)) {
+            errorMsg += "\n• Responde todas las preguntas del paso Flujos";
+          }
           break;
         case "tools":
           if (state.selected_tools.length === 0) {
@@ -1237,8 +1546,20 @@ export function AgentFormBuilder() {
     setToolsRegenerateNonce((n) => n + 1);
   }, []);
 
+  const handleRegenerateFlowQuestions = useCallback(() => {
+    setFlowQuestionsRegenNonce((n) => n + 1);
+  }, []);
+
+  const handleRetryFlowQuestions = useCallback(() => {
+    setFlowQuestionsError(null);
+    setFlowQuestionsRegenNonce((n) => n + 1);
+  }, []);
+
   const toolsPrerequisitesMet = areToolsPrerequisitesMet(state);
   const toolsFirstBlocked = getFirstIncompleteSectionForTools(state);
+  const coreProfileComplete = areCoreProfileComplete(state);
+  const firstCoreIncomplete = getFirstCoreIncompleteSection(state);
+  const operationalSummary = buildOperationalContextNarrative(state);
 
   const handleSubmit = useCallback(async () => {
     if (!canProceed("review")) {
@@ -1320,6 +1641,19 @@ export function AgentFormBuilder() {
         return <SectionPersonality {...sectionProps} />;
       case "advanced":
         return <SectionAdvanced {...sectionProps} />;
+      case "flows":
+        return (
+          <SectionFlows
+            {...sectionProps}
+            coreComplete={coreProfileComplete}
+            firstCoreIncomplete={firstCoreIncomplete}
+            onGoToSection={setCurrentSection}
+            flowQuestionsLoading={flowQuestionsLoading}
+            flowQuestionsError={flowQuestionsError}
+            onRetryFlowQuestions={handleRetryFlowQuestions}
+            onRegenerateFlowQuestions={handleRegenerateFlowQuestions}
+          />
+        );
       case "tools":
         return (
           <SectionTools
@@ -1333,6 +1667,7 @@ export function AgentFormBuilder() {
             toolsRationale={toolsRationale}
             toolsWarnings={toolsWarnings}
             toolReasonById={toolReasonById}
+            operationalSummary={operationalSummary}
           />
         );
       case "review":
@@ -1456,6 +1791,9 @@ export function AgentFormBuilder() {
             disabled={
               !canProceed(currentSection) ||
               isAnalyzingAI ||
+              (currentSection === "flows" &&
+                (flowQuestionsLoading ||
+                  (state.flow_questions.length === 0 && !flowQuestionsError))) ||
               (currentSection === "tools" && toolsRecommendLoading)
             }
           >

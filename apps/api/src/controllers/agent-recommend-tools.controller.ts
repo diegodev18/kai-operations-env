@@ -59,6 +59,8 @@ const recommendBodySchema = z.object({
   tools_context_data_actions: z.string().optional().default(""),
   tools_context_commerce_reservations: z.string().optional().default(""),
   tools_context_integrations: z.string().optional().default(""),
+  /** Preguntas de flujo (paso Flujos): narrativa P+R para recomendar tools. */
+  operational_context: z.string().optional().default(""),
 });
 
 type CatalogItem = {
@@ -356,6 +358,20 @@ export async function postAgentRecommendTools(
       target_audience: body.target_audience,
     });
 
+    const operationalFromFlows =
+      body.operational_context.trim().length > 0
+        ? body.operational_context.trim()
+        : [
+            body.tools_context_data_actions.trim() &&
+              `Qué debe hacer con datos reales: ${body.tools_context_data_actions.trim()}`,
+            body.tools_context_commerce_reservations.trim() &&
+              `Venta / inventario / reservas: ${body.tools_context_commerce_reservations.trim()}`,
+            body.tools_context_integrations.trim() &&
+              `Herramientas que ya usan: ${body.tools_context_integrations.trim()}`,
+          ]
+            .filter(Boolean)
+            .join("\n");
+
     const profile = {
       business_name: body.business_name,
       owner_name: body.owner_name,
@@ -372,11 +388,7 @@ export async function postAgentRecommendTools(
       response_language: body.response_language,
       business_hours: body.business_hours,
       require_auth: body.require_auth,
-      tools_context: {
-        data_actions: body.tools_context_data_actions,
-        commerce_reservations: body.tools_context_commerce_reservations,
-        integrations: body.tools_context_integrations,
-      },
+      operational_context_from_owner: operationalFromFlows || null,
     };
 
     const userContext = [
@@ -401,7 +413,7 @@ Rules:
 - Recommend between 4 and ${String(MAX_RECOMMENDED_TOOLS)} tools total including operational needs (CRM, orders, appointments, etc.) when relevant.
 - Do NOT invent ids.
 - The mandatory knowledge-base and escalate-to-support tools will be merged by the server; you may include or omit them.
-- Use the optional tools_context fields and escalation_rules to choose escalation-, support-, and knowledge-related tools appropriately.
+- Use operational_context_from_owner (answers from the "Flujos" step) and escalation_rules to choose CRM, orders, appointments, payments info, escalation, knowledge, and support tools. If operational_context_from_owner is null or empty, infer only from the rest of the profile.
 - If File Search results are provided in a follow-up, use them to justify tool choices.
 - perTool should include an entry for every id in toolIds (same ids).`;
 

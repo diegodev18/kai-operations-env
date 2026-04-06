@@ -17,6 +17,7 @@ import {
   postAgentDraft,
 } from "@/controllers/agent-drafts.controller";
 import { postAgentBuilderChat } from "@/controllers/agent-builder-chat.controller";
+import { postAgentFlowQuestions } from "@/controllers/agent-flow-questions.controller";
 import { postAgentRecommendTools } from "@/controllers/agent-recommend-tools.controller";
 import { getAgentsInfo, assignAgentToUser } from "@/controllers/agents.controller";
 import {
@@ -97,6 +98,12 @@ agentsRouter.post("/builder/recommend-tools", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   return postAgentRecommendTools(c, ctx.authCtx);
+});
+
+agentsRouter.post("/builder/flow-questions", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  return postAgentFlowQuestions(c, ctx.authCtx);
 });
 
 agentsRouter.post("/drafts", async (c) => {

@@ -916,10 +916,82 @@ export type RecommendToolsPayload = {
   response_language?: string;
   business_hours?: string;
   require_auth?: boolean;
+  /** Texto consolidado desde el paso Flujos (pregunta → respuesta). */
+  operational_context?: string;
   tools_context_data_actions?: string;
   tools_context_commerce_reservations?: string;
   tools_context_integrations?: string;
 };
+
+export type FlowQuestionsPayload = {
+  business_name?: string;
+  owner_name?: string;
+  industry?: string;
+  custom_industry?: string;
+  description?: string;
+  target_audience?: string;
+  agent_description?: string;
+  escalation_rules?: string;
+  country?: string;
+  business_timezone?: string;
+  agent_name?: string;
+  agent_personality?: string;
+  response_language?: string;
+  business_hours?: string;
+  require_auth?: boolean;
+};
+
+export type FlowQuestionItem = {
+  field: string;
+  label: string;
+  type: "text" | "textarea" | "select";
+  placeholder?: string;
+  options?: string[];
+  required?: boolean;
+};
+
+export async function fetchAgentFlowQuestions(
+  payload: FlowQuestionsPayload,
+): Promise<
+  | { ok: true; questions: FlowQuestionItem[] }
+  | { ok: false; error: string }
+> {
+  try {
+    const res = await fetch("/api/agents/builder/flow-questions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    });
+    const data = (await res.json()) as {
+      error?: string;
+      questions?: FlowQuestionItem[];
+    };
+    if (!res.ok) {
+      return {
+        ok: false,
+        error: data.error ?? "No se pudieron generar las preguntas",
+      };
+    }
+    if (!Array.isArray(data.questions)) {
+      return { ok: false, error: "Respuesta inválida del servidor" };
+    }
+    if (
+      data.questions.length === 0 &&
+      typeof data.error === "string" &&
+      data.error.length > 0
+    ) {
+      return { ok: false, error: data.error };
+    }
+    return { ok: true, questions: data.questions };
+  } catch (e) {
+    return {
+      ok: false,
+      error:
+        e instanceof Error ? e.message : "Error de red al generar preguntas",
+    };
+  }
+}
 
 export type RecommendToolsPerItem = { id: string; reason: string };
 
