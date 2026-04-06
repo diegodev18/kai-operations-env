@@ -152,17 +152,17 @@ export const FORM_SECTIONS: FormSection[] = [
     required: true,
   },
   {
-    id: "tools",
-    title: "Herramientas",
-    description: "Selecciona las tools que usará tu agente",
-    icon: "🔧",
-    required: true,
-  },
-  {
     id: "personality",
     title: "Personalidad",
     description: "Define cómo se comporta tu agente",
     icon: "🎭",
+    required: true,
+  },
+  {
+    id: "tools",
+    title: "Herramientas",
+    description: "Selecciona las tools que usará tu agente",
+    icon: "🔧",
     required: true,
   },
   {

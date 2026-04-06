@@ -837,10 +837,10 @@ export function AgentFormBuilder() {
             ? !!state.custom_industry 
             : !!state.industry;
           return businessValid && !!state.description && !!state.target_audience && !!state.agent_description && !!state.escalation_rules && !!state.country;
-        case "tools":
-          return state.selected_tools.length > 0;
         case "personality":
           return !!state.agent_name && !!state.agent_personality && !!state.response_language && !!state.use_emojis;
+        case "tools":
+          return state.selected_tools.length > 0;
         case "review":
           const reviewIndustryValid = state.industry === "Otro" 
             ? !!state.custom_industry 
@@ -892,14 +892,14 @@ export function AgentFormBuilder() {
           if (!state.escalation_rules) errorMsg += "\n• Reglas de escalamiento";
           if (!state.country) errorMsg += "\n• País";
           break;
-        case "tools":
-          if (state.selected_tools.length === 0) errorMsg += "\n• Selecciona al menos una herramienta";
-          break;
         case "personality":
           if (!state.agent_name) errorMsg += "\n• Nombre del agente";
           if (!state.agent_personality) errorMsg += "\n• Personalidad del agente";
           if (!state.response_language) errorMsg += "\n• Idioma";
           if (!state.use_emojis) errorMsg += "\n• Uso de emojis";
+          break;
+        case "tools":
+          if (state.selected_tools.length === 0) errorMsg += "\n• Selecciona al menos una herramienta";
           break;
       }
       
@@ -1038,10 +1038,10 @@ export function AgentFormBuilder() {
         return <SectionBasics {...sectionProps} />;
       case "business":
         return <SectionBusiness {...sectionProps} />;
-      case "tools":
-        return <SectionTools {...sectionProps} />;
       case "personality":
         return <SectionPersonality {...sectionProps} />;
+      case "tools":
+        return <SectionTools {...sectionProps} />;
       case "advanced":
         return <SectionAdvanced {...sectionProps} />;
       case "review":
