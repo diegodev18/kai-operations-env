@@ -1090,19 +1090,20 @@ export function AgentFormBuilder() {
             <div className="flex items-center justify-center py-12">
               <Loader2Icon className="size-6 animate-spin text-muted-foreground" />
             </div>
-          ) : dynamicQuestions.length > 0 ? (
-            <div className="space-y-6">
-              <div className="rounded-lg border border-primary/50 bg-primary/5 p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-lg">💡</span>
-                  <p className="font-medium">El asistente sugiere completar más información:</p>
-                </div>
-                <div className="space-y-4">
+          ) : (
+            <>
+              {renderSection()}
+              
+              {dynamicQuestions.length > 0 && (
+                <div className="mt-6 space-y-4 border-t pt-6">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Información adicional sugerida
+                  </p>
                   {dynamicQuestions.map((question) => (
                     <div key={question.field}>
                       <label className="text-sm font-medium">
                         {question.label}
-                        {question.required && <span className="text-destructive">*</span>}
+                        <span className="text-destructive ml-1">*</span>
                       </label>
                       {question.type === "select" && question.options ? (
                         <select
@@ -1132,24 +1133,19 @@ export function AgentFormBuilder() {
                           className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                         />
                       )}
-                      {question.aiReason && (
-                        <p className="mt-1 text-xs text-muted-foreground">{question.aiReason}</p>
-                      )}
                     </div>
                   ))}
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={handleSkipDynamicQuestions}>
+                      Omitir
+                    </Button>
+                    <Button size="sm" onClick={handleSubmitDynamicAnswers}>
+                      Guardar y continuar
+                    </Button>
+                  </div>
                 </div>
-              </div>
-              <div className="flex gap-3">
-                <Button variant="outline" onClick={handleSkipDynamicQuestions} className="flex-1">
-                  Omitir
-                </Button>
-                <Button onClick={handleSubmitDynamicAnswers} className="flex-1">
-                  Continuar y guardar
-                </Button>
-              </div>
-            </div>
-          ) : (
-            renderSection()
+              )}
+            </>
           )}
         </div>
       </div>
