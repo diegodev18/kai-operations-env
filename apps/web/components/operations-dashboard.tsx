@@ -23,6 +23,7 @@ import {
   PowerIcon,
   SearchIcon,
   Settings2Icon,
+  StarIcon,
   Trash2Icon,
   UploadIcon,
   XIcon,
@@ -138,6 +139,9 @@ export function OperationsDashboard(props: {
   const [defaultModeDialogOpen, setDefaultModeDialogOpen] = useState(false);
   const [defaultBuilderMode, setDefaultBuilderMode] = useState<"form" | "conversational">("form");
   const [menuOpen, setMenuOpen] = useState(false);
+  type FavoritesFilter = "all" | "favorites";
+  const [favoritesFilter, setFavoritesFilter] = useState<FavoritesFilter>("all");
+  const [favoriteAgentIds, setFavoriteAgentIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const stored = localStorage.getItem("agent-builder-default-mode");
@@ -192,6 +196,20 @@ export function OperationsDashboard(props: {
   useEffect(() => {
     void fetchAgents();
   }, [fetchAgents]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch("/api/favorites", { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          setFavoriteAgentIds(new Set(data.favorites ?? []));
+        }
+      } catch {
+        // ignore
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     if (!growerTarget) {
@@ -458,6 +476,9 @@ export function OperationsDashboard(props: {
         return d <= lastPaymentTo;
       });
     }
+    if (favoritesFilter === "favorites") {
+      list = list.filter((a) => favoriteAgentIds.has(a.id));
+    }
     return list;
   }, [
     agents,
@@ -468,6 +489,8 @@ export function OperationsDashboard(props: {
     cobranzaFilter,
     lastPaymentFrom,
     lastPaymentTo,
+    favoritesFilter,
+    favoriteAgentIds,
   ]);
 
   const hasMore = nextCursor != null && nextCursor !== undefined;
@@ -673,6 +696,22 @@ export function OperationsDashboard(props: {
               </TooltipTrigger>
               <TooltipContent>Solo alerta de pago</TooltipContent>
             </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant={favoritesFilter === "favorites" ? "secondary" : "ghost"}
+                  size="icon-sm"
+                  className="size-9 rounded-md border border-border"
+                  onClick={() =>
+                    setFavoritesFilter((v) => (v === "all" ? "favorites" : "all"))
+                  }
+                >
+                  <StarIcon className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Favoritos</TooltipContent>
+            </Tooltip>
             <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-1">
               <span className="px-2 py-1.5 text-xs text-muted-foreground">
                 Cobranza
@@ -834,13 +873,49 @@ export function OperationsDashboard(props: {
                           </Button>
                         </td>
                          <td className="p-3 font-medium">
-                           <Link
-                             href={`/agents/${encodeURIComponent(agent.id)}/prompt-design`}
-                            className="text-primary hover:underline"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {agent.name}
-                          </Link>
+                           <div className="flex items-center gap-2">
+                             <Button
+                               type="button"
+                               variant="ghost"
+                               size="icon-sm"
+                               className="size-7"
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 void (async () => {
+                                   const isFavorite = favoriteAgentIds.has(agent.id);
+                                   const method = isFavorite ? "DELETE" : "POST";
+                                   const res = await fetch(
+                                     `/api/favorites/${encodeURIComponent(agent.id)}`,
+                                     { method, credentials: "include" },
+                                   );
+                                   if (res.ok) {
+                                     setFavoriteAgentIds((prev) => {
+                                       const next = new Set(prev);
+                                       if (isFavorite) {
+                                         next.delete(agent.id);
+                                       } else {
+                                         next.add(agent.id);
+                                       }
+                                       return next;
+                                     });
+                                   }
+                                 })();
+                               }}
+                             >
+                               {favoriteAgentIds.has(agent.id) ? (
+                                 <StarIcon className="size-4 fill-yellow-400 text-yellow-400" />
+                               ) : (
+                                 <StarIcon className="size-4 text-muted-foreground" />
+                               )}
+                             </Button>
+                             <Link
+                               href={`/agents/${encodeURIComponent(agent.id)}/prompt-design`}
+                              className="text-primary hover:underline"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {agent.name}
+                            </Link>
+                          </div>
                         </td>
                         <td className="p-3 align-middle">
                           <div className="flex flex-wrap items-center gap-1.5">

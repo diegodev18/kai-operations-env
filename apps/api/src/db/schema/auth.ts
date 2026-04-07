@@ -104,9 +104,26 @@ export const invitation = pgTable(
   ],
 );
 
+export const userFavoriteAgents = pgTable(
+  "user_favorite_agents",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    agentId: text("agent_id").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("user_favorite_user_agent_idx").on(table.userId, table.agentId),
+    index("user_favorite_userId_idx").on(table.userId),
+  ],
+);
+
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
+  favoriteAgents: many(userFavoriteAgents),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -119,6 +136,13 @@ export const sessionRelations = relations(session, ({ one }) => ({
 export const accountRelations = relations(account, ({ one }) => ({
   user: one(user, {
     fields: [account.userId],
+    references: [user.id],
+  }),
+}));
+
+export const userFavoriteAgentsRelations = relations(userFavoriteAgents, ({ one }) => ({
+  user: one(user, {
+    fields: [userFavoriteAgents.userId],
     references: [user.id],
   }),
 }));
