@@ -49,6 +49,11 @@ function agentsInfoUrl(
   pageSize: number,
   cursor?: string,
   q?: string,
+  filters?: {
+    status?: string;
+    billingAlert?: string;
+    domiciliated?: string;
+  },
 ): string {
   const params = new URLSearchParams();
   if (light) params.set("light", "1");
@@ -58,6 +63,11 @@ function agentsInfoUrl(
   }
   const trimmedQ = q?.trim();
   if (trimmedQ) params.set("q", trimmedQ);
+  if (filters) {
+    if (filters.status) params.set("status", filters.status);
+    if (filters.billingAlert) params.set("billingAlert", filters.billingAlert);
+    if (filters.domiciliated !== undefined) params.set("domiciliated", filters.domiciliated);
+  }
   return `/api/agents/info?${params.toString()}`;
 }
 
@@ -69,6 +79,11 @@ export async function fetchAgentsPage(
     cursor?: string;
     /** Búsqueda en servidor (Firestore); vacío omite el parámetro. */
     q?: string;
+    filters?: {
+      status?: string;
+      billingAlert?: string;
+      domiciliated?: string;
+    };
   } = {},
 ): Promise<{ agents: AgentWithOperations[]; nextCursor: string | null } | null> {
   const {
@@ -77,8 +92,9 @@ export async function fetchAgentsPage(
     pageSize = AGENTS_PAGE_SIZE,
     cursor,
     q,
+    filters,
   } = options;
-  const url = agentsInfoUrl(light, paginated, pageSize, cursor, q);
+  const url = agentsInfoUrl(light, paginated, pageSize, cursor, q, filters);
   const response = await fetch(url, {
     credentials: "include",
     cache: "no-store",

@@ -9,6 +9,7 @@ import type {
   AgentsInfoAuthContext,
   LightAgent,
 } from "@/types/agents";
+import type { PrefetchedAgentData } from "@/utils/agents/agentSearchMatch";
 import {
   agentMatchesGrowersSearchQuery,
   agentMatchesRootSearchQuery,
@@ -47,6 +48,8 @@ async function buildLightAgentWithDeployment(
   prefetchedData?: {
     production?: Record<string, unknown> | null;
     hasTestingData?: boolean;
+    growers?: { name: string; email: string }[] | null;
+    techLeads?: { name: string; email: string }[] | null;
   },
 ): Promise<LightAgent | null> {
   const db = getFirestore();
@@ -62,16 +65,54 @@ async function buildLightAgentWithDeployment(
   const parsed = parseAgentDocFromData(agentId, prodDocData, false);
   if (!parsed) return null;
 
+  let growers = prefetchedData?.growers ?? undefined;
+  let techLeads = prefetchedData?.techLeads ?? undefined;
+
   const agentRef = db.collection("agent_configurations").doc(agentId);
-  const [agentSnap, aiSnap, promptSnap, responseSnap, billingSnap, growers] =
-    await Promise.all([
-      agentRef.collection("properties").doc("agent").get(),
-      agentRef.collection("properties").doc("ai").get(),
-      agentRef.collection("properties").doc("prompt").get(),
-      agentRef.collection("properties").doc("response").get(),
-      agentRef.collection("billing").doc("main").get(),
-      fetchGrowersForAgent(agentRef),
-    ]);
+  const fetchTasks: Promise<unknown>[] = [
+    agentRef.collection("properties").doc("agent").get(),
+    agentRef.collection("properties").doc("ai").get(),
+    agentRef.collection("properties").doc("prompt").get(),
+    agentRef.collection("properties").doc("response").get(),
+    agentRef.collection("billing").doc("main").get(),
+  ];
+
+  if (growers === undefined) {
+    fetchTasks.push(agentRef.collection("growers").get());
+  }
+  if (techLeads === undefined) {
+    fetchTasks.push(agentRef.collection("techLeads").get());
+  }
+
+  const results = await Promise.all(fetchTasks);
+  const [agentSnap, aiSnap, promptSnap, responseSnap, billingSnap] = results.slice(0, 5) as [
+    FirebaseFirestore.DocumentSnapshot,
+    FirebaseFirestore.DocumentSnapshot,
+    FirebaseFirestore.DocumentSnapshot,
+    FirebaseFirestore.DocumentSnapshot,
+    FirebaseFirestore.DocumentSnapshot,
+  ];
+
+  if (growers === undefined) {
+    const growersSnap = results[5] as FirebaseFirestore.QuerySnapshot;
+    growers = growersSnap.docs.map((d) => {
+      const data = d.data() as Record<string, unknown>;
+      const email = typeof data.email === "string" ? data.email.trim().toLowerCase() : (d.id.includes("@") ? d.id.trim().toLowerCase() : "");
+      const name = typeof data.name === "string" ? data.name.trim() : "";
+      return { email, name: name || email };
+    });
+  }
+
+  if (techLeads === undefined) {
+    const techLeadsSnap = results[6] as FirebaseFirestore.QuerySnapshot;
+    techLeads = techLeadsSnap.docs.map((d) => {
+      const data = d.data() as Record<string, unknown>;
+      const email = typeof data.email === "string" ? data.email.trim().toLowerCase() : (d.id.includes("@") ? d.id.trim().toLowerCase() : "");
+      const name = typeof data.name === "string" ? data.name.trim() : "";
+      return { email, name: name || email };
+    });
+  }
+
   const agentData = agentSnap.exists ? agentSnap.data() : undefined;
   const aiData = aiSnap.exists ? aiSnap.data() : undefined;
   const promptData = promptSnap.exists ? promptSnap.data() : undefined;
@@ -105,6 +146,7 @@ async function buildLightAgentWithDeployment(
   return {
     ...parsed,
     growers,
+    techLeads,
     enabled,
     injectCommandsInPrompt:
       agentData?.injectCommandsInPrompt === true ||
@@ -130,6 +172,8 @@ async function mergedAgentIdsAndData(): Promise<{
   sortedIds: string[];
   commercialMap: Map<string, Record<string, unknown>>;
   productionMap: Map<string, Record<string, unknown>>;
+  growersMap: Map<string, { name: string; email: string }[]>;
+  techLeadsMap: Map<string, { name: string; email: string }[]>;
 }> {
   const db = getFirestore();
   const [testingDataColSnap, prodSnap] = await Promise.all([
@@ -139,6 +183,8 @@ async function mergedAgentIdsAndData(): Promise<{
 
   const commercialMap = new Map<string, Record<string, unknown>>();
   const productionMap = new Map<string, Record<string, unknown>>();
+  const growersMap = new Map<string, { name: string; email: string }[]>();
+  const techLeadsMap = new Map<string, { name: string; email: string }[]>();
   const idSet = new Set<string>();
 
   for (const d of prodSnap.docs) {
@@ -151,12 +197,52 @@ async function mergedAgentIdsAndData(): Promise<{
     }
   }
 
+  // Precargar growers y techLeads en lotes paralelos
+  const CHUNK_SIZE = 50;
+  const sortedIds = [...idSet];
+  for (let i = 0; i < sortedIds.length; i += CHUNK_SIZE) {
+    const chunk = sortedIds.slice(i, i + CHUNK_SIZE);
+    const fetchTasks = chunk.map(async (agentId) => {
+      const agentRef = db.collection("agent_configurations").doc(agentId);
+      const [growersSnap, techLeadsSnap] = await Promise.all([
+        agentRef.collection("growers").get(),
+        agentRef.collection("techLeads").get(),
+      ]);
+      const growers = growersSnap.docs.map((d) => {
+        const data = d.data() as Record<string, unknown>;
+        const email = typeof data.email === "string" ? data.email.trim().toLowerCase() : (d.id.includes("@") ? d.id.trim().toLowerCase() : "");
+        const name = typeof data.name === "string" ? data.name.trim() : "";
+        return { email, name: name || email };
+      });
+      const techLeads = techLeadsSnap.docs.map((d) => {
+        const data = d.data() as Record<string, unknown>;
+        const email = typeof data.email === "string" ? data.email.trim().toLowerCase() : (d.id.includes("@") ? d.id.trim().toLowerCase() : "");
+        const name = typeof data.name === "string" ? data.name.trim() : "";
+        return { email, name: name || email };
+      });
+      return { agentId, growers, techLeads };
+    });
+    const results = await Promise.all(fetchTasks);
+    for (const r of results) {
+      if (r.growers.length > 0) growersMap.set(r.agentId, r.growers);
+      if (r.techLeads.length > 0) techLeadsMap.set(r.agentId, r.techLeads);
+    }
+  }
+
   return {
-    sortedIds: [...idSet].sort((a, b) => a.localeCompare(b)),
+    sortedIds: sortedIds.sort((a, b) => a.localeCompare(b)),
     commercialMap,
     productionMap,
+    growersMap,
+    techLeadsMap,
   };
 }
+
+type AgentFilters = {
+  status?: string;
+  billingAlert?: string;
+  domiciliated?: string;
+};
 
 /** Paginación sobre `sortedIds` filtrando por subcadena `qLower` (coincidencias consecutivas en orden). */
 async function paginateLightAgentsWithSearch(
@@ -167,7 +253,10 @@ async function paginateLightAgentsWithSearch(
   docsMaps: {
     commercial: Map<string, Record<string, unknown>>;
     production: Map<string, Record<string, unknown>>;
+    growersMap: Map<string, { name: string; email: string }[]>;
+    techLeadsMap: Map<string, { name: string; email: string }[]>;
   },
+  filters?: AgentFilters,
 ): Promise<{ agents: LightAgent[]; nextCursor: string | null }> {
   let startIdx = 0;
   if (cursor) {
@@ -189,10 +278,12 @@ async function paginateLightAgentsWithSearch(
       if (data && agentMatchesRootSearchQuery(id, qLower, data)) {
         return id;
       }
-      // Coincidencia lenta en growers (paralelizada por el map/Promise.all)
-      const prefetched = {
+      // Coincidencia con growers/techLeads precargados
+      const prefetched: PrefetchedAgentData = {
         commercial: docsMaps.commercial.get(id) ?? null,
         production: docsMaps.production.get(id) ?? null,
+        growers: docsMaps.growersMap.get(id) ?? null,
+        techLeads: docsMaps.techLeadsMap.get(id) ?? null,
       };
       const ok = await agentMatchesGrowersSearchQuery(id, qLower, prefetched);
       return ok ? id : null;
@@ -206,15 +297,29 @@ async function paginateLightAgentsWithSearch(
       buildLightAgentWithDeployment(id, {
         production: docsMaps.production.get(id) ?? null,
         hasTestingData: docsMaps.commercial.has(id),
+        growers: docsMaps.growersMap.get(id),
+        techLeads: docsMaps.techLeadsMap.get(id),
       }),
     );
     const buildResults = await Promise.all(buildTasks);
     for (const row of buildResults) {
-      if (row) {
-        agents.push(row);
-        if (agents.length >= effectiveLimit) {
-          return { agents, nextCursor: row.id };
-        }
+      if (!row) continue;
+
+      // Aplicar filtros server-side
+      if (filters) {
+        if (filters.status === "production" && !row.inProduction) continue;
+        if (filters.status === "commercial" && !row.inCommercial) continue;
+        if (filters.status === "testing" && row.inProduction) continue;
+
+        if (filters.billingAlert === "true" && !row.billing?.paymentAlert) continue;
+
+        if (filters.domiciliated === "true" && !row.billing?.domiciliated) continue;
+        if (filters.domiciliated === "false" && row.billing?.domiciliated) continue;
+      }
+
+      agents.push(row);
+      if (agents.length >= effectiveLimit) {
+        return { agents, nextCursor: row.id };
       }
     }
   }
@@ -249,6 +354,10 @@ export const getAgentsInfo = async (
     : null;
 
   const searchQ = normalizeAgentsSearchQuery(c.req.query("q"));
+
+  const statusFilter = c.req.query("status");
+  const billingAlertFilter = c.req.query("billingAlert");
+  const domiciliatedFilter = c.req.query("domiciliated");
 
   if (!light && !isPrivileged) {
     return c.json(
@@ -303,7 +412,8 @@ export const getAgentsInfo = async (
             searchQ,
             cursor,
             effectiveLimit,
-            { commercial: new Map(), production: new Map() },
+            { commercial: new Map(), production: new Map(), growersMap: new Map(), techLeadsMap: new Map() },
+            { status: statusFilter, billingAlert: billingAlertFilter, domiciliated: domiciliatedFilter },
           );
         return c.json({ agents: agentRows, nextCursor });
       }
@@ -332,7 +442,7 @@ export const getAgentsInfo = async (
 
     if (isPrivileged && light) {
       const effectiveLimit = pageLimit ?? 15;
-      const { sortedIds, commercialMap, productionMap } =
+      const { sortedIds, commercialMap, productionMap, growersMap, techLeadsMap } =
         await mergedAgentIdsAndData();
 
       if (searchQ) {
@@ -347,7 +457,8 @@ export const getAgentsInfo = async (
           searchQ,
           cursor,
           effectiveLimit,
-          { commercial: commercialMap, production: productionMap },
+          { commercial: commercialMap, production: productionMap, growersMap, techLeadsMap },
+          { status: statusFilter, billingAlert: billingAlertFilter, domiciliated: domiciliatedFilter },
         );
         return c.json({ agents, nextCursor });
       }
@@ -371,12 +482,25 @@ export const getAgentsInfo = async (
           buildLightAgentWithDeployment(id, {
             production: productionMap.get(id),
             hasTestingData: commercialMap.has(id),
+            growers: growersMap.get(id),
+            techLeads: techLeadsMap.get(id),
           }),
         ),
       );
-      const agents = agentsRows.filter(
-        (row): row is LightAgent => row != null,
-      );
+
+      const filterFns: ((a: LightAgent) => boolean)[] = [];
+      if (statusFilter === "production") filterFns.push((a) => a.inProduction === true);
+      if (statusFilter === "commercial") filterFns.push((a) => a.inCommercial === true);
+      if (statusFilter === "testing") filterFns.push((a) => !a.inProduction);
+      if (billingAlertFilter === "true") filterFns.push((a) => a.billing?.paymentAlert === true);
+      if (domiciliatedFilter === "true") filterFns.push((a) => a.billing?.domiciliated === true);
+      if (domiciliatedFilter === "false") filterFns.push((a) => a.billing?.domiciliated === false);
+
+      let agents = agentsRows.filter((row): row is LightAgent => row != null);
+      for (const fn of filterFns) {
+        agents = agents.filter(fn);
+      }
+
       const nextCursor =
         pageIds.length === effectiveLimit ? pageIds[pageIds.length - 1]! : null;
       return c.json({ agents, nextCursor });

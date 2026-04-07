@@ -7,9 +7,18 @@ import type { Firestore } from "firebase-admin/firestore";
 import { getFirestore } from "@/lib/firestore";
 import type { AgentDocument } from "@/types/agents";
 
+import type { GrowerPayload } from "./growers";
+import type { TechLeadPayload } from "./techLeads";
 import { fetchGrowersForAgent } from "./growers";
 import { fetchTechLeadsForAgent } from "./techLeads";
 import { parseAgentDoc } from "./parseAgentDoc";
+
+export type PrefetchedAgentData = {
+  commercial?: Record<string, unknown> | null;
+  production?: Record<string, unknown> | null;
+  growers?: GrowerPayload[] | null;
+  techLeads?: TechLeadPayload[] | null;
+};
 
 /** q normalizado (minúsculas, trim) o null si no hay búsqueda activa. */
 export function normalizeAgentsSearchQuery(
@@ -59,38 +68,58 @@ function industryFromRootData(data: Record<string, unknown>): string {
 
 /**
  * Busca coincidencia en subcolecciones de growers y tech leads.
- * Asíncrono y lento.
+ * Asíncrono - usa datos precargados si están disponibles.
  */
 export async function agentMatchesGrowersSearchQuery(
   agentId: string,
   qLower: string,
-  prefetchedData?: {
-    commercial?: Record<string, unknown> | null;
-    production?: Record<string, unknown> | null;
-  },
+  prefetchedData?: PrefetchedAgentData,
 ): Promise<boolean> {
-  const db = getFirestore();
+  let growers = prefetchedData?.growers;
+  let techLeads = prefetchedData?.techLeads;
 
-  let prodData = prefetchedData?.production;
-
-  if (prefetchedData === undefined) {
-    const prodDoc = await db.collection("agent_configurations").doc(agentId).get();
-    prodData = prodDoc.exists ? (prodDoc.data() as Record<string, unknown>) : null;
+  if (growers === undefined || techLeads === undefined) {
+    const db = getFirestore();
+    const agentRef = db.collection("agent_configurations").doc(agentId);
+    const [growersSnap, techLeadsSnap] = await Promise.all([
+      agentRef.collection("growers").get(),
+      agentRef.collection("techLeads").get(),
+    ]);
+    if (growers === undefined) {
+      growers = growersSnap.docs.map((d) => {
+        const data = d.data() as Record<string, unknown>;
+        const email =
+          typeof data.email === "string"
+            ? data.email.trim().toLowerCase()
+            : d.id.includes("@")
+              ? d.id.trim().toLowerCase()
+              : "";
+        const name = typeof data.name === "string" ? data.name.trim() : "";
+        return { email, name: name || email };
+      });
+    }
+    if (techLeads === undefined) {
+      techLeads = techLeadsSnap.docs.map((d) => {
+        const data = d.data() as Record<string, unknown>;
+        const email =
+          typeof data.email === "string"
+            ? data.email.trim().toLowerCase()
+            : d.id.includes("@")
+              ? d.id.trim().toLowerCase()
+              : "";
+        const name = typeof data.name === "string" ? data.name.trim() : "";
+        return { email, name: name || email };
+      });
+    }
   }
-
-  const agentRef = db.collection("agent_configurations").doc(agentId);
-  const [growers, techLeads] = await Promise.all([
-    fetchGrowersForAgent(agentRef),
-    fetchTechLeadsForAgent(agentRef),
-  ]);
 
   const matchNameOrEmail = (name: string, email: string) =>
     name.toLowerCase().includes(qLower) ||
     email.toLowerCase().includes(qLower);
 
   return (
-    growers.some((g) => matchNameOrEmail(g.name, g.email)) ||
-    techLeads.some((t) => matchNameOrEmail(t.name, t.email))
+    (growers?.some((g) => matchNameOrEmail(g.name, g.email)) ?? false) ||
+    (techLeads?.some((t) => matchNameOrEmail(t.name, t.email)) ?? false)
   );
 }
 
@@ -100,15 +129,11 @@ export async function agentMatchesGrowersSearchQuery(
 export async function agentMatchesSearchQuery(
   agentId: string,
   qLower: string,
-  prefetchedData?: {
-    commercial?: Record<string, unknown> | null;
-    production?: Record<string, unknown> | null;
-  },
+  prefetchedData?: PrefetchedAgentData,
 ): Promise<boolean> {
   const prodData = prefetchedData?.production;
-  const data = prodData;
 
-  if (data && agentMatchesRootSearchQuery(agentId, qLower, data)) {
+  if (prodData && agentMatchesRootSearchQuery(agentId, qLower, prodData)) {
     return true;
   }
 

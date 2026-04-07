@@ -1,6 +1,6 @@
 import type { QueryDocumentSnapshot } from "firebase-admin/firestore";
 
-import type { GrowerPayload } from "@/utils/agents";
+import type { GrowerPayload, TechLeadPayload } from "@/utils/agents";
 
 export type AgentsInfoAuthContext = {
   userEmail?: string;
@@ -24,6 +24,7 @@ export interface AgentBilling {
 export interface LightAgent {
   enabled: boolean;
   growers: GrowerPayload[];
+  techLeads?: TechLeadPayload[];
   id: string;
   injectCommandsInPrompt?: boolean;
   isMultiMessageResponseEnable?: boolean;

@@ -164,15 +164,36 @@ export function OperationsDashboard(props: {
   const fetchPage = useCallback(
     async (cursor: string | undefined) => {
       const q = debouncedSearch.trim() || undefined;
+      const serverSearchActive = debouncedSearch.trim().length >= 3;
+
+      let filters: { status?: string; billingAlert?: string; domiciliated?: string } | undefined;
+
+      if (serverSearchActive) {
+        if (statusFilter !== "all") {
+          filters = { ...filters, status: statusFilter };
+        }
+        if (billingAlertOnly) {
+          filters = { ...filters, billingAlert: "true" };
+        }
+        if (cobranzaFilter === "domiciliated") {
+          filters = { ...filters, domiciliated: "true" };
+        } else if (cobranzaFilter === "non-domiciliated") {
+          filters = { ...filters, domiciliated: "false" };
+        } else if (cobranzaFilter === "overdue") {
+          filters = { ...filters, billingAlert: "true" };
+        }
+      }
+
       return fetchAgentsPage({
         light: true,
         paginated: true,
         pageSize: AGENTS_PAGE_SIZE,
         cursor,
         ...(q ? { q } : {}),
+        ...(filters ? { filters } : {}),
       });
     },
-    [debouncedSearch],
+    [debouncedSearch, statusFilter, billingAlertOnly, cobranzaFilter],
   );
 
   const fetchAgents = useCallback(async () => {
@@ -422,7 +443,7 @@ export function OperationsDashboard(props: {
 
   const growerPickerLoading = orgUsersLoading || dialogGrowersLoading;
 
-  const serverSearchActive = debouncedSearch.trim().length > 0;
+  const serverSearchActive = debouncedSearch.trim().length >= 3;
   const isSearchDebouncing =
     search.trim() !== debouncedSearch.trim() &&
     (search.trim().length >= 3 || debouncedSearch !== "");
@@ -447,22 +468,24 @@ export function OperationsDashboard(props: {
           );
         });
       }
+
+      if (statusFilter !== "all") {
+        list = list.filter((a) => a.operationalStatus === statusFilter);
+      }
+      if (billingAlertOnly) {
+        list = list.filter((a) => a.billing.paymentAlert);
+      }
+      if (cobranzaFilter === "domiciliated") {
+        list = list.filter((a) => a.billing.domiciliated);
+      }
+      if (cobranzaFilter === "non-domiciliated") {
+        list = list.filter((a) => !a.billing.domiciliated);
+      }
+      if (cobranzaFilter === "overdue") {
+        list = list.filter((a) => a.billing.paymentAlert);
+      }
     }
-    if (statusFilter !== "all") {
-      list = list.filter((a) => a.operationalStatus === statusFilter);
-    }
-    if (billingAlertOnly) {
-      list = list.filter((a) => a.billing.paymentAlert);
-    }
-    if (cobranzaFilter === "domiciliated") {
-      list = list.filter((a) => a.billing.domiciliated);
-    }
-    if (cobranzaFilter === "non-domiciliated") {
-      list = list.filter((a) => !a.billing.domiciliated);
-    }
-    if (cobranzaFilter === "overdue") {
-      list = list.filter((a) => a.billing.paymentAlert);
-    }
+
     if (lastPaymentFrom) {
       list = list.filter((a) => {
         const d = a.billing.lastPaymentDate;
