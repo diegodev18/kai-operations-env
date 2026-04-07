@@ -13,6 +13,7 @@ import {
   LayoutDashboardIcon,
   LayoutGridIcon,
   Loader2Icon,
+  MenuIcon,
   PauseCircleIcon,
   PencilIcon,
   PlusIcon,
@@ -39,6 +40,7 @@ import {
 } from "@/components/ui/dialog";
 import { UserMenu } from "@/components/user-menu";
 import { Input } from "@/components/ui/input";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   Tooltip,
   TooltipContent,
@@ -131,6 +133,7 @@ export function OperationsDashboard(props: {
   const [paymentSaving, setPaymentSaving] = useState(false);
   const [defaultModeDialogOpen, setDefaultModeDialogOpen] = useState(false);
   const [defaultBuilderMode, setDefaultBuilderMode] = useState<"form" | "conversational">("form");
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem("agent-builder-default-mode");
@@ -469,6 +472,15 @@ export function OperationsDashboard(props: {
     <div className="flex h-full min-h-0 flex-col">
       <header className="flex h-14 shrink-0 items-center justify-between border-b px-4">
         <div className="flex items-center gap-2 font-semibold text-foreground">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-9"
+            onClick={() => setMenuOpen(!menuOpen)}
+          >
+            <MenuIcon className="size-5" />
+          </Button>
           <LayoutDashboardIcon className="size-5" />
           Operaciones
         </div>
@@ -478,6 +490,32 @@ export function OperationsDashboard(props: {
           onSignOut={props.onSignOut}
         />
       </header>
+
+      <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+        <SheetContent side="left" className="w-64">
+          <SheetHeader>
+            <SheetTitle>Menú</SheetTitle>
+          </SheetHeader>
+          <nav className="mt-4 flex flex-col gap-1 px-2">
+            <Link
+              href={`/agents/new?mode=${defaultBuilderMode}`}
+              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+              onClick={() => setMenuOpen(false)}
+            >
+              <PlusIcon className="size-4" />
+              Crear agente
+            </Link>
+            <Link
+              href="/changelog"
+              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+              onClick={() => setMenuOpen(false)}
+            >
+              <LayoutGridIcon className="size-4" />
+              Changelog
+            </Link>
+          </nav>
+        </SheetContent>
+      </Sheet>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="shrink-0 flex flex-col gap-4 border-b p-6">
