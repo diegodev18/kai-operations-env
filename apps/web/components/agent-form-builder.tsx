@@ -1119,16 +1119,26 @@ function SectionTools({
               return (
                 <div
                   key={toolId}
-                  className="rounded-lg border border-border bg-card p-3 text-sm"
+                  className="flex items-start justify-between gap-2 rounded-lg border border-border bg-card p-3 text-sm"
                 >
-                  <p className="font-medium">
-                    {tool?.displayName || tool?.name || toolId}
-                  </p>
-                  {reason ? (
-                    <p className="mt-1 text-muted-foreground">{reason}</p>
-                  ) : tool?.description ? (
-                    <p className="mt-1 text-muted-foreground">{tool.description}</p>
-                  ) : null}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium">
+                      {tool?.displayName || tool?.name || toolId}
+                    </p>
+                    {reason ? (
+                      <p className="mt-1 text-muted-foreground">{reason}</p>
+                    ) : tool?.description ? (
+                      <p className="mt-1 text-muted-foreground">{tool.description}</p>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => _onChange({ selected_tools: state.selected_tools.filter((id) => id !== toolId) })}
+                    className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    aria-label={`Eliminar ${tool?.displayName || tool?.name || toolId}`}
+                  >
+                    <XIcon className="size-4" />
+                  </button>
                 </div>
               );
             })}
@@ -1490,7 +1500,10 @@ function SectionReview({ state, catalog, isSaving, onSubmit }: SectionProps & { 
             {state.selected_tools.map((toolId) => {
               const tool = catalog.find((t) => t.id === toolId);
               return tool ? (
-                <span key={toolId} className="rounded-full bg-muted px-2 py-1 text-xs">
+                <span
+                  key={toolId}
+                  className="flex items-center gap-1 rounded-full bg-muted px-2 py-1 text-xs"
+                >
                   {tool.displayName || tool.name}
                 </span>
               ) : null;
