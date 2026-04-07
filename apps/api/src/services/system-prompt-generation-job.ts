@@ -9,6 +9,8 @@ import {
 
 const AGENT_CONFIG = "agent_configurations";
 const TECH_PROPERTY_DOC_IDS = [
+  "business",
+  "personality",
   "agent",
   "response",
   "prompt",
