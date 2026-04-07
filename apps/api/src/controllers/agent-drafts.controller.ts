@@ -46,11 +46,16 @@ const patchPersonalitySchema = z.object({
   step: z.literal("personality"),
   agent_name: z.string().trim().min(1),
   agent_personality: z.string().trim().min(1),
-  /** Idioma de las respuestas al usuario final (el system prompt se genera en inglés). */
   response_language: z.string().trim().min(1).max(80),
   use_emojis: z.string().trim().min(1),
   country_accent: z.string().trim().min(1),
   agent_signature: z.string().trim().min(1),
+  tone: z.enum(["formal", "casual", "professional", "friendly"]),
+  greeting_message: z.string().trim().max(500).optional(),
+  response_length: z.enum(["short", "medium", "long"]).optional(),
+  required_phrases: z.array(z.string().trim()).optional(),
+  topics_to_avoid: z.array(z.string().trim()).optional(),
+  conversation_style: z.enum(["interrogative", "informative"]).optional(),
 });
 
 const patchBusinessSchema = z.object({
@@ -65,6 +70,12 @@ const patchBusinessSchema = z.object({
   country: z.string().trim().min(1),
   phone_number_id: z.string().trim().optional(),
   whatsapp_token: z.string().trim().optional(),
+  brand_values: z.array(z.string().trim()).optional(),
+  featured_products: z.array(z.string().trim()).optional(),
+  policies: z.string().trim().optional(),
+  faq: z.string().trim().optional(),
+  operating_hours: z.string().trim().optional(),
+  active_promotions: z.string().trim().optional(),
 });
 
 const patchToolsSchema = z.object({
@@ -320,6 +331,12 @@ export async function patchAgentDraft(
         useEmojis: body.use_emojis,
         countryAccent: body.country_accent,
         agentSignature: body.agent_signature,
+        tone: body.tone,
+        greetingMessage: body.greeting_message ?? "",
+        responseLength: body.response_length ?? "medium",
+        requiredPhrases: body.required_phrases ?? [],
+        topicsToAvoid: body.topics_to_avoid ?? [],
+        conversationStyle: body.conversation_style ?? "informative",
       });
 
       return c.json({
@@ -343,6 +360,12 @@ export async function patchAgentDraft(
         targetAudience: body.target_audience,
         escalationRules: body.escalation_rules,
         country: body.country,
+        brandValues: body.brand_values ?? [],
+        featuredProducts: body.featured_products ?? [],
+        policies: body.policies ?? "",
+        faq: body.faq ?? "",
+        operatingHours: body.operating_hours ?? "",
+        activePromotions: body.active_promotions ?? "",
       };
       if (isOperationsAdmin(authCtx.userRole)) {
         if (body.phone_number_id !== undefined && body.phone_number_id !== "") {

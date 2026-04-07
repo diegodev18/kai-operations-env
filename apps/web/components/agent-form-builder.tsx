@@ -271,6 +271,80 @@ function EscalationRulesInput({
   );
 }
 
+/** Lista editable de strings; el valor persistido son los items unidos con saltos de línea. */
+function StringListInput({
+  value,
+  onChange,
+  placeholder,
+  maxItems = 10,
+}: {
+  value: string[];
+  onChange: (next: string[]) => void;
+  placeholder: string;
+  maxItems?: number;
+}) {
+  const [draft, setDraft] = useState("");
+
+  const addItem = () => {
+    const t = draft.trim();
+    if (!t || value.length >= maxItems) return;
+    onChange([...value, t]);
+    setDraft("");
+  };
+
+  const removeAt = (index: number) => {
+    onChange(value.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="mt-1 space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <input
+          type="text"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              addItem();
+            }
+          }}
+          placeholder={value.length >= maxItems ? `Máximo ${maxItems} items` : placeholder}
+          disabled={value.length >= maxItems}
+          className="flex h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+        />
+        <Button type="button" variant="secondary" className="shrink-0" onClick={addItem} disabled={value.length >= maxItems}>
+          Añadir
+        </Button>
+      </div>
+      {value.length === 0 ? (
+        <p className="text-xs text-muted-foreground">
+          Escribe un valor y pulsa Añadir o Enter.
+        </p>
+      ) : (
+        <ul className="flex flex-wrap gap-2">
+          {value.map((item, index) => (
+            <li
+              key={`${index}-${item.slice(0, 48)}`}
+              className="flex items-center gap-1 rounded-full border border-border bg-muted/30 px-3 py-1 text-sm"
+            >
+              <span className="break-words">{item}</span>
+              <button
+                type="button"
+                onClick={() => removeAt(index)}
+                className="rounded-md p-0.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                aria-label={`Eliminar ${item}`}
+              >
+                <XIcon className="size-3" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function SectionBusiness({ state, onChange, userName }: SectionProps) {
   useEffect(() => {
     if (userName && !state.owner_name) {
@@ -437,6 +511,81 @@ function SectionBusiness({ state, onChange, userName }: SectionProps) {
             {state.country === "US" && <option value="America/New_York">Nueva York (GMT-5)</option>}
             {state.country === "ES" && <option value="Europe/Madrid">Madrid (GMT+1)</option>}
           </select>
+        </div>
+      )}
+
+      {hasCountry && (
+        <div>
+          <label className="text-sm font-medium">Valores de marca</label>
+          <StringListInput
+            value={state.brandValues}
+            onChange={(v) => onChange({ brandValues: v })}
+            placeholder="Ej: calidad, innovación"
+          />
+        </div>
+      )}
+
+      {hasCountry && (
+        <div>
+          <label className="text-sm font-medium">Productos destacados</label>
+          <StringListInput
+            value={state.featuredProducts}
+            onChange={(v) => onChange({ featuredProducts: v })}
+            placeholder="Ej: servicio premium"
+            maxItems={5}
+          />
+        </div>
+      )}
+
+      {hasCountry && (
+        <div>
+          <label className="text-sm font-medium">Políticas internas</label>
+          <textarea
+            value={state.policies}
+            onChange={(e) => onChange({ policies: e.target.value })}
+            placeholder="Ej: Política de devoluciones: 30 días. Garantía: 1 año."
+            rows={3}
+            className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          />
+        </div>
+      )}
+
+      {hasCountry && (
+        <div>
+          <label className="text-sm font-medium">Preguntas frecuentes</label>
+          <textarea
+            value={state.faq}
+            onChange={(e) => onChange({ faq: e.target.value })}
+            placeholder="Ej: ¿Tienen envío gratis? - Sí, en pedidos mayores a $500"
+            rows={3}
+            className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          />
+        </div>
+      )}
+
+      {hasCountry && (
+        <div>
+          <label className="text-sm font-medium">Horario de operación</label>
+          <input
+            type="text"
+            value={state.operatingHours}
+            onChange={(e) => onChange({ operatingHours: e.target.value })}
+            placeholder="Ej: Lun-Vie: 9am-6pm, Sáb: 10am-2pm"
+            className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          />
+        </div>
+      )}
+
+      {hasCountry && (
+        <div>
+          <label className="text-sm font-medium">Promociones actuales</label>
+          <textarea
+            value={state.activePromotions}
+            onChange={(e) => onChange({ activePromotions: e.target.value })}
+            placeholder="Ej: 20% de descuento en tu primera compra"
+            rows={2}
+            className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          />
         </div>
       )}
 
@@ -1197,6 +1346,76 @@ function SectionPersonality({ state, onChange, isSaving }: SectionProps) {
           className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
         />
       </div>
+
+      <div>
+        <label className="text-sm font-medium">
+          Tono de voz <span className="text-destructive">*</span>
+        </label>
+        <select
+          value={state.tone}
+          onChange={(e) => onChange({ tone: e.target.value as "formal" | "casual" | "professional" | "friendly" })}
+          className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        >
+          <option value="friendly">Amigable</option>
+          <option value="professional">Profesional</option>
+          <option value="formal">Formal</option>
+          <option value="casual">Casual</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="text-sm font-medium">Mensaje de saludo</label>
+        <input
+          type="text"
+          value={state.greetingMessage}
+          onChange={(e) => onChange({ greetingMessage: e.target.value })}
+          placeholder="Ej: ¡Hola! Bienvenido a nuestra tienda. ¿En qué puedo ayudarte?"
+          className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        />
+      </div>
+
+      <div>
+        <label className="text-sm font-medium">Longitud de respuestas</label>
+        <select
+          value={state.responseLength}
+          onChange={(e) => onChange({ responseLength: e.target.value as "short" | "medium" | "long" })}
+          className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        >
+          <option value="short">Cortas</option>
+          <option value="medium">Medias</option>
+          <option value="long">Largas</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="text-sm font-medium">Frases obligatorias</label>
+        <StringListInput
+          value={state.requiredPhrases}
+          onChange={(v) => onChange({ requiredPhrases: v })}
+          placeholder="Ej: ¡Con mucho gusto!"
+        />
+      </div>
+
+      <div>
+        <label className="text-sm font-medium">Temas a evitar</label>
+        <StringListInput
+          value={state.topicsToAvoid}
+          onChange={(v) => onChange({ topicsToAvoid: v })}
+          placeholder="Ej: política"
+        />
+      </div>
+
+      <div>
+        <label className="text-sm font-medium">Estilo conversacional</label>
+        <select
+          value={state.conversationStyle}
+          onChange={(e) => onChange({ conversationStyle: e.target.value as "interrogative" | "informative" })}
+          className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        >
+          <option value="informative">Informativo (da respuestas directas)</option>
+          <option value="interrogative">Interrogativo (hace preguntas para entender mejor)</option>
+        </select>
+      </div>
     </div>
   );
 }
@@ -1806,6 +2025,7 @@ export function AgentFormBuilder() {
           if (!state.agent_personality) errorMsg += "\n• Personalidad del agente";
           if (!state.response_language) errorMsg += "\n• Idioma";
           if (!state.use_emojis) errorMsg += "\n• Uso de emojis";
+          if (!state.tone) errorMsg += "\n• Tono de voz";
           break;
         case "flows":
           if (state.flow_questions.length === 0) {
@@ -1927,6 +2147,12 @@ export function AgentFormBuilder() {
         escalation_rules: state.escalation_rules.trim(),
         country: state.country.trim(),
         business_timezone: state.business_timezone.trim(),
+        brand_values: state.brandValues,
+        featured_products: state.featuredProducts.slice(0, 5),
+        policies: state.policies.trim(),
+        faq: state.faq.trim(),
+        operating_hours: state.operatingHours.trim(),
+        active_promotions: state.activePromotions.trim(),
       });
 
       await patchAgentDraft(draftId, {
@@ -1942,6 +2168,12 @@ export function AgentFormBuilder() {
         use_emojis: state.use_emojis,
         country_accent: state.country_accent.trim(),
         agent_signature: state.agent_signature.trim(),
+        tone: state.tone,
+        greeting_message: state.greetingMessage.trim(),
+        response_length: state.responseLength,
+        required_phrases: state.requiredPhrases,
+        topics_to_avoid: state.topicsToAvoid,
+        conversation_style: state.conversationStyle,
       });
 
       await patchAgentDraft(draftId, { step: "complete" });

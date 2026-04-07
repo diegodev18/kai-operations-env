@@ -89,6 +89,12 @@ export type AgentFlowQuestion = {
   required?: boolean;
 };
 
+export type PersonalityTone = "formal" | "casual" | "professional" | "friendly";
+
+export type ResponseLength = "short" | "medium" | "long";
+
+export type ConversationStyle = "interrogative" | "informative";
+
 export interface FormBuilderState {
   business_name: string;
   owner_name: string;
@@ -107,15 +113,25 @@ export interface FormBuilderState {
   country_accent: string;
   agent_signature: string;
   personality_traits: PersonalityTrait[];
+  tone: PersonalityTone;
+  greetingMessage: string;
+  responseLength: ResponseLength;
+  requiredPhrases: string[];
+  topicsToAvoid: string[];
+  conversationStyle: ConversationStyle;
+  brandValues: string[];
+  featuredProducts: string[];
+  policies: string;
+  faq: string;
+  operatingHours: string;
+  activePromotions: string;
   selected_tools: string[];
   whatsapp_enabled: boolean;
   email_enabled: boolean;
   chat_enabled: boolean;
   business_hours: string;
   require_auth: boolean;
-  /** Preguntas generadas por IA en el paso Flujos. */
   flow_questions: AgentFlowQuestion[];
-  /** Respuestas del usuario (field → texto). */
   flow_answers: Record<string, string>;
 }
 
@@ -137,6 +153,18 @@ export const DEFAULT_FORM_STATE: FormBuilderState = {
   country_accent: "",
   agent_signature: "",
   personality_traits: [],
+  tone: "friendly",
+  greetingMessage: "",
+  responseLength: "medium",
+  requiredPhrases: [],
+  topicsToAvoid: [],
+  conversationStyle: "informative",
+  brandValues: [],
+  featuredProducts: [],
+  policies: "",
+  faq: "",
+  operatingHours: "",
+  activePromotions: "",
   selected_tools: [],
   whatsapp_enabled: true,
   email_enabled: false,
