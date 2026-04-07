@@ -77,10 +77,15 @@ async function buildLightAgentWithDeployment(
     agentRef.collection("billing").doc("main").get(),
   ];
 
+  let growersIdx: number | undefined;
+  let techLeadsIdx: number | undefined;
+
   if (growers === undefined) {
+    growersIdx = fetchTasks.length;
     fetchTasks.push(agentRef.collection("growers").get());
   }
   if (techLeads === undefined) {
+    techLeadsIdx = fetchTasks.length;
     fetchTasks.push(agentRef.collection("techLeads").get());
   }
 
@@ -93,8 +98,8 @@ async function buildLightAgentWithDeployment(
     FirebaseFirestore.DocumentSnapshot,
   ];
 
-  if (growers === undefined) {
-    const growersSnap = results[5] as FirebaseFirestore.QuerySnapshot;
+  if (growers === undefined && growersIdx !== undefined) {
+    const growersSnap = results[growersIdx] as FirebaseFirestore.QuerySnapshot;
     growers = growersSnap.docs.map((d) => {
       const data = d.data() as Record<string, unknown>;
       const email = typeof data.email === "string" ? data.email.trim().toLowerCase() : (d.id.includes("@") ? d.id.trim().toLowerCase() : "");
@@ -102,9 +107,10 @@ async function buildLightAgentWithDeployment(
       return { email, name: name || email };
     });
   }
+  growers ??= [];
 
-  if (techLeads === undefined) {
-    const techLeadsSnap = results[6] as FirebaseFirestore.QuerySnapshot;
+  if (techLeads === undefined && techLeadsIdx !== undefined) {
+    const techLeadsSnap = results[techLeadsIdx] as FirebaseFirestore.QuerySnapshot;
     techLeads = techLeadsSnap.docs.map((d) => {
       const data = d.data() as Record<string, unknown>;
       const email = typeof data.email === "string" ? data.email.trim().toLowerCase() : (d.id.includes("@") ? d.id.trim().toLowerCase() : "");
@@ -112,6 +118,7 @@ async function buildLightAgentWithDeployment(
       return { email, name: name || email };
     });
   }
+  techLeads ??= [];
 
   const agentData = agentSnap.exists ? agentSnap.data() : undefined;
   const aiData = aiSnap.exists ? aiSnap.data() : undefined;
