@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Environment } from "@/contexts/EnvironmentContext";
 
-const API_BASE = () => `${process.env.NEXT_PUBLIC_API_URL}/api/database`;
+const API_BASE = "/api/database";
 const MAX_ENTRIES = 15;
 
 type Env = "testing" | "production";
@@ -115,7 +115,7 @@ export default function VisorComparadorPage() {
     setLoaded(null);
     setSelectedIndex(null);
     try {
-      const res = await fetch(`${API_BASE()}/documentos`, { credentials: "include", headers: { "Content-Type": "application/json" }, method: "POST", body: JSON.stringify({ items }) });
+      const res = await fetch(`${API_BASE}/documentos`, { credentials: "include", headers: { "Content-Type": "application/json" }, method: "POST", body: JSON.stringify({ items }) });
       const data = await res.json();
       if (!res.ok) {
         toast.error(data.error ?? "Error al cargar documentos");
@@ -174,7 +174,7 @@ export default function VisorComparadorPage() {
     }
     setUpdateLoading(true);
     try {
-      const res = await fetch(`${API_BASE()}/documento/actualizar`, {
+      const res = await fetch(`${API_BASE}/documento/actualizar`, {
         credentials: "include",
         headers: { "Content-Type": "application/json", "X-Environment": doc.environment },
         method: "POST",
