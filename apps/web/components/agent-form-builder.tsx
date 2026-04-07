@@ -352,11 +352,6 @@ function SectionBusiness({ state, onChange, userName }: SectionProps) {
     }
   }, [userName, state.owner_name, onChange]);
 
-  const hasIndustry = !!state.industry;
-  const hasAudience = !!state.target_audience;
-  const hasRole = !!state.agent_description;
-  const hasCountry = !!state.country;
-
   return (
     <div className="space-y-4">
       <div>
@@ -428,51 +423,45 @@ function SectionBusiness({ state, onChange, userName }: SectionProps) {
         />
       </div>
 
-      {hasIndustry && (
-        <div>
-          <label className="text-sm font-medium">
-            Audiencia objetivo <span className="text-destructive">*</span>
-          </label>
-          <textarea
-            value={state.target_audience}
-            onChange={(e) => onChange({ target_audience: e.target.value })}
-            placeholder="¿Quiénes son tus clientes ideales? ¿Qué edad tienen? ¿Cuáles son sus principales necesidades?"
-            rows={3}
-            className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          />
-        </div>
-      )}
+      <div>
+        <label className="text-sm font-medium">
+          Audiencia objetivo <span className="text-destructive">*</span>
+        </label>
+        <textarea
+          value={state.target_audience}
+          onChange={(e) => onChange({ target_audience: e.target.value })}
+          placeholder="¿Quiénes son tus clientes ideales? ¿Qué edad tienen? ¿Cuáles son sus principales necesidades?"
+          rows={3}
+          className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        />
+      </div>
 
-      {hasAudience && (
-        <div>
-          <label className="text-sm font-medium">
-            Rol del agente <span className="text-destructive">*</span>
-          </label>
-          <textarea
-            value={state.agent_description}
-            onChange={(e) => onChange({ agent_description: e.target.value })}
-            placeholder="¿Cómo debería comportarse el agente? ¿Cuál es su objetivo principal?"
-            rows={3}
-            className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          />
-        </div>
-      )}
+      <div>
+        <label className="text-sm font-medium">
+          Rol del agente <span className="text-destructive">*</span>
+        </label>
+        <textarea
+          value={state.agent_description}
+          onChange={(e) => onChange({ agent_description: e.target.value })}
+          placeholder="¿Cómo debería comportarse el agente? ¿Cuál es su objetivo principal?"
+          rows={3}
+          className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        />
+      </div>
 
-      {hasRole && (
-        <div>
-          <label className="text-sm font-medium">
-            Reglas de escalamiento <span className="text-destructive">*</span>
-          </label>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Añade una fila por situación (transferir a humano, temas sensibles, etc.). Se guardan como texto
-            separado por líneas.
-          </p>
-          <EscalationRulesInput
-            value={state.escalation_rules}
-            onChange={(escalation_rules) => onChange({ escalation_rules })}
-          />
-        </div>
-      )}
+      <div>
+        <label className="text-sm font-medium">
+          Reglas de escalamiento <span className="text-destructive">*</span>
+        </label>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Añade una fila por situación (transferir a humano, temas sensibles, etc.). Se guardan como texto
+          separado por líneas.
+        </p>
+        <EscalationRulesInput
+          value={state.escalation_rules}
+          onChange={(escalation_rules) => onChange({ escalation_rules })}
+        />
+      </div>
 
       <div>
         <label className="text-sm font-medium">
@@ -494,107 +483,86 @@ function SectionBusiness({ state, onChange, userName }: SectionProps) {
         </select>
       </div>
 
-      {hasCountry && (
-        <div>
-          <label className="text-sm font-medium">Zona horaria</label>
-          <select
-            value={state.business_timezone}
-            onChange={(e) => onChange({ business_timezone: e.target.value })}
-            className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          >
-            <option value="">Selecciona zona horaria</option>
-            {state.country === "MX" && <option value="America/Mexico_City">Ciudad de México (GMT-6)</option>}
-            {state.country === "CO" && <option value="America/Bogota">Bogotá (GMT-5)</option>}
-            {state.country === "AR" && <option value="America/Argentina/Buenos_Aires">Buenos Aires (GMT-3)</option>}
-            {state.country === "CL" && <option value="America/Santiago">Santiago (GMT-4)</option>}
-            {state.country === "PE" && <option value="America/Lima">Lima (GMT-5)</option>}
-            {state.country === "US" && <option value="America/New_York">Nueva York (GMT-5)</option>}
-            {state.country === "ES" && <option value="Europe/Madrid">Madrid (GMT+1)</option>}
-          </select>
-        </div>
-      )}
+      <div>
+        <label className="text-sm font-medium">Zona horaria</label>
+        <select
+          value={state.business_timezone}
+          onChange={(e) => onChange({ business_timezone: e.target.value })}
+          className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        >
+          <option value="">Selecciona zona horaria</option>
+          {state.country === "MX" && <option value="America/Mexico_City">Ciudad de México (GMT-6)</option>}
+          {state.country === "CO" && <option value="America/Bogota">Bogotá (GMT-5)</option>}
+          {state.country === "AR" && <option value="America/Argentina/Buenos_Aires">Buenos Aires (GMT-3)</option>}
+          {state.country === "CL" && <option value="America/Santiago">Santiago (GMT-4)</option>}
+          {state.country === "PE" && <option value="America/Lima">Lima (GMT-5)</option>}
+          {state.country === "US" && <option value="America/New_York">Nueva York (GMT-5)</option>}
+          {state.country === "ES" && <option value="Europe/Madrid">Madrid (GMT+1)</option>}
+        </select>
+      </div>
 
-      {hasCountry && (
-        <div>
-          <label className="text-sm font-medium">Valores de marca</label>
-          <StringListInput
-            value={state.brandValues}
-            onChange={(v) => onChange({ brandValues: v })}
-            placeholder="Ej: calidad, innovación"
-          />
-        </div>
-      )}
+      <div>
+        <label className="text-sm font-medium">Valores de marca</label>
+        <StringListInput
+          value={state.brandValues}
+          onChange={(v) => onChange({ brandValues: v })}
+          placeholder="Ej: calidad, innovación"
+        />
+      </div>
 
-      {hasCountry && (
-        <div>
-          <label className="text-sm font-medium">Productos destacados</label>
-          <StringListInput
-            value={state.featuredProducts}
-            onChange={(v) => onChange({ featuredProducts: v })}
-            placeholder="Ej: servicio premium"
-            maxItems={5}
-          />
-        </div>
-      )}
+      <div>
+        <label className="text-sm font-medium">Productos destacados</label>
+        <StringListInput
+          value={state.featuredProducts}
+          onChange={(v) => onChange({ featuredProducts: v })}
+          placeholder="Ej: servicio premium"
+          maxItems={5}
+        />
+      </div>
 
-      {hasCountry && (
-        <div>
-          <label className="text-sm font-medium">Políticas internas</label>
-          <textarea
-            value={state.policies}
-            onChange={(e) => onChange({ policies: e.target.value })}
-            placeholder="Ej: Política de devoluciones: 30 días. Garantía: 1 año."
-            rows={3}
-            className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          />
-        </div>
-      )}
+      <div>
+        <label className="text-sm font-medium">Políticas internas</label>
+        <textarea
+          value={state.policies}
+          onChange={(e) => onChange({ policies: e.target.value })}
+          placeholder="Ej: Política de devoluciones: 30 días. Garantía: 1 año."
+          rows={3}
+          className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        />
+      </div>
 
-      {hasCountry && (
-        <div>
-          <label className="text-sm font-medium">Preguntas frecuentes</label>
-          <textarea
-            value={state.faq}
-            onChange={(e) => onChange({ faq: e.target.value })}
-            placeholder="Ej: ¿Tienen envío gratis? - Sí, en pedidos mayores a $500"
-            rows={3}
-            className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          />
-        </div>
-      )}
+      <div>
+        <label className="text-sm font-medium">Preguntas frecuentes</label>
+        <textarea
+          value={state.faq}
+          onChange={(e) => onChange({ faq: e.target.value })}
+          placeholder="Ej: ¿Tienen envío gratis? - Sí, en pedidos mayores a $500"
+          rows={3}
+          className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        />
+      </div>
 
-      {hasCountry && (
-        <div>
-          <label className="text-sm font-medium">Horario de operación</label>
-          <input
-            type="text"
-            value={state.operatingHours}
-            onChange={(e) => onChange({ operatingHours: e.target.value })}
-            placeholder="Ej: Lun-Vie: 9am-6pm, Sáb: 10am-2pm"
-            className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          />
-        </div>
-      )}
+      <div>
+        <label className="text-sm font-medium">Horario de operación</label>
+        <input
+          type="text"
+          value={state.operatingHours}
+          onChange={(e) => onChange({ operatingHours: e.target.value })}
+          placeholder="Ej: Lun-Vie: 9am-6pm, Sáb: 10am-2pm"
+          className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        />
+      </div>
 
-      {hasCountry && (
-        <div>
-          <label className="text-sm font-medium">Promociones actuales</label>
-          <textarea
-            value={state.activePromotions}
-            onChange={(e) => onChange({ activePromotions: e.target.value })}
-            placeholder="Ej: 20% de descuento en tu primera compra"
-            rows={2}
-            className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          />
-        </div>
-      )}
-
-      {!hasIndustry && (
-        <p className="text-sm text-muted-foreground">
-          Selecciona una industria arriba para continuar con la descripción del negocio y el resto de
-          preguntas
-        </p>
-      )}
+      <div>
+        <label className="text-sm font-medium">Promociones actuales</label>
+        <textarea
+          value={state.activePromotions}
+          onChange={(e) => onChange({ activePromotions: e.target.value })}
+          placeholder="Ej: 20% de descuento en tu primera compra"
+          rows={2}
+          className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        />
+      </div>
     </div>
   );
 }
