@@ -278,10 +278,10 @@ async function paginateLightAgentsWithSearch(
   for (let i = startIdx; i < sortedIds.length; i += CHUNK_SIZE) {
     const chunk = sortedIds.slice(i, i + CHUNK_SIZE);
 
-    // 1. Identificar quiénes coinciden (Memoria rápida + Growers paralelo)
+    // 1. Identificar quiénes coinciden (paralelizado)
     const matchTasks = chunk.map(async (id) => {
       const data = docsMaps.commercial.get(id) ?? docsMaps.production.get(id);
-      // Coincidencia rápida en raíz
+      // Coincidencia en raíz
       if (data && agentMatchesRootSearchQuery(id, qLower, data)) {
         return id;
       }
@@ -300,6 +300,7 @@ async function paginateLightAgentsWithSearch(
     const matchesInChunk = results.filter((id): id is string => id !== null);
 
     // 2. Construir los resultados para este lote (paralelizado)
+    // Nota: construir TODOS los matches del chunk, no solo hasta effectiveLimit
     const buildTasks = matchesInChunk.map((id) =>
       buildLightAgentWithDeployment(id, {
         production: docsMaps.production.get(id) ?? null,
@@ -309,6 +310,8 @@ async function paginateLightAgentsWithSearch(
       }),
     );
     const buildResults = await Promise.all(buildTasks);
+    
+    // Filtrar resultados nulos Y aplicar filtros
     for (const row of buildResults) {
       if (!row) continue;
 
@@ -317,17 +320,18 @@ async function paginateLightAgentsWithSearch(
         if (filters.status === "production" && !row.inProduction) continue;
         if (filters.status === "commercial" && !row.inCommercial) continue;
         if (filters.status === "testing" && row.inProduction) continue;
-
         if (filters.billingAlert === "true" && !row.billing?.paymentAlert) continue;
-
         if (filters.domiciliated === "true" && !row.billing?.domiciliated) continue;
         if (filters.domiciliated === "false" && row.billing?.domiciliated) continue;
       }
 
       agents.push(row);
-      if (agents.length >= effectiveLimit) {
-        return { agents, nextCursor: row.id };
-      }
+    }
+
+    // Solo retornar si ya alcanzamos el límite Y procesamos todos los chunks
+    // (cambiado: procesar todos los matches del chunk actual antes de verificar límite)
+    if (agents.length >= effectiveLimit) {
+      return { agents: agents.slice(0, effectiveLimit), nextCursor: agents[effectiveLimit - 1]!.id };
     }
   }
 
