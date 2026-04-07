@@ -14,9 +14,12 @@ import {
   agentMatchesRootSearchQuery,
   agentMatchesSearchQuery,
   buildLightAgent,
+  fetchGrowersForAgent,
   isGrowerCursor,
   normalizeAgentsSearchQuery,
   parseAgentDoc,
+  parseAgentDocFromData,
+  parseBillingDoc,
 } from "@/utils/agents";
 import {
   extractFirestoreIndexUrl,
@@ -41,23 +44,84 @@ function cursorToAgentIdStart(cursor: string): string {
 
 async function buildLightAgentWithDeployment(
   agentId: string,
+  prefetchedData?: {
+    production?: Record<string, unknown> | null;
+    hasTestingData?: boolean;
+  },
 ): Promise<LightAgent | null> {
   const db = getFirestore();
-  const [testingDataSnap, prodDoc] = await Promise.all([
-    db.collection("agent_configurations").doc(agentId).collection("testing").doc("data").get(),
-    db.collection("agent_configurations").doc(agentId).get(),
-  ]);
-  const hasTestingData = testingDataSnap.exists;
-  const inProduction = prodDoc.exists;
-  if (!hasTestingData && !inProduction) return null;
+  const hasTestingData = prefetchedData?.hasTestingData ?? false;
+  let prodDocData = prefetchedData?.production;
 
-  const primaryDoc = prodDoc;
-  const row = await buildLightAgent(db, primaryDoc as AgentDocument);
-  if (!row) return null;
+  if (!prodDocData) {
+    const prodDoc = await db.collection("agent_configurations").doc(agentId).get();
+    if (!prodDoc.exists) return null;
+    prodDocData = prodDoc.data() as Record<string, unknown>;
+  }
+
+  const parsed = parseAgentDocFromData(agentId, prodDocData, false);
+  if (!parsed) return null;
+
+  const agentRef = db.collection("agent_configurations").doc(agentId);
+  const [agentSnap, aiSnap, promptSnap, responseSnap, billingSnap, growers] =
+    await Promise.all([
+      agentRef.collection("properties").doc("agent").get(),
+      agentRef.collection("properties").doc("ai").get(),
+      agentRef.collection("properties").doc("prompt").get(),
+      agentRef.collection("properties").doc("response").get(),
+      agentRef.collection("billing").doc("main").get(),
+      fetchGrowersForAgent(agentRef),
+    ]);
+  const agentData = agentSnap.exists ? agentSnap.data() : undefined;
+  const aiData = aiSnap.exists ? aiSnap.data() : undefined;
+  const promptData = promptSnap.exists ? promptSnap.data() : undefined;
+  const responseData = responseSnap.exists ? responseSnap.data() : undefined;
+  const enabled = (agentData?.enabled as boolean | undefined) !== false;
+  const modelFromAi =
+    typeof aiData?.model === "string" ? aiData.model : undefined;
+  const tempFromAi =
+    typeof aiData?.temperature === "number"
+      ? aiData.temperature
+      : typeof aiData?.temperature === "string"
+        ? Number(aiData.temperature)
+        : undefined;
+  const model =
+    modelFromAi ??
+    (typeof promptData?.model === "string" ? promptData.model : undefined);
+  const temperature = Number.isFinite(tempFromAi)
+    ? tempFromAi
+    : typeof promptData?.temperature === "number"
+      ? promptData.temperature
+      : typeof promptData?.temperature === "string"
+        ? Number(promptData.temperature)
+        : undefined;
+  const waitTime =
+    typeof responseData?.waitTime === "number"
+      ? responseData.waitTime
+      : typeof responseData?.waitTime === "string"
+        ? Number(responseData.waitTime)
+        : undefined;
+
   return {
-    ...row,
+    ...parsed,
+    growers,
+    enabled,
+    injectCommandsInPrompt:
+      agentData?.injectCommandsInPrompt === true ||
+      agentData?.isCommandsEnable === true,
+    isMultiMessageResponseEnable: agentData?.isMultiMessageResponseEnable as
+      | boolean
+      | undefined,
+    isValidatorAgentEnable: agentData?.isValidatorAgentEnable as
+      | boolean
+      | undefined,
+    model: model ?? undefined,
+    omitFirstEchoes: agentData?.omitFirstEchoes as boolean | undefined,
+    temperature: Number.isFinite(temperature) ? temperature : undefined,
+    waitTime: Number.isFinite(waitTime) ? waitTime : undefined,
+    billing: billingSnap.exists ? parseBillingDoc(billingSnap) : undefined,
     inCommercial: hasTestingData,
-    inProduction,
+    inProduction: true,
   };
 }
 
@@ -137,13 +201,19 @@ async function paginateLightAgentsWithSearch(
     const results = await Promise.all(matchTasks);
     const matchesInChunk = results.filter((id): id is string => id !== null);
 
-    // 2. Construir los resultados para este lote
-    for (const id of matchesInChunk) {
-      const row = await buildLightAgentWithDeployment(id);
+    // 2. Construir los resultados para este lote (paralelizado)
+    const buildTasks = matchesInChunk.map((id) =>
+      buildLightAgentWithDeployment(id, {
+        production: docsMaps.production.get(id) ?? null,
+        hasTestingData: docsMaps.commercial.has(id),
+      }),
+    );
+    const buildResults = await Promise.all(buildTasks);
+    for (const row of buildResults) {
       if (row) {
         agents.push(row);
         if (agents.length >= effectiveLimit) {
-          return { agents, nextCursor: id };
+          return { agents, nextCursor: row.id };
         }
       }
     }
@@ -296,11 +366,17 @@ export const getAgentsInfo = async (
       }
 
       const pageIds = sortedIds.slice(startIdx, startIdx + effectiveLimit);
-      const agents: LightAgent[] = [];
-      for (const id of pageIds) {
-        const row = await buildLightAgentWithDeployment(id);
-        if (row) agents.push(row);
-      }
+      const agentsRows = await Promise.all(
+        pageIds.map((id) =>
+          buildLightAgentWithDeployment(id, {
+            production: productionMap.get(id),
+            hasTestingData: commercialMap.has(id),
+          }),
+        ),
+      );
+      const agents = agentsRows.filter(
+        (row): row is LightAgent => row != null,
+      );
       const nextCursor =
         pageIds.length === effectiveLimit ? pageIds[pageIds.length - 1]! : null;
       return c.json({ agents, nextCursor });

@@ -19,6 +19,7 @@ export {
 } from "./techLeads";
 export {
   parseAgentDoc,
+  parseAgentDocFromData,
   type ParsedAgentDoc,
 } from "./parseAgentDoc";
 export {

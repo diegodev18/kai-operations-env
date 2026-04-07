@@ -24,8 +24,15 @@ export function parseAgentDoc(
   doc: QueryDocumentSnapshot,
   includePrompt: boolean,
 ): ParsedAgentDoc | null {
+  return parseAgentDocFromData(doc.id, doc.data(), includePrompt);
+}
+
+export function parseAgentDocFromData(
+  id: string,
+  data: Record<string, unknown>,
+  includePrompt: boolean,
+): ParsedAgentDoc | null {
   try {
-    const data = doc.data();
     let prompt = "";
     let systemPromptGenerationStatus: string | undefined;
     let systemPromptGenerationError: string | null | undefined;
@@ -60,7 +67,7 @@ export function parseAgentDoc(
     const version =
       typeof data.version === "string" ? data.version : undefined;
     return {
-      id: doc.id,
+      id,
       name: businessName,
       agentName,
       businessName,
