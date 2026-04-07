@@ -10,6 +10,9 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   CloudDownloadIcon,
+  CopyIcon,
+  DatabaseIcon,
+  FolderOpenIcon,
   LayoutDashboardIcon,
   LayoutGridIcon,
   Loader2Icon,
@@ -21,6 +24,7 @@ import {
   SearchIcon,
   Settings2Icon,
   Trash2Icon,
+  UploadIcon,
   XIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -512,6 +516,50 @@ export function OperationsDashboard(props: {
             >
               <LayoutGridIcon className="size-4" />
               Changelog
+            </Link>
+            <div className="my-2 border-t" />
+            <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Base de datos
+            </div>
+            <Link
+              href="/projects/database/subir-datos"
+              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+              onClick={() => setMenuOpen(false)}
+            >
+              <UploadIcon className="size-4" />
+              Subir datos
+            </Link>
+            <Link
+              href="/projects/database/duplicar-clonar"
+              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+              onClick={() => setMenuOpen(false)}
+            >
+              <CopyIcon className="size-4" />
+              Duplicar / clonar
+            </Link>
+            <Link
+              href="/projects/database/actualizar-documento"
+              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+              onClick={() => setMenuOpen(false)}
+            >
+              <PencilIcon className="size-4" />
+              Actualizar documento
+            </Link>
+            <Link
+              href="/projects/database/visor-comparador"
+              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+              onClick={() => setMenuOpen(false)}
+            >
+              <SearchIcon className="size-4" />
+              Visor y comparador
+            </Link>
+            <Link
+              href="/projects/database/explorador-documentos"
+              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+              onClick={() => setMenuOpen(false)}
+            >
+              <FolderOpenIcon className="size-4" />
+              Explorador de documentos
             </Link>
           </nav>
         </SheetContent>

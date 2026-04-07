@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/components/ui/theme-provider";
 
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { EnvironmentProvider } from "@/contexts/EnvironmentContext";
 
 import "./globals.css";
 
@@ -41,8 +42,10 @@ export default function RootLayout({
       >
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
           <TooltipProvider delayDuration={300}>
-            {children}
-            <Toaster />
+            <EnvironmentProvider>
+              {children}
+              <Toaster />
+            </EnvironmentProvider>
           </TooltipProvider>
         </ThemeProvider>
       </body>
