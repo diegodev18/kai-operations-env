@@ -574,47 +574,47 @@ export function OperationsDashboard(props: {
             </Link>
             <div className="my-2 border-t" />
             <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Base de datos
+              Database
             </div>
             <Link
-              href="/projects/database/subir-datos"
+              href="/database/upload-data"
               className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
               onClick={() => setMenuOpen(false)}
             >
               <UploadIcon className="size-4" />
-              Subir datos
+              Upload data
             </Link>
             <Link
-              href="/projects/database/duplicar-clonar"
+              href="/database/duplicate-clone"
               className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
               onClick={() => setMenuOpen(false)}
             >
               <CopyIcon className="size-4" />
-              Duplicar / clonar
+              Duplicate / clone
             </Link>
             <Link
-              href="/projects/database/actualizar-documento"
+              href="/database/update-document"
               className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
               onClick={() => setMenuOpen(false)}
             >
               <PencilIcon className="size-4" />
-              Actualizar documento
+              Update document
             </Link>
             <Link
-              href="/projects/database/visor-comparador"
+              href="/database/viewer-compare"
               className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
               onClick={() => setMenuOpen(false)}
             >
               <SearchIcon className="size-4" />
-              Visor y comparador
+              Viewer and comparator
             </Link>
             <Link
-              href="/projects/database/explorador-documentos"
+              href="/database/document-explorer"
               className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
               onClick={() => setMenuOpen(false)}
             >
               <FolderOpenIcon className="size-4" />
-              Explorador de documentos
+              Document explorer
             </Link>
           </nav>
         </SheetContent>

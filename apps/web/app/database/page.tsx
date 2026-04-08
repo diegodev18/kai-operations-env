@@ -6,11 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 const SERVICES = [
   {
-    id: "subir-datos",
-    title: "Subir datos",
+    id: "upload-data",
+    title: "Upload data",
     description:
       "Sube documentos a una colección de Firestore: pega JSON, sube archivo .json, preview de colección, opciones merge y sobrescribir, progreso por lotes.",
-    href: "/projects/database/subir-datos",
+    href: "/database/upload-data",
     icon: Upload,
     visual: (
       <div className="flex items-center gap-2 h-20 animate-card-visual">
@@ -23,11 +23,11 @@ const SERVICES = [
     ),
   },
   {
-    id: "duplicar-clonar",
-    title: "Duplicar / clonar",
+    id: "duplicate-clone",
+    title: "Duplicate / clone",
     description:
       "Duplica colecciones o documentos entre ambientes (testing/production). Clonación recursiva con selección de subcolecciones por checkbox.",
-    href: "/projects/database/duplicar-clonar",
+    href: "/database/duplicate-clone",
     icon: Copy,
     visual: (
       <div className="flex items-center gap-2 h-20 animate-card-visual">
@@ -40,11 +40,11 @@ const SERVICES = [
     ),
   },
   {
-    id: "actualizar-documento",
-    title: "Actualizar documento",
+    id: "update-document",
+    title: "Update document",
     description:
       "Actualiza un documento por ruta: carga el actual, edita el JSON (Timestamp/GeoPoint en formato serializado) y aplica merge o reemplazo.",
-    href: "/projects/database/actualizar-documento",
+    href: "/database/update-document",
     icon: Pencil,
     visual: (
       <div className="flex items-center gap-2 h-20 animate-card-visual">
@@ -54,11 +54,11 @@ const SERVICES = [
     ),
   },
   {
-    id: "visor-comparador",
-    title: "Visor y comparador de documentos",
+    id: "viewer-compare",
+    title: "Viewer and comparator",
     description:
       "Carga varios documentos por ruta y ambiente, compara diferencias (diff o tabla) y edita un documento desde la vista.",
-    href: "/projects/database/visor-comparador",
+    href: "/database/viewer-compare",
     icon: GitCompare,
     visual: (
       <div className="flex items-center gap-2 h-20 animate-card-visual">
@@ -71,11 +71,11 @@ const SERVICES = [
     ),
   },
   {
-    id: "explorador-documentos",
-    title: "Explorador de documentos",
+    id: "document-explorer",
+    title: "Document explorer",
     description:
       "Explora documentos y colecciones con vista JSON legible, herramientas de copia/exportación y navegación por subcolecciones.",
-    href: "/projects/database/explorador-documentos",
+    href: "/database/document-explorer",
     icon: FolderSearch,
     visual: (
       <div className="flex items-center gap-2 h-20 animate-card-visual">
