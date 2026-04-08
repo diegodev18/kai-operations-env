@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { CheckCircleIcon, Home, PowerIcon, UserIcon, Loader2Icon, CheckCircle2Icon } from "lucide-react";
+import { CheckCircleIcon, Home, PowerIcon, Loader2Icon, StarIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import {
 import { UserMenu } from "@/components/user-menu";
 import { useAuth } from "@/hooks/auth";
 import { cn } from "@/lib/utils";
-import { fetchAgentById, assignAgentToUser } from "@/lib/agents-api";
+import { fetchAgentById } from "@/lib/agents-api";
 
 const SECTIONS = [
   { suffix: "tasks", label: "Tareas" },
@@ -110,8 +110,8 @@ export default function AgentDetailLayout({
     inCommercial: boolean;
     inProduction: boolean;
   } | null>(null);
-  const [assigning, setAssigning] = useState(false);
-  const [assigned, setAssigned] = useState(false);
+  const [favoriteAgentIds, setFavoriteAgentIds] = useState<Set<string>>(new Set());
+  const [togglingFavorite, setTogglingFavorite] = useState<string | null>(null);
 
   useEffect(() => {
     if (!agentId) return;
@@ -141,6 +141,26 @@ export default function AgentDetailLayout({
       });
     };
     void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [agentId]);
+
+  useEffect(() => {
+    if (!agentId) return;
+    let cancelled = false;
+    const loadFavorites = async () => {
+      try {
+        const res = await fetch("/api/favorites", { credentials: "include" });
+        if (!cancelled && res.ok) {
+          const data = (await res.json()) as { favorites?: string[] };
+          setFavoriteAgentIds(new Set(data.favorites ?? []));
+        }
+      } catch {
+        // ignore
+      }
+    };
+    void loadFavorites();
     return () => {
       cancelled = true;
     };
@@ -243,33 +263,54 @@ export default function AgentDetailLayout({
                     variant="outline"
                     size="icon"
                     className="size-7 shrink-0"
-                    disabled={assigning || assigned}
+                    disabled={togglingFavorite !== null}
                     onClick={async () => {
-                      setAssigning(true);
+                      const isFavorite = favoriteAgentIds.has(agentId);
+                      setTogglingFavorite(agentId);
                       try {
-                        const result = await assignAgentToUser(agentId);
-                        if (result.ok) {
-                          toast.success("Agente asignado a kAI Norma");
-                          setAssigned(true);
+                        const method = isFavorite ? "DELETE" : "POST";
+                        const res = await fetch(
+                          `/api/favorites/${encodeURIComponent(agentId)}`,
+                          { method, credentials: "include" },
+                        );
+                        if (res.ok) {
+                          setFavoriteAgentIds((prev) => {
+                            const next = new Set(prev);
+                            if (isFavorite) {
+                              next.delete(agentId);
+                            } else {
+                              next.add(agentId);
+                            }
+                            return next;
+                          });
+                          toast.success(
+                            isFavorite
+                              ? "Eliminado de favoritos"
+                              : "Añadido a favoritos",
+                          );
                         } else {
-                          toast.error(result.error);
+                          toast.error("Error al actualizar favoritos");
                         }
                       } finally {
-                        setAssigning(false);
+                        setTogglingFavorite(null);
                       }
                     }}
                   >
-                    {assigning ? (
+                    {togglingFavorite !== null ? (
                       <Loader2Icon className="size-3.5 animate-spin" />
-                    ) : assigned ? (
-                      <CheckCircle2Icon className="size-3.5 text-green-500" />
+                    ) : favoriteAgentIds.has(agentId) ? (
+                      <StarIcon className="size-3.5 fill-yellow-400 text-yellow-400" />
                     ) : (
-                      <UserIcon className="size-3.5" />
+                      <StarIcon className="size-3.5 text-muted-foreground" />
                     )}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Asignarme este agente a kAI Norma</p>
+                  <p>
+                    {favoriteAgentIds.has(agentId)
+                      ? "Quitar de favoritos"
+                      : "Añadir a favoritos"}
+                  </p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
