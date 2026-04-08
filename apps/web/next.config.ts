@@ -30,6 +30,10 @@ const nextConfig: NextConfig = {
         source: "/api/database/:path*",
         destination: `${API_INTERNAL_URL}/api/database/:path*`,
       },
+      {
+        source: "/api/favorites/:path*",
+        destination: `${API_INTERNAL_URL}/api/favorites/:path*`,
+      },
     ];
   },
 };

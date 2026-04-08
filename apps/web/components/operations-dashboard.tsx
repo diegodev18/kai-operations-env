@@ -143,6 +143,7 @@ export function OperationsDashboard(props: {
   type FavoritesFilter = "all" | "favorites";
   const [favoritesFilter, setFavoritesFilter] = useState<FavoritesFilter>("all");
   const [favoriteAgentIds, setFavoriteAgentIds] = useState<Set<string>>(new Set());
+  const [isTogglingFavorite, setIsTogglingFavorite] = useState<string | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem("agent-builder-default-mode");
@@ -226,9 +227,11 @@ export function OperationsDashboard(props: {
         if (res.ok) {
           const data = await res.json();
           setFavoriteAgentIds(new Set(data.favorites ?? []));
+        } else {
+          console.error("Error cargando favoritos:", res.status, await res.text());
         }
-      } catch {
-        // ignore
+      } catch (e) {
+        console.error("Error de red cargando favoritos:", e);
       }
     })();
   }, []);
@@ -906,40 +909,61 @@ export function OperationsDashboard(props: {
                         </td>
                          <td className="p-3 font-medium">
                            <div className="flex items-center gap-2">
-                             <Button
-                               type="button"
-                               variant="ghost"
-                               size="icon-sm"
-                               className="size-7"
-                               onClick={(e) => {
-                                 e.stopPropagation();
-                                 void (async () => {
-                                   const isFavorite = favoriteAgentIds.has(agent.id);
-                                   const method = isFavorite ? "DELETE" : "POST";
-                                   const res = await fetch(
-                                     `/api/favorites/${encodeURIComponent(agent.id)}`,
-                                     { method, credentials: "include" },
-                                   );
-                                   if (res.ok) {
-                                     setFavoriteAgentIds((prev) => {
-                                       const next = new Set(prev);
-                                       if (isFavorite) {
-                                         next.delete(agent.id);
-                                       } else {
-                                         next.add(agent.id);
-                                       }
-                                       return next;
-                                     });
-                                   }
-                                 })();
-                               }}
-                             >
-                               {favoriteAgentIds.has(agent.id) ? (
-                                 <StarIcon className="size-4 fill-yellow-400 text-yellow-400" />
-                               ) : (
-                                 <StarIcon className="size-4 text-muted-foreground" />
-                               )}
-                             </Button>
+<Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                className="size-7"
+                                disabled={isTogglingFavorite === agent.id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (isTogglingFavorite === agent.id) return;
+                                  void (async () => {
+                                    const isFavorite = favoriteAgentIds.has(agent.id);
+                                    const method = isFavorite ? "DELETE" : "POST";
+                                    setIsTogglingFavorite(agent.id);
+                                    try {
+                                      const res = await fetch(
+                                        `/api/favorites/${encodeURIComponent(agent.id)}`,
+                                        { method, credentials: "include" },
+                                      );
+                                      if (res.ok) {
+                                        setFavoriteAgentIds((prev) => {
+                                          const next = new Set(prev);
+                                          if (isFavorite) {
+                                            next.delete(agent.id);
+                                          } else {
+                                            next.add(agent.id);
+                                          }
+                                          return next;
+                                        });
+                                        toast.success(
+                                          isFavorite
+                                            ? "Eliminado de favoritos"
+                                            : "Añadido a favoritos",
+                                        );
+                                      } else {
+                                        const err = await res.text();
+                                        toast.error(
+                                          `Error: ${res.status} - ${err || "Error desconocido"}`,
+                                        );
+                                      }
+                                    } catch {
+                                      toast.error("Error de red al actualizar favoritos");
+                                    } finally {
+                                      setIsTogglingFavorite(null);
+                                    }
+                                  })();
+                                }}
+                              >
+                                {isTogglingFavorite === agent.id ? (
+                                  <Loader2Icon className="size-4 animate-spin" />
+                                ) : favoriteAgentIds.has(agent.id) ? (
+                                  <StarIcon className="size-4 fill-yellow-400 text-yellow-400" />
+                                ) : (
+                                  <StarIcon className="size-4 text-muted-foreground" />
+                                )}
+                              </Button>
                              <Link
                                href={`/agents/${encodeURIComponent(agent.id)}/prompt-design`}
                               className="text-primary hover:underline"
