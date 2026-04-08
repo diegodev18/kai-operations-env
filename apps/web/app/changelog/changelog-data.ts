@@ -11,6 +11,24 @@ export interface ChangelogEntry {
 }
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.0.6": {
+    date: "2026-04-08",
+    description: "Mejoras en configuración de agentes y favoritos",
+    changes: {
+      added: [
+        "Auto-sync de propiedades desde producción cuando un agente solo existe en kAI (muestra toast de confirmación)",
+        "Botón de favoritos (estrella) en la página de detalle del agente",
+      ],
+      fixed: [
+        "Campo business_name ahora se guarda en el nivel raíz del documento del agente",
+        "Removido campo ai del nivel raíz del documento (ya está en properties/ai)",
+      ],
+      removed: [
+        "Badge 'Solo en producción' del header del agente",
+        "Banner de 'Sincronización necesaria' del editor de configuración",
+      ],
+    },
+  },
   "2.0.5": {
     date: "2026-04-08",
     description: "Funcionalidad de testing para herramientas y configuración de agentes",

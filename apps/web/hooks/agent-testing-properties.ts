@@ -10,14 +10,16 @@ const BASE = "/api/agents";
 export function useTestingProperties(agentId: string | null) {
   const [data, setData] = useState<AgentPropertiesResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [didAutoSync, setDidAutoSync] = useState(false);
 
-  const fetchProperties = useCallback(async () => {
+  const fetchProperties = useCallback(async (autoSync = true) => {
     if (!agentId) {
       setData(null);
       return;
     }
     setIsLoading(true);
     setData(null);
+    setDidAutoSync(false);
     try {
       const res = await fetch(
         `${BASE}/${encodeURIComponent(agentId)}/testing/properties`,
@@ -27,7 +29,24 @@ export function useTestingProperties(agentId: string | null) {
       );
       if (!res.ok) {
         const err = (await res.json()) as { error?: string };
-        if (res.status !== 404) {
+        if (res.status === 404 && autoSync) {
+          const syncRes = await fetch(
+            `${BASE}/${encodeURIComponent(agentId)}/sync-from-production`,
+            { method: "POST", credentials: "include" },
+          );
+          if (syncRes.ok) {
+            setDidAutoSync(true);
+            toast.success("Datos sincronizados desde producción");
+            const retryRes = await fetch(
+              `${BASE}/${encodeURIComponent(agentId)}/testing/properties`,
+              { credentials: "include" },
+            );
+            if (retryRes.ok) {
+              const json = (await retryRes.json()) as AgentPropertiesResponse;
+              setData(json);
+            }
+          }
+        } else if (res.status !== 404) {
           toast.error(err.error ?? "Error al cargar propiedades de testing");
         }
         return;
@@ -45,7 +64,7 @@ export function useTestingProperties(agentId: string | null) {
     fetchProperties();
   }, [fetchProperties]);
 
-  return { data, isLoading, refetch: fetchProperties };
+  return { data, isLoading, didAutoSync, refetch: fetchProperties };
 }
 
 export async function updateTestingPropertyDocument(

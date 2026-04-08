@@ -239,7 +239,7 @@ export function AgentConfigurationEditor({
   agentId: string;
   onAgentUpdated?: () => void;
 }) {
-  const { data, isLoading, refetch } = useTestingProperties(agentId);
+  const { data, isLoading, didAutoSync, refetch } = useTestingProperties(agentId);
   const [formState, setFormState] = useState<AgentPropertiesResponse | null>(
     null
   );
@@ -818,17 +818,6 @@ export function AgentConfigurationEditor({
         </div>
       ) : formState ? (
         <div className="flex min-h-0 flex-1 flex-col">
-          {data && inProduction && !inCommercial ? (
-            <div className="shrink-0 border-b border-sky-100 bg-sky-50/40 px-4 py-3 dark:border-sky-900/10 dark:bg-sky-950/20">
-              <div className="flex gap-3">
-                <CloudDownloadIcon className="mt-0.5 size-4 shrink-0 text-sky-600 dark:text-sky-400" />
-                <div className="text-sm leading-relaxed text-sky-900 dark:text-sky-100">
-                  <span className="font-semibold">Sincronización necesaria.</span> Este agente existe en producción (kai) pero no en testing (asistente comercial). 
-                  Para editarlo aquí, baja la copia desde producción (sobrescribirá los datos previos si existían).
-                </div>
-              </div>
-            </div>
-          ) : null}
           <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:gap-0 lg:items-start">
           <div className="min-w-0 space-y-12 lg:pr-8">

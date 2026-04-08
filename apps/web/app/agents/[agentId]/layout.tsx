@@ -250,11 +250,6 @@ export default function AgentDetailLayout({
               Producción (kai)
             </Badge>
           ) : null}
-          {deploymentInfo?.inProduction && !deploymentInfo?.inCommercial ? (
-            <Badge variant="destructive" className="shrink-0 font-normal">
-              Solo en producción
-            </Badge>
-          ) : null}
           <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
