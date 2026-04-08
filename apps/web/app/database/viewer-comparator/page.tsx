@@ -9,7 +9,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2Icon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { UserMenu } from "@/components/user-menu";
+import { useAuth } from "@/hooks/auth";
+import { Loader2Icon, PlusIcon, Trash2Icon, MenuIcon, LayoutDashboardIcon, LayoutGridIcon, BookOpenIcon, UploadIcon, CopyIcon as CopyIconLucide, PencilIcon, FolderSearch as FolderSearchIcon } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Environment } from "@/contexts/EnvironmentContext";
@@ -78,6 +82,8 @@ function nextId() {
 
 export default function VisorComparadorPage() {
   const { allowedEnvironments, environment } = useEnvironment();
+  const { session, signOut } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
   const [entries, setEntries] = useState<Entry[]>(() => [{ id: nextId(), rutaDocumento: "", environment: environment as Env }]);
   const [loaded, setLoaded] = useState<LoadedDoc[] | null>(null);
   const [loadLoading, setLoadLoading] = useState(false);
@@ -205,9 +211,71 @@ export default function VisorComparadorPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <header className="flex h-14 shrink-0 items-center gap-4 border-b px-4">
-        <h2 className="text-lg font-semibold">Visor y comparador</h2>
+      <header className="flex h-14 shrink-0 items-center justify-between border-b px-4">
+        <div className="flex items-center gap-2 font-semibold">
+          <Button type="button" variant="ghost" size="icon" className="size-9" onClick={() => setMenuOpen(!menuOpen)}>
+            <MenuIcon className="size-5" />
+          </Button>
+          <LayoutDashboardIcon className="size-5" />
+          <span>Operaciones</span>
+          <span className="text-muted-foreground">/</span>
+          <span className="text-muted-foreground">Viewer and comparator</span>
+        </div>
+        <UserMenu
+          userName={session?.user?.name}
+          userEmail={session?.user?.email}
+          onSignOut={() => void signOut()}
+        />
       </header>
+
+      <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+        <SheetContent side="left" className="w-64">
+          <SheetHeader>
+            <SheetTitle>Menú</SheetTitle>
+          </SheetHeader>
+          <nav className="mt-4 flex flex-col gap-1 px-2">
+            <Link href="/" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted" onClick={() => setMenuOpen(false)}>
+              <LayoutDashboardIcon className="size-4" />
+              Inicio
+            </Link>
+            <Link href="/changelog" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted" onClick={() => setMenuOpen(false)}>
+              <LayoutGridIcon className="size-4" />
+              Changelog
+            </Link>
+            <Link href="/blog" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted" onClick={() => setMenuOpen(false)}>
+              <BookOpenIcon className="size-4" />
+              Blog
+            </Link>
+            <div className="my-2 border-t" />
+            <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Database</div>
+            <Link href="/database" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted" onClick={() => setMenuOpen(false)}>
+              <FolderSearchIcon className="size-4" />
+              Servicios
+            </Link>
+            <Link href="/database/upload-data" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted" onClick={() => setMenuOpen(false)}>
+              <UploadIcon className="size-4" />
+              Upload data
+            </Link>
+            <Link href="/database/duplicate-clone" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted" onClick={() => setMenuOpen(false)}>
+              <CopyIconLucide className="size-4" />
+              Duplicate / clone
+            </Link>
+            <Link href="/database/update-document" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted" onClick={() => setMenuOpen(false)}>
+              <PencilIcon className="size-4" />
+              Update document
+            </Link>
+            <Link href="/database/viewer-comparator" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted" onClick={() => setMenuOpen(false)}>
+              <CopyIconLucide className="size-4" />
+              Viewer and comparator
+            </Link>
+            <Link href="/database/document-explorer" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted" onClick={() => setMenuOpen(false)}>
+              <FolderSearchIcon className="size-4" />
+              Document explorer
+            </Link>
+          </nav>
+        </SheetContent>
+      </Sheet>
+
       <main className="mx-auto w-full max-w-6xl flex-1 space-y-6 p-6">
         <div>
           <p className="text-sm text-muted-foreground">Añade rutas y ambientes, carga varios documentos y compáralos (diff o tabla). Puedes editar un documento desde aquí.</p>
