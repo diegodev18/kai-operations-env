@@ -11,6 +11,14 @@ export interface ChangelogEntry {
 }
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.0.2": {
+    date: "2026-04-07",
+    description: "Mejoras en el constructor de agentes",
+    changes: {
+      added: ["Diálogo de confirmación al eliminar herramientas del agente"],
+      improved: ["Protección de herramientas obligatorias (base de conocimiento y escalamiento a soporte)"],
+    },
+  },
   "2.0.1": {
     date: "2026-04-07",
     description: "Added database services for Firestore data manipulation.",
