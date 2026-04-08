@@ -115,11 +115,14 @@ export default function ActualizarDocumentoPage() {
   }, [rutaDocumento, datosValidos, jsonValidation, merge, environment]);
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
-      <div>
+    <div className="flex min-h-screen flex-col bg-background">
+      <header className="flex h-14 shrink-0 items-center gap-4 border-b px-4">
         <h2 className="text-lg font-semibold">Actualizar documento</h2>
-        <p className="text-sm text-muted-foreground mt-0.5">Carga un documento por ruta, edita el JSON (Timestamp/GeoPoint en formato serializado) y actualiza con merge o reemplazo.</p>
-      </div>
+      </header>
+      <main className="mx-auto w-full max-w-3xl flex-1 space-y-6 p-6">
+        <div>
+          <p className="text-sm text-muted-foreground">Carga un documento por ruta, edita el JSON (Timestamp/GeoPoint en formato serializado) y actualiza con merge o reemplazo.</p>
+        </div>
 
       <Card>
         <CardHeader>
@@ -191,6 +194,7 @@ export default function ActualizarDocumentoPage() {
           </CardHeader>
         </Card>
       )}
+      </main>
     </div>
   );
 }

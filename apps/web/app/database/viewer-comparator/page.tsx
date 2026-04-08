@@ -204,11 +204,14 @@ export default function VisorComparadorPage() {
   const isTableView = successfulDocs.length >= 3;
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold">Visor y comparador de documentos</h2>
-        <p className="text-sm text-muted-foreground mt-0.5">Añade rutas y ambientes, carga varios documentos y compáralos (diff o tabla). Puedes editar un documento desde aquí.</p>
-      </div>
+    <div className="flex min-h-screen flex-col bg-background">
+      <header className="flex h-14 shrink-0 items-center gap-4 border-b px-4">
+        <h2 className="text-lg font-semibold">Visor y comparador</h2>
+      </header>
+      <main className="mx-auto w-full max-w-6xl flex-1 space-y-6 p-6">
+        <div>
+          <p className="text-sm text-muted-foreground">Añade rutas y ambientes, carga varios documentos y compáralos (diff o tabla). Puedes editar un documento desde aquí.</p>
+        </div>
 
       <Card>
         <CardHeader>
@@ -367,6 +370,7 @@ export default function VisorComparadorPage() {
           </CardContent>
         </Card>
       )}
+      </main>
     </div>
   );
 }

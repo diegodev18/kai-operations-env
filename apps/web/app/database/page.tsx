@@ -58,7 +58,7 @@ const SERVICES = [
     title: "Viewer and comparator",
     description:
       "Carga varios documentos por ruta y ambiente, compara diferencias (diff o tabla) y edita un documento desde la vista.",
-    href: "/database/viewer-compare",
+    href: "/database/viewer-comparator",
     icon: GitCompare,
     visual: (
       <div className="flex items-center gap-2 h-20 animate-card-visual">
@@ -88,11 +88,14 @@ const SERVICES = [
 
 export default function DataBasePage() {
   return (
-    <div className="p-6 overflow-auto">
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold">Servicios</h2>
-        <p className="text-sm text-muted-foreground mt-0.5">Herramientas para gestionar datos en Firestore.</p>
-      </div>
+    <div className="flex min-h-screen flex-col bg-background">
+      <header className="flex h-14 shrink-0 items-center gap-4 border-b px-4">
+        <h2 className="text-lg font-semibold">Servicios de Base de Datos</h2>
+      </header>
+      <main className="mx-auto w-full max-w-5xl flex-1 space-y-6 p-6">
+        <div>
+          <p className="text-sm text-muted-foreground">Herramientas para gestionar datos en Firestore.</p>
+        </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {SERVICES.map(({ id, title, description, href, icon: Icon, visual }) => (
           <Link key={id} href={href} className="block group">
@@ -112,8 +115,9 @@ export default function DataBasePage() {
               <CardContent className="pt-0 flex items-end justify-end">{visual}</CardContent>
             </Card>
           </Link>
-        ))}
-      </div>
+          ))}
+        </div>
+      </main>
     </div>
   );
 }

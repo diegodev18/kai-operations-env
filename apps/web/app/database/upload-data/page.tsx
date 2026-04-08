@@ -284,8 +284,11 @@ export default function SubirDatosPage() {
   }, [rutaColeccion, datos, hasValidDatos, isSingleObject, environment, sobrescribir, merge, validateSchema, schemaText, schemaBlockUpload, validateAgainstSchema]);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <div ref={containerRef} className="flex flex-col lg:flex-row flex-1 min-h-0 overflow-hidden p-6 gap-0" style={{ ["--left-pct" as string]: `${leftPanelPercent}%` }}>
+    <div className="flex min-h-screen flex-col bg-background">
+      <header className="flex h-14 shrink-0 items-center gap-4 border-b px-4">
+        <h2 className="text-lg font-semibold">Subir datos</h2>
+      </header>
+      <main ref={containerRef} className="flex flex-1 flex-col lg:flex-row min-h-0 overflow-hidden p-6 gap-0" style={{ ["--left-pct" as string]: `${leftPanelPercent}%` }}>
         <div className="flex flex-col gap-4 min-w-0 overflow-auto w-full lg:shrink-0 lg:[width:var(--left-pct)]">
           <Card>
             <CardHeader className="pb-2">
@@ -448,7 +451,7 @@ export default function SubirDatosPage() {
             </CardContent>
           </Card>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

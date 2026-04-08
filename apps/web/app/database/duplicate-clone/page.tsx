@@ -157,11 +157,14 @@ export default function DuplicarClonarPage() {
   const showSubcolecciones = isClonarRecursivo || (operacion === "duplicar-coleccion" && recursivo);
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <div>
+    <div className="flex min-h-screen flex-col bg-background">
+      <header className="flex h-14 shrink-0 items-center gap-4 border-b px-4">
         <h2 className="text-lg font-semibold">Duplicar / clonar</h2>
-        <p className="text-sm text-muted-foreground mt-0.5">Duplica colecciones o documentos entre ambientes. Clonación recursiva con selección de subcolecciones.</p>
-      </div>
+      </header>
+      <main className="mx-auto w-full max-w-4xl flex-1 space-y-6 p-6">
+        <div>
+          <p className="text-sm text-muted-foreground">Duplica colecciones o documentos entre ambientes. Clonación recursiva con selección de subcolecciones.</p>
+        </div>
 
       <Card>
         <CardHeader>
@@ -300,6 +303,7 @@ export default function DuplicarClonarPage() {
           )}
         </Card>
       )}
+      </main>
     </div>
   );
 }

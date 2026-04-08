@@ -154,11 +154,14 @@ export default function ExploradorDocumentosPage() {
   const hasData = documentData !== null || (collectionData !== null && collectionData.length > 0);
 
   return (
-    <div className="p-6 flex flex-col gap-4 overflow-auto">
-      <div>
+    <div className="flex min-h-screen flex-col bg-background">
+      <header className="flex h-14 shrink-0 items-center gap-4 border-b px-4">
         <h2 className="text-lg font-semibold">Explorador de documentos</h2>
-        <p className="text-sm text-muted-foreground mt-0.5">Explora documentos y colecciones con vista JSON legible. Herramientas de copia, exportación y navegación por subcolecciones.</p>
-      </div>
+      </header>
+      <main className="flex flex-1 flex-col gap-4 p-6 overflow-auto">
+        <div>
+          <p className="text-sm text-muted-foreground">Explora documentos y colecciones con vista JSON legible. Herramientas de copia, exportación y navegación por subcolecciones.</p>
+        </div>
 
       <Card>
         <CardHeader className="pb-2">
@@ -281,6 +284,7 @@ export default function ExploradorDocumentosPage() {
           )}
         </>
       )}
+      </main>
     </div>
   );
 }
