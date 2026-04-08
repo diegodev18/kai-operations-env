@@ -357,6 +357,7 @@ export async function patchAgentDraft(
       await draftRef.update({
         creation_step: "business",
         updated_at: ts,
+        business_name: body.business_name,
       });
 
       const businessData: Record<string, unknown> = {
