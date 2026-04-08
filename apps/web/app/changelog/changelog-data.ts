@@ -11,6 +11,22 @@ export interface ChangelogEntry {
 }
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.0.5": {
+    date: "2026-04-08",
+    description: "Funcionalidad de testing para herramientas y configuración de agentes",
+    changes: {
+      added: [
+        "Colecciones testing/data/collaborators, testing/data/properties y testing/data/tools se crean por defecto al crear un agente",
+        "Editor de configuración ahora guarda en testing en lugar de producción",
+        "Panel de herramientas incluye botones de sincronizar desde producción y subir a producción",
+        "Diff de herramientas disponible en diálogo de promoción",
+      ],
+      changed: [
+        "Flujo de propiedades: editar en testing → guardar en testing → promover a producción",
+        "Flujo de herramientas: editar en testing → guardar en testing → promover a producción",
+      ],
+    },
+  },
   "2.0.4": {
     date: "2026-04-08",
     description: "Fix en favoritos de agentes",
