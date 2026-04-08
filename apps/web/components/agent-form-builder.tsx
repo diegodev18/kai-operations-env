@@ -1023,7 +1023,11 @@ function SectionTools({
     "kai_help_escalate_to_support",
   ];
 
-  const canRemove = (toolId: string) => !UNREMOVABLE_TOOLS.includes(toolId);
+  const canRemove = (toolId: string) => {
+    const tool = catalog.find((t) => t.id === toolId);
+    const toolName = tool?.name || "";
+    return !UNREMOVABLE_TOOLS.includes(toolName);
+  };
 
   const confirmRemoveTool = (toolId: string) => {
     _onChange({ selected_tools: state.selected_tools.filter((id) => id !== toolId) });
