@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   postAgentDraft,
@@ -1017,6 +1018,22 @@ function SectionTools({
   toolReasonById,
   operationalSummary,
 }: SectionToolsProps) {
+  const [toolToDelete, setToolToDelete] = useState<string | null>(null);
+
+  const UNREMOVABLE_TOOLS = [
+    "kai_knowledge_base_ask_for_knowledge_base",
+    "kai_help_escalate_to_support",
+  ];
+
+  const canRemove = (toolId: string) => !UNREMOVABLE_TOOLS.includes(toolId);
+
+  const confirmRemoveTool = () => {
+    if (toolToDelete) {
+      _onChange({ selected_tools: state.selected_tools.filter((id) => id !== toolToDelete) });
+      setToolToDelete(null);
+    }
+  };
+
   if (!prerequisitesMet) {
     return (
       <div className="space-y-4 rounded-lg border border-amber-500/40 bg-amber-500/5 p-4">
@@ -1131,14 +1148,40 @@ function SectionTools({
                       <p className="mt-1 text-muted-foreground">{tool.description}</p>
                     ) : null}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => _onChange({ selected_tools: state.selected_tools.filter((id) => id !== toolId) })}
-                    className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                    aria-label={`Eliminar ${tool?.displayName || tool?.name || toolId}`}
-                  >
-                    <XIcon className="size-4" />
-                  </button>
+                  {canRemove(toolId) ? (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <button
+                          type="button"
+                          className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                          aria-label={`Eliminar ${tool?.displayName || tool?.name || toolId}`}
+                        >
+                          <XIcon className="size-4" />
+                        </button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>¿Eliminar herramienta?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            ¿Estás seguro de que quieres eliminar &quot;{tool?.displayName || tool?.name || toolId}&quot;?
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction onClick={confirmRemoveTool}>Eliminar</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled
+                      className="shrink-0 rounded-md p-1 text-muted-foreground/50 cursor-not-allowed"
+                      aria-label={`${tool?.displayName || tool?.name || toolId} no se puede eliminar`}
+                    >
+                      <XIcon className="size-4" />
+                    </button>
+                  )}
                 </div>
               );
             })}
