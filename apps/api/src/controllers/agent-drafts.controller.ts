@@ -10,7 +10,6 @@ import {
 import {
   PROPERTY_DOC_IDS,
   serverTimestampField,
-  syncAiFieldsToDraftRoot,
   writeDefaultAgentProperties,
   writeDefaultTestingProperties,
 } from "@/constants/agentPropertyDefaults";
@@ -392,7 +391,6 @@ export async function patchAgentDraft(
       if (!agentProp.exists) {
         await writeDefaultAgentProperties(draftRef);
         await writeDefaultTestingProperties(draftRef);
-        await syncAiFieldsToDraftRoot(draftRef);
       }
 
       return c.json({ id: draftId, creation_step: "business" });
@@ -981,7 +979,6 @@ export async function mergeBuilderTechnicalPropertyPatchesForChat(
   const agentProp = await auth.draftRef.collection("properties").doc("agent").get();
   if (!agentProp.exists) {
     await writeDefaultAgentProperties(auth.draftRef);
-    await syncAiFieldsToDraftRoot(auth.draftRef);
   }
 
   const byDoc = new Map<string, Record<string, unknown>>();
