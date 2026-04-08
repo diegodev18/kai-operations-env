@@ -4,6 +4,8 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { changelogData, getAllVersions } from "./changelog-data";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { ArrowLeftIcon, HomeIcon } from "lucide-react";
 
 export default function ChangelogPage() {
   const [search, setSearch] = useState("");
@@ -30,13 +32,27 @@ export default function ChangelogPage() {
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="mx-auto max-w-4xl">
-        <header className="mb-12">
-          <h1 className="font-heading text-4xl font-bold tracking-tight text-foreground">
-            Changelog
-          </h1>
-          <p className="mt-2 text-muted-foreground">
-            A record of all changes, improvements, and new features.
-          </p>
+        <header className="mb-12 flex items-center justify-between">
+          <div>
+            <h1 className="font-heading text-4xl font-bold tracking-tight text-foreground">
+              Changelog
+            </h1>
+            <p className="mt-2 text-muted-foreground">
+              A record of all changes, improvements, and new features.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => window.history.back()}>
+              <ArrowLeftIcon className="size-4 mr-2" />
+              Back
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/" className="flex items-center gap-2">
+                <HomeIcon className="size-4" />
+                Home
+              </Link>
+            </Button>
+          </div>
         </header>
 
         <div className="mb-8">
