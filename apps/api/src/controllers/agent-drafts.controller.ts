@@ -12,6 +12,7 @@ import {
   serverTimestampField,
   syncAiFieldsToDraftRoot,
   writeDefaultAgentProperties,
+  writeDefaultTestingProperties,
 } from "@/constants/agentPropertyDefaults";
 import { getFirestore, FieldValue } from "@/lib/firestore";
 import logger, { formatError } from "@/lib/logger";
@@ -246,6 +247,10 @@ export async function postAgentDraft(
     batch.set(draftRef.collection("testing").doc("data"), {
       _createdAt: ts,
     });
+    batch.set(draftRef.collection("testing").doc("data").collection("collaborators").doc(creatorEmail), {
+      email: creatorEmail,
+      name: growerName,
+    });
     await batch.commit();
 
     return c.json({
@@ -385,6 +390,7 @@ export async function patchAgentDraft(
       const agentProp = await draftRef.collection("properties").doc("agent").get();
       if (!agentProp.exists) {
         await writeDefaultAgentProperties(draftRef);
+        await writeDefaultTestingProperties(draftRef);
         await syncAiFieldsToDraftRoot(draftRef);
       }
 
@@ -1108,6 +1114,7 @@ async function replaceDraftTools(
   selectedIds: string[],
 ): Promise<void> {
   const toolsCol = draftRef.collection("tools");
+  const testingToolsCol = draftRef.collection("testing").doc("data").collection("tools");
   const existing = await toolsCol.get();
   const db = draftRef.firestore;
   let batch = db.batch();
@@ -1123,7 +1130,8 @@ async function replaceDraftTools(
 
   for (const doc of existing.docs) {
     batch.delete(doc.ref);
-    ops++;
+    batch.delete(testingToolsCol.doc(doc.id));
+    ops += 2;
     if (ops >= 400) await flush();
   }
   await flush();
@@ -1136,13 +1144,15 @@ async function replaceDraftTools(
         ? raw.type
         : "default";
     const plain = stripFirestoreSentinels({ ...raw });
-    batch.set(toolsCol.doc(toolId), {
+    const toolData = {
       ...plain,
       id: toolId,
       type,
       updatedAt: FieldValue.serverTimestamp(),
-    });
-    ops++;
+    };
+    batch.set(toolsCol.doc(toolId), toolData);
+    batch.set(testingToolsCol.doc(toolId), toolData);
+    ops += 2;
     if (ops >= 400) await flush();
   }
   await flush();

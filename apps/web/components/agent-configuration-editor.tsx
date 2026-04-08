@@ -5,9 +5,9 @@ import type {
   PropertyDocumentId,
 } from "@/types/agent-properties";
 import {
-  useAgentProperties,
-  updateAgentPropertyDocument,
-} from "@/hooks/agent-properties";
+  useTestingProperties,
+  updateTestingPropertyDocument,
+} from "@/hooks/agent-testing-properties";
 import { useTestingDiff } from "@/hooks/agent-testing";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -239,7 +239,7 @@ export function AgentConfigurationEditor({
   agentId: string;
   onAgentUpdated?: () => void;
 }) {
-  const { data, isLoading, refetch } = useAgentProperties(agentId);
+  const { data, isLoading, refetch } = useTestingProperties(agentId);
   const [formState, setFormState] = useState<AgentPropertiesResponse | null>(
     null
   );
@@ -474,7 +474,7 @@ export function AgentConfigurationEditor({
       for (const docId of idsToSave) {
         const payload = buildPartialPayloadForDocument(docId, formState, data);
         if (Object.keys(payload).length === 0) continue;
-        const success = await updateAgentPropertyDocument(
+        const success = await updateTestingPropertyDocument(
           agentId,
           docId,
           payload,
@@ -498,7 +498,7 @@ export function AgentConfigurationEditor({
     const newEnabled = !isEnabled;
     setSaving(true);
     try {
-      const success = await updateAgentPropertyDocument(
+      const success = await updateTestingPropertyDocument(
         agentId,
         "agent",
         { enabled: newEnabled },

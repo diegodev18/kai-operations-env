@@ -93,6 +93,19 @@ export async function syncAiFieldsToDraftRoot(
   });
 }
 
+/** Batch-set default property documents under testing/data/properties. */
+export async function writeDefaultTestingProperties(
+  draftRef: DocumentReference,
+): Promise<void> {
+  const batch = draftRef.firestore.batch();
+  const testingProps = draftRef.collection("testing").doc("data").collection("properties");
+  for (const docId of PROPERTY_DOC_IDS) {
+    const data = PROPERTY_DEFAULTS[docId];
+    batch.set(testingProps.doc(docId), deepClonePlain(data) as Record<string, unknown>);
+  }
+  await batch.commit();
+}
+
 function deepClonePlain<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
