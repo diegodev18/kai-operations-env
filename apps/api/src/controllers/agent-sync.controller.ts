@@ -202,9 +202,11 @@ export async function getTestingDiff(
       return c.json({ error: "No hay datos de testing" }, 404);
     }
 
-    const [prodPropsSnap, testingPropsSnap] = await Promise.all([
+    const [prodPropsSnap, testingPropsSnap, prodToolsSnap, testingToolsSnap] = await Promise.all([
       agentRef.collection("properties").get(),
       testingDataRef.collection("properties").get(),
+      agentRef.collection("tools").get(),
+      testingDataRef.collection("tools").get(),
     ]);
 
     const diff: Array<{
@@ -260,6 +262,70 @@ export async function getTestingDiff(
             testingValue: tNorm,
             productionValue: pNorm,
           });
+        }
+      }
+    }
+
+    // Tools Diff
+    const allToolIds = new Set([
+      ...prodToolsSnap.docs.map((d) => d.id),
+      ...testingToolsSnap.docs.map((d) => d.id),
+    ]);
+
+    for (const toolId of allToolIds) {
+      const testingTool = testingToolsSnap.docs.find((d) => d.id === toolId);
+      const prodTool = prodToolsSnap.docs.find((d) => d.id === toolId);
+
+      const testingData = (testingTool?.data() as Record<string, unknown>) || {};
+      const prodData = (prodTool?.data() as Record<string, unknown>) || {};
+
+      // Check if tool exists in both
+      const toolExistsInTesting = testingTool?.exists;
+      const toolExistsInProd = prodTool?.exists;
+
+      if (toolExistsInTesting && !toolExistsInProd) {
+        // Tool added in testing
+        diff.push({
+          collection: "tools",
+          documentId: toolId,
+          fieldKey: "__exists",
+          testingValue: true,
+          productionValue: false,
+        });
+      } else if (!toolExistsInTesting && toolExistsInProd) {
+        // Tool removed in testing
+        diff.push({
+          collection: "tools",
+          documentId: toolId,
+          fieldKey: "__exists",
+          testingValue: false,
+          productionValue: true,
+        });
+      } else if (toolExistsInTesting && toolExistsInProd) {
+        // Tool exists in both, compare fields
+        const allKeys = new Set([
+          ...Object.keys(testingData),
+          ...Object.keys(prodData),
+        ]);
+
+        for (const key of allKeys) {
+          if (key.startsWith("_")) continue;
+
+          const tVal = testingData[key];
+          const pVal = prodData[key];
+
+          const tNorm = normalize(tVal);
+          const pNorm = normalize(pVal);
+
+          if (JSON.stringify(tNorm) !== JSON.stringify(pNorm)) {
+            diff.push({
+              collection: "tools",
+              documentId: toolId,
+              fieldKey: key,
+              testingValue: tNorm,
+              productionValue: pNorm,
+            });
+          }
         }
       }
     }

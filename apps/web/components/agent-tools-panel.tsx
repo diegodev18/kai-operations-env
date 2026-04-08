@@ -8,6 +8,7 @@ import {
   useAgentTools,
 } from "@/hooks/agent-tools";
 import { useToolsCatalog } from "@/hooks/use-tools-catalog";
+import { useTestingDiff, type TestingDiffItem } from "@/hooks/agent-testing";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -30,12 +31,19 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ParameterSchemaEditor } from "@/components/parameter-schema-editor";
 import { ToolsCatalogSearchList } from "@/components/tools-catalog-search-list";
+import { PromoteDiffDialog } from "@/components/promote-diff-dialog";
+import {
+  fetchAgentById,
+  postAgentSyncFromProduction,
+} from "@/lib/agents-api";
 import {
   Loader2Icon,
   PlusIcon,
   Trash2Icon,
   WrenchIcon,
   PencilIcon,
+  CloudDownloadIcon,
+  RocketIcon,
 } from "lucide-react";
 
 const TOOL_TYPES: { value: AgentToolType; label: string }[] = [
@@ -170,6 +178,49 @@ function ToolsPanel({ agentId }: { agentId: string }) {
   const [editTool, setEditTool] = useState<AgentTool | null>(null);
   const [deleteTool, setDeleteTool] = useState<AgentTool | null>(null);
   const [togglingToolId, setTogglingToolId] = useState<string | null>(null);
+  const [syncingFromProd, setSyncingFromProd] = useState(false);
+  const [promoteDialogOpen, setPromoteDialogOpen] = useState(false);
+  const [agentNameForConfirm, setAgentNameForConfirm] = useState("");
+  const { data: diffData, isLoading: isDiffLoading, refetch: refetchDiff } = useTestingDiff(agentId);
+
+  useEffect(() => {
+    if (!agentId) return;
+    let cancelled = false;
+    (async () => {
+      const agent = await fetchAgentById(agentId);
+      if (!cancelled && agent) {
+        setAgentNameForConfirm(agent.agentName || agent.name || agentId);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [agentId]);
+
+  const handleSyncFromProduction = useCallback(async () => {
+    if (!agentId) return;
+    setSyncingFromProd(true);
+    try {
+      const r = await postAgentSyncFromProduction(agentId);
+      if (r.ok) {
+        toast.success("Datos actualizados en testing (desde producción)");
+        await refetch();
+        refetchDiff();
+      } else {
+        toast.error(r.error);
+      }
+    } finally {
+      setSyncingFromProd(false);
+    }
+  }, [agentId, refetch, refetchDiff]);
+
+  const handlePromoteSuccess = useCallback(async () => {
+    await refetch();
+    refetchDiff();
+  }, [refetch, refetchDiff]);
+
+  const toolsDiff = useMemo(() => 
+    (diffData || []).filter(d => d.collection === "tools"), 
+  [diffData]);
+  const hasToolsChanges = toolsDiff.length > 0;
 
   const handleToggleEnabled = useCallback(
     async (tool: AgentTool, newEnabled: boolean) => {
@@ -296,6 +347,41 @@ function ToolsPanel({ agentId }: { agentId: string }) {
           }}
         />
       )}
+
+      <div className="flex justify-between gap-2 border-t pt-4">
+        <Button
+          variant="outline"
+          onClick={handleSyncFromProduction}
+          disabled={syncingFromProd}
+        >
+          {syncingFromProd ? (
+            <Loader2Icon className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <CloudDownloadIcon className="w-4 h-4 mr-2" />
+          )}
+          Sincronizar desde producción
+        </Button>
+        <Button
+          onClick={() => {
+            refetchDiff();
+            setPromoteDialogOpen(true);
+          }}
+          disabled={!hasToolsChanges || isDiffLoading}
+        >
+          <RocketIcon className="w-4 h-4 mr-2" />
+          Subir a producción
+        </Button>
+      </div>
+
+      <PromoteDiffDialog
+        open={promoteDialogOpen}
+        onOpenChange={setPromoteDialogOpen}
+        diff={toolsDiff}
+        isLoading={isDiffLoading}
+        agentId={agentId}
+        agentNameForConfirm={agentNameForConfirm}
+        onSuccess={handlePromoteSuccess}
+      />
     </div>
   );
 }
