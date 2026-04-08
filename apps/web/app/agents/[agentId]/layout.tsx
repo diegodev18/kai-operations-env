@@ -255,8 +255,7 @@ export default function AgentDetailLayout({
               Solo en producción
             </Badge>
           ) : null}
-          {deploymentInfo?.inCommercial ? (
-            <TooltipProvider>
+          <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -314,7 +313,6 @@ export default function AgentDetailLayout({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-          ) : null}
           {!authPending && session?.user ? (
             <UserMenu
               userName={session.user.name}
