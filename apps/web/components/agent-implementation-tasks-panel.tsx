@@ -100,6 +100,9 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
   const [assigneeEmails, setAssigneeEmails] = useState<string[]>([]);
   const [createAssigneesDialogOpen, setCreateAssigneesDialogOpen] =
     useState(false);
+  const [createAttachments, setCreateAttachments] = useState<
+    ImplementationTaskAttachment[]
+  >([]);
 
   const [taskDueDates, setTaskDueDates] = useState<Record<string, string>>({});
   const [taskAssignees, setTaskAssignees] = useState<Record<string, string[]>>({});
@@ -189,6 +192,7 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
         description: description.trim() || undefined,
         dueDate: toIsoFromDateInput(dueDate),
         assigneeEmails,
+        attachments: createAttachments.length > 0 ? createAttachments : undefined,
       });
       if (!result.ok) {
         toast.error(result.error);
@@ -199,11 +203,12 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
       setDescription("");
       setDueDate("");
       setAssigneeEmails([]);
+      setCreateAttachments([]);
       toast.success("Tarea creada");
     } finally {
       setSavingCreate(false);
     }
-  }, [agentId, assigneeEmails, description, dueDate, title]);
+  }, [agentId, assigneeEmails, createAttachments, description, dueDate, title]);
 
   const onToggleTaskStatus = useCallback(
     async (task: ImplementationTask) => {
@@ -601,6 +606,22 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
                       .join(", ")}`
                   : "Sin growers seleccionados"}
               </p>
+              {createAttachments.length > 0 && (
+                <AttachmentList
+                  attachments={createAttachments}
+                  onRemove={(i) =>
+                    setCreateAttachments((prev) => prev.filter((_, idx) => idx !== i))
+                  }
+                />
+              )}
+              <FileUploadButton
+                agentId={agentId}
+                taskId={`create-task-${Date.now()}`}
+                onUploaded={(attachment) =>
+                  setCreateAttachments((prev) => [...prev, attachment])
+                }
+                label="Adjuntar archivo"
+              />
             </CardContent>
             <CardFooter>
               <Button

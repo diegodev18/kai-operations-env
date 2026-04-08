@@ -1186,6 +1186,7 @@ export async function createImplementationTask(
     description?: string;
     dueDate?: string | null;
     assigneeEmails?: string[];
+    attachments?: ImplementationTaskAttachment[];
   },
 ): Promise<
   { ok: true; task: ImplementationTask } | { ok: false; error: string }

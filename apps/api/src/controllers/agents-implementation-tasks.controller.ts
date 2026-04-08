@@ -105,6 +105,30 @@ function parseDueDate(input: unknown): string | null | undefined {
   return date.toISOString();
 }
 
+function parseAttachments(input: unknown): ImplementationTaskAttachment[] | null | undefined {
+  if (input === undefined) return undefined;
+  if (input === null || !Array.isArray(input)) return null;
+  const parsed: ImplementationTaskAttachment[] = [];
+  for (const item of input) {
+    if (
+      typeof item === "object" &&
+      item !== null &&
+      typeof (item as { name?: unknown }).name === "string" &&
+      typeof (item as { url?: unknown }).url === "string" &&
+      typeof (item as { uploadedAt?: unknown }).uploadedAt === "string"
+    ) {
+      parsed.push({
+        name: (item as { name: string }).name,
+        url: (item as { url: string }).url,
+        uploadedAt: (item as { uploadedAt: string }).uploadedAt,
+      });
+    } else {
+      return null;
+    }
+  }
+  return parsed;
+}
+
 function toIsoOrNull(value: unknown): string | null {
   if (value == null) return null;
   if (
@@ -272,6 +296,7 @@ export async function createImplementationTask(
   const descriptionRaw = (body as { description?: unknown }).description;
   const dueDateRaw = (body as { dueDate?: unknown }).dueDate;
   const assigneeEmailsRaw = (body as { assigneeEmails?: unknown }).assigneeEmails;
+  const attachmentsRaw = (body as { attachments?: unknown }).attachments;
 
   const title = typeof titleRaw === "string" ? titleRaw.trim() : "";
   if (!title) return c.json({ error: "title es obligatorio" }, 400);
@@ -292,6 +317,11 @@ export async function createImplementationTask(
     );
   }
 
+  const attachments = parseAttachments(attachmentsRaw);
+  if (attachmentsRaw !== undefined && attachments === null) {
+    return c.json({ error: "attachments debe ser un array de objetos válidos" }, 400);
+  }
+
   try {
     const { db, hasTestingData, inProduction } =
       await resolveAgentWriteDatabase(agentId);
@@ -309,6 +339,7 @@ export async function createImplementationTask(
       createdByEmail: authCtx.userEmail?.toLowerCase().trim() || null,
       createdAt: now,
       updatedAt: now,
+      ...(attachments ? { attachments } : {}),
     };
     const docRef = await getTaskItemsCollection(db, agentId).add(payload);
     const created = await docRef.get();
