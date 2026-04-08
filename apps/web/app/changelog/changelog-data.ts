@@ -11,6 +11,17 @@ export interface ChangelogEntry {
 }
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.0.4": {
+    date: "2026-04-08",
+    description: "Fix en favoritos de agentes",
+    changes: {
+      fixed: [
+        "Botón de favorito ya funciona correctamente",
+        "Agregado feedback visual con spinner mientras carga",
+        "Agregadas notificaciones de éxito/error",
+      ],
+    },
+  },
   "2.0.3": {
     date: "2026-04-08",
     description: "Adjuntar imágenes al crear tareas de implementación",
