@@ -249,8 +249,8 @@ function ToolsPanel({ agentId }: { agentId: string }) {
   const rightTools = tools.slice(mid);
 
   return (
-    <div className="min-h-0 space-y-4">
-      <div className="min-h-0 w-full space-y-6 overflow-y-auto">
+    <div className="flex min-h-0 flex-col flex-1">
+      <div className="min-h-0 flex-1 w-full space-y-4 overflow-y-auto">
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm font-medium">Lista de tools</span>
           <Button size="sm" onClick={() => setAddOpen(true)}>
@@ -348,7 +348,7 @@ function ToolsPanel({ agentId }: { agentId: string }) {
         />
       )}
 
-      <div className="flex justify-between gap-2 border-t pt-4">
+      <div className="shrink-0 flex justify-between gap-2 border-t pt-4">
         <Button
           variant="outline"
           onClick={handleSyncFromProduction}
