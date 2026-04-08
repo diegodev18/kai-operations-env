@@ -1018,8 +1018,6 @@ function SectionTools({
   toolReasonById,
   operationalSummary,
 }: SectionToolsProps) {
-  const [toolToDelete, setToolToDelete] = useState<string | null>(null);
-
   const UNREMOVABLE_TOOLS = [
     "kai_knowledge_base_ask_for_knowledge_base",
     "kai_help_escalate_to_support",
@@ -1027,11 +1025,8 @@ function SectionTools({
 
   const canRemove = (toolId: string) => !UNREMOVABLE_TOOLS.includes(toolId);
 
-  const confirmRemoveTool = () => {
-    if (toolToDelete) {
-      _onChange({ selected_tools: state.selected_tools.filter((id) => id !== toolToDelete) });
-      setToolToDelete(null);
-    }
+  const confirmRemoveTool = (toolId: string) => {
+    _onChange({ selected_tools: state.selected_tools.filter((id) => id !== toolId) });
   };
 
   if (!prerequisitesMet) {
@@ -1168,7 +1163,7 @@ function SectionTools({
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction onClick={confirmRemoveTool}>Eliminar</AlertDialogAction>
+                          <AlertDialogAction onClick={() => confirmRemoveTool(toolId)}>Eliminar</AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
