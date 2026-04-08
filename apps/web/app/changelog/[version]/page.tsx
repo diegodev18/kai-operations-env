@@ -4,6 +4,8 @@ import { useParams, notFound } from "next/navigation";
 import Link from "next/link";
 import { getVersion, getAllVersions } from "../changelog-data";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ArrowLeftIcon, HomeIcon } from "lucide-react";
 
 const sectionLabels: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   added: { label: "Added", variant: "default" },
@@ -30,6 +32,21 @@ export default function VersionPage() {
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="mx-auto max-w-3xl">
+        <header className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => window.history.back()}>
+              <ArrowLeftIcon className="size-4" />
+              Back
+            </Button>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/">
+                <HomeIcon className="size-4" />
+                Home
+              </Link>
+            </Button>
+          </div>
+        </header>
+
         <nav className="mb-8 flex items-center gap-2 text-sm">
           <Link
             href="/changelog"
