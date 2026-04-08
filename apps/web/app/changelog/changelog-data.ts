@@ -15,8 +15,13 @@ export const changelogData: Record<string, ChangelogEntry> = {
     date: "2026-04-07",
     description: "Mejoras en el constructor de agentes",
     changes: {
-      added: ["Diálogo de confirmación al eliminar herramientas del agente"],
-      improved: ["Protección de herramientas obligatorias (base de conocimiento y escalamiento a soporte)"],
+      added: [
+        "Diálogo de confirmación al eliminar herramientas del agente",
+        "Inicializar colección 'testing' al crear nuevo agente",
+      ],
+      improved: [
+        "Protección de herramientas obligatorias (base de conocimiento y escalamiento a soporte)",
+      ],
     },
   },
   "2.0.1": {
