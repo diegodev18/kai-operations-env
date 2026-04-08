@@ -11,6 +11,15 @@ export interface ChangelogEntry {
 }
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.0.3": {
+    date: "2026-04-08",
+    description: "Adjuntar imágenes al crear tareas de implementación",
+    changes: {
+      added: [
+        "Permite adjuntar imágenes/archivos al crear nuevas tareas de implementación",
+      ],
+    },
+  },
   "2.0.2": {
     date: "2026-04-07",
     description: "Mejoras en el constructor de agentes",
