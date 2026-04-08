@@ -243,6 +243,9 @@ export async function postAgentDraft(
       email: creatorEmail,
       name: growerName,
     });
+    batch.set(draftRef.collection("testing").doc("data"), {
+      _createdAt: ts,
+    });
     await batch.commit();
 
     return c.json({
