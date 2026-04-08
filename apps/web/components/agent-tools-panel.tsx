@@ -249,8 +249,8 @@ function ToolsPanel({ agentId }: { agentId: string }) {
   const rightTools = tools.slice(mid);
 
   return (
-    <div className="flex min-h-0 flex-col flex-1">
-      <div className="min-h-0 flex-1 w-full space-y-4 overflow-y-auto">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="min-h-0 flex-1 w-full space-y-4 overflow-y-auto pb-4">
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm font-medium">Lista de tools</span>
           <Button size="sm" onClick={() => setAddOpen(true)}>
