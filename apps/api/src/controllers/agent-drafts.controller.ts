@@ -13,6 +13,9 @@ import {
   writeDefaultAgentProperties,
   writeDefaultTestingProperties,
 } from "@/constants/agentPropertyDefaults";
+import { db as drizzleDb } from "@/db/client";
+import { user as userTable } from "@/db/schema/auth";
+import { eq } from "drizzle-orm";
 import { getFirestore, FieldValue } from "@/lib/firestore";
 import logger, { formatError } from "@/lib/logger";
 import {
@@ -33,6 +36,48 @@ const AGENT_CONFIGURATIONS = "agent_configurations";
 const TOOLS_CATALOG = "toolsCatalog";
 const PENDING_TASKS = "pending_tasks";
 const DRAFT_PROPERTY_DOC_IDS = new Set(["personality", "business"]);
+const USERS_BUILDERS = "usersBuilders";
+
+const COUNTRY_CODE_MAPPING: Record<string, { country: string; lada: string; timezone: string }> = {
+  "1": { country: "USA", lada: "1", timezone: "America/New_York" },
+  "52": { country: "Mexico", lada: "52", timezone: "America/Mexico_City" },
+  "521": { country: "Mexico", lada: "521", timezone: "America/Mexico_City" },
+  "54": { country: "Argentina", lada: "54", timezone: "America/Argentina/Buenos_Aires" },
+  "55": { country: "Brazil", lada: "55", timezone: "America/Sao_Paulo" },
+  "51": { country: "Peru", lada: "51", timezone: "America/Lima" },
+  "57": { country: "Colombia", lada: "57", timezone: "America/Bogota" },
+  "593": { country: "Ecuador", lada: "593", timezone: "America/Guayaquil" },
+  "502": { country: "Guatemala", lada: "502", timezone: "America/Guatemala" },
+  "503": { country: "El Salvador", lada: "503", timezone: "America/El_Salvador" },
+  "504": { country: "Honduras", lada: "504", timezone: "America/Tegucigalpa" },
+  "505": { country: "Nicaragua", lada: "505", timezone: "America/Managua" },
+  "506": { country: "Costa Rica", lada: "506", timezone: "America/Costa_Rica" },
+  "507": { country: "Panama", lada: "507", timezone: "America/Panama" },
+  "56": { country: "Chile", lada: "56", timezone: "America/Santiago" },
+  "58": { country: "Venezuela", lada: "58", timezone: "America/Caracas" },
+};
+
+function detectAreaCodeFromPhoneNumber(
+  phoneNumber: string,
+): { country: string; lada: string; timezone: string } {
+  const cleanedNumber = phoneNumber.replace(/\D/g, "");
+
+  if (!cleanedNumber || cleanedNumber.length === 0) {
+    return { country: "Mexico", lada: "521", timezone: "America/Mexico_City" };
+  }
+
+  for (let length = 3; length >= 1; length--) {
+    if (cleanedNumber.length >= length) {
+      const countryCode = cleanedNumber.substring(0, length);
+      const mapping = COUNTRY_CODE_MAPPING[countryCode];
+      if (mapping) {
+        return mapping;
+      }
+    }
+  }
+
+  return { country: "Mexico", lada: "521", timezone: "America/Mexico_City" };
+}
 
 const postDraftBodySchema = z.object({
   agent_name: z.string().trim().min(1, "agent_name es obligatorio"),
@@ -217,13 +262,41 @@ export async function postAgentDraft(
       nameFromProfile && nameFromProfile.length > 0
         ? nameFromProfile
         : creatorEmail;
+    const userId = authCtx.userId!;
+
+    const userRows = await drizzleDb
+      .select({ phone: userTable.phone })
+      .from(userTable)
+      .where(eq(userTable.id, userId))
+      .limit(1);
+
+    let userPhone = "";
+    if (userRows.length > 0 && userRows[0].phone) {
+      userPhone = userRows[0].phone;
+    }
+
+    const areaCode = detectAreaCodeFromPhoneNumber(userPhone);
+
+    const usersBuildersRef = db.collection(USERS_BUILDERS).doc(userId);
+    const usersBuildersSnap = await usersBuildersRef.get();
+    if (!usersBuildersSnap.exists) {
+      await usersBuildersRef.set({
+        uid: userId,
+        email: creatorEmail,
+        name: growerName,
+        phoneNumber: userPhone,
+        createdAt: ts,
+        updatedAt: ts,
+      });
+      logger.info(`[agents/drafts] Created usersBuilders document for user: ${userId}`);
+    }
 
     const draftPayload: Record<string, unknown> = {
       agent_name,
       agent_personality,
       creation_step: "personality",
       selected_tools: [],
-      creator_user_id: authCtx.userId ?? null,
+      creator_user_id: userId,
       creator_email: creatorEmail,
       mcp_configuration: {
         agent_personalization: {
@@ -249,6 +322,11 @@ export async function postAgentDraft(
     batch.set(draftRef.collection("testing").doc("data").collection("collaborators").doc(creatorEmail), {
       email: creatorEmail,
       name: growerName,
+      role: "Administrador",
+      usersBuildersId: userId,
+      usersBuildersName: growerName,
+      areaCode: areaCode,
+      phoneNumber: userPhone,
     });
     await batch.commit();
 
