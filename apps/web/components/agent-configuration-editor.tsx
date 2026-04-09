@@ -1526,7 +1526,7 @@ export function AgentConfigurationEditor({
           <PromoteDiffDialog
             open={promoteDialogOpen}
             onOpenChange={setPromoteDialogOpen}
-            diff={diffData}
+            diff={propertiesDiff}
             isLoading={isDiffLoading}
             agentId={agentId}
             agentNameForConfirm={agentNameForConfirm}
