@@ -516,9 +516,9 @@ export function AgentConfigurationEditor({
     }
   }, [agentId, formState, isEnabled, update, refetch, onAgentUpdated]);
 
-  const pendingDocs = useMemo(
-    () => (formState && data ? getPendingDocumentIds(formState, data) : []),
-    [formState, data]
+  const propertiesDiff = useMemo(
+    () => (diffData || []).filter((d) => d.collection === "properties"),
+    [diffData]
   );
 
   const handleDiscardChanges = useCallback(() => {
@@ -791,9 +791,6 @@ export function AgentConfigurationEditor({
   const displayVersion = pendingVersionRef.current ?? agentVersion;
 
   if (!agentId) return null;
-
-  const inCommercial = data?.in_commercial ?? false;
-  const inProduction = data?.in_production ?? false;
 
   const isAdmin = userRole === "admin";
   const isTechLead = isAdmin || dialogTechLeads.some(
@@ -1459,31 +1456,12 @@ export function AgentConfigurationEditor({
                   Gestionar tech leads
                 </Button>
               )}
-              {data && inProduction ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="w-fit shrink-0 gap-1.5"
-                  disabled={syncingFromProd || saving}
-                  onClick={() => void handleSyncFromProduction()}
-                >
-                  {syncingFromProd ? (
-                    <Loader2Icon className="size-4 animate-spin" />
-                  ) : (
-                    <CloudDownloadIcon className="size-4" />
-                  )}
-                  {inCommercial
-                    ? "Refrescar desde producción"
-                    : "Crear en testing (desde prod)"}
-                </Button>
-              ) : null}
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 onClick={handleDiscardChanges}
-                disabled={!data || pendingDocs.length === 0 || saving}
+                disabled={!data || propertiesDiff.length === 0 || saving}
                 className="w-fit shrink-0"
               >
                 <RotateCcwIcon className="mr-1.5 h-4 w-4" />
@@ -1499,19 +1477,19 @@ export function AgentConfigurationEditor({
               ) : null}
             </div>
             <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
-              {inCommercial && pendingDocs.length === 0 && data ? (
+              {data && propertiesDiff.length === 0 ? (
                 <span className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400 sm:mr-2">
                   <CheckIcon className="size-3.5" />
                   Sincronizado
                 </span>
               ) : null}
-              {pendingDocs.length > 0 ? (
+              {propertiesDiff.length > 0 ? (
                 <span className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 sm:mr-2">
                   <AlertTriangleIcon className="size-3.5" />
-                  {pendingDocs.length} {pendingDocs.length === 1 ? "cambio" : "cambios"} pendiente{pendingDocs.length === 1 ? "" : "s"}
+                  {propertiesDiff.length} {propertiesDiff.length === 1 ? "cambio" : "cambios"} pendiente{propertiesDiff.length === 1 ? "" : "s"}
                 </span>
               ) : null}
-              {inCommercial ? (
+              {data && propertiesDiff.length > 0 ? (
                 <Button
                   type="button"
                   variant="default"
@@ -1530,7 +1508,7 @@ export function AgentConfigurationEditor({
                 disabled={
                   saving ||
                   !data ||
-                  pendingDocs.length === 0
+                  propertiesDiff.length === 0
                 }
                 className="w-full shrink-0 sm:w-auto"
               >
