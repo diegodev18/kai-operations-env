@@ -16,7 +16,7 @@ export const PORT_NUMBER =
   Number.isFinite(parsedPort) && parsedPort > 0 ? parsedPort : 3001;
 
 export const CORS_OPTIONS = {
-  allowHeaders: ["Content-Type", "Cookie", "Authorization"],
+  allowHeaders: ["Content-Type", "Cookie", "Authorization", "X-Environment"],
   allowMethods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   credentials: true,
   origin: WEB_ORIGIN,

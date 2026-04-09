@@ -138,12 +138,13 @@ export default function ExploradorDocumentosPage() {
     [environment]
   );
 
-  const loadDocument = useCallback(() => loadDocumentAt(path.trim()), [path, loadDocumentAt]);
-  const loadCollection = useCallback(() => loadCollectionAt(path.trim()), [path, loadCollectionAt]);
+  const loadDocument = useCallback(() => loadDocumentAt(path.trim().replace(/^\/+/, "")), [path, loadDocumentAt]);
+  const loadCollection = useCallback(() => loadCollectionAt(path.trim().replace(/^\/+/, "")), [path, loadCollectionAt]);
 
   const handleLoad = useCallback(() => {
-    if (isDocumentPath(path.trim())) loadDocument();
-    else if (isCollectionPath(path.trim())) loadCollection();
+    const trimmedPath = path.trim().replace(/^\/+/, "");
+    if (isDocumentPath(trimmedPath)) loadDocument();
+    else if (isCollectionPath(trimmedPath)) loadCollection();
     else toast.error("Ruta debe ser documento (segmentos par) o colección (segmentos impar)");
   }, [path, loadDocument, loadCollection]);
 
