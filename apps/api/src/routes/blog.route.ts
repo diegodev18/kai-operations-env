@@ -23,6 +23,7 @@ interface BlogPost {
   images: string[];
   mentions: string[];
   isHidden: boolean;
+  type?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -67,13 +68,25 @@ blogRouter.get("/", async (c) => {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
+  const type = c.req.query("type") ?? "lessons";
   const db = getFirestore();
-  const snapshot = await db
+
+  let query = db
     .collection(COLLECTION)
     .where("isHidden", "==", false)
     .orderBy("createdAt", "desc")
-    .limit(50)
-    .get();
+    .limit(50);
+
+  if (type === "actuality") {
+    query = db
+      .collection(COLLECTION)
+      .where("type", "==", "actuality")
+      .where("isHidden", "==", false)
+      .orderBy("createdAt", "desc")
+      .limit(50);
+  }
+
+  const snapshot = await query.get();
 
   const posts = snapshot.docs.map((doc) => {
     const data = doc.data() as BlogPost;
@@ -103,6 +116,7 @@ blogRouter.get("/search", async (c) => {
   }
 
   const q = c.req.query("q")?.toLowerCase() ?? "";
+  const type = c.req.query("type") ?? "lessons";
   if (!q) {
     return c.json({ posts: [] });
   }
@@ -116,6 +130,10 @@ blogRouter.get("/search", async (c) => {
   const posts: BlogPost[] = [];
   for (const doc of snapshot.docs) {
     const data = doc.data() as BlogPost;
+    
+    if (type === "actuality" && data.type !== "actuality") continue;
+    if (type === "lessons" && data.type === "actuality") continue;
+
     const titleMatch = data.title?.toLowerCase().includes(q);
     const contentMatch = data.content?.toLowerCase().includes(q);
     const tagMatch = data.tags?.some((t: string) => t.toLowerCase().includes(q));
@@ -191,6 +209,7 @@ blogRouter.post("/", async (c) => {
     content?: string;
     tags?: string[];
     images?: string[];
+    type?: string;
   };
   try {
     body = await c.req.json();
@@ -202,6 +221,7 @@ blogRouter.post("/", async (c) => {
   const content = body.content ?? "";
   const tags = Array.isArray(body.tags) ? body.tags.filter((t): t is string => typeof t === "string") : [];
   const images = Array.isArray(body.images) ? body.images.filter((i): i is string => typeof i === "string") : [];
+  const type = body.type ?? "lessons";
 
   if (!title) {
     return c.json({ error: "El título es obligatorio" }, 400);
@@ -225,6 +245,7 @@ blogRouter.post("/", async (c) => {
     images,
     mentions,
     isHidden: false,
+    type,
     createdAt: now,
     updatedAt: now,
   });

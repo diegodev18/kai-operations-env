@@ -9,3 +9,11 @@ export const BLOG_TAGS = [
 ] as const;
 
 export type BlogTag = (typeof BLOG_TAGS)[number];
+
+export const ACTUALITY_TAGS = [
+  "Evento",
+  "Anuncio",
+  "Comentarios",
+] as const;
+
+export type ActualityTag = (typeof ACTUALITY_TAGS)[number];

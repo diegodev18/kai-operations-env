@@ -26,6 +26,7 @@ import {
   LayoutDashboardIcon,
   LayoutGridIcon,
   BookOpenIcon,
+  MegaphoneIcon,
   UploadIcon,
   CopyIcon as CopyIconLucide,
   PencilIcon,
@@ -213,6 +214,10 @@ export default function ExploradorDocumentosPage() {
             <Link href="/blog" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted" onClick={() => setMenuOpen(false)}>
               <BookOpenIcon className="size-4" />
               Lecciones
+            </Link>
+            <Link href="/blog-actuality" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted" onClick={() => setMenuOpen(false)}>
+              <MegaphoneIcon className="size-4" />
+              Actualidad
             </Link>
             <div className="my-2 border-t" />
             <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Database</div>
