@@ -17,6 +17,7 @@ import {
   PlusIcon,
   TrashIcon,
   PencilIcon,
+  HomeIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -2359,6 +2360,31 @@ export function AgentFormBuilder() {
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <div className="shrink-0 flex items-center gap-2 border-b px-4 py-3">
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <button
+              type="button"
+              className="flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition-colors bg-muted text-muted-foreground hover:bg-muted/80"
+            >
+              <HomeIcon className="size-4" />
+              <span className="hidden sm:inline">Salir</span>
+            </button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Salir del constructor?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Si sales ahora, perderás el progreso no guardado. ¿Estás seguro de que quieres salir?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={() => window.location.href = "/"}>
+                Salir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         {sections.map((section) => (
           <button
             key={section.id}
