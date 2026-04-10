@@ -46,6 +46,8 @@ export type ToolsCatalogItem = {
   parameters?: Record<string, unknown>;
   /** Schema OpenAPI de propiedades del agente (opcional). */
   properties?: Record<string, unknown>;
+  /** CRM configuration for the tool (opcional). */
+  crmConfig?: unknown;
 };
 
 export type AgentDraftPatchBody =

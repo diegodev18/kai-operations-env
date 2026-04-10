@@ -89,11 +89,8 @@ export function SyncFromCatalogDialog({
   const [syncing, setSyncing] = useState(false);
 
   const fields = useMemo<FieldSync[]>(() => {
-    const toolCrmConfig =
-      (tool.properties as Record<string, unknown>)?.crmConfig ??
-      (tool as unknown as Record<string, unknown>)?.crmConfig;
-    const catalogCrmConfig =
-      (catalogTool.properties as Record<string, unknown>)?.crmConfig;
+    const toolCrmConfig = (tool as unknown as Record<string, unknown>)?.crmConfig;
+    const catalogCrmConfig = catalogTool.crmConfig;
     const toolParams = tool.parameters;
     const catalogParams = catalogTool.parameters;
 
@@ -201,10 +198,7 @@ export function SyncFromCatalogDialog({
       }
 
       if (newCrmConfig !== undefined) {
-        updateBody.properties = {
-          ...tool.properties,
-          crmConfig: newCrmConfig,
-        };
+        updateBody.crmConfig = newCrmConfig;
       }
 
       const updated = await updateAgentTool(agentId, tool.id, updateBody);

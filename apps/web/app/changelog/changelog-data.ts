@@ -11,6 +11,17 @@ export interface ChangelogEntry {
 }
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.0.14": {
+    date: "2026-04-10",
+    description: "Sincronización de crmConfig desde toolsCatalog",
+    changes: {
+      added: [
+        "Nueva opción de sincronización de crmConfig en dialog de editar tool",
+        "Campo crmConfig se guarda en raíz del documento (no en properties)",
+        "API actualizada para devolver y aceptar crmConfig",
+      ],
+    },
+  },
   "2.0.13": {
     date: "2026-04-10",
     description: "Fix: orden de keys en comparación de propiedades",

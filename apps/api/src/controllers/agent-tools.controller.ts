@@ -63,6 +63,7 @@ function parseToolDoc(
   name: string;
   parameters?: unknown;
   properties?: unknown;
+  crmConfig?: unknown;
   path?: string;
   required_agent_properties?: string[];
   type: string;
@@ -81,6 +82,7 @@ function parseToolDoc(
     name: typeof data.name === "string" ? data.name : "",
     parameters: data.parameters,
     properties: data.properties,
+    crmConfig: data.crmConfig,
     path:
       typeof data.path === "string" && data.path.trim()
         ? data.path.trim()
@@ -284,6 +286,13 @@ export async function updateAgentTool(
       typeof b.properties === "object" &&
       !Array.isArray(b.properties)
         ? b.properties
+        : null;
+  }
+  if (b.crmConfig !== undefined) {
+    updates.crmConfig =
+      b.crmConfig != null &&
+      typeof b.crmConfig === "object"
+        ? b.crmConfig
         : null;
   }
   if (b.required_agent_properties !== undefined) {

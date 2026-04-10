@@ -12,6 +12,7 @@ export interface AgentTool {
     required?: string[];
   };
   properties?: Record<string, unknown>;
+  crmConfig?: unknown;
   path?: string;
   type: AgentToolType;
   createdAt?: string;
@@ -25,6 +26,7 @@ export interface CreateAgentToolBody {
   enabled?: boolean;
   parameters?: Record<string, unknown>;
   properties?: Record<string, unknown>;
+  crmConfig?: unknown;
   displayName?: string;
   path?: string;
 }
@@ -35,6 +37,7 @@ export interface UpdateAgentToolBody {
   type?: AgentToolType;
   parameters?: Record<string, unknown> | null;
   properties?: Record<string, unknown> | null;
+  crmConfig?: unknown | null;
   displayName?: string | null;
   path?: string | null;
   enabled?: boolean;

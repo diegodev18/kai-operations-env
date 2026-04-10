@@ -628,6 +628,7 @@ export async function getToolsCatalog(c: Context, _authCtx: AgentsInfoAuthContex
             !Array.isArray(d.properties)
               ? d.properties
               : undefined,
+          crmConfig: d.crmConfig,
         };
       })
       .filter((t): t is NonNullable<typeof t> => t !== null && t.name.length > 0);
