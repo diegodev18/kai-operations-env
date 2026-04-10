@@ -820,10 +820,14 @@ function EditToolDialog({
       <DialogContent
         className="max-h-[90vh] w-[min(42rem,calc(100vw-2rem))] max-w-[42rem] flex flex-col overflow-hidden"
         showClose
+        aria-describedby="edit-tool-description"
       >
         <DialogHeader className="shrink-0">
           <DialogTitle>Editar tool</DialogTitle>
         </DialogHeader>
+        <p id="edit-tool-description" className="sr-only">
+          Editar configuración de tool del agente
+        </p>
         <div className="min-h-0 overflow-y-auto overflow-x-hidden space-y-4 py-2">
           <div className="space-y-2">
             <Label htmlFor="edit-tool-name">Nombre</Label>
