@@ -1614,22 +1614,11 @@ function SectionPipelines({ state, onChange }: SectionPipelinesProps) {
                       placeholder="Nombre de la etapa"
                     />
                     <div className="flex items-center gap-2 mt-1">
-                      <select
-                        value={stage.stageType || ""}
-                        onChange={(e) =>
-                          updateStage(pipelineIndex, stageIndex, {
-                            stageType: e.target.value as Stage["stageType"] || null,
-                          })
-                        }
-                        className="text-xs bg-transparent border-none text-muted-foreground"
-                      >
-                        <option value="">Sin tipo</option>
-                        {STAGE_TYPES.map((st) => (
-                          <option key={st.value} value={st.value}>
-                            {st.label}
-                          </option>
-                        ))}
-                      </select>
+                      {stage.stageType && (
+                        <span className="text-xs text-muted-foreground">
+                          Tipo: {STAGE_TYPES.find((st) => st.value === stage.stageType)?.label || stage.stageType}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
