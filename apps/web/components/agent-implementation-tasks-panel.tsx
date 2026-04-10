@@ -10,6 +10,8 @@ import {
   CreditCardIcon,
   SendIcon,
   CheckIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -106,6 +108,7 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
 
   const [taskDueDates, setTaskDueDates] = useState<Record<string, string>>({});
   const [taskAssignees, setTaskAssignees] = useState<Record<string, string[]>>({});
+  const [mandatoryCollapsed, setMandatoryCollapsed] = useState(true);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -157,6 +160,11 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
     () => tasks.filter((t) => t.mandatory || (t.taskType && MANDATORY_TASK_TYPES.has(t.taskType))),
     [tasks],
   );
+
+  const mandatoryProgress = useMemo(() => {
+    const completed = mandatoryTasks.filter((t) => t.status === "completed").length;
+    return { completed, total: mandatoryTasks.length };
+  }, [mandatoryTasks]);
 
   const customTasks = useMemo(
     () =>
@@ -334,10 +342,30 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
 
       {/* Mandatory tasks checklist */}
       <section className="space-y-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Checklist obligatoria
-        </h3>
-        <div className="space-y-2">
+        <button
+          type="button"
+          onClick={() => setMandatoryCollapsed((prev) => !prev)}
+          className="flex w-full items-center gap-2 text-left"
+        >
+          {mandatoryCollapsed ? (
+            <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+          ) : (
+            <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground" />
+          )}
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Checklist obligatoria
+          </h3>
+          {mandatoryCollapsed && mandatoryProgress.total > 0 && (
+            <span className="text-xs text-muted-foreground">
+              ({mandatoryProgress.completed}/{mandatoryProgress.total})
+            </span>
+          )}
+        </button>
+        <div
+          className={`space-y-2 transition-all duration-200 ${
+            mandatoryCollapsed ? "hidden" : ""
+          }`}
+        >
           {mandatoryTasks.map((task) => {
             const isSaving = savingTaskId === task.id;
             const config = task.taskType ? TASK_TYPE_CONFIG[task.taskType] : null;

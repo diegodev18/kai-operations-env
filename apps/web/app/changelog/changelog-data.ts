@@ -11,6 +11,16 @@ export interface ChangelogEntry {
 }
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.0.12": {
+    date: "2026-04-10",
+    description: "Collapse de tareas obligatorias en panel de implementación",
+    changes: {
+      added: [
+        "Checklist obligatoria colapsable por defecto",
+        "Contador de progreso visible cuando está colapsado",
+      ],
+    },
+  },
   "2.0.11": {
     date: "2026-04-10",
     description: "Selector de endpoint MCP para agentes",
