@@ -11,6 +11,17 @@ export interface ChangelogEntry {
 }
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.0.11": {
+    date: "2026-04-10",
+    description: "Selector de endpoint MCP para agentes",
+    changes: {
+      added: [
+        "Selector en configuración de agente para elegir entre endpoint de Producción, Testing o Default",
+        "Solo visible para admins y tech leads",
+        "El endpoint se guarda en las propiedades del agente (documento mcp)",
+      ],
+    },
+  },
   "2.0.10": {
     date: "2026-04-10",
     description: "Mejoras en carga de agentes y búsqueda",
