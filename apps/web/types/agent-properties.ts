@@ -67,6 +67,7 @@ export interface MemoryPropertyDoc {
 
 export interface McpPropertyDoc {
   maxRetries?: number;
+  toolsMcpEndpoint?: string;
 }
 
 /** Lista blanca de números (MCP-KAI-AGENTS: properties/limitation). */

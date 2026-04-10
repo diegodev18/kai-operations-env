@@ -49,6 +49,7 @@ export const PROPERTY_TITLES: Record<string, Record<string, string>> = {
   },
   mcp: {
     maxRetries: "Máximo de reintentos si el validador marca la respuesta como inválida",
+    toolsMcpEndpoint: "Endpoint del servicio MCP",
   },
 };
 
@@ -134,5 +135,7 @@ export const PROPERTY_DESCRIPTIONS: Record<
   mcp: {
     maxRetries:
       "Solo se usa cuando el agente validador está activo. Número máximo de reintentos si el validador marca la respuesta del LLM como inválida (por defecto 1).",
+    toolsMcpEndpoint:
+      "URL del servidor MCP que ejecuta las herramientas. Usa 'default' para el valor de la variable de entorno, 'production' para el endpoint de producción, o 'testing' para el de testing.",
   },
 };

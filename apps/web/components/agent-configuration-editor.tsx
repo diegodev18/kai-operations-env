@@ -1399,6 +1399,29 @@ export function AgentConfigurationEditor({
                     </p>
                   )}
                 </div>
+                {showAllSections && (
+                  <div className="space-y-2">
+                    <FieldLabel docId="mcp" fieldKey="toolsMcpEndpoint" id="mcp-toolsMcpEndpoint" />
+                    <Select
+                      value={formState.mcp.toolsMcpEndpoint ?? "default"}
+                      onValueChange={(value) =>
+                        update("mcp", (prev) => ({
+                          ...prev,
+                          toolsMcpEndpoint: value,
+                        }))
+                      }
+                    >
+                      <SelectTrigger id="mcp-toolsMcpEndpoint" className="w-full">
+                        <SelectValue placeholder="Selecciona el endpoint" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">Default (variable de entorno)</SelectItem>
+                        <SelectItem value="production">Producción</SelectItem>
+                        <SelectItem value="testing">Testing</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </section>
               )}
           </div>
