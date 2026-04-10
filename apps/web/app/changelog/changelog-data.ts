@@ -11,6 +11,61 @@ export interface ChangelogEntry {
 }
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.0.10": {
+    date: "2026-04-10",
+    description: "Mejoras en carga de agentes y búsqueda",
+    changes: {
+      improved: [
+        "Carga progresiva de agentes con skeleton loader de 5 items",
+        "Preview mode en backend para respuestas más rápidas",
+        "Paralelización de queries de testing en Firestore",
+        "CHUNK_SIZE reducido de 50 a 25",
+      ],
+      fixed: [
+        "Búsqueda ahora busca solo en business_name",
+      ],
+    },
+  },
+  "2.0.9": {
+    date: "2026-04-10",
+    description: "Nuevas secciones Lecciones aprendidas y Actualidad kAI",
+    changes: {
+      added: [
+        "Blog transformado a 'Lecciones aprendidas' con formulario estructurado",
+        "Campos del formulario: problema, cómo te diste cuenta, consecuencias, medidas, prevención",
+        "Nueva sección 'Actualidad kAI' con editor markdown y drag & drop de imágenes",
+        "Filtros por autor y etiqueta en ambas secciones",
+        "Etiquetas lecciones: Error, Bug, Agentes, Clientes, Comercial, Desarrollo, Interno",
+        "Etiquetas actualidad: Evento, Anuncio, Comentarios",
+        "Dialog para crear entradas (en lugar de página separada)",
+      ],
+    },
+  },
+  "2.0.8": {
+    date: "2026-04-10",
+    description: "Soporte para configuración de pipelines en el constructor de agentes",
+    changes: {
+      added: [
+        "Nueva sección 'Pipelines' en el constructor de agentes",
+        "Editor visual para configurar stages del pipeline de ventas",
+        "5 stages por defecto: Oportunidades, Interés, Requiere Atención, Completado, Cancelado",
+        "Personalización de nombre, color, tipo y orden de cada stage",
+        "Botón Salir con confirmación de salida",
+        "Confirmación al cerrar la pestaña del navegador",
+      ],
+    },
+  },
+  "2.0.7": {
+    date: "2026-04-10",
+    description: "Restricción de acceso a servicios de base de datos",
+    changes: {
+      added: [
+        "Verificación de rol admin en todos los endpoints de servicios de base de datos",
+        "Hook useUserRole para obtener el rol del usuario en el frontend",
+        "Menú de Database ahora solo visible para usuarios con rol admin",
+      ],
+    },
+  },
   "2.0.6": {
     date: "2026-04-08",
     description: "Mejoras en configuración de agentes y favoritos",

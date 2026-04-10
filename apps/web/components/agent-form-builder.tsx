@@ -13,6 +13,11 @@ import {
   SettingsIcon,
   RocketIcon,
   ListChecks,
+  GripVerticalIcon,
+  PlusIcon,
+  TrashIcon,
+  PencilIcon,
+  HomeIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -35,6 +40,11 @@ import {
   type FormSectionId,
   type PersonalityTrait,
   type AgentFlowQuestion,
+  type Pipeline,
+  type Stage,
+  STAGE_COLORS,
+  STAGE_ICONS,
+  STAGE_TYPES,
   PERSONALITY_PRESETS,
 } from "@/lib/form-builder-constants";
 import { cn } from "@/lib/utils";
@@ -47,6 +57,7 @@ const ICONS: Record<string, React.ReactNode> = {
   personality: <UserIcon className="size-5" />,
   advanced: <SettingsIcon className="size-5" />,
   flows: <ListChecks className="size-5" />,
+  pipelines: <ListChecks className="size-5" />,
   review: <CheckIcon className="size-5" />,
 };
 
@@ -512,55 +523,12 @@ function SectionBusiness({ state, onChange, userName }: SectionProps) {
       </div>
 
       <div>
-        <label className="text-sm font-medium">Productos destacados</label>
-        <StringListInput
-          value={state.featuredProducts}
-          onChange={(v) => onChange({ featuredProducts: v })}
-          placeholder="Ej: servicio premium"
-          maxItems={5}
-        />
-      </div>
-
-      <div>
         <label className="text-sm font-medium">Políticas internas</label>
         <textarea
           value={state.policies}
           onChange={(e) => onChange({ policies: e.target.value })}
           placeholder="Ej: Política de devoluciones: 30 días. Garantía: 1 año."
           rows={3}
-          className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-        />
-      </div>
-
-      <div>
-        <label className="text-sm font-medium">Preguntas frecuentes</label>
-        <textarea
-          value={state.faq}
-          onChange={(e) => onChange({ faq: e.target.value })}
-          placeholder="Ej: ¿Tienen envío gratis? - Sí, en pedidos mayores a $500"
-          rows={3}
-          className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-        />
-      </div>
-
-      <div>
-        <label className="text-sm font-medium">Horario de operación</label>
-        <input
-          type="text"
-          value={state.operatingHours}
-          onChange={(e) => onChange({ operatingHours: e.target.value })}
-          placeholder="Ej: Lun-Vie: 9am-6pm, Sáb: 10am-2pm"
-          className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-        />
-      </div>
-
-      <div>
-        <label className="text-sm font-medium">Promociones actuales</label>
-        <textarea
-          value={state.activePromotions}
-          onChange={(e) => onChange({ activePromotions: e.target.value })}
-          placeholder="Ej: 20% de descuento en tu primera compra"
-          rows={2}
           className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
         />
       </div>
@@ -1478,6 +1446,127 @@ function SectionAdvanced({ state, onChange }: SectionProps) {
   );
 }
 
+type SectionPipelinesProps = SectionProps;
+
+function SectionPipelines({ state, onChange }: SectionPipelinesProps) {
+  const pipelines = state.pipelines || [];
+
+  const updatePipeline = useCallback(
+    (pipelineIndex: number, updates: Partial<Pipeline>) => {
+      const newPipelines = [...pipelines];
+      newPipelines[pipelineIndex] = { ...newPipelines[pipelineIndex], ...updates };
+      onChange({ pipelines: newPipelines });
+    },
+    [pipelines, onChange],
+  );
+
+  const updateStage = useCallback(
+    (pipelineIndex: number, stageIndex: number, updates: Partial<Stage>) => {
+      const newPipelines = [...pipelines];
+      const stages = [...newPipelines[pipelineIndex].stages];
+      stages[stageIndex] = { ...stages[stageIndex], ...updates };
+      newPipelines[pipelineIndex] = { ...newPipelines[pipelineIndex], stages };
+      onChange({ pipelines: newPipelines });
+    },
+    [pipelines, onChange],
+  );
+
+  if (pipelines.length === 0) {
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          No hay pipelines configurados. Se usará el pipeline predeterminado al crear el agente.
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            onChange({
+              pipelines: [
+                {
+                  id: "default",
+                  name: "Pipeline de Ventas",
+                  description: "Pipeline principal",
+                  isDefault: true,
+                  stages: [],
+                },
+              ],
+            });
+          }}
+        >
+          <PlusIcon className="mr-2 size-4" />
+          Crear Pipeline
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {pipelines.map((pipeline, pipelineIndex) => (
+        <div key={pipeline.id || pipelineIndex} className="rounded-lg border p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex-1 space-y-2">
+              <input
+                type="text"
+                value={pipeline.name}
+                onChange={(e) => updatePipeline(pipelineIndex, { name: e.target.value })}
+                placeholder="Nombre del pipeline"
+                className="font-medium text-lg bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-ring rounded px-2 py-1 -ml-2 w-full"
+              />
+              <input
+                type="text"
+                value={pipeline.description || ""}
+                onChange={(e) => updatePipeline(pipelineIndex, { description: e.target.value })}
+                placeholder="Descripción opcional"
+                className="text-sm text-muted-foreground bg-transparent border-none focus:outline-none w-full"
+              />
+            </div>
+            <div className="flex items-center gap-2 ml-4">
+              {pipeline.isDefault && (
+                <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">Default</span>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-sm font-medium">Etapas (Stages)</p>
+            <div className="space-y-2">
+              {pipeline.stages.map((stage, stageIndex) => (
+                <div
+                  key={stage.id || stageIndex}
+                  className="flex items-center gap-2 p-3 rounded-md border bg-card"
+                >
+                  <span
+                    className="flex items-center justify-center w-8 h-8 rounded text-lg"
+                    style={{ backgroundColor: stage.color + "20" }}
+                  >
+                    {stage.icon}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium text-sm">{stage.name}</span>
+                    <div className="flex items-center gap-2 mt-1">
+                      {stage.stageType && (
+                        <span className="text-xs text-muted-foreground">
+                          Tipo: {STAGE_TYPES.find((st) => st.value === stage.stageType)?.label || stage.stageType}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div
+                    className="w-4 h-4 rounded-full border"
+                    style={{ backgroundColor: stage.color }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function SectionReview({ state, catalog, isSaving, onSubmit }: SectionProps & { onSubmit: () => void }) {
   const isComplete =
     !!state.business_name &&
@@ -1691,6 +1780,7 @@ function TemplatesSection({
 export function AgentFormBuilder() {
   const { session } = useAuth();
   const userName = session?.user?.name ?? session?.user?.email ?? "";
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
   const [state, setState] = useState<FormBuilderState>(() => ({
     ...DEFAULT_FORM_STATE,
@@ -1779,6 +1869,18 @@ export function AgentFormBuilder() {
       setIsLoadingCatalog(false);
     })();
   }, []);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   useEffect(() => {
     if (currentSection !== "flows") return;
@@ -1955,6 +2057,7 @@ export function AgentFormBuilder() {
 
   const handleChange = useCallback((updates: Partial<FormBuilderState>) => {
     setState((prev) => ({ ...prev, ...updates }));
+    setHasUnsavedChanges(true);
   }, []);
 
   const handleDynamicAnswerChange = useCallback((field: string, value: string) => {
@@ -1990,6 +2093,8 @@ export function AgentFormBuilder() {
           );
         case "tools":
           return state.selected_tools.length > 0;
+        case "pipelines":
+          return true; // Optional section
         case "review":
           return (
             !!state.business_name.trim() &&
@@ -2171,11 +2276,7 @@ export function AgentFormBuilder() {
         country: state.country.trim(),
         business_timezone: state.business_timezone.trim(),
         brand_values: state.brandValues,
-        featured_products: state.featuredProducts.slice(0, 5),
         policies: state.policies.trim(),
-        faq: state.faq.trim(),
-        operating_hours: state.operatingHours.trim(),
-        active_promotions: state.activePromotions.trim(),
       });
 
       await patchAgentDraft(draftId, {
@@ -2258,6 +2359,8 @@ export function AgentFormBuilder() {
             operationalSummary={operationalSummary}
           />
         );
+      case "pipelines":
+        return <SectionPipelines {...sectionProps} />;
       case "review":
         return <SectionReview {...sectionProps} onSubmit={handleSubmit} />;
       default:
@@ -2271,6 +2374,31 @@ export function AgentFormBuilder() {
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <div className="shrink-0 flex items-center gap-2 border-b px-4 py-3">
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <button
+              type="button"
+              className="flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition-colors bg-muted text-muted-foreground hover:bg-muted/80"
+            >
+              <HomeIcon className="size-4" />
+              <span className="hidden sm:inline">Salir</span>
+            </button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Salir del constructor?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Si sales ahora, perderás el progreso no guardado. ¿Estás seguro de que quieres salir?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={() => { setHasUnsavedChanges(false); window.location.href = "/"; }}>
+                Salir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         {sections.map((section) => (
           <button
             key={section.id}

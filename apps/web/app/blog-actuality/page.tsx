@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   SearchIcon,
@@ -10,12 +10,8 @@ import {
   UserIcon,
   FilterIcon,
   XIcon,
-  AlertCircleIcon,
-  EyeIcon,
-  AlertTriangleIcon,
-  ShieldCheckIcon,
-  ClipboardCheckIcon,
   SendIcon,
+  GripVerticalIcon,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -24,8 +20,8 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -45,9 +41,10 @@ import {
   fetchBlogPosts,
   searchBlogPosts,
   createBlogPost,
+  uploadBlogImage,
   type BlogPost,
 } from "@/lib/blog-api";
-import { BLOG_TAGS } from "@/lib/blog-tags";
+import { ACTUALITY_TAGS } from "@/lib/blog-tags";
 import { useAuth } from "@/hooks/auth";
 
 function formatDate(timestamp: number): string {
@@ -60,118 +57,7 @@ function formatDate(timestamp: number): string {
   });
 }
 
-interface LessonFields {
-  problem: string;
-  howDiscovered: string;
-  consequences: string;
-  measuresTaken: string;
-  prevention: string;
-}
-
-function generateMarkdown(fields: LessonFields): string {
-  const parts: string[] = [];
-
-  if (fields.problem.trim()) {
-    parts.push(`## ¿Qué problema se presentó?\n${fields.problem.trim()}`);
-  }
-
-  if (fields.howDiscovered.trim()) {
-    parts.push(`## ¿Cómo te diste cuenta?\n${fields.howDiscovered.trim()}`);
-  }
-
-  if (fields.consequences.trim()) {
-    parts.push(`## ¿Cuáles son las consecuencias?\n${fields.consequences.trim()}`);
-  }
-
-  if (fields.measuresTaken.trim()) {
-    parts.push(`## ¿Qué medidas tomaste?\n${fields.measuresTaken.trim()}`);
-  }
-
-  if (fields.prevention.trim()) {
-    parts.push(`## ¿Qué acciones se tomarán para que no se repita?\n${fields.prevention.trim()}`);
-  }
-
-  return parts.join("\n\n");
-}
-
-function LessonFormFields({
-  fields,
-  updateField,
-}: {
-  fields: LessonFields;
-  updateField: (key: keyof LessonFields, value: string) => void;
-}) {
-  return (
-    <div className="grid gap-6">
-      <div className="space-y-2">
-        <label className="flex items-center gap-2 text-sm font-medium">
-          <AlertCircleIcon className="h-4 w-4 text-muted-foreground" />
-          ¿Qué problema se presentó?
-        </label>
-        <Textarea
-          placeholder="Describe el problema o error..."
-          value={fields.problem}
-          onChange={(e) => updateField("problem", e.target.value)}
-          rows={3}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <label className="flex items-center gap-2 text-sm font-medium">
-          <EyeIcon className="h-4 w-4 text-muted-foreground" />
-          ¿Cómo te diste cuenta?
-        </label>
-        <Textarea
-          placeholder="Explica cómo detectaste el problema (logs, alertas, reporte, etc.)..."
-          value={fields.howDiscovered}
-          onChange={(e) => updateField("howDiscovered", e.target.value)}
-          rows={3}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <label className="flex items-center gap-2 text-sm font-medium">
-          <AlertTriangleIcon className="h-4 w-4 text-muted-foreground" />
-          ¿Cuáles son las consecuencias?
-        </label>
-        <Textarea
-          placeholder="Impacto en usuarios, sistema, datos, negocio..."
-          value={fields.consequences}
-          onChange={(e) => updateField("consequences", e.target.value)}
-          rows={3}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <label className="flex items-center gap-2 text-sm font-medium">
-          <ShieldCheckIcon className="h-4 w-4 text-muted-foreground" />
-          ¿Qué medidas tomaste?
-        </label>
-        <Textarea
-          placeholder="Acciones inmediatas tomadas para resolver..."
-          value={fields.measuresTaken}
-          onChange={(e) => updateField("measuresTaken", e.target.value)}
-          rows={3}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <label className="flex items-center gap-2 text-sm font-medium">
-          <ClipboardCheckIcon className="h-4 w-4 text-muted-foreground" />
-          ¿Qué acciones se tomarán para que no se repita?
-        </label>
-        <Textarea
-          placeholder="Mejoras, alertas, tests, documentación, procesos..."
-          value={fields.prevention}
-          onChange={(e) => updateField("prevention", e.target.value)}
-          rows={3}
-        />
-      </div>
-    </div>
-  );
-}
-
-export default function BlogPage() {
+export default function ActualityPage() {
   const { session } = useAuth();
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -182,22 +68,24 @@ export default function BlogPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   const [newTitle, setNewTitle] = useState("");
-  const [newFields, setNewFields] = useState<LessonFields>({
-    problem: "",
-    howDiscovered: "",
-    consequences: "",
-    measuresTaken: "",
-    prevention: "",
-  });
+  const [newContent, setNewContent] = useState("");
   const [newTags, setNewTags] = useState<string[]>([]);
   const [selectedNewTag, setSelectedNewTag] = useState("");
+  const [showPreview, setShowPreview] = useState(false);
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const POST_TYPE = "actuality";
 
   const loadPosts = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetchBlogPosts();
+      const data = await fetchBlogPosts(POST_TYPE);
       setPosts(data ?? []);
     } finally {
       setLoading(false);
@@ -212,7 +100,7 @@ export default function BlogPage() {
     }
     setSearching(true);
     try {
-      const data = await searchBlogPosts(q);
+      const data = await searchBlogPosts(q, POST_TYPE);
       setPosts(data ?? []);
     } finally {
       setSearching(false);
@@ -270,10 +158,6 @@ export default function BlogPage() {
     void loadPosts();
   }, [loadPosts]);
 
-  const updateNewField = useCallback((key: keyof LessonFields, value: string) => {
-    setNewFields((prev) => ({ ...prev, [key]: value }));
-  }, []);
-
   const handleAddNewTag = useCallback((tag: string) => {
     if (tag && !newTags.includes(tag)) {
       setNewTags((prev) => [...prev, tag]);
@@ -289,51 +173,128 @@ export default function BlogPage() {
     setSelectedNewTag("");
   }, [handleAddNewTag]);
 
-  const handleCreateLesson = useCallback(async () => {
+  const handleImageUpload = useCallback(
+    async (file: File) => {
+      if (!file.type.startsWith("image/")) {
+        toast.error("Solo se permiten imágenes");
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("La imagen no puede superar 10MB");
+        return;
+      }
+
+      setUploading(true);
+      try {
+        const result = await uploadBlogImage(file);
+        if (result.ok && result.url) {
+          const markdownImage = `![${file.name}](${result.url})`;
+          const textarea = textareaRef.current;
+          if (textarea) {
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const newContentValue = newContent.slice(0, start) + markdownImage + newContent.slice(end);
+            setNewContent(newContentValue);
+            setTimeout(() => {
+              textarea.focus();
+              const newPos = start + markdownImage.length;
+              textarea.setSelectionRange(newPos, newPos);
+            }, 0);
+          } else {
+            setNewContent((prev) => prev + "\n" + markdownImage);
+          }
+          toast.success("Imagen insertada");
+        } else {
+          toast.error(result.error ?? "Error al subir imagen");
+        }
+      } finally {
+        setUploading(false);
+      }
+    },
+    [newContent]
+  );
+
+  const handleFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        await handleImageUpload(file);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    },
+    [handleImageUpload]
+  );
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
+      const files = Array.from(e.dataTransfer.files).filter((f) =>
+        f.type.startsWith("image/")
+      );
+      for (const file of files) {
+        await handleImageUpload(file);
+      }
+    },
+    [handleImageUpload]
+  );
+
+  const handleCreatePost = useCallback(async () => {
     if (!newTitle.trim()) {
       toast.error("El título es obligatorio");
       return;
     }
 
-    const hasContent = Object.values(newFields).some((f) => f.trim());
-    if (!hasContent) {
-      toast.error("Completa al menos una sección");
+    if (!newContent.trim()) {
+      toast.error("El contenido es obligatorio");
       return;
     }
 
     setSaving(true);
     try {
-      const content = generateMarkdown(newFields);
       const result = await createBlogPost({
         title: newTitle.trim(),
-        content,
+        content: newContent,
         tags: newTags,
+        type: POST_TYPE,
       });
       if (result.ok && result.post) {
-        toast.success("Lección creada");
+        toast.success("Entrada creada");
         setDialogOpen(false);
         setNewTitle("");
-        setNewFields({
-          problem: "",
-          howDiscovered: "",
-          consequences: "",
-          measuresTaken: "",
-          prevention: "",
-        });
+        setNewContent("");
         setNewTags([]);
         void loadPosts();
       } else {
-        toast.error(result.error ?? "Error al crear la lección");
+        toast.error(result.error ?? "Error al crear la entrada");
       }
     } finally {
       setSaving(false);
     }
-  }, [newTitle, newFields, newTags, loadPosts]);
+  }, [newTitle, newContent, newTags, loadPosts]);
+
+  const resetDialog = useCallback(() => {
+    setNewTitle("");
+    setNewContent("");
+    setNewTags([]);
+    setSelectedNewTag("");
+    setShowPreview(false);
+  }, []);
 
   if (!session) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <p className="text-muted-foreground">Inicia sesión para ver las lecciones.</p>
+        <p className="text-muted-foreground">Inicia sesión para ver la actualidad.</p>
       </div>
     );
   }
@@ -342,16 +303,14 @@ export default function BlogPage() {
     <div className="container mx-auto max-w-5xl space-y-8 px-4 py-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Lecciones aprendidas
-          </h1>
+          <h1 className="text-3xl font-bold tracking-tight">Actualidad kAI</h1>
           <p className="mt-1 text-muted-foreground">
-            Documenta problemas, soluciones y prevenciones
+            Notas, comentarios y actualizaciones del equipo
           </p>
         </div>
         <Button onClick={() => setDialogOpen(true)}>
           <PlusIcon className="mr-2 h-4 w-4" />
-          Nueva lección
+          Nueva entrada
         </Button>
       </div>
 
@@ -400,7 +359,7 @@ export default function BlogPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Todas las etiquetas</SelectItem>
-                {BLOG_TAGS.map((tag) => (
+                {ACTUALITY_TAGS.map((tag) => (
                   <SelectItem key={tag} value={tag}>
                     {tag}
                   </SelectItem>
@@ -432,13 +391,13 @@ export default function BlogPage() {
           <p className="text-muted-foreground">
             {hasActiveFilters
               ? "No se encontraron resultados."
-              : "No hay lecciones todavía. ¡Crea la primera!"}
+              : "No hay entradas todavía. ¡Crea la primera!"}
           </p>
         </div>
       ) : (
         <div className="grid gap-6">
           {filteredPosts.map((post) => (
-            <Link key={post.id} href={`/blog/${post.id}`} className="block">
+            <Link key={post.id} href={`/blog-actuality/${post.id}`} className="block">
               <Card className="transition-all hover:border-primary/50 hover:shadow-md">
                 <CardHeader className="gap-3">
                   <div className="flex items-start justify-between gap-2">
@@ -480,12 +439,18 @@ export default function BlogPage() {
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) resetDialog();
+        }}
+      >
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Nueva lección</DialogTitle>
+            <DialogTitle>Nueva entrada</DialogTitle>
             <DialogDescription>
-              Documenta el problema, cómo lo detectaste, sus consecuencias, las medidas tomadas y las acciones preventivas.
+              Comparte noticias, comentarios y actualizaciones del equipo.
             </DialogDescription>
           </DialogHeader>
 
@@ -496,13 +461,46 @@ export default function BlogPage() {
               </label>
               <Input
                 id="new-title"
-                placeholder="Ej: Error en validación de clientes..."
+                placeholder="Título de la entrada..."
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
               />
             </div>
 
-            <LessonFormFields fields={newFields} updateField={updateNewField} />
+            <div className="space-y-2">
+              <label htmlFor="new-content" className="text-sm font-medium">
+                Contenido (Markdown)
+              </label>
+              <div
+                className={`relative rounded-md border transition-colors ${
+                  isDragging ? "border-primary bg-primary/5" : ""
+                }`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <Textarea
+                  ref={textareaRef}
+                  id="new-content"
+                  placeholder={`Escribe el contenido en markdown...
+
+Usa @username para mencionar usuarios
+Arrastra y suelta imágenes para insertarlas`}
+                  value={newContent}
+                  onChange={(e) => setNewContent(e.target.value)}
+                  rows={15}
+                  className="resize-none font-mono text-sm"
+                />
+                {isDragging && (
+                  <div className="absolute inset-0 flex items-center justify-center rounded-md bg-primary/10">
+                    <p className="text-sm text-primary">Suelta la imagen aquí</p>
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Arrastra y suelta imágenes directamente en el editor
+              </p>
+            </div>
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Etiquetas (opcional)</label>
@@ -525,7 +523,7 @@ export default function BlogPage() {
                   <SelectValue placeholder="Selecciona una etiqueta..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {BLOG_TAGS.filter((t) => !newTags.includes(t)).map((tag) => (
+                  {ACTUALITY_TAGS.filter((t) => !newTags.includes(t)).map((tag) => (
                     <SelectItem key={tag} value={tag}>
                       {tag}
                     </SelectItem>
@@ -533,13 +531,55 @@ export default function BlogPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="flex justify-between">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowPreview(!showPreview)}
+              >
+                {showPreview ? "Ocultar preview" : "Ver preview"}
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <GripVerticalIcon className="mr-2 h-4 w-4" />
+                )}
+                {uploading ? "Subiendo..." : "Adjuntar imagen"}
+              </Button>
+            </div>
+
+            {showPreview && newContent && (
+              <Card className="bg-muted/50 p-4">
+                <h3 className="mb-2 text-sm font-medium">Preview</h3>
+                <div className="prose prose-sm dark:prose-invert">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {newContent}
+                  </ReactMarkdown>
+                </div>
+              </Card>
+            )}
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={() => void handleCreateLesson()} disabled={saving}>
+            <Button onClick={() => void handleCreatePost()} disabled={saving}>
               {saving ? (
                 <>
                   <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />

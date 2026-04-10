@@ -41,7 +41,7 @@ export type DraftPropertyItem = {
 };
 
 /** Tama?o de cada p?gina al listar agentes (carga perezosa: primero solo esta cantidad). */
-export const AGENTS_PAGE_SIZE = 15;
+export const AGENTS_PAGE_SIZE = 10;
 
 function agentsInfoUrl(
   light: boolean,
@@ -54,6 +54,7 @@ function agentsInfoUrl(
     billingAlert?: string;
     domiciliated?: string;
   },
+  preview?: boolean,
 ): string {
   const params = new URLSearchParams();
   if (light) params.set("light", "1");
@@ -68,6 +69,7 @@ function agentsInfoUrl(
     if (filters.billingAlert) params.set("billingAlert", filters.billingAlert);
     if (filters.domiciliated !== undefined) params.set("domiciliated", filters.domiciliated);
   }
+  if (preview) params.set("preview", "1");
   return `/api/agents/info?${params.toString()}`;
 }
 
@@ -84,6 +86,8 @@ export async function fetchAgentsPage(
       billingAlert?: string;
       domiciliated?: string;
     };
+    /** Modo preview: carga más rápido sin growers/techLeads */
+    preview?: boolean;
   } = {},
 ): Promise<{ agents: AgentWithOperations[]; nextCursor: string | null } | null> {
   const {
@@ -93,8 +97,9 @@ export async function fetchAgentsPage(
     cursor,
     q,
     filters,
+    preview,
   } = options;
-  const url = agentsInfoUrl(light, paginated, pageSize, cursor, q, filters);
+  const url = agentsInfoUrl(light, paginated, pageSize, cursor, q, filters, preview);
   const response = await fetch(url, {
     credentials: "include",
     cache: "no-store",

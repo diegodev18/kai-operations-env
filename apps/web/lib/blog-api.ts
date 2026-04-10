@@ -9,12 +9,15 @@ export interface BlogPost {
   images: string[];
   mentions: string[];
   isHidden: boolean;
+  type?: string;
   createdAt: number;
   updatedAt: number;
 }
 
-export async function fetchBlogPosts(): Promise<BlogPost[] | null> {
-  const res = await fetch("/api/blog", { credentials: "include" });
+export async function fetchBlogPosts(
+  type: "lessons" | "actuality" = "lessons"
+): Promise<BlogPost[] | null> {
+  const res = await fetch(`/api/blog?type=${type}`, { credentials: "include" });
   if (!res.ok) return null;
   const data = await res.json();
   return data.posts ?? [];
@@ -22,9 +25,10 @@ export async function fetchBlogPosts(): Promise<BlogPost[] | null> {
 
 export async function searchBlogPosts(
   query: string,
+  type: "lessons" | "actuality" = "lessons"
 ): Promise<BlogPost[] | null> {
   const res = await fetch(
-    `/api/blog/search?q=${encodeURIComponent(query)}`,
+    `/api/blog/search?q=${encodeURIComponent(query)}&type=${type}`,
     { credentials: "include" },
   );
   if (!res.ok) return null;
@@ -47,6 +51,7 @@ export async function createBlogPost(post: {
   title: string;
   content: string;
   tags: string[];
+  type?: string;
 }): Promise<{ ok: boolean; post?: BlogPost; error?: string }> {
   const res = await fetch("/api/blog", {
     method: "POST",
@@ -67,6 +72,7 @@ export async function updateBlogPost(
     title: string;
     content: string;
     tags: string[];
+    type?: string;
   },
 ): Promise<{ ok: boolean; post?: BlogPost; error?: string }> {
   const res = await fetch(`/api/blog/${encodeURIComponent(id)}`, {

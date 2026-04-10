@@ -17,6 +17,7 @@ import {
   LayoutDashboardIcon,
   LayoutGridIcon,
   Loader2Icon,
+  MegaphoneIcon,
   MenuIcon,
   PauseCircleIcon,
   PencilIcon,
@@ -45,6 +46,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { UserMenu } from "@/components/user-menu";
+import { useUserRole } from "@/hooks/useUserRole";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
@@ -96,6 +98,7 @@ export function OperationsDashboard(props: {
   onSignOut: () => void;
 }) {
   const router = useRouter();
+  const { isAdmin } = useUserRole();
   const [search, setSearch] = useState("");
   /** Texto de búsqueda aplicado al API (debounce 300 ms; vacío al limpiar al instante). */
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -105,6 +108,7 @@ export function OperationsDashboard(props: {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isLoadingAll, setIsLoadingAll] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [nextCursor, setNextCursor] = useState<string | null | undefined>(undefined);
   const [growerTarget, setGrowerTarget] = useState<{
     id: string;
@@ -163,7 +167,7 @@ export function OperationsDashboard(props: {
   }, [search]);
 
   const fetchPage = useCallback(
-    async (cursor: string | undefined) => {
+    async (cursor: string | undefined, usePreview = false) => {
       const q = debouncedSearch.trim() || undefined;
       const serverSearchActive = debouncedSearch.trim().length >= 3;
 
@@ -192,6 +196,7 @@ export function OperationsDashboard(props: {
         cursor,
         ...(q ? { q } : {}),
         ...(filters ? { filters } : {}),
+        ...(usePreview ? { preview: true } : {}),
       });
     },
     [debouncedSearch, statusFilter, billingAlertOnly, cobranzaFilter],
@@ -201,8 +206,9 @@ export function OperationsDashboard(props: {
     setNextCursor(undefined);
     setAgents([]);
     setIsLoading(true);
+    setIsInitialLoad(true);
     try {
-      const result = await fetchPage(undefined);
+      const result = await fetchPage(undefined, true);
       if (result == null) {
         toast.error("Error al cargar agentes");
         return;
@@ -213,6 +219,7 @@ export function OperationsDashboard(props: {
       toast.error("Error al cargar agentes");
     } finally {
       setIsLoading(false);
+      setIsInitialLoad(false);
     }
   }, [fetchPage]);
 
@@ -523,7 +530,7 @@ export function OperationsDashboard(props: {
   const hasMore = nextCursor != null && nextCursor !== undefined;
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <><div className="flex h-full min-h-0 flex-col">
       <header className="flex h-14 shrink-0 items-center justify-between border-b px-4">
         <div className="flex items-center gap-2 font-semibold text-foreground">
           <Button
@@ -541,8 +548,7 @@ export function OperationsDashboard(props: {
         <UserMenu
           userName={props.userName}
           userEmail={props.userEmail}
-          onSignOut={props.onSignOut}
-        />
+          onSignOut={props.onSignOut} />
       </header>
 
       <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
@@ -573,52 +579,64 @@ export function OperationsDashboard(props: {
               onClick={() => setMenuOpen(false)}
             >
               <BookOpenIcon className="size-4" />
-              Blog
+              Lecciones
+            </Link>
+            <Link
+              href="/blog-actuality"
+              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+              onClick={() => setMenuOpen(false)}
+            >
+              <MegaphoneIcon className="size-4" />
+              Actualidad
             </Link>
             <div className="my-2 border-t" />
-            <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Database
-            </div>
-            <Link
-              href="/database/upload-data"
-              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-              onClick={() => setMenuOpen(false)}
-            >
-              <UploadIcon className="size-4" />
-              Upload data
-            </Link>
-            <Link
-              href="/database/duplicate-clone"
-              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-              onClick={() => setMenuOpen(false)}
-            >
-              <CopyIcon className="size-4" />
-              Duplicate / clone
-            </Link>
-            <Link
-              href="/database/update-document"
-              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-              onClick={() => setMenuOpen(false)}
-            >
-              <PencilIcon className="size-4" />
-              Update document
-            </Link>
-            <Link
-              href="/database/viewer-comparator"
-              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-              onClick={() => setMenuOpen(false)}
-            >
-              <SearchIcon className="size-4" />
-              Viewer and comparator
-            </Link>
-            <Link
-              href="/database/document-explorer"
-              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-              onClick={() => setMenuOpen(false)}
-            >
-              <FolderOpenIcon className="size-4" />
-              Document explorer
-            </Link>
+            {isAdmin && (
+              <>
+                <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Database
+                </div>
+                <Link
+                  href="/database/upload-data"
+                  className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <UploadIcon className="size-4" />
+                  Upload data
+                </Link>
+                <Link
+                  href="/database/duplicate-clone"
+                  className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <CopyIcon className="size-4" />
+                  Duplicate / clone
+                </Link>
+                <Link
+                  href="/database/update-document"
+                  className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <PencilIcon className="size-4" />
+                  Update document
+                </Link>
+                <Link
+                  href="/database/viewer-comparator"
+                  className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <SearchIcon className="size-4" />
+                  Viewer and comparator
+                </Link>
+                <Link
+                  href="/database/document-explorer"
+                  className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <FolderOpenIcon className="size-4" />
+                  Document explorer
+                </Link>
+              </>
+            )}
           </nav>
         </SheetContent>
       </Sheet>
@@ -661,11 +679,8 @@ export function OperationsDashboard(props: {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="h-9 pl-8"
-                aria-busy={
-                  isSearchDebouncing ||
-                  (Boolean(search.trim()) && isLoading)
-                }
-              />
+                aria-busy={isSearchDebouncing ||
+                  (Boolean(search.trim()) && isLoading)} />
               {(isSearchDebouncing ||
                 (Boolean(search.trim()) && isLoading)) ? (
                 <Loader2Icon className="absolute top-1/2 right-2.5 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
@@ -714,7 +729,7 @@ export function OperationsDashboard(props: {
                     </TooltipTrigger>
                     <TooltipContent>{STATUS_LABELS[s]}</TooltipContent>
                   </Tooltip>
-                ),
+                )
               )}
             </div>
             <Tooltip>
@@ -738,9 +753,7 @@ export function OperationsDashboard(props: {
                   variant={favoritesFilter === "favorites" ? "secondary" : "ghost"}
                   size="icon-sm"
                   className="size-9 rounded-md border border-border"
-                  onClick={() =>
-                    setFavoritesFilter((v) => (v === "all" ? "favorites" : "all"))
-                  }
+                  onClick={() => setFavoritesFilter((v) => (v === "all" ? "favorites" : "all"))}
                 >
                   <StarIcon className="size-4" />
                 </Button>
@@ -817,8 +830,7 @@ export function OperationsDashboard(props: {
                     value={lastPaymentFrom}
                     onChange={(e) => setLastPaymentFrom(e.target.value)}
                     className="h-8 w-36 text-xs"
-                    placeholder="Desde"
-                  />
+                    placeholder="Desde" />
                 </div>
                 <span className="text-xs text-muted-foreground">a</span>
                 <Input
@@ -826,8 +838,7 @@ export function OperationsDashboard(props: {
                   value={lastPaymentTo}
                   onChange={(e) => setLastPaymentTo(e.target.value)}
                   className="h-8 w-36 text-xs"
-                  placeholder="Hasta"
-                />
+                  placeholder="Hasta" />
                 {(lastPaymentFrom || lastPaymentTo) && (
                   <Button
                     type="button"
@@ -848,37 +859,68 @@ export function OperationsDashboard(props: {
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto p-6">
-          {isLoading ? (
-            <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
-              <Loader2Icon className="size-5 animate-spin" />
-              <span>Cargando agentes…</span>
-            </div>
-          ) : (
-            <>
-              <div className="overflow-x-auto rounded-md border border-border">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/50">
-                      <th className="p-3 text-left font-medium w-8"></th>
-                      <th className="p-3 text-left font-medium">Agente</th>
-                      <th className="p-3 text-left font-medium">Entornos</th>
-                      <th className="p-3 text-left font-medium">Industria</th>
-                      <th className="p-3 text-left font-medium">Estatus</th>
-                      <th className="p-3 text-left font-medium">Cobranza</th>
-                      <th className="p-3 text-left font-medium">Growers</th>
+          <div className="overflow-x-auto rounded-md border border-border">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/50">
+                  <th className="p-3 text-left font-medium w-8"></th>
+                  <th className="p-3 text-left font-medium">Agente</th>
+                  <th className="p-3 text-left font-medium">Entornos</th>
+                  <th className="p-3 text-left font-medium">Industria</th>
+                  <th className="p-3 text-left font-medium">Estatus</th>
+                  <th className="p-3 text-left font-medium">Cobranza</th>
+                  <th className="p-3 text-left font-medium">Growers</th>
+                </tr>
+              </thead>
+              <tbody>
+                {isInitialLoad ? (
+                  [...Array(5)].map((_, i) => (
+                    <tr key={i} className="border-b border-border">
+                      <td className="p-3 w-8"></td>
+                      <td className="p-3">
+                        <div className="h-5 w-32 bg-muted animate-pulse rounded" />
+                      </td>
+                      <td className="p-3">
+                        <div className="h-5 w-20 bg-muted animate-pulse rounded" />
+                      </td>
+                      <td className="p-3">
+                        <div className="h-5 w-24 bg-muted animate-pulse rounded" />
+                      </td>
+                      <td className="p-3">
+                        <div className="h-5 w-16 bg-muted animate-pulse rounded" />
+                      </td>
+                      <td className="p-3">
+                        <div className="h-5 w-20 bg-muted animate-pulse rounded" />
+                      </td>
+                      <td className="p-3">
+                        <div className="h-5 w-12 bg-muted animate-pulse rounded" />
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {filteredAgents.map((agent) => (
-                      <Fragment key={agent.id}>
+                  ))
+                ) : isLoading ? (
+                  <tr>
+                    <td colSpan={7} className="p-12 text-center text-muted-foreground">
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2Icon className="size-5 animate-spin" />
+                        <span>Cargando agentes…</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredAgents.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-12 text-center text-muted-foreground">
+                      No hay agentes que mostrar
+                    </td>
+                  </tr>
+                ) : (
+                  filteredAgents.map((agent) => (
+                    <Fragment key={agent.id}>
                       <tr
                         className="border-b border-border transition-colors hover:bg-muted/50 cursor-pointer"
-                        onClick={() =>
-                          router.push(
-                            `/agents/${encodeURIComponent(agent.id)}/prompt-design`,
-                          )
-                        }
-                       >
+                        onClick={() => router.push(
+                          `/agents/${encodeURIComponent(agent.id)}/prompt-design`
+                        )}
+                      >
                         <td className="p-3">
                           <Button
                             type="button"
@@ -907,65 +949,65 @@ export function OperationsDashboard(props: {
                             )}
                           </Button>
                         </td>
-                         <td className="p-3 font-medium">
-                           <div className="flex items-center gap-2">
-<Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                className="size-7"
-                                disabled={isTogglingFavorite === agent.id}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (isTogglingFavorite === agent.id) return;
-                                  void (async () => {
-                                    const isFavorite = favoriteAgentIds.has(agent.id);
-                                    const method = isFavorite ? "DELETE" : "POST";
-                                    setIsTogglingFavorite(agent.id);
-                                    try {
-                                      const res = await fetch(
-                                        `/api/favorites/${encodeURIComponent(agent.id)}`,
-                                        { method, credentials: "include" },
+                        <td className="p-3 font-medium">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              className="size-7"
+                              disabled={isTogglingFavorite === agent.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (isTogglingFavorite === agent.id) return;
+                                void (async () => {
+                                  const isFavorite = favoriteAgentIds.has(agent.id);
+                                  const method = isFavorite ? "DELETE" : "POST";
+                                  setIsTogglingFavorite(agent.id);
+                                  try {
+                                    const res = await fetch(
+                                      `/api/favorites/${encodeURIComponent(agent.id)}`,
+                                      { method, credentials: "include" }
+                                    );
+                                    if (res.ok) {
+                                      setFavoriteAgentIds((prev) => {
+                                        const next = new Set(prev);
+                                        if (isFavorite) {
+                                          next.delete(agent.id);
+                                        } else {
+                                          next.add(agent.id);
+                                        }
+                                        return next;
+                                      });
+                                      toast.success(
+                                        isFavorite
+                                          ? "Eliminado de favoritos"
+                                          : "Añadido a favoritos"
                                       );
-                                      if (res.ok) {
-                                        setFavoriteAgentIds((prev) => {
-                                          const next = new Set(prev);
-                                          if (isFavorite) {
-                                            next.delete(agent.id);
-                                          } else {
-                                            next.add(agent.id);
-                                          }
-                                          return next;
-                                        });
-                                        toast.success(
-                                          isFavorite
-                                            ? "Eliminado de favoritos"
-                                            : "Añadido a favoritos",
-                                        );
-                                      } else {
-                                        const err = await res.text();
-                                        toast.error(
-                                          `Error: ${res.status} - ${err || "Error desconocido"}`,
-                                        );
-                                      }
-                                    } catch {
-                                      toast.error("Error de red al actualizar favoritos");
-                                    } finally {
-                                      setIsTogglingFavorite(null);
+                                    } else {
+                                      const err = await res.text();
+                                      toast.error(
+                                        `Error: ${res.status} - ${err || "Error desconocido"}`
+                                      );
                                     }
-                                  })();
-                                }}
-                              >
-                                {isTogglingFavorite === agent.id ? (
-                                  <Loader2Icon className="size-4 animate-spin" />
-                                ) : favoriteAgentIds.has(agent.id) ? (
-                                  <StarIcon className="size-4 fill-yellow-400 text-yellow-400" />
-                                ) : (
-                                  <StarIcon className="size-4 text-muted-foreground" />
-                                )}
-                              </Button>
-                             <Link
-                               href={`/agents/${encodeURIComponent(agent.id)}/prompt-design`}
+                                  } catch {
+                                    toast.error("Error de red al actualizar favoritos");
+                                  } finally {
+                                    setIsTogglingFavorite(null);
+                                  }
+                                })();
+                              }}
+                            >
+                              {isTogglingFavorite === agent.id ? (
+                                <Loader2Icon className="size-4 animate-spin" />
+                              ) : favoriteAgentIds.has(agent.id) ? (
+                                <StarIcon className="size-4 fill-yellow-400 text-yellow-400" />
+                              ) : (
+                                <StarIcon className="size-4 text-muted-foreground" />
+                              )}
+                            </Button>
+                            <Link
+                              href={`/agents/${encodeURIComponent(agent.id)}/prompt-design`}
                               className="text-primary hover:underline"
                               onClick={(e) => e.stopPropagation()}
                             >
@@ -1023,23 +1065,21 @@ export function OperationsDashboard(props: {
                                     variant="outline"
                                     size="icon-sm"
                                     className="size-8 shrink-0"
-                                    aria-label={
-                                      agent.inCommercial
-                                        ? "Refrescar desde producción al entorno comercial"
-                                        : "Crear copia en testing desde producción"
-                                    }
+                                    aria-label={agent.inCommercial
+                                      ? "Refrescar desde producción al entorno comercial"
+                                      : "Crear copia en testing desde producción"}
                                     disabled={syncingAgentId === agent.id}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       void (async () => {
                                         setSyncingAgentId(agent.id);
                                         const r = await postAgentSyncFromProduction(
-                                          agent.id,
+                                          agent.id
                                         );
                                         setSyncingAgentId(null);
                                         if (r.ok) {
                                           toast.success(
-                                            "Sincronizado desde producción al entorno comercial",
+                                            "Sincronizado desde producción al entorno comercial"
                                           );
                                           void fetchAgents();
                                         } else {
@@ -1051,13 +1091,11 @@ export function OperationsDashboard(props: {
                                     {syncingAgentId === agent.id ? (
                                       <Loader2Icon
                                         className="size-4 animate-spin"
-                                        aria-hidden
-                                      />
+                                        aria-hidden />
                                     ) : (
                                       <CloudDownloadIcon
                                         className="size-4"
-                                        aria-hidden
-                                      />
+                                        aria-hidden />
                                     )}
                                   </Button>
                                 </TooltipTrigger>
@@ -1110,12 +1148,12 @@ export function OperationsDashboard(props: {
                                 setBillingDefaultAmount(
                                   agent.billing.defaultPaymentAmount
                                     ? String(agent.billing.defaultPaymentAmount)
-                                    : "",
+                                    : ""
                                 );
                                 setBillingDueDate(
                                   agent.billing.paymentDueDate
                                     ? agent.billing.paymentDueDate.slice(0, 10)
-                                    : "",
+                                    : ""
                                 );
                               }}
                             >
@@ -1202,10 +1240,10 @@ export function OperationsDashboard(props: {
                                       setPaymentAmount(
                                         agent.billing.defaultPaymentAmount
                                           ? String(agent.billing.defaultPaymentAmount)
-                                          : "",
+                                          : ""
                                       );
                                       const now = new Date();
-                                      const months = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+                                      const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
                                       setPaymentPeriod(`${months[now.getMonth()]} ${now.getFullYear()}`);
                                       setPaymentMethod("transferencia");
                                       setPaymentReference("");
@@ -1267,66 +1305,59 @@ export function OperationsDashboard(props: {
                           </td>
                         </tr>
                       )}
-                      </Fragment>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {filteredAgents.length === 0 ? (
-                <p className="py-8 text-center text-muted-foreground">
-                  {agents.length === 0
-                    ? serverSearchActive
-                      ? "No hay agentes que coincidan con la búsqueda."
-                      : "No hay agentes."
-                    : "Ningún agente coincide con los filtros."}
-                </p>
-              ) : null}
-              {hasMore && !isLoading ? (
-                <div className="mt-4 flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={isLoadingMore || isSearchDebouncing}
-                    onClick={() => void loadMore()}
-                  >
-                    {isLoadingMore ? (
-                      <Loader2Icon className="mr-2 size-4 animate-spin" />
-                    ) : null}
-                    Cargar más
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={
-                      isLoadingAll || isSearchDebouncing || Boolean(debouncedSearch.trim())
-                    }
-                    onClick={() => void loadAll()}
-                    title={
-                      debouncedSearch.trim()
-                        ? "Con búsqueda activa usa «Cargar más» para ver más resultados."
-                        : undefined
-                    }
-                  >
-                    {isLoadingAll ? (
-                      <Loader2Icon className="mr-2 size-4 animate-spin" />
-                    ) : null}
-                    Cargar todos
-                  </Button>
-                </div>
-              ) : null}
-            </>
-          )}
+                    </Fragment>
+                  )))}
+              </tbody>
+            </table>
+          </div>
+          {filteredAgents.length === 0 ? (
+            <p className="py-8 text-center text-muted-foreground">
+              {agents.length === 0
+                ? serverSearchActive
+                  ? "No hay agentes que coincidan con la búsqueda."
+                  : "No hay agentes."
+                : "Ningún agente coincide con los filtros."}
+            </p>
+          ) : null}
+          {hasMore && !isLoading ? (
+            <div className="mt-4 flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isLoadingMore || isSearchDebouncing}
+                onClick={() => void loadMore()}
+              >
+                {isLoadingMore ? (
+                  <Loader2Icon className="mr-2 size-4 animate-spin" />
+                ) : null}
+                Cargar más
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isLoadingAll || isSearchDebouncing || Boolean(debouncedSearch.trim())}
+                onClick={() => void loadAll()}
+                title={debouncedSearch.trim()
+                  ? "Con búsqueda activa usa «Cargar más» para ver más resultados."
+                  : undefined}
+              >
+                {isLoadingAll ? (
+                  <Loader2Icon className="mr-2 size-4 animate-spin" />
+                ) : null}
+                Cargar todos
+              </Button>
+            </div>
+          ) : null}
         </div>
       </div>
-
-      <Dialog
-        open={growerTarget != null}
-        onOpenChange={(open) => {
-          if (!open) setGrowerTarget(null);
-        }}
-      >
+    </div><Dialog
+      open={growerTarget != null}
+      onOpenChange={(open) => {
+        if (!open) setGrowerTarget(null);
+      }}
+    >
         <DialogContent showClose className="max-h-[min(90vh,32rem)]">
           <DialogHeader>
             <DialogTitle>Gestionar growers</DialogTitle>
@@ -1364,8 +1395,7 @@ export function OperationsDashboard(props: {
                           onCheckedChange={(v) => {
                             if (v === true) void onCheckAddGrower(u);
                             else void onUncheckRemoveGrower(u);
-                          }}
-                        />
+                          }} />
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-sm font-medium">
                             {u.name}
@@ -1382,8 +1412,7 @@ export function OperationsDashboard(props: {
                         {busy ? (
                           <Loader2Icon
                             className="size-4 shrink-0 animate-spin text-muted-foreground"
-                            aria-hidden
-                          />
+                            aria-hidden />
                         ) : null}
                       </label>
                     </li>
@@ -1402,9 +1431,7 @@ export function OperationsDashboard(props: {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
-
-      <Dialog
+      </Dialog><Dialog
         open={billingDialogAgent != null}
         onOpenChange={(open) => {
           if (!open) setBillingDialogAgent(null);
@@ -1425,8 +1452,7 @@ export function OperationsDashboard(props: {
               <Checkbox
                 id="billing-domiciliated"
                 checked={billingDomiciliated}
-                onCheckedChange={(v) => setBillingDomiciliated(v === true)}
-              />
+                onCheckedChange={(v) => setBillingDomiciliated(v === true)} />
               <label
                 htmlFor="billing-domiciliated"
                 className="text-sm cursor-pointer"
@@ -1440,8 +1466,7 @@ export function OperationsDashboard(props: {
                 type="number"
                 value={billingDefaultAmount}
                 onChange={(e) => setBillingDefaultAmount(e.target.value)}
-                placeholder="p. ej. 1500"
-              />
+                placeholder="p. ej. 1500" />
             </div>
             {!billingDomiciliated && (
               <div>
@@ -1449,8 +1474,7 @@ export function OperationsDashboard(props: {
                 <Input
                   type="date"
                   value={billingDueDate}
-                  onChange={(e) => setBillingDueDate(e.target.value)}
-                />
+                  onChange={(e) => setBillingDueDate(e.target.value)} />
               </div>
             )}
             {billingDialogAgent?.billing.lastPaymentDate && (
@@ -1500,9 +1524,7 @@ export function OperationsDashboard(props: {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
-
-      <Dialog
+      </Dialog><Dialog
         open={paymentDialogOpen}
         onOpenChange={(open) => {
           if (!open) setPaymentDialogOpen(false);
@@ -1525,16 +1547,14 @@ export function OperationsDashboard(props: {
                 type="number"
                 value={paymentAmount}
                 onChange={(e) => setPaymentAmount(e.target.value)}
-                placeholder="p. ej. 1500"
-              />
+                placeholder="p. ej. 1500" />
             </div>
             <div>
               <label className="text-sm font-medium">Período</label>
               <Input
                 value={paymentPeriod}
                 onChange={(e) => setPaymentPeriod(e.target.value)}
-                placeholder="p. ej. Abril 2026"
-              />
+                placeholder="p. ej. Abril 2026" />
             </div>
             <div>
               <label className="text-sm font-medium">Método de pago</label>
@@ -1555,16 +1575,14 @@ export function OperationsDashboard(props: {
               <Input
                 value={paymentReference}
                 onChange={(e) => setPaymentReference(e.target.value)}
-                placeholder="p. ej. REF-12345"
-              />
+                placeholder="p. ej. REF-12345" />
             </div>
             <div>
               <label className="text-sm font-medium">Notas (opcional)</label>
               <Input
                 value={paymentNotes}
                 onChange={(e) => setPaymentNotes(e.target.value)}
-                placeholder="Notas adicionales"
-              />
+                placeholder="Notas adicionales" />
             </div>
           </div>
           <DialogFooter>
@@ -1607,13 +1625,12 @@ export function OperationsDashboard(props: {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
-      <Dialog open={defaultModeDialogOpen} onOpenChange={setDefaultModeDialogOpen}>
+      </Dialog><Dialog open={defaultModeDialogOpen} onOpenChange={setDefaultModeDialogOpen}>
         <DialogContent showClose>
           <DialogHeader>
             <DialogTitle>Modo por defecto para crear agente</DialogTitle>
             <DialogDescription>
-              Elige el modo que se abrirá por defecto al hacer clic en "Crear nuevo agente".
+              Elige el modo que se abrirá por defecto al hacer clic en &quot;Crear nuevo agente&quot;.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -1624,8 +1641,7 @@ export function OperationsDashboard(props: {
                 name="builder-mode"
                 checked={defaultBuilderMode === "form"}
                 onChange={() => setDefaultBuilderMode("form")}
-                className="h-4 w-4"
-              />
+                className="h-4 w-4" />
               <label htmlFor="mode-form" className="text-sm font-medium cursor-pointer">
                 Formulario
               </label>
@@ -1637,8 +1653,7 @@ export function OperationsDashboard(props: {
                 name="builder-mode"
                 checked={defaultBuilderMode === "conversational"}
                 onChange={() => setDefaultBuilderMode("conversational")}
-                className="h-4 w-4"
-              />
+                className="h-4 w-4" />
               <label htmlFor="mode-conversational" className="text-sm font-medium cursor-pointer">
                 Conversacional
               </label>
@@ -1664,7 +1679,6 @@ export function OperationsDashboard(props: {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
-    </div>
+      </Dialog></>
   );
 }

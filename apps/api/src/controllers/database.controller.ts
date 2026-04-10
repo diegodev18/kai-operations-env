@@ -6,6 +6,16 @@ import admin from "firebase-admin";
 import { auth } from "@/lib/auth";
 import { getFirestore } from "@/lib/firestore";
 import logger, { formatError } from "@/lib/logger";
+import { isOperationsAdmin } from "@/utils/operations-access";
+import { resolveSessionUserRole } from "@/utils/sessionUser";
+
+async function requireAdmin(c: Context) {
+  const session = await auth.api.getSession({ headers: c.req.raw.headers });
+  if (!session?.user) return { error: c.json({ error: "No autorizado" }, 401) };
+  const role = await resolveSessionUserRole(session.user);
+  if (!isOperationsAdmin(role)) return { error: c.json({ error: "Solo admins" }, 403) };
+  return { sessionUser: session.user, role };
+}
 
 const PREVIEW_LIMIT = 10;
 const MAX_DOCUMENTS_PER_REQUEST = 100;
@@ -57,6 +67,9 @@ interface SubirBody {
 }
 
 export async function actualizarDocumento(c: Context) {
+  const adminCheck = await requireAdmin(c);
+  if ("error" in adminCheck) return adminCheck.error;
+
   const env = c.req.header("X-Environment") ?? "testing";
   if (env !== "testing" && env !== "production") {
     return c.json({ error: "Environment inválido" }, 400);
@@ -129,6 +142,9 @@ export async function actualizarDocumento(c: Context) {
 }
 
 export async function clonarRecursivo(c: Context) {
+  const adminCheck = await requireAdmin(c);
+  if ("error" in adminCheck) return adminCheck.error;
+
   let body: DuplicarBody;
   try {
     body = await c.req.json<DuplicarBody>();
@@ -186,6 +202,9 @@ export async function clonarRecursivo(c: Context) {
 }
 
 export async function duplicarColeccion(c: Context) {
+  const adminCheck = await requireAdmin(c);
+  if ("error" in adminCheck) return adminCheck.error;
+
   let body: DuplicarBody;
   try {
     body = await c.req.json<DuplicarBody>();
@@ -291,6 +310,9 @@ export async function duplicarColeccion(c: Context) {
 }
 
 export async function duplicarDocumento(c: Context) {
+  const adminCheck = await requireAdmin(c);
+  if ("error" in adminCheck) return adminCheck.error;
+
   let body: DuplicarBody;
   try {
     body = await c.req.json<DuplicarBody>();
@@ -372,6 +394,9 @@ export async function duplicarDocumento(c: Context) {
 }
 
 export async function getDocument(c: Context) {
+  const adminCheck = await requireAdmin(c);
+  if ("error" in adminCheck) return adminCheck.error;
+
   const env = c.req.header("X-Environment") ?? "testing";
   if (env !== "testing" && env !== "production") {
     return c.json({ error: "Environment inválido" }, 400);
@@ -415,10 +440,8 @@ interface GetDocumentosItem {
 }
 
 export async function getDocumentos(c: Context) {
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  if (!session?.user) {
-    return c.json({ error: "Unauthorized" }, 401);
-  }
+  const adminCheck = await requireAdmin(c);
+  if ("error" in adminCheck) return adminCheck.error;
 
   let body: GetDocumentosBody;
   try {
@@ -470,8 +493,9 @@ export async function getDocumentos(c: Context) {
       const documento = serializeFirestoreValue(data ?? {}) as Record<string, unknown>;
       resultados.push({ documento, environment: env, rutaDocumento: ruta });
     } catch (error) {
-      logger.error("Error leyendo documento en getDocumentos", { environment: env, error: formatError(error), rutaDocumento });
-      resultados.push({ environment: env, error: error instanceof Error ? error.message : "Error al leer el documento", rutaDocumento: ruta });
+      const errRuta = ruta;
+      logger.error("Error leyendo documento en getDocumentos", { environment: env, error: formatError(error), rutaDocumento: errRuta });
+      resultados.push({ environment: env, error: error instanceof Error ? error.message : "Error al leer el documento", rutaDocumento: errRuta });
     }
   }
 
@@ -479,6 +503,9 @@ export async function getDocumentos(c: Context) {
 }
 
 export async function listSubcollections(c: Context) {
+  const adminCheck = await requireAdmin(c);
+  if ("error" in adminCheck) return adminCheck.error;
+
   const env = c.req.header("X-Environment") ?? "testing";
   if (env !== "testing" && env !== "production") {
     return c.json({ error: "Environment inválido" }, 400);
@@ -506,6 +533,9 @@ export async function listSubcollections(c: Context) {
 }
 
 export async function previewCollection(c: Context) {
+  const adminCheck = await requireAdmin(c);
+  if ("error" in adminCheck) return adminCheck.error;
+
   const env = c.req.header("X-Environment") ?? "testing";
   if (env !== "testing" && env !== "production") {
     return c.json({ error: "Environment inválido" }, 400);
@@ -534,6 +564,9 @@ export async function previewCollection(c: Context) {
 }
 
 export async function subirDocumentos(c: Context) {
+  const adminCheck = await requireAdmin(c);
+  if ("error" in adminCheck) return adminCheck.error;
+
   const env = c.req.header("X-Environment") ?? "testing";
   if (env !== "testing" && env !== "production") {
     return c.json({ error: "Environment inválido" }, 400);

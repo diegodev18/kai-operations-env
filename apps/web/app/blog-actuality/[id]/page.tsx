@@ -3,7 +3,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeftIcon, Loader2Icon, UserIcon, TagIcon, EditIcon, TrashIcon, EyeOffIcon, EyeIcon } from "lucide-react";
+import {
+  ArrowLeftIcon,
+  Loader2Icon,
+  UserIcon,
+  TagIcon,
+  EditIcon,
+  TrashIcon,
+  EyeOffIcon,
+  EyeIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -29,7 +38,7 @@ function formatDate(timestamp: number): string {
   });
 }
 
-export default function BlogPostPage() {
+export default function ActualityPostPage() {
   const params = useParams();
   const router = useRouter();
   const { session } = useAuth();
@@ -50,8 +59,13 @@ export default function BlogPostPage() {
     try {
       const data = await fetchBlogPost(id);
       if (!data) {
-        toast.error("Post no encontrado");
-        router.push("/blog");
+        toast.error("Entrada no encontrada");
+        router.push("/blog-actuality");
+        return;
+      }
+      if (data.type !== "actuality") {
+        toast.error("Entrada no encontrada");
+        router.push("/blog-actuality");
         return;
       }
       setPost(data);
@@ -65,14 +79,14 @@ export default function BlogPostPage() {
   }, [loadPost]);
 
   const handleDelete = useCallback(async () => {
-    if (!confirm("¿Estás seguro de que quieres eliminar este post?")) return;
+    if (!confirm("¿Estás seguro de que quieres eliminar esta entrada?")) return;
 
     setDeleting(true);
     try {
       const result = await deleteBlogPost(id);
       if (result.ok) {
-        toast.success("Post eliminado");
-        router.push("/blog");
+        toast.success("Entrada eliminada");
+        router.push("/blog-actuality");
       } else {
         toast.error(result.error ?? "Error al eliminar");
       }
@@ -88,7 +102,7 @@ export default function BlogPostPage() {
       const result = await hideBlogPost(id, !post.isHidden);
       if (result.ok) {
         setPost((prev) => prev ? { ...prev, isHidden: !prev.isHidden } : null);
-        toast.success(post.isHidden ? "Post visibles" : "Post oculto");
+        toast.success(post.isHidden ? "Entrada visible" : "Entrada oculta");
       } else {
         toast.error(result.error ?? "Error al cambiar visibilidad");
       }
@@ -108,7 +122,7 @@ export default function BlogPostPage() {
   if (!post) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <p className="text-muted-foreground">Post no encontrado</p>
+        <p className="text-muted-foreground">Entrada no encontrada</p>
       </div>
     );
   }
@@ -118,11 +132,11 @@ export default function BlogPostPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
-            <Link href="/blog">
+            <Link href="/blog-actuality">
               <ArrowLeftIcon className="h-4 w-4" />
             </Link>
           </Button>
-          <h1 className="text-2xl font-bold tracking-tight">Lecciones aprendidas</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Actualidad kAI</h1>
         </div>
         {canEdit && (
           <div className="flex gap-2">
@@ -144,7 +158,7 @@ export default function BlogPostPage() {
               </Button>
             )}
             <Button variant="outline" size="sm" asChild>
-              <Link href={`/blog/${id}/edit`}>
+              <Link href={`/blog-actuality/${id}/edit`}>
                 <EditIcon className="mr-2 h-4 w-4" />
                 Editar
               </Link>

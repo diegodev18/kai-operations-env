@@ -174,8 +174,9 @@ async function buildLightAgentWithDeployment(
   };
 }
 
-/** Retorna IDs únicos y mapas de datos (comercial, producción) para evitar re-fetches. */
-async function mergedAgentIdsAndData(): Promise<{
+/** Retorna IDs únicos y mapas de datos (comercial, producción) para evitar re-fetches.
+ * Si preview=true, no carga growers/techLeads para respuestas más rápidas. */
+async function mergedAgentIdsAndData(preview = false): Promise<{
   sortedIds: string[];
   commercialMap: Map<string, Record<string, unknown>>;
   productionMap: Map<string, Record<string, unknown>>;
@@ -194,50 +195,58 @@ async function mergedAgentIdsAndData(): Promise<{
   const techLeadsMap = new Map<string, { name: string; email: string }[]>();
   const idSet = new Set<string>();
 
-  for (const d of prodSnap.docs) {
+  // Cargar testing data en paralelo (evitar N+1)
+  const testingSnapshots = await Promise.all(
+    prodSnap.docs.map((d) =>
+      db.collection("agent_configurations").doc(d.id).collection("testing").doc("data").get()
+    )
+  );
+
+  for (let i = 0; i < prodSnap.docs.length; i++) {
+    const d = prodSnap.docs[i];
     idSet.add(d.id);
     productionMap.set(d.id, d.data() as Record<string, unknown>);
-    const testingDocRef = db.collection("agent_configurations").doc(d.id).collection("testing").doc("data");
-    const testingSnap = await testingDocRef.get();
-    if (testingSnap.exists) {
-      commercialMap.set(d.id, { _hasTestingData: true });
+    if (testingSnapshots[i].exists) {
+      commercialMap.set(d.id, testingSnapshots[i].data() as Record<string, unknown>);
     }
   }
 
-  // Precargar growers y techLeads en lotes paralelos
-  const CHUNK_SIZE = 50;
-  const sortedIds = [...idSet];
-  for (let i = 0; i < sortedIds.length; i += CHUNK_SIZE) {
-    const chunk = sortedIds.slice(i, i + CHUNK_SIZE);
-    const fetchTasks = chunk.map(async (agentId) => {
-      const agentRef = db.collection("agent_configurations").doc(agentId);
-      const [growersSnap, techLeadsSnap] = await Promise.all([
-        agentRef.collection("growers").get(),
-        agentRef.collection("techLeads").get(),
-      ]);
-      const growers = growersSnap.docs.map((d) => {
-        const data = d.data() as Record<string, unknown>;
-        const email = typeof data.email === "string" ? data.email.trim().toLowerCase() : (d.id.includes("@") ? d.id.trim().toLowerCase() : "");
-        const name = typeof data.name === "string" ? data.name.trim() : "";
-        return { email, name: name || email };
+  // Precargar growers y techLeads en lotes paralelos (solo si no es preview)
+  if (!preview) {
+    const CHUNK_SIZE = 25;
+    const sortedIds = [...idSet];
+    for (let i = 0; i < sortedIds.length; i += CHUNK_SIZE) {
+      const chunk = sortedIds.slice(i, i + CHUNK_SIZE);
+      const fetchTasks = chunk.map(async (agentId) => {
+        const agentRef = db.collection("agent_configurations").doc(agentId);
+        const [growersSnap, techLeadsSnap] = await Promise.all([
+          agentRef.collection("growers").get(),
+          agentRef.collection("techLeads").get(),
+        ]);
+        const growers = growersSnap.docs.map((d) => {
+          const data = d.data() as Record<string, unknown>;
+          const email = typeof data.email === "string" ? data.email.trim().toLowerCase() : (d.id.includes("@") ? d.id.trim().toLowerCase() : "");
+          const name = typeof data.name === "string" ? data.name.trim() : "";
+          return { email, name: name || email };
+        });
+        const techLeads = techLeadsSnap.docs.map((d) => {
+          const data = d.data() as Record<string, unknown>;
+          const email = typeof data.email === "string" ? data.email.trim().toLowerCase() : (d.id.includes("@") ? d.id.trim().toLowerCase() : "");
+          const name = typeof data.name === "string" ? data.name.trim() : "";
+          return { email, name: name || email };
+        });
+        return { agentId, growers, techLeads };
       });
-      const techLeads = techLeadsSnap.docs.map((d) => {
-        const data = d.data() as Record<string, unknown>;
-        const email = typeof data.email === "string" ? data.email.trim().toLowerCase() : (d.id.includes("@") ? d.id.trim().toLowerCase() : "");
-        const name = typeof data.name === "string" ? data.name.trim() : "";
-        return { email, name: name || email };
-      });
-      return { agentId, growers, techLeads };
-    });
-    const results = await Promise.all(fetchTasks);
-    for (const r of results) {
-      if (r.growers.length > 0) growersMap.set(r.agentId, r.growers);
-      if (r.techLeads.length > 0) techLeadsMap.set(r.agentId, r.techLeads);
+      const results = await Promise.all(fetchTasks);
+      for (const r of results) {
+        if (r.growers.length > 0) growersMap.set(r.agentId, r.growers);
+        if (r.techLeads.length > 0) techLeadsMap.set(r.agentId, r.techLeads);
+      }
     }
   }
 
   return {
-    sortedIds: sortedIds.sort((a, b) => a.localeCompare(b)),
+    sortedIds: [...idSet].sort((a, b) => a.localeCompare(b)),
     commercialMap,
     productionMap,
     growersMap,
@@ -274,7 +283,7 @@ async function paginateLightAgentsWithSearch(
   const agents: LightAgent[] = [];
 
   // Procesamos en lotes para paralelizar el acceso a subcolecciones de growers / tech leads
-  const CHUNK_SIZE = 50;
+  const CHUNK_SIZE = 25;
   for (let i = startIdx; i < sortedIds.length; i += CHUNK_SIZE) {
     const chunk = sortedIds.slice(i, i + CHUNK_SIZE);
 
@@ -369,6 +378,7 @@ export const getAgentsInfo = async (
   const statusFilter = c.req.query("status");
   const billingAlertFilter = c.req.query("billingAlert");
   const domiciliatedFilter = c.req.query("domiciliated");
+  const preview = c.req.query("preview") === "1";
 
   if (!light && !isPrivileged) {
     return c.json(
@@ -454,7 +464,7 @@ export const getAgentsInfo = async (
     if (isPrivileged && light) {
       const effectiveLimit = pageLimit ?? 15;
       const { sortedIds, commercialMap, productionMap, growersMap, techLeadsMap } =
-        await mergedAgentIdsAndData();
+        await mergedAgentIdsAndData(preview);
 
       if (searchQ) {
         if (cursor && isGrowerCursor(cursor)) {

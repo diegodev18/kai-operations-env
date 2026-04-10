@@ -18,6 +18,7 @@ export type FormSectionId =
   | "personality"
   | "advanced"
   | "flows"
+  | "pipelines"
   | "review";
 
 export interface FormSection {
@@ -95,6 +96,29 @@ export type ResponseLength = "short" | "medium" | "long";
 
 export type ConversationStyle = "interrogative" | "informative";
 
+export type StageType = "OPPORTUNITIES" | "INTEREST" | "REQUIRES_ATTENTION" | "COMPLETED" | "CANCELLED";
+
+export interface Stage {
+  id: string;
+  name: string;
+  stageType: StageType | null;
+  order: number;
+  color: string;
+  icon: string;
+  description?: string;
+  isClosedWon: boolean;
+  isClosedLost: boolean;
+  isDefault: boolean;
+}
+
+export interface Pipeline {
+  id: string;
+  name: string;
+  description?: string;
+  isDefault: boolean;
+  stages: Stage[];
+}
+
 export interface FormBuilderState {
   business_name: string;
   owner_name: string;
@@ -120,11 +144,7 @@ export interface FormBuilderState {
   topicsToAvoid: string[];
   conversationStyle: ConversationStyle;
   brandValues: string[];
-  featuredProducts: string[];
   policies: string;
-  faq: string;
-  operatingHours: string;
-  activePromotions: string;
   selected_tools: string[];
   whatsapp_enabled: boolean;
   email_enabled: boolean;
@@ -133,6 +153,7 @@ export interface FormBuilderState {
   require_auth: boolean;
   flow_questions: AgentFlowQuestion[];
   flow_answers: Record<string, string>;
+  pipelines: Pipeline[];
 }
 
 export const DEFAULT_FORM_STATE: FormBuilderState = {
@@ -160,11 +181,7 @@ export const DEFAULT_FORM_STATE: FormBuilderState = {
   topicsToAvoid: [],
   conversationStyle: "informative",
   brandValues: [],
-  featuredProducts: [],
   policies: "",
-  faq: "",
-  operatingHours: "",
-  activePromotions: "",
   selected_tools: [],
   whatsapp_enabled: true,
   email_enabled: false,
@@ -173,6 +190,76 @@ export const DEFAULT_FORM_STATE: FormBuilderState = {
   require_auth: false,
   flow_questions: [],
   flow_answers: {},
+  pipelines: [
+    {
+      id: "default",
+      name: "Pipeline de Ventas",
+      description: "Pipeline principal para gestionar leads de ventas",
+      isDefault: true,
+      stages: [
+        {
+          id: "default",
+          name: "OPORTUNIDADES",
+          stageType: "OPPORTUNITIES",
+          order: 1,
+          color: "#3B82F6",
+          icon: "📥",
+          description: "Lead recién llegado, primera interacción",
+          isClosedWon: false,
+          isClosedLost: false,
+          isDefault: true,
+        },
+        {
+          id: "",
+          name: "INTERÉS",
+          stageType: "INTEREST",
+          order: 2,
+          color: "#F59E0B",
+          icon: "🔥",
+          description: "Mostró intención clara de compra/servicio",
+          isClosedWon: false,
+          isClosedLost: false,
+          isDefault: false,
+        },
+        {
+          id: "",
+          name: "REQUIERE ATENCIÓN",
+          stageType: "REQUIRES_ATTENTION",
+          order: 3,
+          color: "#EF4444",
+          icon: "👤",
+          description: "Necesita intervención de un humano",
+          isClosedWon: false,
+          isClosedLost: false,
+          isDefault: false,
+        },
+        {
+          id: "",
+          name: "COMPLETADO",
+          stageType: "COMPLETED",
+          order: 4,
+          color: "#10B981",
+          icon: "✅",
+          description: "Cuando completa el flujo exitosamente",
+          isClosedWon: true,
+          isClosedLost: false,
+          isDefault: false,
+        },
+        {
+          id: "",
+          name: "CANCELADO",
+          stageType: "CANCELLED",
+          order: 5,
+          color: "#6B7280",
+          icon: "❌",
+          description: "Cuando se cancela o pierde el lead",
+          isClosedWon: false,
+          isClosedLost: true,
+          isDefault: false,
+        },
+      ],
+    },
+  ],
 };
 
 export const FORM_SECTIONS: FormSection[] = [
@@ -219,6 +306,13 @@ export const FORM_SECTIONS: FormSection[] = [
       "La IA elige herramientas según tu negocio y tus respuestas de Flujos; puedes regenerar",
     icon: "🔧",
     required: true,
+  },
+  {
+    id: "pipelines",
+    title: "Pipelines",
+    description: "Configura los estados y etapas de tu pipeline de ventas",
+    icon: "📊",
+    required: false,
   },
   {
     id: "review",
@@ -446,3 +540,26 @@ export const BUSINESS_HOURS_PRESETS = [
   "Solo horario laboral",
   "Personalizado",
 ];
+
+export const STAGE_TYPES: { value: StageType; label: string; description: string }[] = [
+  { value: "OPPORTUNITIES", label: "Oportunidades", description: "Lead recién llegado" },
+  { value: "INTEREST", label: "Interés", description: "Mostró intención clara" },
+  { value: "REQUIRES_ATTENTION", label: "Requiere Atención", description: "Necesita intervención humana" },
+  { value: "COMPLETED", label: "Completado", description: "Cerrado exitosamente" },
+  { value: "CANCELLED", label: "Cancelado", description: "Cancelado o perdido" },
+];
+
+export const STAGE_COLORS = [
+  "#3B82F6", // blue
+  "#F59E0B", // amber
+  "#EF4444", // red
+  "#10B981", // green
+  "#6B7280", // gray
+  "#8B5CF6", // purple
+  "#EC4899", // pink
+  "#06B6D4", // cyan
+  "#F97316", // orange
+  "#84CC16", // lime
+];
+
+export const STAGE_ICONS = ["📥", "🔥", "👤", "✅", "❌", "📅", "💰", "🤝", "💼", "🎯", "📞", "💬"];
