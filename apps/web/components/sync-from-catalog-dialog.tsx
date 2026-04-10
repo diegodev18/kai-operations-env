@@ -89,8 +89,11 @@ export function SyncFromCatalogDialog({
   const [syncing, setSyncing] = useState(false);
 
   const fields = useMemo<FieldSync[]>(() => {
-    const toolCrmConfig = tool.properties?.crmConfig;
-    const catalogCrmConfig = catalogTool.properties?.crmConfig;
+    const toolCrmConfig =
+      (tool.properties as Record<string, unknown>)?.crmConfig ??
+      (tool as unknown as Record<string, unknown>)?.crmConfig;
+    const catalogCrmConfig =
+      (catalogTool.properties as Record<string, unknown>)?.crmConfig;
     const toolParams = tool.parameters;
     const catalogParams = catalogTool.parameters;
 
@@ -240,10 +243,6 @@ export function SyncFromCatalogDialog({
           <div className="py-8 text-center text-sm text-muted-foreground">
             Esta tool no existe en el catálogo de herramientas.
           </div>
-        ) : !hasAnyChange ? (
-          <div className="py-8 text-center text-sm text-muted-foreground">
-            No hay diferencias entre la tool actual y el catálogo.
-          </div>
         ) : (
           <div className="space-y-3 py-2">
             <div className="flex items-center justify-between text-sm">
@@ -331,7 +330,7 @@ export function SyncFromCatalogDialog({
           </Button>
           <Button
             type="button"
-            disabled={syncing || selectedCount === 0 || !hasAnyChange || !catalogTool}
+            disabled={syncing || selectedCount === 0 || !catalogTool}
             onClick={() => void handleSync()}
           >
             {syncing ? (
