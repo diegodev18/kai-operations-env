@@ -1470,61 +1470,6 @@ function SectionPipelines({ state, onChange }: SectionPipelinesProps) {
     [pipelines, onChange],
   );
 
-  const addStage = useCallback(
-    (pipelineIndex: number) => {
-      const pipeline = pipelines[pipelineIndex];
-      const newOrder = pipeline.stages.length + 1;
-      const newStage: Stage = {
-        id: "",
-        name: `Nueva Etapa ${newOrder}`,
-        stageType: null,
-        order: newOrder,
-        color: STAGE_COLORS[pipeline.stages.length % STAGE_COLORS.length],
-        icon: STAGE_ICONS[pipeline.stages.length % STAGE_ICONS.length],
-        description: "",
-        isClosedWon: false,
-        isClosedLost: false,
-        isDefault: false,
-      };
-      const newPipelines = [...pipelines];
-      newPipelines[pipelineIndex] = {
-        ...pipeline,
-        stages: [...pipeline.stages, newStage],
-      };
-      onChange({ pipelines: newPipelines });
-    },
-    [pipelines, onChange],
-  );
-
-  const removeStage = useCallback(
-    (pipelineIndex: number, stageIndex: number) => {
-      const newPipelines = [...pipelines];
-      const stages = newPipelines[pipelineIndex].stages.filter((_, i) => i !== stageIndex);
-      stages.forEach((stage, i) => {
-        stages[i] = { ...stage, order: i + 1 };
-      });
-      newPipelines[pipelineIndex] = { ...newPipelines[pipelineIndex], stages };
-      onChange({ pipelines: newPipelines });
-    },
-    [pipelines, onChange],
-  );
-
-  const moveStage = useCallback(
-    (pipelineIndex: number, fromIndex: number, toIndex: number) => {
-      if (toIndex < 0 || toIndex >= pipelines[pipelineIndex].stages.length) return;
-      const newPipelines = [...pipelines];
-      const stages = [...newPipelines[pipelineIndex].stages];
-      const [moved] = stages.splice(fromIndex, 1);
-      stages.splice(toIndex, 0, moved);
-      stages.forEach((stage, i) => {
-        stages[i] = { ...stage, order: i + 1 };
-      });
-      newPipelines[pipelineIndex] = { ...newPipelines[pipelineIndex], stages };
-      onChange({ pipelines: newPipelines });
-    },
-    [pipelines, onChange],
-  );
-
   if (pipelines.length === 0) {
     return (
       <div className="space-y-4">
@@ -1591,14 +1536,6 @@ function SectionPipelines({ state, onChange }: SectionPipelinesProps) {
                   key={stage.id || stageIndex}
                   className="flex items-center gap-2 p-3 rounded-md border bg-card"
                 >
-                  <button
-                    type="button"
-                    className="cursor-grab text-muted-foreground hover:text-foreground"
-                    disabled={stageIndex === 0}
-                    onClick={() => moveStage(pipelineIndex, stageIndex, stageIndex - 1)}
-                  >
-                    <GripVerticalIcon className="size-4" />
-                  </button>
                   <span
                     className="flex items-center justify-center w-8 h-8 rounded text-lg"
                     style={{ backgroundColor: stage.color + "20" }}
@@ -1606,13 +1543,7 @@ function SectionPipelines({ state, onChange }: SectionPipelinesProps) {
                     {stage.icon}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <input
-                      type="text"
-                      value={stage.name}
-                      onChange={(e) => updateStage(pipelineIndex, stageIndex, { name: e.target.value })}
-                      className="font-medium text-sm bg-transparent border-none focus:outline-none w-full"
-                      placeholder="Nombre de la etapa"
-                    />
+                    <span className="font-medium text-sm">{stage.name}</span>
                     <div className="flex items-center gap-2 mt-1">
                       {stage.stageType && (
                         <span className="text-xs text-muted-foreground">
@@ -1621,38 +1552,13 @@ function SectionPipelines({ state, onChange }: SectionPipelinesProps) {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <div className="flex items-center gap-1">
-                      {STAGE_COLORS.slice(0, 5).map((color) => (
-                        <button
-                          key={color}
-                          type="button"
-                          onClick={() => updateStage(pipelineIndex, stageIndex, { color })}
-                          className={cn(
-                            "w-4 h-4 rounded-full border",
-                            stage.color === color ? "ring-2 ring-offset-1 ring-ring" : "border-transparent",
-                          )}
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  {!stage.isDefault && (
-                    <button
-                      type="button"
-                      onClick={() => removeStage(pipelineIndex, stageIndex)}
-                      className="text-muted-foreground hover:text-destructive"
-                    >
-                      <TrashIcon className="size-4" />
-                    </button>
-                  )}
+                  <div
+                    className="w-4 h-4 rounded-full border"
+                    style={{ backgroundColor: stage.color }}
+                  />
                 </div>
               ))}
             </div>
-            <Button type="button" variant="outline" size="sm" onClick={() => addStage(pipelineIndex)}>
-              <PlusIcon className="mr-1 size-4" />
-              Agregar etapa
-            </Button>
           </div>
         </div>
       ))}
