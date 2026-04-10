@@ -1780,6 +1780,7 @@ function TemplatesSection({
 export function AgentFormBuilder() {
   const { session } = useAuth();
   const userName = session?.user?.name ?? session?.user?.email ?? "";
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
   const [state, setState] = useState<FormBuilderState>(() => ({
     ...DEFAULT_FORM_STATE,
@@ -1868,6 +1869,18 @@ export function AgentFormBuilder() {
       setIsLoadingCatalog(false);
     })();
   }, []);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   useEffect(() => {
     if (currentSection !== "flows") return;
@@ -2044,6 +2057,7 @@ export function AgentFormBuilder() {
 
   const handleChange = useCallback((updates: Partial<FormBuilderState>) => {
     setState((prev) => ({ ...prev, ...updates }));
+    setHasUnsavedChanges(true);
   }, []);
 
   const handleDynamicAnswerChange = useCallback((field: string, value: string) => {
@@ -2379,7 +2393,7 @@ export function AgentFormBuilder() {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={() => window.location.href = "/"}>
+              <AlertDialogAction onClick={() => { setHasUnsavedChanges(false); window.location.href = "/"; }}>
                 Salir
               </AlertDialogAction>
             </AlertDialogFooter>
