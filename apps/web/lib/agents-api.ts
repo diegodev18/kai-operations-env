@@ -41,7 +41,7 @@ export type DraftPropertyItem = {
 };
 
 /** Tama?o de cada p?gina al listar agentes (carga perezosa: primero solo esta cantidad). */
-export const AGENTS_PAGE_SIZE = 15;
+export const AGENTS_PAGE_SIZE = 10;
 
 function agentsInfoUrl(
   light: boolean,
