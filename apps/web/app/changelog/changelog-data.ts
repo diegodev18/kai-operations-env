@@ -11,6 +11,17 @@ export interface ChangelogEntry {
 }
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.0.7": {
+    date: "2026-04-10",
+    description: "Restricción de acceso a servicios de base de datos",
+    changes: {
+      added: [
+        "Verificación de rol admin en todos los endpoints de servicios de base de datos",
+        "Hook useUserRole para obtener el rol del usuario en el frontend",
+        "Menú de Database ahora solo visible para usuarios con rol admin",
+      ],
+    },
+  },
   "2.0.6": {
     date: "2026-04-08",
     description: "Mejoras en configuración de agentes y favoritos",
