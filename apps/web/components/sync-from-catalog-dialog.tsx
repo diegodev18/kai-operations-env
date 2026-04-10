@@ -89,10 +89,13 @@ export function SyncFromCatalogDialog({
   const [syncing, setSyncing] = useState(false);
 
   const fields = useMemo<FieldSync[]>(() => {
+    const toolCrmConfig = tool.properties?.crmConfig;
+    const catalogCrmConfig = catalogTool.properties?.crmConfig;
     const toolParams = tool.parameters;
     const catalogParams = catalogTool.parameters;
 
     const hasParamsChanged = !valuesAreEqual(toolParams, catalogParams);
+    const hasCrmConfigChanged = !valuesAreEqual(toolCrmConfig, catalogCrmConfig);
 
     return [
       {
@@ -115,6 +118,13 @@ export function SyncFromCatalogDialog({
         currentValue: tool.path ?? null,
         catalogValue: catalogTool.path,
         selected: true,
+      },
+      {
+        key: "crmConfig",
+        label: "Configuración CRM",
+        currentValue: toolCrmConfig,
+        catalogValue: catalogCrmConfig,
+        selected: hasCrmConfigChanged,
       },
       {
         key: "parameters",
@@ -167,10 +177,13 @@ export function SyncFromCatalogDialog({
     setSyncing(true);
     try {
       const updateBody: Record<string, unknown> = {};
+      let newCrmConfig: unknown = undefined;
 
       for (const field of fieldStates) {
         if (!field.selected) continue;
-        if (field.key === "parameters") {
+        if (field.key === "crmConfig") {
+          newCrmConfig = field.catalogValue;
+        } else if (field.key === "parameters") {
           updateBody.parameters = field.catalogValue;
         } else if (field.key === "displayName") {
           updateBody.displayName = field.catalogValue || null;
@@ -179,6 +192,13 @@ export function SyncFromCatalogDialog({
         } else if (field.key === "description") {
           updateBody.description = String(field.catalogValue ?? "");
         }
+      }
+
+      if (newCrmConfig !== undefined) {
+        updateBody.properties = {
+          ...tool.properties,
+          crmConfig: newCrmConfig,
+        };
       }
 
       const updated = await updateAgentTool(agentId, tool.id, updateBody);
