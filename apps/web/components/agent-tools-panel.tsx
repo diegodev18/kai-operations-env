@@ -907,17 +907,15 @@ function EditToolDialog({
           </div>
         </div>
         <DialogFooter className="shrink-0 justify-start">
-          {catalogTool && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSyncDialogOpen(true)}
-              disabled={saving}
-              title="Sincronizar desde catálogo"
-            >
-              <RefreshCwIcon className="w-4 h-4" />
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSyncDialogOpen(true)}
+            disabled={saving}
+            title="Sincronizar desde catálogo"
+          >
+            <RefreshCwIcon className="w-4 h-4" />
+          </Button>
           <div className="flex-1" />
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar

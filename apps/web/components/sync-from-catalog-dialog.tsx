@@ -94,8 +94,11 @@ export function SyncFromCatalogDialog({
     const toolParams = tool.parameters;
     const catalogParams = catalogTool.parameters;
 
-    const hasParamsChanged = !valuesAreEqual(toolParams, catalogParams);
+    const hasDisplayNameChanged = !valuesAreEqual(tool.displayName ?? null, catalogTool.displayName);
+    const hasDescriptionChanged = !valuesAreEqual(tool.description, catalogTool.description);
+    const hasPathChanged = !valuesAreEqual(tool.path ?? null, catalogTool.path);
     const hasCrmConfigChanged = !valuesAreEqual(toolCrmConfig, catalogCrmConfig);
+    const hasParamsChanged = !valuesAreEqual(toolParams, catalogParams);
 
     return [
       {
@@ -103,21 +106,21 @@ export function SyncFromCatalogDialog({
         label: "Nombre para mostrar",
         currentValue: tool.displayName ?? null,
         catalogValue: catalogTool.displayName,
-        selected: true,
+        selected: hasDisplayNameChanged,
       },
       {
         key: "description",
         label: "Descripción",
         currentValue: tool.description,
         catalogValue: catalogTool.description,
-        selected: true,
+        selected: hasDescriptionChanged,
       },
       {
         key: "path",
         label: "Ruta (path)",
         currentValue: tool.path ?? null,
         catalogValue: catalogTool.path,
-        selected: true,
+        selected: hasPathChanged,
       },
       {
         key: "crmConfig",
