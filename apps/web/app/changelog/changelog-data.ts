@@ -11,6 +11,21 @@ export interface ChangelogEntry {
 }
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.0.9": {
+    date: "2026-04-10",
+    description: "Nuevas secciones Lecciones aprendidas y Actualidad kAI",
+    changes: {
+      added: [
+        "Blog transformado a 'Lecciones aprendidas' con formulario estructurado",
+        "Campos del formulario: problema, cómo te diste cuenta, consecuencias, medidas, prevención",
+        "Nueva sección 'Actualidad kAI' con editor markdown y drag & drop de imágenes",
+        "Filtros por autor y etiqueta en ambas secciones",
+        "Etiquetas lecciones: Error, Bug, Agentes, Clientes, Comercial, Desarrollo, Interno",
+        "Etiquetas actualidad: Evento, Anuncio, Comentarios",
+        "Dialog para crear entradas (en lugar de página separada)",
+      ],
+    },
+  },
   "2.0.8": {
     date: "2026-04-10",
     description: "Soporte para configuración de pipelines en el constructor de agentes",

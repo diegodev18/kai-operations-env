@@ -37,21 +37,8 @@ export function agentMatchesRootSearchQuery(
   qLower: string,
   data: Record<string, unknown>,
 ): boolean {
-  if (agentId.toLowerCase().includes(qLower)) {
-    return true;
-  }
-
-  const businessName =
-    typeof data.business_name === "string" ? data.business_name : "";
-  const agentName = typeof data.agent_name === "string" ? data.agent_name : "";
-  const ownerName = typeof data.owner_name === "string" ? data.owner_name : "";
-
-  const industry = industryFromRootData(data);
-  const blob = [businessName, agentName, ownerName, industry]
-    .join(" ")
-    .toLowerCase();
-
-  return blob.includes(qLower);
+  const businessName = (data.business_name as string || "").toLowerCase();
+  return businessName.includes(qLower);
 }
 
 function industryFromRootData(data: Record<string, unknown>): string {
