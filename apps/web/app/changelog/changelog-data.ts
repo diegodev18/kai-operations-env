@@ -11,6 +11,21 @@ export interface ChangelogEntry {
 }
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.0.10": {
+    date: "2026-04-10",
+    description: "Mejoras en carga de agentes y búsqueda",
+    changes: {
+      improved: [
+        "Carga progresiva de agentes con skeleton loader de 5 items",
+        "Preview mode en backend para respuestas más rápidas",
+        "Paralelización de queries de testing en Firestore",
+        "CHUNK_SIZE reducido de 50 a 25",
+      ],
+      fixed: [
+        "Búsqueda ahora busca solo en business_name",
+      ],
+    },
+  },
   "2.0.9": {
     date: "2026-04-10",
     description: "Nuevas secciones Lecciones aprendidas y Actualidad kAI",
