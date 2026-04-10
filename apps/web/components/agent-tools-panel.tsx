@@ -32,6 +32,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ParameterSchemaEditor } from "@/components/parameter-schema-editor";
 import { ToolsCatalogSearchList } from "@/components/tools-catalog-search-list";
 import { PromoteDiffDialog } from "@/components/promote-diff-dialog";
+import { SyncFromCatalogDialog } from "@/components/sync-from-catalog-dialog";
 import {
   fetchAgentById,
   postAgentSyncFromProduction,
@@ -44,6 +45,7 @@ import {
   PencilIcon,
   CloudDownloadIcon,
   RocketIcon,
+  RefreshCwIcon,
 } from "lucide-react";
 
 const TOOL_TYPES: { value: AgentToolType; label: string }[] = [
@@ -694,6 +696,7 @@ function EditToolDialog({
   const [agentPropertiesValues, setAgentPropertiesValues] = useState<Record<string, JsonRecord>>({});
   const [loadingAgentProperties, setLoadingAgentProperties] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
 
   const catalogTool = useMemo(
     () =>
@@ -903,7 +906,19 @@ function EditToolDialog({
             ) : null}
           </div>
         </div>
-        <DialogFooter className="shrink-0">
+        <DialogFooter className="shrink-0 justify-start">
+          {catalogTool && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSyncDialogOpen(true)}
+              disabled={saving}
+              title="Sincronizar desde catálogo"
+            >
+              <RefreshCwIcon className="w-4 h-4" />
+            </Button>
+          )}
+          <div className="flex-1" />
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
@@ -914,6 +929,17 @@ function EditToolDialog({
             Guardar
           </Button>
         </DialogFooter>
+
+        {catalogTool && (
+          <SyncFromCatalogDialog
+            open={syncDialogOpen}
+            onOpenChange={setSyncDialogOpen}
+            agentId={agentId}
+            tool={tool}
+            catalogTool={catalogTool}
+            onSuccess={onSuccess}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
