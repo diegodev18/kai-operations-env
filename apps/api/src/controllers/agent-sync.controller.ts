@@ -217,14 +217,24 @@ export async function getTestingDiff(
       productionValue: unknown;
     }> = [];
 
-    const normalize = (v: any) => {
+    const normalize = (v: any): any => {
       if (v === undefined) return null;
       try {
-        // Para evitar problemas de prototipos y referencias de Firestore SDK
-        return JSON.parse(JSON.stringify(v));
+        const normalized = JSON.parse(JSON.stringify(v));
+        return sortKeysRecursively(normalized);
       } catch {
         return v;
       }
+    };
+
+    const sortKeysRecursively = (obj: any): any => {
+      if (obj === null || typeof obj !== "object") return obj;
+      if (Array.isArray(obj)) return obj.map(sortKeysRecursively);
+      const sorted: Record<string, any> = {};
+      Object.keys(obj).sort().forEach((key) => {
+        sorted[key] = sortKeysRecursively(obj[key]);
+      });
+      return sorted;
     };
 
     // Properties Diff

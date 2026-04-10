@@ -138,10 +138,42 @@ function FieldLabel({
 }
 
 function payloadsEqual(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
-  return JSON.stringify(a) === JSON.stringify(b);
+  return valueEquals(deepSortKeys(a), deepSortKeys(b));
+}
+
+function deepSortKeys(obj: unknown): unknown {
+  if (obj === null || typeof obj !== "object") return obj;
+  if (Array.isArray(obj)) return obj.map(deepSortKeys);
+  const sorted: Record<string, unknown> = {};
+  Object.keys(obj as object).sort().forEach((key) => {
+    sorted[key] = deepSortKeys((obj as Record<string, unknown>)[key]);
+  });
+  return sorted;
 }
 
 function valueEquals(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a === null || b === null) return a === b;
+  if (typeof a !== typeof b) return false;
+
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false;
+    return a.every((item, i) => valueEquals(item, b[i]));
+  }
+
+  if (typeof a === "object" && typeof b === "object") {
+    if (a === null || b === null) return a === b;
+    const keysA = Object.keys(a as object);
+    const keysB = Object.keys(b as object);
+    if (keysA.length !== keysB.length) return false;
+    return keysA.every((key) =>
+      valueEquals(
+        (a as Record<string, unknown>)[key],
+        (b as Record<string, unknown>)[key],
+      ),
+    );
+  }
+
   return JSON.stringify(a) === JSON.stringify(b);
 }
 

@@ -11,6 +11,15 @@ export interface ChangelogEntry {
 }
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.0.13": {
+    date: "2026-04-10",
+    description: "Fix: orden de keys en comparación de propiedades",
+    changes: {
+      fixed: [
+        "Comparación de propiedades ahora ignora orden de keys (evita falsos positivos en cambios pendientes)",
+      ],
+    },
+  },
   "2.0.12": {
     date: "2026-04-10",
     description: "Collapse de tareas obligatorias en panel de implementación",
