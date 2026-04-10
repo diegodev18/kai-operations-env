@@ -13,6 +13,10 @@ import {
   SettingsIcon,
   RocketIcon,
   ListChecks,
+  GripVerticalIcon,
+  PlusIcon,
+  TrashIcon,
+  PencilIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -35,6 +39,11 @@ import {
   type FormSectionId,
   type PersonalityTrait,
   type AgentFlowQuestion,
+  type Pipeline,
+  type Stage,
+  STAGE_COLORS,
+  STAGE_ICONS,
+  STAGE_TYPES,
   PERSONALITY_PRESETS,
 } from "@/lib/form-builder-constants";
 import { cn } from "@/lib/utils";
@@ -47,6 +56,7 @@ const ICONS: Record<string, React.ReactNode> = {
   personality: <UserIcon className="size-5" />,
   advanced: <SettingsIcon className="size-5" />,
   flows: <ListChecks className="size-5" />,
+  pipelines: <ListChecks className="size-5" />,
   review: <CheckIcon className="size-5" />,
 };
 
@@ -512,55 +522,12 @@ function SectionBusiness({ state, onChange, userName }: SectionProps) {
       </div>
 
       <div>
-        <label className="text-sm font-medium">Productos destacados</label>
-        <StringListInput
-          value={state.featuredProducts}
-          onChange={(v) => onChange({ featuredProducts: v })}
-          placeholder="Ej: servicio premium"
-          maxItems={5}
-        />
-      </div>
-
-      <div>
         <label className="text-sm font-medium">Políticas internas</label>
         <textarea
           value={state.policies}
           onChange={(e) => onChange({ policies: e.target.value })}
           placeholder="Ej: Política de devoluciones: 30 días. Garantía: 1 año."
           rows={3}
-          className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-        />
-      </div>
-
-      <div>
-        <label className="text-sm font-medium">Preguntas frecuentes</label>
-        <textarea
-          value={state.faq}
-          onChange={(e) => onChange({ faq: e.target.value })}
-          placeholder="Ej: ¿Tienen envío gratis? - Sí, en pedidos mayores a $500"
-          rows={3}
-          className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-        />
-      </div>
-
-      <div>
-        <label className="text-sm font-medium">Horario de operación</label>
-        <input
-          type="text"
-          value={state.operatingHours}
-          onChange={(e) => onChange({ operatingHours: e.target.value })}
-          placeholder="Ej: Lun-Vie: 9am-6pm, Sáb: 10am-2pm"
-          className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-        />
-      </div>
-
-      <div>
-        <label className="text-sm font-medium">Promociones actuales</label>
-        <textarea
-          value={state.activePromotions}
-          onChange={(e) => onChange({ activePromotions: e.target.value })}
-          placeholder="Ej: 20% de descuento en tu primera compra"
-          rows={2}
           className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
         />
       </div>
@@ -1478,6 +1445,232 @@ function SectionAdvanced({ state, onChange }: SectionProps) {
   );
 }
 
+type SectionPipelinesProps = SectionProps;
+
+function SectionPipelines({ state, onChange }: SectionPipelinesProps) {
+  const pipelines = state.pipelines || [];
+
+  const updatePipeline = useCallback(
+    (pipelineIndex: number, updates: Partial<Pipeline>) => {
+      const newPipelines = [...pipelines];
+      newPipelines[pipelineIndex] = { ...newPipelines[pipelineIndex], ...updates };
+      onChange({ pipelines: newPipelines });
+    },
+    [pipelines, onChange],
+  );
+
+  const updateStage = useCallback(
+    (pipelineIndex: number, stageIndex: number, updates: Partial<Stage>) => {
+      const newPipelines = [...pipelines];
+      const stages = [...newPipelines[pipelineIndex].stages];
+      stages[stageIndex] = { ...stages[stageIndex], ...updates };
+      newPipelines[pipelineIndex] = { ...newPipelines[pipelineIndex], stages };
+      onChange({ pipelines: newPipelines });
+    },
+    [pipelines, onChange],
+  );
+
+  const addStage = useCallback(
+    (pipelineIndex: number) => {
+      const pipeline = pipelines[pipelineIndex];
+      const newOrder = pipeline.stages.length + 1;
+      const newStage: Stage = {
+        id: "",
+        name: `Nueva Etapa ${newOrder}`,
+        stageType: null,
+        order: newOrder,
+        color: STAGE_COLORS[pipeline.stages.length % STAGE_COLORS.length],
+        icon: STAGE_ICONS[pipeline.stages.length % STAGE_ICONS.length],
+        description: "",
+        isClosedWon: false,
+        isClosedLost: false,
+        isDefault: false,
+      };
+      const newPipelines = [...pipelines];
+      newPipelines[pipelineIndex] = {
+        ...pipeline,
+        stages: [...pipeline.stages, newStage],
+      };
+      onChange({ pipelines: newPipelines });
+    },
+    [pipelines, onChange],
+  );
+
+  const removeStage = useCallback(
+    (pipelineIndex: number, stageIndex: number) => {
+      const newPipelines = [...pipelines];
+      const stages = newPipelines[pipelineIndex].stages.filter((_, i) => i !== stageIndex);
+      stages.forEach((stage, i) => {
+        stages[i] = { ...stage, order: i + 1 };
+      });
+      newPipelines[pipelineIndex] = { ...newPipelines[pipelineIndex], stages };
+      onChange({ pipelines: newPipelines });
+    },
+    [pipelines, onChange],
+  );
+
+  const moveStage = useCallback(
+    (pipelineIndex: number, fromIndex: number, toIndex: number) => {
+      if (toIndex < 0 || toIndex >= pipelines[pipelineIndex].stages.length) return;
+      const newPipelines = [...pipelines];
+      const stages = [...newPipelines[pipelineIndex].stages];
+      const [moved] = stages.splice(fromIndex, 1);
+      stages.splice(toIndex, 0, moved);
+      stages.forEach((stage, i) => {
+        stages[i] = { ...stage, order: i + 1 };
+      });
+      newPipelines[pipelineIndex] = { ...newPipelines[pipelineIndex], stages };
+      onChange({ pipelines: newPipelines });
+    },
+    [pipelines, onChange],
+  );
+
+  if (pipelines.length === 0) {
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          No hay pipelines configurados. Se usará el pipeline predeterminado al crear el agente.
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            onChange({
+              pipelines: [
+                {
+                  id: "default",
+                  name: "Pipeline de Ventas",
+                  description: "Pipeline principal",
+                  isDefault: true,
+                  stages: [],
+                },
+              ],
+            });
+          }}
+        >
+          <PlusIcon className="mr-2 size-4" />
+          Crear Pipeline
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {pipelines.map((pipeline, pipelineIndex) => (
+        <div key={pipeline.id || pipelineIndex} className="rounded-lg border p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex-1 space-y-2">
+              <input
+                type="text"
+                value={pipeline.name}
+                onChange={(e) => updatePipeline(pipelineIndex, { name: e.target.value })}
+                placeholder="Nombre del pipeline"
+                className="font-medium text-lg bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-ring rounded px-2 py-1 -ml-2 w-full"
+              />
+              <input
+                type="text"
+                value={pipeline.description || ""}
+                onChange={(e) => updatePipeline(pipelineIndex, { description: e.target.value })}
+                placeholder="Descripción opcional"
+                className="text-sm text-muted-foreground bg-transparent border-none focus:outline-none w-full"
+              />
+            </div>
+            <div className="flex items-center gap-2 ml-4">
+              {pipeline.isDefault && (
+                <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">Default</span>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-sm font-medium">Etapas (Stages)</p>
+            <div className="space-y-2">
+              {pipeline.stages.map((stage, stageIndex) => (
+                <div
+                  key={stage.id || stageIndex}
+                  className="flex items-center gap-2 p-3 rounded-md border bg-card"
+                >
+                  <button
+                    type="button"
+                    className="cursor-grab text-muted-foreground hover:text-foreground"
+                    disabled={stageIndex === 0}
+                    onClick={() => moveStage(pipelineIndex, stageIndex, stageIndex - 1)}
+                  >
+                    <GripVerticalIcon className="size-4" />
+                  </button>
+                  <span
+                    className="flex items-center justify-center w-8 h-8 rounded text-lg"
+                    style={{ backgroundColor: stage.color + "20" }}
+                  >
+                    {stage.icon}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <input
+                      type="text"
+                      value={stage.name}
+                      onChange={(e) => updateStage(pipelineIndex, stageIndex, { name: e.target.value })}
+                      className="font-medium text-sm bg-transparent border-none focus:outline-none w-full"
+                      placeholder="Nombre de la etapa"
+                    />
+                    <div className="flex items-center gap-2 mt-1">
+                      <select
+                        value={stage.stageType || ""}
+                        onChange={(e) =>
+                          updateStage(pipelineIndex, stageIndex, {
+                            stageType: e.target.value as Stage["stageType"] || null,
+                          })
+                        }
+                        className="text-xs bg-transparent border-none text-muted-foreground"
+                      >
+                        <option value="">Sin tipo</option>
+                        {STAGE_TYPES.map((st) => (
+                          <option key={st.value} value={st.value}>
+                            {st.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1">
+                      {STAGE_COLORS.slice(0, 5).map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          onClick={() => updateStage(pipelineIndex, stageIndex, { color })}
+                          className={cn(
+                            "w-4 h-4 rounded-full border",
+                            stage.color === color ? "ring-2 ring-offset-1 ring-ring" : "border-transparent",
+                          )}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  {!stage.isDefault && (
+                    <button
+                      type="button"
+                      onClick={() => removeStage(pipelineIndex, stageIndex)}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <TrashIcon className="size-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={() => addStage(pipelineIndex)}>
+              <PlusIcon className="mr-1 size-4" />
+              Agregar etapa
+            </Button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function SectionReview({ state, catalog, isSaving, onSubmit }: SectionProps & { onSubmit: () => void }) {
   const isComplete =
     !!state.business_name &&
@@ -1990,6 +2183,8 @@ export function AgentFormBuilder() {
           );
         case "tools":
           return state.selected_tools.length > 0;
+        case "pipelines":
+          return true; // Optional section
         case "review":
           return (
             !!state.business_name.trim() &&
@@ -2171,11 +2366,7 @@ export function AgentFormBuilder() {
         country: state.country.trim(),
         business_timezone: state.business_timezone.trim(),
         brand_values: state.brandValues,
-        featured_products: state.featuredProducts.slice(0, 5),
         policies: state.policies.trim(),
-        faq: state.faq.trim(),
-        operating_hours: state.operatingHours.trim(),
-        active_promotions: state.activePromotions.trim(),
       });
 
       await patchAgentDraft(draftId, {
@@ -2258,6 +2449,8 @@ export function AgentFormBuilder() {
             operationalSummary={operationalSummary}
           />
         );
+      case "pipelines":
+        return <SectionPipelines {...sectionProps} />;
       case "review":
         return <SectionReview {...sectionProps} onSubmit={handleSubmit} />;
       default:

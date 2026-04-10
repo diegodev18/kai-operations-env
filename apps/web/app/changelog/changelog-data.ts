@@ -11,6 +11,18 @@ export interface ChangelogEntry {
 }
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.0.8": {
+    date: "2026-04-10",
+    description: "Soporte para configuración de pipelines en el constructor de agentes",
+    changes: {
+      added: [
+        "Nueva sección 'Pipelines' en el constructor de agentes",
+        "Editor visual para configurar stages del pipeline de ventas",
+        "5 stages por defecto: Oportunidades, Interés, Requiere Atención, Completado, Cancelado",
+        "Personalización de nombre, color, tipo y orden de cada stage",
+      ],
+    },
+  },
   "2.0.7": {
     date: "2026-04-10",
     description: "Restricción de acceso a servicios de base de datos",
