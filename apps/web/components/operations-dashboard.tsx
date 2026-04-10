@@ -575,7 +575,7 @@ export function OperationsDashboard(props: {
               onClick={() => setMenuOpen(false)}
             >
               <BookOpenIcon className="size-4" />
-              Blog
+              Lecciones
             </Link>
             <div className="my-2 border-t" />
             {isAdmin && (

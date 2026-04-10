@@ -1,16 +1,53 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { SearchIcon, PlusIcon, Loader2Icon, TagIcon, UserIcon } from "lucide-react";
+import {
+  SearchIcon,
+  PlusIcon,
+  Loader2Icon,
+  TagIcon,
+  UserIcon,
+  FilterIcon,
+  XIcon,
+  AlertCircleIcon,
+  EyeIcon,
+  AlertTriangleIcon,
+  ShieldCheckIcon,
+  ClipboardCheckIcon,
+  SendIcon,
+} from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { toast } from "sonner";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { fetchBlogPosts, searchBlogPosts, type BlogPost } from "@/lib/blog-api";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  fetchBlogPosts,
+  searchBlogPosts,
+  createBlogPost,
+  type BlogPost,
+} from "@/lib/blog-api";
+import { BLOG_TAGS } from "@/lib/blog-tags";
 import { useAuth } from "@/hooks/auth";
 
 function formatDate(timestamp: number): string {
@@ -18,7 +55,120 @@ function formatDate(timestamp: number): string {
     year: "numeric",
     month: "short",
     day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
+}
+
+interface LessonFields {
+  problem: string;
+  howDiscovered: string;
+  consequences: string;
+  measuresTaken: string;
+  prevention: string;
+}
+
+function generateMarkdown(fields: LessonFields): string {
+  const parts: string[] = [];
+
+  if (fields.problem.trim()) {
+    parts.push(`## ¿Qué problema se presentó?\n${fields.problem.trim()}`);
+  }
+
+  if (fields.howDiscovered.trim()) {
+    parts.push(`## ¿Cómo te diste cuenta?\n${fields.howDiscovered.trim()}`);
+  }
+
+  if (fields.consequences.trim()) {
+    parts.push(`## ¿Cuáles son las consecuencias?\n${fields.consequences.trim()}`);
+  }
+
+  if (fields.measuresTaken.trim()) {
+    parts.push(`## ¿Qué medidas tomaste?\n${fields.measuresTaken.trim()}`);
+  }
+
+  if (fields.prevention.trim()) {
+    parts.push(`## ¿Qué acciones se tomarán para que no se repita?\n${fields.prevention.trim()}`);
+  }
+
+  return parts.join("\n\n");
+}
+
+function LessonFormFields({
+  fields,
+  updateField,
+}: {
+  fields: LessonFields;
+  updateField: (key: keyof LessonFields, value: string) => void;
+}) {
+  return (
+    <div className="grid gap-6">
+      <div className="space-y-2">
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <AlertCircleIcon className="h-4 w-4 text-muted-foreground" />
+          ¿Qué problema se presentó?
+        </label>
+        <Textarea
+          placeholder="Describe el problema o error..."
+          value={fields.problem}
+          onChange={(e) => updateField("problem", e.target.value)}
+          rows={3}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <EyeIcon className="h-4 w-4 text-muted-foreground" />
+          ¿Cómo te diste cuenta?
+        </label>
+        <Textarea
+          placeholder="Explica cómo detectaste el problema (logs, alertas, reporte, etc.)..."
+          value={fields.howDiscovered}
+          onChange={(e) => updateField("howDiscovered", e.target.value)}
+          rows={3}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <AlertTriangleIcon className="h-4 w-4 text-muted-foreground" />
+          ¿Cuáles son las consecuencias?
+        </label>
+        <Textarea
+          placeholder="Impacto en usuarios, sistema, datos, negocio..."
+          value={fields.consequences}
+          onChange={(e) => updateField("consequences", e.target.value)}
+          rows={3}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <ShieldCheckIcon className="h-4 w-4 text-muted-foreground" />
+          ¿Qué medidas tomaste?
+        </label>
+        <Textarea
+          placeholder="Acciones inmediatas tomadas para resolver..."
+          value={fields.measuresTaken}
+          onChange={(e) => updateField("measuresTaken", e.target.value)}
+          rows={3}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <ClipboardCheckIcon className="h-4 w-4 text-muted-foreground" />
+          ¿Qué acciones se tomarán para que no se repita?
+        </label>
+        <Textarea
+          placeholder="Mejoras, alertas, tests, documentación, procesos..."
+          value={fields.prevention}
+          onChange={(e) => updateField("prevention", e.target.value)}
+          rows={3}
+        />
+      </div>
+    </div>
+  );
 }
 
 export default function BlogPage() {
@@ -26,7 +176,23 @@ export default function BlogPage() {
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [searching, setSearching] = useState(false);
+  const [, setSearching] = useState(false);
+  const [selectedAuthor, setSelectedAuthor] = useState<string>("");
+  const [selectedTag, setSelectedTag] = useState<string>("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const [newTitle, setNewTitle] = useState("");
+  const [newFields, setNewFields] = useState<LessonFields>({
+    problem: "",
+    howDiscovered: "",
+    consequences: "",
+    measuresTaken: "",
+    prevention: "",
+  });
+  const [newTags, setNewTags] = useState<string[]>([]);
+  const [selectedNewTag, setSelectedNewTag] = useState("");
 
   const loadPosts = useCallback(async () => {
     setLoading(true);
@@ -67,10 +233,107 @@ export default function BlogPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleSearch]);
 
+  const authors = useMemo(() => {
+    const authorSet = new Map<string, { id: string; mention: string; name: string }>();
+    posts.forEach((post) => {
+      if (!authorSet.has(post.authorId)) {
+        authorSet.set(post.authorId, {
+          id: post.authorId,
+          mention: post.authorMention,
+          name: post.authorName,
+        });
+      }
+    });
+    return Array.from(authorSet.values()).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+  }, [posts]);
+
+  const filteredPosts = useMemo(() => {
+    return posts.filter((post) => {
+      if (selectedAuthor && post.authorId !== selectedAuthor) {
+        return false;
+      }
+      if (selectedTag && !post.tags.includes(selectedTag)) {
+        return false;
+      }
+      return true;
+    });
+  }, [posts, selectedAuthor, selectedTag]);
+
+  const hasActiveFilters = selectedAuthor || selectedTag || searchQuery;
+
+  const clearFilters = useCallback(() => {
+    setSelectedAuthor("");
+    setSelectedTag("");
+    setSearchQuery("");
+    void loadPosts();
+  }, [loadPosts]);
+
+  const updateNewField = useCallback((key: keyof LessonFields, value: string) => {
+    setNewFields((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  const handleAddNewTag = useCallback((tag: string) => {
+    if (tag && !newTags.includes(tag)) {
+      setNewTags((prev) => [...prev, tag]);
+    }
+  }, [newTags]);
+
+  const handleRemoveNewTag = useCallback((tag: string) => {
+    setNewTags((prev) => prev.filter((t) => t !== tag));
+  }, []);
+
+  const handleNewTagSelect = useCallback((tag: string) => {
+    handleAddNewTag(tag);
+    setSelectedNewTag("");
+  }, [handleAddNewTag]);
+
+  const handleCreateLesson = useCallback(async () => {
+    if (!newTitle.trim()) {
+      toast.error("El título es obligatorio");
+      return;
+    }
+
+    const hasContent = Object.values(newFields).some((f) => f.trim());
+    if (!hasContent) {
+      toast.error("Completa al menos una sección");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const content = generateMarkdown(newFields);
+      const result = await createBlogPost({
+        title: newTitle.trim(),
+        content,
+        tags: newTags,
+      });
+      if (result.ok && result.post) {
+        toast.success("Lección creada");
+        setDialogOpen(false);
+        setNewTitle("");
+        setNewFields({
+          problem: "",
+          howDiscovered: "",
+          consequences: "",
+          measuresTaken: "",
+          prevention: "",
+        });
+        setNewTags([]);
+        void loadPosts();
+      } else {
+        toast.error(result.error ?? "Error al crear la lección");
+      }
+    } finally {
+      setSaving(false);
+    }
+  }, [newTitle, newFields, newTags, loadPosts]);
+
   if (!session) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <p className="text-muted-foreground">Inicia sesión para ver el blog.</p>
+        <p className="text-muted-foreground">Inicia sesión para ver las lecciones.</p>
       </div>
     );
   }
@@ -79,42 +342,102 @@ export default function BlogPage() {
     <div className="container mx-auto max-w-5xl space-y-8 px-4 py-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Blog</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Lecciones aprendidas
+          </h1>
           <p className="mt-1 text-muted-foreground">
-            Comparte soluciones, papers técnicos y conocimientos
+            Documenta problemas, soluciones y prevenciones
           </p>
         </div>
-        <Button asChild>
-          <Link href="/blog/new">
-            <PlusIcon className="mr-2 h-4 w-4" />
-            Nuevo post
-          </Link>
+        <Button onClick={() => setDialogOpen(true)}>
+          <PlusIcon className="mr-2 h-4 w-4" />
+          Nueva lección
         </Button>
       </div>
 
-      <div className="relative">
-        <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Buscar por título, contenido, etiquetas o autor..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
-        />
+      <div className="space-y-4">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Button
+            variant={showFilters ? "default" : "outline"}
+            size="icon"
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            <FilterIcon className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {showFilters && (
+          <div className="flex flex-wrap gap-2">
+            <Select
+              value={selectedAuthor}
+              onValueChange={setSelectedAuthor}
+            >
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Filtrar por autor" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Todos los autores</SelectItem>
+                {authors.map((author) => (
+                  <SelectItem key={author.id} value={author.id}>
+                    {author.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={selectedTag} onValueChange={setSelectedTag}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Filtrar por etiqueta" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Todas las etiquetas</SelectItem>
+                {BLOG_TAGS.map((tag) => (
+                  <SelectItem key={tag} value={tag}>
+                    {tag}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="gap-1"
+              >
+                <XIcon className="h-4 w-4" />
+                Limpiar
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
           <Loader2Icon className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-      ) : posts.length === 0 ? (
+      ) : filteredPosts.length === 0 ? (
         <div className="py-16 text-center">
           <p className="text-muted-foreground">
-            {searchQuery ? "No se encontraron resultados." : "No hay posts todavía. ¡Crea el primero!"}
+            {hasActiveFilters
+              ? "No se encontraron resultados."
+              : "No hay lecciones todavía. ¡Crea la primera!"}
           </p>
         </div>
       ) : (
         <div className="grid gap-6">
-          {posts.map((post) => (
+          {filteredPosts.map((post) => (
             <Link key={post.id} href={`/blog/${post.id}`} className="block">
               <Card className="transition-all hover:border-primary/50 hover:shadow-md">
                 <CardHeader className="gap-3">
@@ -156,6 +479,82 @@ export default function BlogPage() {
           ))}
         </div>
       )}
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Nueva lección</DialogTitle>
+            <DialogDescription>
+              Documenta el problema, cómo lo detectaste, sus consecuencias, las medidas tomadas y las acciones preventivas.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="new-title" className="text-sm font-medium">
+                Título
+              </label>
+              <Input
+                id="new-title"
+                placeholder="Ej: Error en validación de clientes..."
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+              />
+            </div>
+
+            <LessonFormFields fields={newFields} updateField={updateNewField} />
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Etiquetas (opcional)</label>
+              <div className="flex flex-wrap gap-2">
+                {newTags.map((tag) => (
+                  <Badge key={tag} variant="secondary" className="gap-1">
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveNewTag(tag)}
+                      className="ml-1 hover:text-destructive"
+                    >
+                      <XIcon className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+              <Select value={selectedNewTag} onValueChange={handleNewTagSelect}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Selecciona una etiqueta..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {BLOG_TAGS.filter((t) => !newTags.includes(t)).map((tag) => (
+                    <SelectItem key={tag} value={tag}>
+                      {tag}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={() => void handleCreateLesson()} disabled={saving}>
+              {saving ? (
+                <>
+                  <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  <SendIcon className="mr-2 h-4 w-4" />
+                  Publicar
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

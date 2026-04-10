@@ -122,7 +122,7 @@ export default function BlogPostPage() {
               <ArrowLeftIcon className="h-4 w-4" />
             </Link>
           </Button>
-          <h1 className="text-2xl font-bold tracking-tight">Blog</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Lecciones aprendidas</h1>
         </div>
         {canEdit && (
           <div className="flex gap-2">
