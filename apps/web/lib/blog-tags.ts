@@ -14,6 +14,7 @@ export const ACTUALITY_TAGS = [
   "Evento",
   "Anuncio",
   "Comentarios",
+  "Founder's Letter",
 ] as const;
 
 export type ActualityTag = (typeof ACTUALITY_TAGS)[number];
