@@ -20,6 +20,8 @@ export const changelogData: Record<string, ChangelogEntry> = {
         "Editor visual para configurar stages del pipeline de ventas",
         "5 stages por defecto: Oportunidades, Interés, Requiere Atención, Completado, Cancelado",
         "Personalización de nombre, color, tipo y orden de cada stage",
+        "Botón Salir con confirmación de salida",
+        "Confirmación al cerrar la pestaña del navegador",
       ],
     },
   },
