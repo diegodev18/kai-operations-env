@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { UserMenu } from "@/components/user-menu";
 import { useAuth } from "@/hooks/auth";
+import { useUserRole } from "@/hooks/useUserRole";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Copy,
@@ -108,7 +109,16 @@ const SERVICES = [
 
 export default function DataBasePage() {
   const { session, signOut } = useAuth();
+  const { isAdmin } = useUserRole();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  if (!isAdmin) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center">
+        <p className="text-muted-foreground">No tienes acceso a esta página.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background">

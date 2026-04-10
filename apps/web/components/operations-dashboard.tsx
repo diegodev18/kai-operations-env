@@ -45,6 +45,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { UserMenu } from "@/components/user-menu";
+import { useUserRole } from "@/hooks/useUserRole";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
@@ -96,6 +97,7 @@ export function OperationsDashboard(props: {
   onSignOut: () => void;
 }) {
   const router = useRouter();
+  const { isAdmin } = useUserRole();
   const [search, setSearch] = useState("");
   /** Texto de búsqueda aplicado al API (debounce 300 ms; vacío al limpiar al instante). */
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -576,49 +578,53 @@ export function OperationsDashboard(props: {
               Blog
             </Link>
             <div className="my-2 border-t" />
-            <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Database
-            </div>
-            <Link
-              href="/database/upload-data"
-              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-              onClick={() => setMenuOpen(false)}
-            >
-              <UploadIcon className="size-4" />
-              Upload data
-            </Link>
-            <Link
-              href="/database/duplicate-clone"
-              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-              onClick={() => setMenuOpen(false)}
-            >
-              <CopyIcon className="size-4" />
-              Duplicate / clone
-            </Link>
-            <Link
-              href="/database/update-document"
-              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-              onClick={() => setMenuOpen(false)}
-            >
-              <PencilIcon className="size-4" />
-              Update document
-            </Link>
-            <Link
-              href="/database/viewer-comparator"
-              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-              onClick={() => setMenuOpen(false)}
-            >
-              <SearchIcon className="size-4" />
-              Viewer and comparator
-            </Link>
-            <Link
-              href="/database/document-explorer"
-              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-              onClick={() => setMenuOpen(false)}
-            >
-              <FolderOpenIcon className="size-4" />
-              Document explorer
-            </Link>
+            {isAdmin && (
+              <>
+                <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Database
+                </div>
+                <Link
+                  href="/database/upload-data"
+                  className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <UploadIcon className="size-4" />
+                  Upload data
+                </Link>
+                <Link
+                  href="/database/duplicate-clone"
+                  className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <CopyIcon className="size-4" />
+                  Duplicate / clone
+                </Link>
+                <Link
+                  href="/database/update-document"
+                  className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <PencilIcon className="size-4" />
+                  Update document
+                </Link>
+                <Link
+                  href="/database/viewer-comparator"
+                  className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <SearchIcon className="size-4" />
+                  Viewer and comparator
+                </Link>
+                <Link
+                  href="/database/document-explorer"
+                  className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <FolderOpenIcon className="size-4" />
+                  Document explorer
+                </Link>
+              </>
+            )}
           </nav>
         </SheetContent>
       </Sheet>
