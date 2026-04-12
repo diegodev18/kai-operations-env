@@ -25,6 +25,7 @@ export const changelogData: Record<string, ChangelogEntry> = {
       ],
       changed: [
         "Búsqueda ahora es solo en production (antes buscaba en commercial/testing)",
+        "Búsqueda ahora se sincroniza con query param URL (?q=) y persiste al recargar",
       ],
     },
   },
