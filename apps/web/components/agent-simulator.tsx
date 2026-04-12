@@ -38,7 +38,6 @@ import {
   BotIcon,
   CheckCircle2Icon,
   ChevronRightIcon,
-  Loader2Icon,
   PlayIcon,
   PlusIcon,
   RotateCcwIcon,
@@ -54,6 +53,7 @@ import type {
   SimulatorMode,
   SSEEvent,
 } from "@/types/integration-simulator";
+import { Shimmer } from "@/components/ai-elements/shimmer";
 import { parseSSEStream } from "@/utils/integration-sse";
 
 const DEFAULT_TOKEN = "test-whatsapp-token";
@@ -306,6 +306,7 @@ interface ConversationState {
   streamEvents: SSEEvent[];
   error: string | null;
   isSending: boolean;
+  currentTurn: "user" | "agent" | null;
 }
 
 function generateId() {
@@ -444,9 +445,14 @@ function ConversationCard({
             </ul>
           )}
           {conversation.isSending && (
-            <p className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
-              <Loader2Icon className="h-4 w-4 animate-spin" />
-              Enviando…
+            <p className="flex items-center gap-2 text-sm mt-2">
+              {conversation.currentTurn === "agent" ? (
+                <Shimmer as="small">Esperando respuesta del agente...</Shimmer>
+              ) : conversation.currentTurn === "user" ? (
+                <Shimmer as="small">Enviando mensaje al agente...</Shimmer>
+              ) : (
+                <Shimmer as="small">Procesando...</Shimmer>
+              )}
             </p>
           )}
         </div>
@@ -472,7 +478,7 @@ export function AgentSimulator({
   }, [messageLimit, simulatorMode, stream, testMode]);
 
   const [conversations, setConversations] = useState<ConversationState[]>([
-    { id: generateId(), prompt: "", streamEvents: [], error: null, isSending: false },
+    { id: generateId(), prompt: "", streamEvents: [], error: null, isSending: false, currentTurn: null },
   ]);
 
   const buildBody = useCallback(
@@ -517,7 +523,7 @@ export function AgentSimulator({
 
       setConversations((prev) =>
         prev.map((c) =>
-          c.id === convId ? { ...c, error: null, streamEvents: [], isSending: true } : c
+          c.id === convId ? { ...c, error: null, streamEvents: [], isSending: true, currentTurn: "user" } : c
         )
       );
 
@@ -541,10 +547,14 @@ export function AgentSimulator({
           const contentType = response.headers.get("content-type") ?? "";
           if (contentType.includes("text/event-stream") && response.body) {
             await parseSSEStream(response.body, (ev: SSEEvent) => {
+              let newTurn: "user" | "agent" | null = null;
+              if (ev.type === "message" && ev.data?.role) {
+                newTurn = ev.data.role === "user" ? "agent" : "user";
+              }
               setConversations((prev) =>
                 prev.map((c) =>
                   c.id === convId
-                    ? { ...c, streamEvents: [...c.streamEvents, ev] }
+                    ? { ...c, streamEvents: [...c.streamEvents, ev], currentTurn: newTurn ?? c.currentTurn }
                     : c
                 )
               );
@@ -630,7 +640,7 @@ export function AgentSimulator({
   const addConversation = () => {
     setConversations((prev) => [
       ...prev,
-      { id: generateId(), prompt: "", streamEvents: [], error: null, isSending: false },
+      { id: generateId(), prompt: "", streamEvents: [], error: null, isSending: false, currentTurn: null },
     ]);
   };
 
