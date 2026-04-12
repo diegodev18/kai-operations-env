@@ -1,0 +1,28 @@
+{
+  "name": "@kai/shared",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./zod": {
+      "import": "./dist/zod/index.js",
+      "types": "./dist/zod/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "zod": "^3.25.76"
+  },
+  "peerDependencies": {
+    "zod": "^3.23.0"
+  }
+}
