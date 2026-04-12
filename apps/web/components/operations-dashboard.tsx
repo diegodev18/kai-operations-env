@@ -890,7 +890,7 @@ export function OperationsDashboard(props: {
                 </tr>
               </thead>
               <tbody>
-                {isInitialLoad ? (
+                {isInitialLoad || isLoading ? (
                   [...Array(5)].map((_, i) => (
                     <tr key={i} className="border-b border-border">
                       <td className="p-3 w-8"></td>
@@ -908,16 +908,7 @@ export function OperationsDashboard(props: {
                       </td>
                     </tr>
                   ))
-                ) : isLoading ? (
-                  <tr>
-                    <td colSpan={7} className="p-12 text-center text-muted-foreground">
-                      <div className="flex items-center justify-center gap-2">
-                        <Loader2Icon className="size-5 animate-spin" />
-                        <span>Cargando agentes…</span>
-                      </div>
-                    </td>
-                  </tr>
-                ) : filteredAgents.length === 0 ? (
+                ) : !isLoading && filteredAgents.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="p-12 text-center text-muted-foreground">
                       No hay agentes que mostrar
@@ -1230,7 +1221,7 @@ export function OperationsDashboard(props: {
               {agents.length} agentes
             </span>
           </div>
-          {filteredAgents.length === 0 ? (
+          {!isLoading && filteredAgents.length === 0 ? (
             <p className="py-8 text-center text-muted-foreground">
               {agents.length === 0
                 ? serverSearchActive

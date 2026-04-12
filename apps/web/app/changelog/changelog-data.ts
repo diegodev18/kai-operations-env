@@ -11,6 +11,19 @@ export interface ChangelogEntry {
 }
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.2.2": {
+    date: "2026-04-12",
+    description: "Mejora en indicadores de carga del dashboard",
+    changes: {
+      fixed: [
+        "Mensaje 'No hay agentes' ya no aparece mientras cargan los agentes",
+        "Skeleton ahora se muestra durante toda la carga (no solo carga inicial)",
+      ],
+      removed: [
+        "Texto 'Cargando agentes...' del dashboard (ya shown por skeleton)",
+      ],
+    },
+  },
   "2.2.1": {
     date: "2026-04-12",
     description: "Mejoras en búsqueda de agentes",
