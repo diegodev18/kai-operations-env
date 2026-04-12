@@ -31,7 +31,7 @@ import {
   XIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -97,8 +97,9 @@ export function OperationsDashboard(props: {
   onSignOut: () => void;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isAdmin } = useUserRole();
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   /** Texto de búsqueda aplicado al API (debounce 300 ms; vacío al limpiar al instante). */
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -165,6 +166,20 @@ export function OperationsDashboard(props: {
     return () => window.clearTimeout(t);
   }, [search]);
 
+  useEffect(() => {
+    const q = search.trim();
+    const currentQ = searchParams.get("q") ?? "";
+    if (q !== currentQ) {
+      const params = new URLSearchParams(searchParams.toString());
+      if (q) {
+        params.set("q", q);
+      } else {
+        params.delete("q");
+      }
+      router.replace(`?${params.toString()}`, { scroll: false });
+    }
+  }, [search, searchParams, router]);
+
   const fetchPage = useCallback(
     async (cursor: string | undefined, usePreview = false) => {
       const q = debouncedSearch.trim() || undefined;
@@ -222,9 +237,15 @@ export function OperationsDashboard(props: {
     }
   }, [fetchPage]);
 
+  // Effect to load agents when searchParams changes (initial load or q param changes)
   useEffect(() => {
+    // Skip initial load if there's a search query - debouncedSearch will trigger the fetch
+    const hasSearchQuery = searchParams.get("q");
+    if (hasSearchQuery && !debouncedSearch) {
+      return;
+    }
     void fetchAgents();
-  }, [fetchAgents]);
+  }, [fetchAgents, searchParams, debouncedSearch]);
 
   useEffect(() => {
     void (async () => {
