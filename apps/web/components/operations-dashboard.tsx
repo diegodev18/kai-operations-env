@@ -1310,9 +1310,9 @@ export function OperationsDashboard(props: {
               </tbody>
             </table>
           </div>
-          <div className="flex gap-2 items-center mt-4">
-            <span className="text-sm text-muted-foreground">
-              ({agents.length} agentes)
+          <div className="flex gap-2 items-center mt-4 mb-1">
+            <span className="text-xs text-muted-foreground">
+              {agents.length} agentes
             </span>
           </div>
           {filteredAgents.length === 0 ? (
@@ -1355,9 +1355,6 @@ export function OperationsDashboard(props: {
               </Button>
             </div>
           ) : null}
-          <span className="text-sm text-muted-foreground ml-2">
-            ({agents.length} agentes)
-          </span>
         </div>
       </div>
     </div><Dialog
