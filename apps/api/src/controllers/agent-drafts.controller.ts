@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import type { DocumentReference, Firestore } from "firebase-admin/firestore";
 import { z } from "zod";
 
+import { ApiErrors, errorResponse, type ApiErrorCode } from "@/lib/api-error";
 import {
   getBuilderAllowlistEntry,
   isBuilderTechnicalDocumentId,
@@ -227,7 +228,7 @@ function handleFirestoreError(c: Context, error: unknown, logPrefix: string) {
       503,
     );
   }
-  return c.json({ error: "Error al acceder a Firestore." }, 500);
+  return ApiErrors.internal(c, "Error al acceder a Firestore.");
 }
 
 export async function postAgentDraft(
@@ -241,13 +242,13 @@ export async function postAgentDraft(
   try {
     raw = await c.req.json();
   } catch {
-    return c.json({ error: "JSON inválido" }, 400);
+    return ApiErrors.validation(c, "JSON inválido");
   }
 
   const parsed = postDraftBodySchema.safeParse(raw);
   if (!parsed.success) {
     const msg = parsed.error.issues.map((i) => i.message).join("; ");
-    return c.json({ error: msg }, 400);
+    return ApiErrors.validation(c, msg);
   }
 
   const { agent_name, agent_personality } = parsed.data;
@@ -351,11 +352,11 @@ export async function getAgentDraft(
     const db = getFirestore();
     const snap = await db.collection(AGENT_CONFIGURATIONS).doc(draftId).get();
     if (!snap.exists) {
-      return c.json({ error: "Borrador no encontrado" }, 404);
+      return ApiErrors.notFound(c, "Borrador no encontrado");
     }
     const data = snap.data() ?? {};
     if (!canAccessDraft(authCtx, data)) {
-      return c.json({ error: "No autorizado" }, 403);
+      return ApiErrors.forbidden(c, "No autorizado");
     }
     const genFields = extractMcpGenerationMeta(data);
     return c.json({
@@ -378,13 +379,13 @@ export async function patchAgentDraft(
   try {
     raw = await c.req.json();
   } catch {
-    return c.json({ error: "JSON inválido" }, 400);
+    return ApiErrors.validation(c, "JSON inválido");
   }
 
   const parsed = patchDraftBodySchema.safeParse(raw);
   if (!parsed.success) {
     const msg = parsed.error.issues.map((i) => i.path.join(".") + ": " + i.message).join("; ");
-    return c.json({ error: msg }, 400);
+    return ApiErrors.validation(c, msg);
   }
 
   try {
@@ -392,11 +393,11 @@ export async function patchAgentDraft(
     const draftRef = db.collection(AGENT_CONFIGURATIONS).doc(draftId);
     const snap = await draftRef.get();
     if (!snap.exists) {
-      return c.json({ error: "Borrador no encontrado" }, 404);
+      return ApiErrors.notFound(c, "Borrador no encontrado");
     }
     const existingDraft = snap.data() ?? {};
     if (!canAccessDraft(authCtx, existingDraft)) {
-      return c.json({ error: "No autorizado" }, 403);
+      return ApiErrors.forbidden(c, "No autorizado");
     }
 
     const body = parsed.data;
@@ -737,12 +738,12 @@ export async function postDraftPendingTask(
   try {
     raw = await c.req.json();
   } catch {
-    return c.json({ error: "JSON inválido" }, 400);
+    return ApiErrors.validation(c, "JSON inválido");
   }
   const parsed = createDraftPendingTaskSchema.safeParse(raw);
   if (!parsed.success) {
     const msg = parsed.error.issues.map((i) => i.message).join("; ");
-    return c.json({ error: msg }, 400);
+    return ApiErrors.validation(c, msg);
   }
   try {
     const auth = await getAuthorizedDraftRef(authCtx, draftId);
@@ -786,44 +787,35 @@ export async function patchDraftPendingTask(
   try {
     raw = await c.req.json();
   } catch {
-    return c.json({ error: "JSON inválido" }, 400);
+    return ApiErrors.validation(c, "JSON inválido");
   }
   const parsed = patchDraftPendingTaskSchema.safeParse(raw);
   if (!parsed.success) {
     const msg = parsed.error.issues.map((i) => i.message).join("; ");
-    return c.json({ error: msg }, 400);
+    return ApiErrors.validation(c, msg);
   }
   if (Object.keys(parsed.data).length === 0) {
-    return c.json({ error: "No hay cambios para aplicar" }, 400);
+    return ApiErrors.validation(c, "No hay cambios para aplicar");
   }
   try {
     const auth = await getAuthorizedDraftRef(authCtx, draftId);
     if (!auth.ok) {
-      return c.json(
-        { error: auth.code === 404 ? "Borrador no encontrado" : "No autorizado" },
-        auth.code,
-      );
-    }
-    const taskRef = auth.draftRef.collection(PENDING_TASKS).doc(taskId);
-    const snap = await taskRef.get();
-    if (!snap.exists) return c.json({ error: "Tarea no encontrada" }, 404);
-
-    const next: Record<string, unknown> = {
-      updated_at: serverTimestampField(),
-    };
-    if (parsed.data.status) {
-      next.status = parsed.data.status;
-      if (parsed.data.status === "completed") {
-        next.completed_at = serverTimestampField();
-      } else {
-        next.completed_at = null;
+      if (auth.code === 404) {
+        return ApiErrors.notFound(c, "Borrador no encontrado");
       }
+      return ApiErrors.forbidden(c, "No autorizado");
     }
-    if (parsed.data.title !== undefined) next.title = parsed.data.title;
-    if (parsed.data.context !== undefined) next.context = parsed.data.context;
-
-    await taskRef.update(next);
-    const updated = await taskRef.get();
+    const taskSnap = await auth.draftRef.collection(PENDING_TASKS).doc(taskId).get();
+    if (!taskSnap.exists) {
+      return ApiErrors.notFound(c, "Tarea no encontrada");
+    }
+    await auth.draftRef.collection(PENDING_TASKS).doc(taskId).update({
+      ...(parsed.data.status && { status: parsed.data.status }),
+      ...(parsed.data.title && { title: parsed.data.title }),
+      ...(parsed.data.context && { context: parsed.data.context }),
+      updated_at: serverTimestampField(),
+    });
+    const updated = await auth.draftRef.collection(PENDING_TASKS).doc(taskId).get();
     return c.json({
       task: serializePendingTaskForClient(
         taskId,
@@ -831,8 +823,8 @@ export async function patchDraftPendingTask(
       ),
     });
   } catch (error) {
-    const r = handleFirestoreError(c, error, "[agents/drafts/:id/tasks PATCH]");
-    return r ?? c.json({ error: "Error al actualizar tarea pendiente." }, 500);
+    const r = handleFirestoreError(c, error, "[agents/drafts/:id/tasks/:taskId PATCH]");
+    return r ?? ApiErrors.internal(c, "Error al actualizar tarea pendiente.");
   }
 }
 
@@ -843,15 +835,15 @@ export async function getDraftPropertyItems(
   documentId: string,
 ) {
   if (!isDraftPropertyDocumentId(documentId)) {
-    return c.json({ error: "documentId inválido" }, 400);
+    return ApiErrors.validation(c, "documentId inválido");
   }
   try {
     const auth = await getAuthorizedDraftRef(authCtx, draftId);
     if (!auth.ok) {
-      return c.json(
-        { error: auth.code === 404 ? "Borrador no encontrado" : "No autorizado" },
-        auth.code,
-      );
+      if (auth.code === 404) {
+        return ApiErrors.notFound(c, "Borrador no encontrado");
+      }
+      return ApiErrors.forbidden(c, "No autorizado");
     }
     const snap = await auth.draftRef
       .collection("properties")
@@ -872,7 +864,7 @@ export async function getDraftPropertyItems(
       error,
       "[agents/drafts/:id/properties/:documentId/items GET]",
     );
-    return r ?? c.json({ error: "Error al listar items de properties." }, 500);
+    return r ?? ApiErrors.internal(c, "Error al listar items de properties.");
   }
 }
 
@@ -883,18 +875,18 @@ export async function postDraftPropertyItem(
   documentId: string,
 ) {
   if (!isDraftPropertyDocumentId(documentId)) {
-    return c.json({ error: "documentId inválido" }, 400);
+    return ApiErrors.validation(c, "documentId inválido");
   }
   let raw: unknown;
   try {
     raw = await c.req.json();
   } catch {
-    return c.json({ error: "JSON inválido" }, 400);
+    return ApiErrors.validation(c, "JSON inválido");
   }
   const parsed = createDraftPropertyItemSchema.safeParse(raw);
   if (!parsed.success) {
     const msg = parsed.error.issues.map((i) => i.message).join("; ");
-    return c.json({ error: msg }, 400);
+    return ApiErrors.validation(c, msg);
   }
   try {
     const auth = await getAuthorizedDraftRef(authCtx, draftId);
@@ -941,18 +933,18 @@ export async function patchDraftPropertyItem(
   itemId: string,
 ) {
   if (!isDraftPropertyDocumentId(documentId)) {
-    return c.json({ error: "documentId inválido" }, 400);
+    return ApiErrors.validation(c, "documentId inválido");
   }
   let raw: unknown;
   try {
     raw = await c.req.json();
   } catch {
-    return c.json({ error: "JSON inválido" }, 400);
+    return ApiErrors.validation(c, "JSON inválido");
   }
   const parsed = patchDraftPropertyItemSchema.safeParse(raw);
   if (!parsed.success) {
     const msg = parsed.error.issues.map((i) => i.message).join("; ");
-    return c.json({ error: msg }, 400);
+    return ApiErrors.validation(c, msg);
   }
   try {
     const auth = await getAuthorizedDraftRef(authCtx, draftId);
@@ -968,7 +960,7 @@ export async function patchDraftPropertyItem(
       .collection("items")
       .doc(itemId);
     const snap = await itemRef.get();
-    if (!snap.exists) return c.json({ error: "Item no encontrado" }, 404);
+    if (!snap.exists) return ApiErrors.notFound(c, "Item no encontrado");
     await itemRef.update({
       ...parsed.data,
       updated_at: serverTimestampField(),
@@ -998,15 +990,15 @@ export async function deleteDraftPropertyItem(
   itemId: string,
 ) {
   if (!isDraftPropertyDocumentId(documentId)) {
-    return c.json({ error: "documentId inválido" }, 400);
+    return ApiErrors.validation(c, "documentId inválido");
   }
   try {
     const auth = await getAuthorizedDraftRef(authCtx, draftId);
     if (!auth.ok) {
-      return c.json(
-        { error: auth.code === 404 ? "Borrador no encontrado" : "No autorizado" },
-        auth.code,
-      );
+      if (auth.code === 404) {
+        return ApiErrors.notFound(c, "Borrador no encontrado");
+      }
+      return ApiErrors.forbidden(c, "No autorizado");
     }
     const itemRef = auth.draftRef
       .collection("properties")
@@ -1014,7 +1006,7 @@ export async function deleteDraftPropertyItem(
       .collection("items")
       .doc(itemId);
     const snap = await itemRef.get();
-    if (!snap.exists) return c.json({ error: "Item no encontrado" }, 404);
+    if (!snap.exists) return ApiErrors.notFound(c, "Item no encontrado");
     await itemRef.delete();
     return c.json({ ok: true, id: itemId });
   } catch (error) {
@@ -1136,16 +1128,16 @@ export async function patchDraftTechnicalPropertyDocument(
   documentId: string,
 ) {
   if (!isBuilderTechnicalDocumentId(documentId)) {
-    return c.json({ error: "documentId no permitido" }, 400);
+    return ApiErrors.validation(c, "documentId no permitido");
   }
   let body: unknown;
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: "JSON inválido" }, 400);
+    return ApiErrors.validation(c, "JSON inválido");
   }
   if (body == null || typeof body !== "object" || Array.isArray(body)) {
-    return c.json({ error: "El cuerpo debe ser un objeto" }, 400);
+    return ApiErrors.validation(c, "El cuerpo debe ser un objeto");
   }
   const bodyObj = body as Record<string, unknown>;
   const patches: Array<{ documentId: string; fieldKey: string; value: unknown }> =
@@ -1155,7 +1147,7 @@ export async function patchDraftTechnicalPropertyDocument(
     patches.push({ documentId, fieldKey, value });
   }
   if (patches.length === 0) {
-    return c.json({ error: "Ningún campo permitido en el cuerpo" }, 400);
+    return ApiErrors.validation(c, "Ningún campo permitido en el cuerpo");
   }
 
   const merged = await mergeBuilderTechnicalPropertyPatchesForChat(
@@ -1165,7 +1157,7 @@ export async function patchDraftTechnicalPropertyDocument(
   );
   if (!merged.ok) {
     const code = merged.status as 400 | 403 | 404;
-    return c.json({ error: merged.error }, code);
+    return errorResponse(c, merged.error, code === 404 ? "NOT_FOUND" : code === 403 ? "FORBIDDEN" : "VALIDATION_ERROR", code);
   }
 
   return c.json({ documentId, success: true, applied: merged.applied });
