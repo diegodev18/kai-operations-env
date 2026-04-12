@@ -11,6 +11,15 @@ export interface ChangelogEntry {
 }
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.1.0": {
+    date: "2026-04-11",
+    description: "Cambio de dominio del frontend",
+    changes: {
+      changed: [
+        "Dominio del frontend cambiado de 'https://kai-operations.dukehomelab.site/' a 'https://atlas.talktokai.com/'",
+      ],
+    },
+  },
   "2.0.14": {
     date: "2026-04-10",
     description: "Sincronización de crmConfig desde toolsCatalog",
