@@ -3,7 +3,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeftIcon, Loader2Icon, UserIcon, TagIcon, EditIcon, TrashIcon, EyeOffIcon, EyeIcon } from "lucide-react";
+import {
+  ArrowLeftIcon,
+  Loader2Icon,
+  UserIcon,
+  TagIcon,
+  EditIcon,
+  EyeOffIcon,
+  EyeIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -11,12 +19,7 @@ import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  fetchBlogPost,
-  deleteBlogPost,
-  hideBlogPost,
-  type BlogPost,
-} from "@/lib/blog-api";
+import { fetchBlogPost, hideBlogPost, type BlogPost } from "@/lib/blog-api";
 import { useAuth } from "@/hooks/auth";
 
 function formatDate(timestamp: number): string {
@@ -37,7 +40,6 @@ export default function BlogPostPage() {
 
   const [post, setPost] = useState<BlogPost | null>(null);
   const [loading, setLoading] = useState(true);
-  const [deleting, setDeleting] = useState(false);
   const [hiding, setHiding] = useState(false);
 
   const userRole = (session?.user as { role?: string })?.role;
@@ -64,30 +66,15 @@ export default function BlogPostPage() {
     void loadPost();
   }, [loadPost]);
 
-  const handleDelete = useCallback(async () => {
-    if (!confirm("¿Estás seguro de que quieres eliminar este post?")) return;
-
-    setDeleting(true);
-    try {
-      const result = await deleteBlogPost(id);
-      if (result.ok) {
-        toast.success("Post eliminado");
-        router.push("/blog");
-      } else {
-        toast.error(result.error ?? "Error al eliminar");
-      }
-    } finally {
-      setDeleting(false);
-    }
-  }, [id, router]);
-
   const handleToggleHide = useCallback(async () => {
     if (!post) return;
     setHiding(true);
     try {
       const result = await hideBlogPost(id, !post.isHidden);
       if (result.ok) {
-        setPost((prev) => prev ? { ...prev, isHidden: !prev.isHidden } : null);
+        setPost((prev) =>
+          prev ? { ...prev, isHidden: !prev.isHidden } : null,
+        );
         toast.success(post.isHidden ? "Post visibles" : "Post oculto");
       } else {
         toast.error(result.error ?? "Error al cambiar visibilidad");
@@ -122,7 +109,9 @@ export default function BlogPostPage() {
               <ArrowLeftIcon className="h-4 w-4" />
             </Link>
           </Button>
-          <h1 className="text-2xl font-bold tracking-tight">Lecciones aprendidas</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Lecciones aprendidas
+          </h1>
         </div>
         {canEdit && (
           <div className="flex gap-2">
@@ -149,20 +138,6 @@ export default function BlogPostPage() {
                 Editar
               </Link>
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void handleDelete()}
-              disabled={deleting}
-              className="text-destructive hover:text-destructive"
-            >
-              {deleting ? (
-                <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <TrashIcon className="mr-2 h-4 w-4" />
-              )}
-              Eliminar
-            </Button>
           </div>
         )}
       </div>
@@ -171,15 +146,12 @@ export default function BlogPostPage() {
         <CardContent className="space-y-6 pt-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              {post.isHidden && (
-                <Badge variant="secondary">Oculto</Badge>
-              )}
+              {post.isHidden && <Badge variant="secondary">Oculto</Badge>}
             </div>
             <h2 className="text-3xl font-bold tracking-tight">{post.title}</h2>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
               <span className="flex items-center gap-1">
-                <UserIcon className="h-3.5 w-3.5" />
-                @{post.authorMention}
+                <UserIcon className="h-3.5 w-3.5" />@{post.authorMention}
               </span>
               <span>{formatDate(post.createdAt)}</span>
               {post.updatedAt !== post.createdAt && (
