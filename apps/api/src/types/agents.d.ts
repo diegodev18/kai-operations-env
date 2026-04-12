@@ -47,6 +47,8 @@ export interface LightAgent {
   version?: string;
   /** Datos de cobranza del agente. */
   billing?: AgentBilling;
+  /** El agente es favorito del usuario actual. */
+  isFavorite?: boolean;
 }
 
 export type ImplementationTaskStatus = "pending" | "completed";

@@ -31,7 +31,7 @@ import {
 import { isOperationsAdmin, isOperationsCommercial } from "@/utils/operations-access";
 import { auth } from "@/lib/auth";
 import { db } from "@/db/client";
-import { user } from "@/db/schema/auth";
+import { user, userFavoriteAgents } from "@/db/schema/auth";
 import { eq } from "drizzle-orm";
 
 /** Cursor legacy: path growers; nuevo: agent id. */
@@ -378,6 +378,16 @@ export const getAgentsInfo = async (
   const billingAlertFilter = c.req.query("billingAlert");
   const domiciliatedFilter = c.req.query("domiciliated");
   const preview = c.req.query("preview") === "1";
+  const favoritesOnly = c.req.query("favorites") === "1";
+
+  let favoriteAgentIds: string[] | null = null;
+  if (favoritesOnly && authCtx.userId) {
+    const favs = await db
+      .select({ agentId: userFavoriteAgents.agentId })
+      .from(userFavoriteAgents)
+      .where(eq(userFavoriteAgents.userId, authCtx.userId));
+    favoriteAgentIds = favs.map((f) => f.agentId);
+  }
 
   if (!light && !isPrivileged) {
     return c.json(
@@ -455,15 +465,38 @@ export const getAgentsInfo = async (
       const nextCursor =
         pageIds.length === effectiveLimit ? pageIds[pageIds.length - 1]! : null;
 
-      return c.json({ agents: agentRows, nextCursor });
+      let agentRowsFiltered = agentRows;
+      if (favoriteAgentIds) {
+        agentRowsFiltered = agentRows.map((a) =>
+          favoriteAgentIds.includes(a.id) ? { ...a, isFavorite: true } : a,
+        );
+      }
+
+      return c.json({ agents: agentRowsFiltered, nextCursor });
     }
 
     const collRefProd = db.collection("agent_configurations");
 
     if (isPrivileged && light) {
       const effectiveLimit = pageLimit ?? 15;
-      const { sortedIds, commercialMap, productionMap, growersMap, techLeadsMap } =
+      let { sortedIds, commercialMap, productionMap, growersMap, techLeadsMap } =
         await mergedAgentIdsAndData(preview);
+
+      if (favoriteAgentIds) {
+        sortedIds = sortedIds.filter((id) => favoriteAgentIds.includes(id));
+        for (const id of [...commercialMap.keys()]) {
+          if (!favoriteAgentIds.includes(id)) commercialMap.delete(id);
+        }
+        for (const id of [...productionMap.keys()]) {
+          if (!favoriteAgentIds.includes(id)) productionMap.delete(id);
+        }
+        for (const id of [...growersMap.keys()]) {
+          if (!favoriteAgentIds.includes(id)) growersMap.delete(id);
+        }
+        for (const id of [...techLeadsMap.keys()]) {
+          if (!favoriteAgentIds.includes(id)) techLeadsMap.delete(id);
+        }
+      }
 
       if (searchQ) {
         if (cursor && isGrowerCursor(cursor)) {
@@ -519,6 +552,12 @@ export const getAgentsInfo = async (
       let agents = agentsRows.filter((row): row is LightAgent => row != null);
       for (const fn of filterFns) {
         agents = agents.filter(fn);
+      }
+
+      if (favoriteAgentIds) {
+        agents = agents.map((a) =>
+          favoriteAgentIds.includes(a.id) ? { ...a, isFavorite: true } : a,
+        );
       }
 
       const nextCursor =

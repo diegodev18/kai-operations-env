@@ -55,6 +55,7 @@ function agentsInfoUrl(
     domiciliated?: string;
   },
   preview?: boolean,
+  favorites?: boolean,
 ): string {
   const params = new URLSearchParams();
   if (light) params.set("light", "1");
@@ -70,6 +71,7 @@ function agentsInfoUrl(
     if (filters.domiciliated !== undefined) params.set("domiciliated", filters.domiciliated);
   }
   if (preview) params.set("preview", "1");
+  if (favorites) params.set("favorites", "1");
   return `/api/agents/info?${params.toString()}`;
 }
 
@@ -88,6 +90,8 @@ export async function fetchAgentsPage(
     };
     /** Modo preview: carga más rápido sin growers/techLeads */
     preview?: boolean;
+    /** Filtro de favoritos del usuario actual */
+    favorites?: boolean;
   } = {},
 ): Promise<{ agents: AgentWithOperations[]; nextCursor: string | null } | null> {
   const {
@@ -98,8 +102,9 @@ export async function fetchAgentsPage(
     q,
     filters,
     preview,
+    favorites,
   } = options;
-  const url = agentsInfoUrl(light, paginated, pageSize, cursor, q, filters, preview);
+  const url = agentsInfoUrl(light, paginated, pageSize, cursor, q, filters, preview, favorites);
   const response = await fetch(url, {
     credentials: "include",
     cache: "no-store",

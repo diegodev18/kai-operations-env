@@ -146,7 +146,6 @@ export function OperationsDashboard(props: {
   const [menuOpen, setMenuOpen] = useState(false);
   type FavoritesFilter = "all" | "favorites";
   const [favoritesFilter, setFavoritesFilter] = useState<FavoritesFilter>("all");
-  const [favoriteAgentIds, setFavoriteAgentIds] = useState<Set<string>>(new Set());
   const [isTogglingFavorite, setIsTogglingFavorite] = useState<string | null>(null);
 
   useEffect(() => {
@@ -211,9 +210,10 @@ export function OperationsDashboard(props: {
         ...(q ? { q } : {}),
         ...(filters ? { filters } : {}),
         ...(usePreview ? { preview: true } : {}),
+        ...(favoritesFilter === "favorites" ? { favorites: true } : {}),
       });
     },
-    [debouncedSearch, statusFilter, billingAlertOnly, cobranzaFilter],
+    [debouncedSearch, statusFilter, billingAlertOnly, cobranzaFilter, favoritesFilter],
   );
 
   const fetchAgents = useCallback(async () => {
@@ -246,22 +246,6 @@ export function OperationsDashboard(props: {
     }
     void fetchAgents();
   }, [fetchAgents, searchParams, debouncedSearch]);
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        const res = await fetch("/api/favorites", { credentials: "include" });
-        if (res.ok) {
-          const data = await res.json();
-          setFavoriteAgentIds(new Set(data.favorites ?? []));
-        } else {
-          console.error("Error cargando favoritos:", res.status, await res.text());
-        }
-      } catch (e) {
-        console.error("Error de red cargando favoritos:", e);
-      }
-    })();
-  }, []);
 
   useEffect(() => {
     if (!growerTarget) {
@@ -530,7 +514,7 @@ export function OperationsDashboard(props: {
       });
     }
     if (favoritesFilter === "favorites") {
-      list = list.filter((a) => favoriteAgentIds.has(a.id));
+      list = list.filter((a) => a.isFavorite === true);
     }
     return list;
   }, [
@@ -543,7 +527,6 @@ export function OperationsDashboard(props: {
     lastPaymentFrom,
     lastPaymentTo,
     favoritesFilter,
-    favoriteAgentIds,
   ]);
 
   const hasMore = nextCursor != null && nextCursor !== undefined;
@@ -963,7 +946,7 @@ export function OperationsDashboard(props: {
                                 e.stopPropagation();
                                 if (isTogglingFavorite === agent.id) return;
                                 void (async () => {
-                                  const isFavorite = favoriteAgentIds.has(agent.id);
+                                  const isFavorite = agent.isFavorite === true;
                                   const method = isFavorite ? "DELETE" : "POST";
                                   setIsTogglingFavorite(agent.id);
                                   try {
@@ -972,15 +955,13 @@ export function OperationsDashboard(props: {
                                       { method, credentials: "include" }
                                     );
                                     if (res.ok) {
-                                      setFavoriteAgentIds((prev) => {
-                                        const next = new Set(prev);
-                                        if (isFavorite) {
-                                          next.delete(agent.id);
-                                        } else {
-                                          next.add(agent.id);
-                                        }
-                                        return next;
-                                      });
+                                      setAgents((prev) =>
+                                        prev.map((a) =>
+                                          a.id === agent.id
+                                            ? { ...a, isFavorite: !isFavorite }
+                                            : a
+                                        )
+                                      );
                                       toast.success(
                                         isFavorite
                                           ? "Eliminado de favoritos"
@@ -1002,7 +983,7 @@ export function OperationsDashboard(props: {
                             >
                               {isTogglingFavorite === agent.id ? (
                                 <Loader2Icon className="size-4 animate-spin" />
-                              ) : favoriteAgentIds.has(agent.id) ? (
+                              ) : agent.isFavorite === true ? (
                                 <StarIcon className="size-4 fill-yellow-400 text-yellow-400" />
                               ) : (
                                 <StarIcon className="size-4 text-muted-foreground" />

@@ -55,6 +55,8 @@ export interface Agent {
   primarySource?: "commercial" | "production";
   /** Versión del agente. */
   version?: string;
+  /** El agente es favorito del usuario actual (desde el backend). */
+  isFavorite?: boolean;
 }
 
 export interface AgentWithOperations extends Agent {
