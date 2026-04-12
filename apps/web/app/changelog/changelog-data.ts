@@ -11,6 +11,17 @@ export interface ChangelogEntry {
 }
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.2.4": {
+    date: "2026-04-12",
+    description: "Mejoras en gestión de usuarios de organización",
+    changes: {
+      added: [
+        "Diálogo de edición de usuario con selector de rol",
+        "Opción para generar contraseña temporal",
+        "Confirmación por email al expulsar usuario",
+      ],
+    },
+  },
   "2.2.3": {
     date: "2026-04-12",
     description: "Soporte para rol comercial en organización",
