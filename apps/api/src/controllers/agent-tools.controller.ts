@@ -1,6 +1,7 @@
 import type { Context } from "hono";
 import { FieldValue } from "firebase-admin/firestore";
 
+import { ApiErrors } from "@/lib/api-error";
 import type { AgentsInfoAuthContext } from "@/types/agents";
 import { resolveAgentWriteDatabase, userCanAccessAgent } from "@/utils/agents";
 import {
@@ -35,7 +36,7 @@ function handleFs(c: Context, error: unknown, log: string) {
       503,
     );
   }
-  return c.json({ error: "Error en Firestore" }, 500);
+  return ApiErrors.internal(c, "Error en Firestore");
 }
 
 async function requireAccess(
@@ -45,7 +46,7 @@ async function requireAccess(
 ) {
   try {
     const ok = await userCanAccessAgent(authCtx, agentId);
-    if (!ok) return c.json({ error: "No autorizado para este agente" }, 403);
+    if (!ok) return ApiErrors.forbidden(c, "No autorizado para este agente");
     return null;
   } catch (e) {
     return handleFs(c, e, "[agent-tools access]");
@@ -110,7 +111,7 @@ export async function getAgentTools(
     const { db: database, hasTestingData, inProduction } =
       await resolveAgentWriteDatabase(agentId);
     if (!hasTestingData && !inProduction) {
-      return c.json({ error: "Agente no encontrado" }, 404);
+      return ApiErrors.notFound(c, "Agente no encontrado");
     }
     const agentRef = database.collection("agent_configurations").doc(agentId);
 
@@ -125,7 +126,7 @@ export async function getAgentTools(
     return c.json({ tools });
   } catch (error) {
     const r = handleFs(c, error, "[agent-tools GET]");
-    return r ?? c.json({ error: "Error al listar tools" }, 500);
+    return r ?? ApiErrors.internal(c, "Error al listar tools");
   }
 }
 
@@ -141,11 +142,11 @@ export async function createAgentTool(
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: "JSON inválido" }, 400);
+    return ApiErrors.validation(c, "JSON inválido");
   }
 
   if (body == null || typeof body !== "object" || Array.isArray(body)) {
-    return c.json({ error: "El cuerpo debe ser un objeto" }, 400);
+    return ApiErrors.validation(c, "El cuerpo debe ser un objeto");
   }
 
   const b = body as Record<string, unknown>;
@@ -159,10 +160,10 @@ export async function createAgentTool(
       : "custom";
 
   if (!name) {
-    return c.json({ error: "name es obligatorio" }, 400);
+    return ApiErrors.validation(c, "name es obligatorio");
   }
   if (!description) {
-    return c.json({ error: "description es obligatoria" }, 400);
+    return ApiErrors.validation(c, "description es obligatoria");
   }
 
   const enabled = typeof b.enabled === "boolean" ? b.enabled : true;
@@ -203,7 +204,7 @@ export async function createAgentTool(
     const { db: database, hasTestingData, inProduction } =
       await resolveAgentWriteDatabase(agentId);
     if (!hasTestingData && !inProduction) {
-      return c.json({ error: "Agente no encontrado" }, 404);
+      return ApiErrors.notFound(c, "Agente no encontrado");
     }
     const agentRef = database.collection("agent_configurations").doc(agentId);
 
@@ -255,11 +256,11 @@ export async function updateAgentTool(
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: "JSON inválido" }, 400);
+    return ApiErrors.validation(c, "JSON inválido");
   }
 
   if (body == null || typeof body !== "object" || Array.isArray(body)) {
-    return c.json({ error: "El cuerpo debe ser un objeto" }, 400);
+    return ApiErrors.validation(c, "El cuerpo debe ser un objeto");
   }
 
   const b = body as Record<string, unknown>;
@@ -319,7 +320,7 @@ export async function updateAgentTool(
   }
 
   if (Object.keys(updates).length === 0) {
-    return c.json({ error: "No hay campos válidos para actualizar" }, 400);
+    return ApiErrors.validation(c, "No hay campos válidos para actualizar");
   }
 
   updates.updatedAt = FieldValue.serverTimestamp();
@@ -328,7 +329,7 @@ export async function updateAgentTool(
     const { db: database, hasTestingData, inProduction } =
       await resolveAgentWriteDatabase(agentId);
     if (!hasTestingData && !inProduction) {
-      return c.json({ error: "Agente no encontrado" }, 404);
+      return ApiErrors.notFound(c, "Agente no encontrado");
     }
     const agentRef = database.collection("agent_configurations").doc(agentId);
 
@@ -338,7 +339,7 @@ export async function updateAgentTool(
     const toolRef = toolsRef.doc(toolId);
     const toolSnap = await toolRef.get();
     if (!toolSnap.exists) {
-      return c.json({ error: "Tool no encontrada" }, 404);
+      return ApiErrors.notFound(c, "Tool no encontrada");
     }
 
     await toolRef.update(updates);
@@ -365,7 +366,7 @@ export async function deleteAgentTool(
     const { db: database, hasTestingData, inProduction } =
       await resolveAgentWriteDatabase(agentId);
     if (!hasTestingData && !inProduction) {
-      return c.json({ error: "Agente no encontrado" }, 404);
+      return ApiErrors.notFound(c, "Agente no encontrado");
     }
     const agentRef = database.collection("agent_configurations").doc(agentId);
 
@@ -375,13 +376,13 @@ export async function deleteAgentTool(
     const toolRef = toolsRef.doc(toolId);
     const toolSnap = await toolRef.get();
     if (!toolSnap.exists) {
-      return c.json({ error: "Tool no encontrada" }, 404);
+      return ApiErrors.notFound(c, "Tool no encontrada");
     }
 
     await toolRef.delete();
     return c.json({ success: true });
   } catch (error) {
     const r = handleFs(c, error, "[agent-tools DELETE]");
-    return r ?? c.json({ error: "Error al eliminar tool" }, 500);
+    return r ?? ApiErrors.internal(c, "Error al eliminar tool");
   }
 }

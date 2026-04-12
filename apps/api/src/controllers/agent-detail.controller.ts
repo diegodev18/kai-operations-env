@@ -1,6 +1,7 @@
 import type { Context } from "hono";
 import type { QueryDocumentSnapshot } from "firebase-admin/firestore";
 
+import { ApiErrors } from "@/lib/api-error";
 import {
   PROPERTY_DEFAULTS,
   PROPERTY_DOC_IDS,
@@ -47,7 +48,7 @@ function handleFirestoreError(c: Context, error: unknown, logPrefix: string) {
       503,
     );
   }
-  return c.json({ error: "Error al acceder a Firestore." }, 500);
+  return ApiErrors.internal(c, "Error al acceder a Firestore.");
 }
 
 function mergeWithDefaults<T extends PropertyDocId>(
@@ -129,12 +130,12 @@ async function requireAgentAccess(
   try {
     const ok = await userCanAccessAgent(authCtx, agentId);
     if (!ok) {
-      return c.json({ error: "No autorizado para este agente" }, 403);
+      return ApiErrors.forbidden(c, "No autorizado para este agente");
     }
     return null;
   } catch (error) {
     const r = handleFirestoreError(c, error, "[agent access]");
-    return r ?? c.json({ error: "Error de acceso" }, 500);
+    return r ?? ApiErrors.internal(c, "Error de acceso");
   }
 }
 
@@ -149,7 +150,7 @@ export async function getAgentById(
   try {
     const flags = await getAgentDeploymentFlags(agentId);
     if (!flags.hasTestingData && !flags.inProduction) {
-      return c.json({ error: "Agente no encontrado" }, 404);
+      return ApiErrors.notFound(c, "Agente no encontrado");
     }
     const db = getFirestore();
     const docRef = db.collection("agent_configurations").doc(agentId);
@@ -158,11 +159,11 @@ export async function getAgentById(
       docRef.collection("properties").doc("agent").get(),
     ]);
     if (!snapshot.exists) {
-      return c.json({ error: "Agente no encontrado" }, 404);
+      return ApiErrors.notFound(c, "Agente no encontrado");
     }
     const agent = parseAgentDoc(snapshot as QueryDocumentSnapshot, true);
     if (!agent) {
-      return c.json({ error: "No se pudo leer el agente" }, 500);
+      return ApiErrors.internal(c, "No se pudo leer el agente");
     }
     const agentData = agentPropSnap.exists ? agentPropSnap.data() : undefined;
     const enabled = (agentData?.enabled as boolean | undefined) !== false;
@@ -191,7 +192,7 @@ export async function getAgentProperties(
     const { db: database, hasTestingData, inProduction } =
       await resolveAgentWriteDatabase(agentId);
     if (!hasTestingData && !inProduction) {
-      return c.json({ error: "Agente no encontrado" }, 404);
+      return ApiErrors.notFound(c, "Agente no encontrado");
     }
     const agentRef = database.collection("agent_configurations").doc(agentId);
     const agentSnap = await agentRef.get();
@@ -286,18 +287,18 @@ export async function updateAgentPropertyDocument(
   const isKnownDoc = PROPERTY_DOC_IDS.includes(documentId as PropertyDocId);
   const isValidDynamicDoc = /^[a-zA-Z0-9_-]{1,64}$/.test(documentId);
   if (!isKnownDoc && !isValidDynamicDoc) {
-    return c.json({ error: "documentId inválido" }, 400);
+    return ApiErrors.validation(c, "documentId inválido");
   }
 
   let body: unknown;
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: "JSON inválido" }, 400);
+    return ApiErrors.validation(c, "JSON inválido");
   }
 
   if (body == null || typeof body !== "object" || Array.isArray(body)) {
-    return c.json({ error: "El cuerpo debe ser un objeto" }, 400);
+    return ApiErrors.validation(c, "El cuerpo debe ser un objeto");
   }
 
   const bodyObj = body as Record<string, unknown>;
@@ -306,17 +307,14 @@ export async function updateAgentPropertyDocument(
     bodyObj.enabled === false &&
     !isOperationsAdmin(authCtx.userRole)
   ) {
-    return c.json(
-      { error: "Solo un administrador puede apagar el agente" },
-      403,
-    );
+    return ApiErrors.forbidden(c, "Solo un administrador puede apagar el agente");
   }
 
   try {
     const { db: database, hasTestingData, inProduction } =
       await resolveAgentWriteDatabase(agentId);
     if (!hasTestingData && !inProduction) {
-      return c.json({ error: "Agente no encontrado" }, 404);
+      return ApiErrors.notFound(c, "Agente no encontrado");
     }
     const agentRef = database.collection("agent_configurations").doc(agentId);
 
@@ -414,7 +412,7 @@ export async function updateAgentPrompt(
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: "JSON inválido" }, 400);
+    return ApiErrors.validation(c, "JSON inválido");
   }
 
   const prompt =
@@ -423,14 +421,14 @@ export async function updateAgentPrompt(
       : null;
 
   if (prompt == null) {
-    return c.json({ error: "prompt es obligatorio (string)" }, 400);
+    return ApiErrors.validation(c, "prompt es obligatorio (string)");
   }
 
   try {
     const { db: database, hasTestingData, inProduction } =
       await resolveAgentWriteDatabase(agentId);
     if (!hasTestingData && !inProduction) {
-      return c.json({ error: "Agente no encontrado" }, 404);
+      return ApiErrors.notFound(c, "Agente no encontrado");
     }
     const docRef = database.collection("agent_configurations").doc(agentId);
 
@@ -474,7 +472,7 @@ export async function getProductionPrompt(
     ]);
 
     if (!agentSnap.exists) {
-      return c.json({ error: "El agente no existe en producción" }, 404);
+      return ApiErrors.notFound(c, "El agente no existe en producción");
     }
 
     const agentData = agentSnap.data() ?? {};
@@ -517,7 +515,7 @@ export async function promotePromptToProduction(
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: "JSON inválido" }, 400);
+    return ApiErrors.validation(c, "JSON inválido");
   }
 
   const prompt =
@@ -526,7 +524,7 @@ export async function promotePromptToProduction(
       : null;
 
   if (prompt == null) {
-    return c.json({ error: "prompt es obligatorio (string)" }, 400);
+    return ApiErrors.validation(c, "prompt es obligatorio (string)");
   }
 
   const authData = (body as { auth?: unknown }).auth;
@@ -543,7 +541,7 @@ export async function promotePromptToProduction(
     const snap = await docRef.get();
 
     if (!snap.exists) {
-      return c.json({ error: "El agente no existe en producción" }, 404);
+      return ApiErrors.notFound(c, "El agente no existe en producción");
     }
 
     const promptPropRef = docRef.collection("properties").doc("prompt");
@@ -584,11 +582,11 @@ export async function patchAgent(
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: "JSON inválido" }, 400);
+    return ApiErrors.validation(c, "JSON inválido");
   }
 
   if (body == null || typeof body !== "object" || Array.isArray(body)) {
-    return c.json({ error: "El cuerpo debe ser un objeto" }, 400);
+    return ApiErrors.validation(c, "El cuerpo debe ser un objeto");
   }
 
   const bodyObj = body as Record<string, unknown>;
@@ -601,14 +599,14 @@ export async function patchAgent(
   }
 
   if (Object.keys(updateData).length === 0) {
-    return c.json({ error: "No hay campos válidos para actualizar" }, 400);
+    return ApiErrors.validation(c, "No hay campos válidos para actualizar");
   }
 
   try {
     const { db: database, hasTestingData, inProduction } =
       await resolveAgentWriteDatabase(agentId);
     if (!hasTestingData && !inProduction) {
-      return c.json({ error: "Agente no encontrado" }, 404);
+      return ApiErrors.notFound(c, "Agente no encontrado");
     }
     const docRef = database.collection("agent_configurations").doc(agentId);
     await docRef.update(updateData);

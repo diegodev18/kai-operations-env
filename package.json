@@ -6,9 +6,10 @@
   "engines": {
     "node": ">=20"
   },
-  "workspaces": ["apps/*"],
+  "workspaces": ["apps/*", "packages/*"],
   "scripts": {
     "build": "bun run --filter web --filter api build",
+    "build:shared": "bun run --filter @kai/shared build",
     "dev": "bun run --filter web --filter api dev",
     "start": "bun run --filter web --filter api start"
   },

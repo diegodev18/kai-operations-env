@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@kai/shared": "*",
     "@radix-ui/react-select": "^2.2.6",
     "@xyflow/react": "^12.10.1",
     "better-auth": "^1.5.5",

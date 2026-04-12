@@ -4,6 +4,7 @@ import { existsSync } from "fs";
 import { dirname, join } from "path";
 import { z } from "zod";
 
+import { ApiErrors, errorResponse } from "@/lib/api-error";
 import { buildBuilderPropertyHeuristicsText } from "@/constants/builder-suggested-properties";
 import { mergeBuilderTechnicalPropertyPatchesForChat } from "@/controllers/agent-drafts.controller";
 import { getFirestore } from "@/lib/firestore";
@@ -450,12 +451,12 @@ export async function postAgentBuilderChat(
   try {
     raw = await c.req.json();
   } catch {
-    return c.json({ error: "JSON inválido" }, 400);
+    return ApiErrors.validation(c, "JSON inválido");
   }
 
   const parsed = bodySchema.safeParse(raw);
   if (!parsed.success) {
-    return c.json({ error: "Payload inválido" }, 400);
+    return ApiErrors.validation(c, "Payload inválido");
   }
 
   const ai = getAiInstance();
@@ -709,7 +710,12 @@ Rules:
         );
         if (!mergeResult.ok) {
           const code = mergeResult.status as 400 | 403 | 404;
-          return c.json({ error: mergeResult.error }, code);
+          return errorResponse(
+            c,
+            mergeResult.error,
+            code === 404 ? "NOT_FOUND" : code === 403 ? "FORBIDDEN" : "VALIDATION_ERROR",
+            code,
+          );
         }
         appliedPropertyPatches = mergeResult.applied;
       }
