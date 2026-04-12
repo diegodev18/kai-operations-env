@@ -21,7 +21,7 @@ export async function getUserById(id: string) {
 
 export async function changeMemberRole(
   targetUserId: string,
-  newRole: "admin" | "member",
+  newRole: "admin" | "member" | "commercial",
 ): Promise<OrgMemberOk | OrgMemberError> {
   const target = await getUserById(targetUserId);
   if (!target) {

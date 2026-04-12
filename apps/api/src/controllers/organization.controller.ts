@@ -180,7 +180,7 @@ export const patchOrganizationUser = async (
     return c.json({ error: "JSON inválido" }, 400);
   }
   const role = (body as { role?: unknown }).role;
-  if (role !== "admin" && role !== "member") {
+  if (role !== "admin" && role !== "member" && role !== "commercial") {
     return c.json({ error: "Rol inválido" }, 400);
   }
   const result = await changeMemberRole(targetUserId, role);

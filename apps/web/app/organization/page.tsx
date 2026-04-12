@@ -202,6 +202,8 @@ export default function OrganizationPage() {
       toast.success(
         newRole === "admin"
           ? `${u.name} es ahora administrador`
+          : newRole === "commercial"
+          ? "Rol actualizado a comercial"
           : "Rol actualizado a miembro",
       );
       await load();
