@@ -45,10 +45,6 @@ export interface LightAgent {
   waitTime?: number;
   /** Versión del agente. */
   version?: string;
-  /** Existe en Firestore asistente comercial (testing). */
-  inCommercial?: boolean;
-  /** Existe en Firestore kai (producción). */
-  inProduction?: boolean;
   /** Datos de cobranza del agente. */
   billing?: AgentBilling;
 }

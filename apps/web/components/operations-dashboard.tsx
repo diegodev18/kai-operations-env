@@ -62,7 +62,6 @@ import {
   fetchAgentGrowers,
   fetchAgentsPage,
   postAgentGrower,
-  postAgentSyncFromProduction,
   fetchAgentBilling,
   patchAgentBillingConfig,
   createPaymentRecord,
@@ -121,7 +120,7 @@ export function OperationsDashboard(props: {
   const [addingGrowerUserId, setAddingGrowerUserId] = useState<string | null>(
     null,
   );
-  const [syncingAgentId, setSyncingAgentId] = useState<string | null>(null);
+
   type CobranzaFilter = "all" | "domiciliated" | "non-domiciliated" | "overdue";
   const [cobranzaFilter, setCobranzaFilter] = useState<CobranzaFilter>("all");
   const [lastPaymentFrom, setLastPaymentFrom] = useState("");
@@ -466,8 +465,7 @@ export function OperationsDashboard(props: {
         list = list.filter((a) => {
           if (
             a.name.toLowerCase().includes(q) ||
-            a.owner.toLowerCase().includes(q) ||
-            (a.industry ?? "").toLowerCase().includes(q)
+            a.owner.toLowerCase().includes(q)
           ) {
             return true;
           }
@@ -865,8 +863,6 @@ export function OperationsDashboard(props: {
                 <tr className="border-b border-border bg-muted/50">
                   <th className="p-3 text-left font-medium w-8"></th>
                   <th className="p-3 text-left font-medium">Agente</th>
-                  <th className="p-3 text-left font-medium">Entornos</th>
-                  <th className="p-3 text-left font-medium">Industria</th>
                   <th className="p-3 text-left font-medium">Estatus</th>
                   <th className="p-3 text-left font-medium">Cobranza</th>
                   <th className="p-3 text-left font-medium">Growers</th>
@@ -879,12 +875,6 @@ export function OperationsDashboard(props: {
                       <td className="p-3 w-8"></td>
                       <td className="p-3">
                         <div className="h-5 w-32 bg-muted animate-pulse rounded" />
-                      </td>
-                      <td className="p-3">
-                        <div className="h-5 w-20 bg-muted animate-pulse rounded" />
-                      </td>
-                      <td className="p-3">
-                        <div className="h-5 w-24 bg-muted animate-pulse rounded" />
                       </td>
                       <td className="p-3">
                         <div className="h-5 w-16 bg-muted animate-pulse rounded" />
@@ -1014,102 +1004,6 @@ export function OperationsDashboard(props: {
                               {agent.name}
                             </Link>
                           </div>
-                        </td>
-                        <td className="p-3 align-middle">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            {agent.inCommercial ? (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Badge variant="outline" className="font-normal">
-                                    Testing
-                                  </Badge>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  Existe en asistente comercial (entorno de prueba)
-                                </TooltipContent>
-                              </Tooltip>
-                            ) : null}
-                            {agent.inProduction ? (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Badge variant="secondary" className="font-normal">
-                                    Producción
-                                  </Badge>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  Existe en proyecto kai (producción)
-                                </TooltipContent>
-                              </Tooltip>
-                            ) : null}
-                            {!agent.inCommercial && !agent.inProduction ? (
-                              <span className="text-muted-foreground">—</span>
-                            ) : null}
-                            {agent.inProduction && !agent.inCommercial ? (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Badge variant="destructive" className="font-normal">
-                                    Solo producción
-                                  </Badge>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  Aún no hay copia en asistente comercial; puedes
-                                  bajar los datos desde kai
-                                </TooltipContent>
-                              </Tooltip>
-                            ) : null}
-                            {agent.inProduction ? (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="icon-sm"
-                                    className="size-8 shrink-0"
-                                    aria-label={agent.inCommercial
-                                      ? "Refrescar desde producción al entorno comercial"
-                                      : "Crear copia en testing desde producción"}
-                                    disabled={syncingAgentId === agent.id}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      void (async () => {
-                                        setSyncingAgentId(agent.id);
-                                        const r = await postAgentSyncFromProduction(
-                                          agent.id
-                                        );
-                                        setSyncingAgentId(null);
-                                        if (r.ok) {
-                                          toast.success(
-                                            "Sincronizado desde producción al entorno comercial"
-                                          );
-                                          void fetchAgents();
-                                        } else {
-                                          toast.error(r.error);
-                                        }
-                                      })();
-                                    }}
-                                  >
-                                    {syncingAgentId === agent.id ? (
-                                      <Loader2Icon
-                                        className="size-4 animate-spin"
-                                        aria-hidden />
-                                    ) : (
-                                      <CloudDownloadIcon
-                                        className="size-4"
-                                        aria-hidden />
-                                    )}
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent className="max-w-xs">
-                                  {agent.inCommercial
-                                    ? "Refrescar desde producción: vuelve a copiar el agente desde kai al asistente comercial (sobrescribe la copia de testing)."
-                                    : "Bajar a testing: crea la copia en asistente comercial desde kai (doc y subcolecciones)."}
-                                </TooltipContent>
-                              </Tooltip>
-                            ) : null}
-                          </div>
-                        </td>
-                        <td className="p-3 text-muted-foreground">
-                          {agent.industry ?? "—"}
                         </td>
                         <td className="p-3">
                           <Badge variant={STATUS_BADGE_VARIANT[agent.operationalStatus]}>

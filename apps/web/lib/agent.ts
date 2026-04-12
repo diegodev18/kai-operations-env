@@ -47,10 +47,6 @@ export interface Agent {
   model?: string;
   temperature?: number;
   growers?: GrowerRef[];
-  /** Existe en asistente comercial (testing). */
-  inCommercial?: boolean;
-  /** Existe en proyecto kai (producción). */
-  inProduction?: boolean;
   /** Origen de lectura preferido en detalle (`GET /agents/:id`). */
   primarySource?: "commercial" | "production";
   /** Versión del agente. */
@@ -60,7 +56,6 @@ export interface Agent {
 export interface AgentWithOperations extends Agent {
   operationalStatus: AgentOperationalStatus;
   billing: AgentBilling;
-  industry?: string | null;
 }
 
 export const DEFAULT_AGENT_BILLING: AgentBilling = {
@@ -81,6 +76,5 @@ export function toAgentWithOperations(
     operationalStatus,
     billing,
     growers: Array.isArray(raw.growers) ? raw.growers : [],
-    industry: raw.industry ?? null,
   };
 }

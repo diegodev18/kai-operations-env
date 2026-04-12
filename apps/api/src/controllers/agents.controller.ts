@@ -170,8 +170,6 @@ async function buildLightAgentWithDeployment(
     temperature: Number.isFinite(temperature) ? temperature : undefined,
     waitTime: Number.isFinite(waitTime) ? waitTime : undefined,
     billing: billingSnap.exists ? parseBillingDoc(billingSnap) : undefined,
-    inCommercial: hasTestingData,
-    inProduction: true,
   };
 }
 
@@ -289,15 +287,15 @@ async function paginateLightAgentsWithSearch(
     const chunk = sortedIds.slice(i, i + CHUNK_SIZE);
 
     // 1. Identificar quiénes coinciden (paralelizado)
+    // Solo búsqueda en production (no commercial/testing)
     const matchTasks = chunk.map(async (id) => {
-      const data = docsMaps.commercial.get(id) ?? docsMaps.production.get(id);
-      // Coincidencia en raíz
+      const data = docsMaps.production.get(id);
+      // Coincidencia en raíz (business_name)
       if (data && agentMatchesRootSearchQuery(id, qLower, data)) {
         return id;
       }
       // Coincidencia con growers/techLeads precargados
       const prefetched: PrefetchedAgentData = {
-        commercial: docsMaps.commercial.get(id) ?? null,
         production: docsMaps.production.get(id) ?? null,
         growers: docsMaps.growersMap.get(id) ?? null,
         techLeads: docsMaps.techLeadsMap.get(id) ?? null,

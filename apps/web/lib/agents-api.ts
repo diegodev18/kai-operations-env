@@ -720,8 +720,6 @@ export async function fetchAgentById(agentId: string): Promise<Agent | null> {
       ...j,
       id: typeof j.id === "string" ? j.id : agentId,
       name: typeof j.name === "string" ? j.name : String(j.name ?? ""),
-      inCommercial: Boolean(j.in_commercial ?? j.inCommercial),
-      inProduction: Boolean(j.in_production ?? j.inProduction),
       primarySource:
         (j.primary_source ?? j.primarySource) === "production"
           ? "production"
