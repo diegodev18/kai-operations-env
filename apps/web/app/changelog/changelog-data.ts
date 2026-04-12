@@ -11,6 +11,26 @@ export interface ChangelogEntry {
 }
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.2.0": {
+    date: "2026-04-12",
+    description: "Mejoras de compatibilidad API-Frontend",
+    changes: {
+      added: [
+        "Nuevo paquete @kai/shared con Zod schemas compartidos",
+        "Endpoint /api/health con información de versión",
+        "Códigos de error: VALIDATION_ERROR, NOT_FOUND, FORBIDDEN, UNAUTHORIZED, INTERNAL_ERROR, CONFLICT, BAD_REQUEST",
+      ],
+      changed: [
+        "Estandarizar respuestas de error del API a formato { error, code, details? }",
+        "Helper ApiErrors para respuestas type-safe",
+        "Actualizar workspaces en package.json para incluir packages/*",
+      ],
+      improved: [
+        "Consistencia en manejo de errores entre todos los controllers",
+        "Mejor debugging de errores con códigos específicos",
+      ],
+    },
+  },
   "2.1.0": {
     date: "2026-04-11",
     description: "Cambio de dominio del frontend",
