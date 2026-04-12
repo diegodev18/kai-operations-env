@@ -40,7 +40,12 @@ async function getSessionUser(c: Context) {
   if (!session?.user) {
     return null;
   }
-  const u = session.user as { id?: string; role?: string | null; email?: string | null; name?: string | null };
+  const u = session.user as {
+    id?: string;
+    role?: string | null;
+    email?: string | null;
+    name?: string | null;
+  };
   const role = await resolveSessionUserRole(u);
   return {
     id: u.id ?? "",
@@ -86,10 +91,23 @@ blogRouter.get("/", async (c) => {
       .limit(50);
   }
 
-  const snapshot = await query.get();
+  let snapshot;
+  try {
+    snapshot = await query.get();
+  } catch (error: any) {
+    console.error("Error fetching blog posts:", error);
+    return c.json(
+      {
+        error: "Error al cargar los posts",
+        details: error.message,
+        code: error.code,
+      },
+      500,
+    );
+  }
 
   const posts = snapshot.docs.map((doc) => {
-    const data = doc.data() as BlogPost;
+    const data = doc.data() as any;
     return {
       id: doc.id,
       title: data.title,
@@ -122,23 +140,40 @@ blogRouter.get("/search", async (c) => {
   }
 
   const db = getFirestore();
-  const snapshot = await db
-    .collection(COLLECTION)
-    .where("isHidden", "==", false)
-    .get();
+  let snapshot;
+  try {
+    snapshot = await db
+      .collection(COLLECTION)
+      .where("isHidden", "==", false)
+      .get();
+  } catch (error: any) {
+    console.error("Error searching blog posts:", error);
+    return c.json(
+      {
+        error: "Error en la búsqueda",
+        details: error.message,
+        code: error.code,
+      },
+      500,
+    );
+  }
 
   const posts: BlogPost[] = [];
   for (const doc of snapshot.docs) {
-    const data = doc.data() as BlogPost;
-    
+    const data = doc.data() as any;
+
     if (type === "actuality" && data.type !== "actuality") continue;
     if (type === "lessons" && data.type === "actuality") continue;
 
     const titleMatch = data.title?.toLowerCase().includes(q);
     const contentMatch = data.content?.toLowerCase().includes(q);
-    const tagMatch = data.tags?.some((t: string) => t.toLowerCase().includes(q));
-    const authorMatch = data.authorName?.toLowerCase().includes(q) || data.authorMention?.toLowerCase().includes(q);
-    
+    const tagMatch = data.tags?.some((t: string) =>
+      t.toLowerCase().includes(q),
+    );
+    const authorMatch =
+      data.authorName?.toLowerCase().includes(q) ||
+      data.authorMention?.toLowerCase().includes(q);
+
     if (titleMatch || contentMatch || tagMatch || authorMatch) {
       posts.push({
         id: doc.id,
@@ -219,8 +254,12 @@ blogRouter.post("/", async (c) => {
 
   const title = body.title?.trim() ?? "";
   const content = body.content ?? "";
-  const tags = Array.isArray(body.tags) ? body.tags.filter((t): t is string => typeof t === "string") : [];
-  const images = Array.isArray(body.images) ? body.images.filter((i): i is string => typeof i === "string") : [];
+  const tags = Array.isArray(body.tags)
+    ? body.tags.filter((t): t is string => typeof t === "string")
+    : [];
+  const images = Array.isArray(body.images)
+    ? body.images.filter((i): i is string => typeof i === "string")
+    : [];
   const type = body.type ?? "lessons";
 
   if (!title) {
@@ -250,22 +289,25 @@ blogRouter.post("/", async (c) => {
     updatedAt: now,
   });
 
-  return c.json({
-    post: {
-      id: docRef.id,
-      title,
-      content,
-      authorId: user.id,
-      authorName: user.name ?? user.email,
-      authorMention,
-      tags,
-      images,
-      mentions,
-      isHidden: false,
-      createdAt: now.toMillis(),
-      updatedAt: now.toMillis(),
+  return c.json(
+    {
+      post: {
+        id: docRef.id,
+        title,
+        content,
+        authorId: user.id,
+        authorName: user.name ?? user.email,
+        authorMention,
+        tags,
+        images,
+        mentions,
+        isHidden: false,
+        createdAt: now.toMillis(),
+        updatedAt: now.toMillis(),
+      },
     },
-  }, 201);
+    201,
+  );
 });
 
 blogRouter.put("/:id", async (c) => {
@@ -302,8 +344,12 @@ blogRouter.put("/:id", async (c) => {
 
   const title = body.title?.trim() ?? data.title;
   const content = body.content ?? data.content;
-  const tags = Array.isArray(body.tags) ? body.tags.filter((t): t is string => typeof t === "string") : data.tags;
-  const images = Array.isArray(body.images) ? body.images.filter((i): i is string => typeof i === "string") : data.images;
+  const tags = Array.isArray(body.tags)
+    ? body.tags.filter((t): t is string => typeof t === "string")
+    : data.tags;
+  const images = Array.isArray(body.images)
+    ? body.images.filter((i): i is string => typeof i === "string")
+    : data.images;
 
   if (!title) {
     return c.json({ error: "El título es obligatorio" }, 400);
@@ -440,7 +486,9 @@ blogRouter.post("/upload", async (c) => {
   const mimeType = file.type;
   if (!ALLOWED_IMAGE_TYPES.has(mimeType)) {
     return c.json(
-      { error: "Tipo de archivo no permitido. Permitidos: JPG, PNG, GIF, WEBP" },
+      {
+        error: "Tipo de archivo no permitido. Permitidos: JPG, PNG, GIF, WEBP",
+      },
       400,
     );
   }

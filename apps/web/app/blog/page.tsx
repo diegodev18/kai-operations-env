@@ -80,7 +80,9 @@ function generateMarkdown(fields: LessonFields): string {
   }
 
   if (fields.consequences.trim()) {
-    parts.push(`## ¿Cuáles son las consecuencias?\n${fields.consequences.trim()}`);
+    parts.push(
+      `## ¿Cuáles son las consecuencias?\n${fields.consequences.trim()}`,
+    );
   }
 
   if (fields.measuresTaken.trim()) {
@@ -88,7 +90,9 @@ function generateMarkdown(fields: LessonFields): string {
   }
 
   if (fields.prevention.trim()) {
-    parts.push(`## ¿Qué acciones se tomarán para que no se repita?\n${fields.prevention.trim()}`);
+    parts.push(
+      `## ¿Qué acciones se tomarán para que no se repita?\n${fields.prevention.trim()}`,
+    );
   }
 
   return parts.join("\n\n");
@@ -234,7 +238,10 @@ export default function BlogPage() {
   }, [handleSearch]);
 
   const authors = useMemo(() => {
-    const authorSet = new Map<string, { id: string; mention: string; name: string }>();
+    const authorSet = new Map<
+      string,
+      { id: string; mention: string; name: string }
+    >();
     posts.forEach((post) => {
       if (!authorSet.has(post.authorId)) {
         authorSet.set(post.authorId, {
@@ -245,7 +252,7 @@ export default function BlogPage() {
       }
     });
     return Array.from(authorSet.values()).sort((a, b) =>
-      a.name.localeCompare(b.name)
+      a.name.localeCompare(b.name),
     );
   }, [posts]);
 
@@ -270,24 +277,33 @@ export default function BlogPage() {
     void loadPosts();
   }, [loadPosts]);
 
-  const updateNewField = useCallback((key: keyof LessonFields, value: string) => {
-    setNewFields((prev) => ({ ...prev, [key]: value }));
-  }, []);
+  const updateNewField = useCallback(
+    (key: keyof LessonFields, value: string) => {
+      setNewFields((prev) => ({ ...prev, [key]: value }));
+    },
+    [],
+  );
 
-  const handleAddNewTag = useCallback((tag: string) => {
-    if (tag && !newTags.includes(tag)) {
-      setNewTags((prev) => [...prev, tag]);
-    }
-  }, [newTags]);
+  const handleAddNewTag = useCallback(
+    (tag: string) => {
+      if (tag && !newTags.includes(tag)) {
+        setNewTags((prev) => [...prev, tag]);
+      }
+    },
+    [newTags],
+  );
 
   const handleRemoveNewTag = useCallback((tag: string) => {
     setNewTags((prev) => prev.filter((t) => t !== tag));
   }, []);
 
-  const handleNewTagSelect = useCallback((tag: string) => {
-    handleAddNewTag(tag);
-    setSelectedNewTag("");
-  }, [handleAddNewTag]);
+  const handleNewTagSelect = useCallback(
+    (tag: string) => {
+      handleAddNewTag(tag);
+      setSelectedNewTag("");
+    },
+    [handleAddNewTag],
+  );
 
   const handleCreateLesson = useCallback(async () => {
     if (!newTitle.trim()) {
@@ -325,6 +341,9 @@ export default function BlogPage() {
       } else {
         toast.error(result.error ?? "Error al crear la lección");
       }
+    } catch (error) {
+      console.error(error);
+      toast.error("Ocurrió un error inesperado al publicar");
     } finally {
       setSaving(false);
     }
@@ -333,7 +352,9 @@ export default function BlogPage() {
   if (!session) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <p className="text-muted-foreground">Inicia sesión para ver las lecciones.</p>
+        <p className="text-muted-foreground">
+          Inicia sesión para ver las lecciones.
+        </p>
       </div>
     );
   }
@@ -377,10 +398,7 @@ export default function BlogPage() {
 
         {showFilters && (
           <div className="flex flex-wrap gap-2">
-            <Select
-              value={selectedAuthor}
-              onValueChange={setSelectedAuthor}
-            >
+            <Select value={selectedAuthor} onValueChange={setSelectedAuthor}>
               <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="Filtrar por autor" />
               </SelectTrigger>
@@ -445,14 +463,11 @@ export default function BlogPage() {
                     <CardTitle className="text-xl hover:text-primary">
                       {post.title}
                     </CardTitle>
-                    {post.isHidden && (
-                      <Badge variant="secondary">Oculto</Badge>
-                    )}
+                    {post.isHidden && <Badge variant="secondary">Oculto</Badge>}
                   </div>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
-                      <UserIcon className="h-3.5 w-3.5" />
-                      @{post.authorMention}
+                      <UserIcon className="h-3.5 w-3.5" />@{post.authorMention}
                     </span>
                     <span>{formatDate(post.createdAt)}</span>
                   </div>
@@ -485,7 +500,8 @@ export default function BlogPage() {
           <DialogHeader>
             <DialogTitle>Nueva lección</DialogTitle>
             <DialogDescription>
-              Documenta el problema, cómo lo detectaste, sus consecuencias, las medidas tomadas y las acciones preventivas.
+              Documenta el problema, cómo lo detectaste, sus consecuencias, las
+              medidas tomadas y las acciones preventivas.
             </DialogDescription>
           </DialogHeader>
 
@@ -505,7 +521,9 @@ export default function BlogPage() {
             <LessonFormFields fields={newFields} updateField={updateNewField} />
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Etiquetas (opcional)</label>
+              <label className="text-sm font-medium">
+                Etiquetas (opcional)
+              </label>
               <div className="flex flex-wrap gap-2">
                 {newTags.map((tag) => (
                   <Badge key={tag} variant="secondary" className="gap-1">

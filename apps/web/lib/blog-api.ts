@@ -59,7 +59,14 @@ export async function createBlogPost(post: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(post),
   });
-  const data = await res.json();
+  
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    return { ok: false, error: `Error de red o servidor (${res.status})` };
+  }
+
   if (!res.ok) {
     return { ok: false, error: data.error ?? "Error al crear el post" };
   }
@@ -81,7 +88,14 @@ export async function updateBlogPost(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(post),
   });
-  const data = await res.json();
+
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    return { ok: false, error: `Error de red o servidor (${res.status})` };
+  }
+
   if (!res.ok) {
     return { ok: false, error: data.error ?? "Error al actualizar el post" };
   }
@@ -95,7 +109,14 @@ export async function deleteBlogPost(
     method: "DELETE",
     credentials: "include",
   });
-  const data = await res.json();
+
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    return { ok: false, error: `Error de red o servidor (${res.status})` };
+  }
+
   if (!res.ok) {
     return { ok: false, error: data.error ?? "Error al eliminar el post" };
   }

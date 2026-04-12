@@ -122,7 +122,10 @@ export default function ActualityPage() {
   }, [handleSearch]);
 
   const authors = useMemo(() => {
-    const authorSet = new Map<string, { id: string; mention: string; name: string }>();
+    const authorSet = new Map<
+      string,
+      { id: string; mention: string; name: string }
+    >();
     posts.forEach((post) => {
       if (!authorSet.has(post.authorId)) {
         authorSet.set(post.authorId, {
@@ -133,7 +136,7 @@ export default function ActualityPage() {
       }
     });
     return Array.from(authorSet.values()).sort((a, b) =>
-      a.name.localeCompare(b.name)
+      a.name.localeCompare(b.name),
     );
   }, [posts]);
 
@@ -158,20 +161,26 @@ export default function ActualityPage() {
     void loadPosts();
   }, [loadPosts]);
 
-  const handleAddNewTag = useCallback((tag: string) => {
-    if (tag && !newTags.includes(tag)) {
-      setNewTags((prev) => [...prev, tag]);
-    }
-  }, [newTags]);
+  const handleAddNewTag = useCallback(
+    (tag: string) => {
+      if (tag && !newTags.includes(tag)) {
+        setNewTags((prev) => [...prev, tag]);
+      }
+    },
+    [newTags],
+  );
 
   const handleRemoveNewTag = useCallback((tag: string) => {
     setNewTags((prev) => prev.filter((t) => t !== tag));
   }, []);
 
-  const handleNewTagSelect = useCallback((tag: string) => {
-    handleAddNewTag(tag);
-    setSelectedNewTag("");
-  }, [handleAddNewTag]);
+  const handleNewTagSelect = useCallback(
+    (tag: string) => {
+      handleAddNewTag(tag);
+      setSelectedNewTag("");
+    },
+    [handleAddNewTag],
+  );
 
   const handleImageUpload = useCallback(
     async (file: File) => {
@@ -193,7 +202,10 @@ export default function ActualityPage() {
           if (textarea) {
             const start = textarea.selectionStart;
             const end = textarea.selectionEnd;
-            const newContentValue = newContent.slice(0, start) + markdownImage + newContent.slice(end);
+            const newContentValue =
+              newContent.slice(0, start) +
+              markdownImage +
+              newContent.slice(end);
             setNewContent(newContentValue);
             setTimeout(() => {
               textarea.focus();
@@ -211,7 +223,7 @@ export default function ActualityPage() {
         setUploading(false);
       }
     },
-    [newContent]
+    [newContent],
   );
 
   const handleFileChange = useCallback(
@@ -222,7 +234,7 @@ export default function ActualityPage() {
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     },
-    [handleImageUpload]
+    [handleImageUpload],
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -240,13 +252,13 @@ export default function ActualityPage() {
       e.preventDefault();
       setIsDragging(false);
       const files = Array.from(e.dataTransfer.files).filter((f) =>
-        f.type.startsWith("image/")
+        f.type.startsWith("image/"),
       );
       for (const file of files) {
         await handleImageUpload(file);
       }
     },
-    [handleImageUpload]
+    [handleImageUpload],
   );
 
   const handleCreatePost = useCallback(async () => {
@@ -278,6 +290,9 @@ export default function ActualityPage() {
       } else {
         toast.error(result.error ?? "Error al crear la entrada");
       }
+    } catch (error) {
+      console.error(error);
+      toast.error("Ocurrió un error inesperado al publicar");
     } finally {
       setSaving(false);
     }
@@ -294,7 +309,9 @@ export default function ActualityPage() {
   if (!session) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <p className="text-muted-foreground">Inicia sesión para ver la actualidad.</p>
+        <p className="text-muted-foreground">
+          Inicia sesión para ver la actualidad.
+        </p>
       </div>
     );
   }
@@ -336,10 +353,7 @@ export default function ActualityPage() {
 
         {showFilters && (
           <div className="flex flex-wrap gap-2">
-            <Select
-              value={selectedAuthor}
-              onValueChange={setSelectedAuthor}
-            >
+            <Select value={selectedAuthor} onValueChange={setSelectedAuthor}>
               <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="Filtrar por autor" />
               </SelectTrigger>
@@ -397,21 +411,22 @@ export default function ActualityPage() {
       ) : (
         <div className="grid gap-6">
           {filteredPosts.map((post) => (
-            <Link key={post.id} href={`/blog-actuality/${post.id}`} className="block">
+            <Link
+              key={post.id}
+              href={`/blog-actuality/${post.id}`}
+              className="block"
+            >
               <Card className="transition-all hover:border-primary/50 hover:shadow-md">
                 <CardHeader className="gap-3">
                   <div className="flex items-start justify-between gap-2">
                     <CardTitle className="text-xl hover:text-primary">
                       {post.title}
                     </CardTitle>
-                    {post.isHidden && (
-                      <Badge variant="secondary">Oculto</Badge>
-                    )}
+                    {post.isHidden && <Badge variant="secondary">Oculto</Badge>}
                   </div>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
-                      <UserIcon className="h-3.5 w-3.5" />
-                      @{post.authorMention}
+                      <UserIcon className="h-3.5 w-3.5" />@{post.authorMention}
                     </span>
                     <span>{formatDate(post.createdAt)}</span>
                   </div>
@@ -493,7 +508,9 @@ Arrastra y suelta imágenes para insertarlas`}
                 />
                 {isDragging && (
                   <div className="absolute inset-0 flex items-center justify-center rounded-md bg-primary/10">
-                    <p className="text-sm text-primary">Suelta la imagen aquí</p>
+                    <p className="text-sm text-primary">
+                      Suelta la imagen aquí
+                    </p>
                   </div>
                 )}
               </div>
@@ -503,7 +520,9 @@ Arrastra y suelta imágenes para insertarlas`}
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Etiquetas (opcional)</label>
+              <label className="text-sm font-medium">
+                Etiquetas (opcional)
+              </label>
               <div className="flex flex-wrap gap-2">
                 {newTags.map((tag) => (
                   <Badge key={tag} variant="secondary" className="gap-1">
@@ -523,11 +542,13 @@ Arrastra y suelta imágenes para insertarlas`}
                   <SelectValue placeholder="Selecciona una etiqueta..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {ACTUALITY_TAGS.filter((t) => !newTags.includes(t)).map((tag) => (
-                    <SelectItem key={tag} value={tag}>
-                      {tag}
-                    </SelectItem>
-                  ))}
+                  {ACTUALITY_TAGS.filter((t) => !newTags.includes(t)).map(
+                    (tag) => (
+                      <SelectItem key={tag} value={tag}>
+                        {tag}
+                      </SelectItem>
+                    ),
+                  )}
                 </SelectContent>
               </Select>
             </div>
