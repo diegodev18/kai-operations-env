@@ -256,11 +256,11 @@ export async function updateAgentTool(
   try {
     body = await c.req.json();
   } catch {
-    return c.json({ error: "JSON inválido" }, 400);
+    return ApiErrors.validation(c, "JSON inválido");
   }
 
   if (body == null || typeof body !== "object" || Array.isArray(body)) {
-    return c.json({ error: "El cuerpo debe ser un objeto" }, 400);
+    return ApiErrors.validation(c, "El cuerpo debe ser un objeto");
   }
 
   const b = body as Record<string, unknown>;
@@ -320,7 +320,7 @@ export async function updateAgentTool(
   }
 
   if (Object.keys(updates).length === 0) {
-    return c.json({ error: "No hay campos válidos para actualizar" }, 400);
+    return ApiErrors.validation(c, "No hay campos válidos para actualizar");
   }
 
   updates.updatedAt = FieldValue.serverTimestamp();
@@ -329,7 +329,7 @@ export async function updateAgentTool(
     const { db: database, hasTestingData, inProduction } =
       await resolveAgentWriteDatabase(agentId);
     if (!hasTestingData && !inProduction) {
-      return c.json({ error: "Agente no encontrado" }, 404);
+      return ApiErrors.notFound(c, "Agente no encontrado");
     }
     const agentRef = database.collection("agent_configurations").doc(agentId);
 
@@ -339,7 +339,7 @@ export async function updateAgentTool(
     const toolRef = toolsRef.doc(toolId);
     const toolSnap = await toolRef.get();
     if (!toolSnap.exists) {
-      return c.json({ error: "Tool no encontrada" }, 404);
+      return ApiErrors.notFound(c, "Tool no encontrada");
     }
 
     await toolRef.update(updates);
@@ -366,7 +366,7 @@ export async function deleteAgentTool(
     const { db: database, hasTestingData, inProduction } =
       await resolveAgentWriteDatabase(agentId);
     if (!hasTestingData && !inProduction) {
-      return c.json({ error: "Agente no encontrado" }, 404);
+      return ApiErrors.notFound(c, "Agente no encontrado");
     }
     const agentRef = database.collection("agent_configurations").doc(agentId);
 
@@ -376,13 +376,13 @@ export async function deleteAgentTool(
     const toolRef = toolsRef.doc(toolId);
     const toolSnap = await toolRef.get();
     if (!toolSnap.exists) {
-      return c.json({ error: "Tool no encontrada" }, 404);
+      return ApiErrors.notFound(c, "Tool no encontrada");
     }
 
     await toolRef.delete();
     return c.json({ success: true });
   } catch (error) {
     const r = handleFs(c, error, "[agent-tools DELETE]");
-    return r ?? c.json({ error: "Error al eliminar tool" }, 500);
+    return r ?? ApiErrors.internal(c, "Error al eliminar tool");
   }
 }
