@@ -1310,6 +1310,11 @@ export function OperationsDashboard(props: {
               </tbody>
             </table>
           </div>
+          <div className="flex gap-2 items-center mt-4">
+            <span className="text-sm text-muted-foreground">
+              ({agents.length} agentes)
+            </span>
+          </div>
           {filteredAgents.length === 0 ? (
             <p className="py-8 text-center text-muted-foreground">
               {agents.length === 0
@@ -1320,7 +1325,7 @@ export function OperationsDashboard(props: {
             </p>
           ) : null}
           {hasMore && !isLoading ? (
-            <div className="mt-4 flex gap-2 items-center">
+            <div className="flex gap-2 items-center">
               <Button
                 type="button"
                 variant="outline"
@@ -1348,11 +1353,11 @@ export function OperationsDashboard(props: {
                 ) : null}
                 Cargar todos
               </Button>
-              <span className="text-sm text-muted-foreground ml-2">
-                ({agents.length} agentes)
-              </span>
             </div>
           ) : null}
+          <span className="text-sm text-muted-foreground ml-2">
+            ({agents.length} agentes)
+          </span>
         </div>
       </div>
     </div><Dialog
