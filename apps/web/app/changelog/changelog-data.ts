@@ -42,12 +42,14 @@ export const changelogData: Record<string, ChangelogEntry> = {
   },
   "2.0.14": {
     date: "2026-04-10",
-    description: "Sincronización de crmConfig desde toolsCatalog",
+    description: "Botón de sincronización de toolsCatalog a documento de la tool del agente",
     changes: {
       added: [
-        "Nueva opción de sincronización de crmConfig en dialog de editar tool",
-        "Campo crmConfig se guarda en raíz del documento (no en properties)",
-        "API actualizada para devolver y aceptar crmConfig",
+        "Botón de sincronización en dialog de editar tool para traer valores desde toolsCatalog",
+        "Permite sincronizar: displayName, description, path, parameters, crmConfig",
+        "Selección de campos a sincronizar mediante checkboxes",
+        "Detección de cambios considerando orden de propiedades (deep comparison)",
+        "API actualizada para devolver y aceptar crmConfig en toolsCatalog y agent tools",
       ],
     },
   },
