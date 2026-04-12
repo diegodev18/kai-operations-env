@@ -11,6 +11,15 @@ export interface ChangelogEntry {
 }
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.2.5": {
+    date: "2026-04-12",
+    description: "Filtro de favoritos movido al backend",
+    changes: {
+      improved: [
+        "El filtro de favoritos ahora se procesa en el servidor, evitando cargar todos los agentes en el cliente",
+      ],
+    },
+  },
   "2.2.4": {
     date: "2026-04-12",
     description: "Mejoras en gestión de usuarios de organización",
