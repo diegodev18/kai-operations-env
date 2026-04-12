@@ -11,6 +11,23 @@ export interface ChangelogEntry {
 }
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.2.1": {
+    date: "2026-04-12",
+    description: "Mejoras en búsqueda de agentes",
+    changes: {
+      fixed: [
+        "Búsqueda de agentes ahora solo busca en producción (arreglado problema donde no mostraba todos los agentes que coincidían)",
+      ],
+      removed: [
+        "Columnas 'Entornos' e 'Industria' del dashboard de operaciones",
+        "Botón de sincronización de agentes del dashboard",
+        "Campos inCommercial, inProduction e industry de la respuesta API /api/agents/info",
+      ],
+      changed: [
+        "Búsqueda ahora es solo en production (antes buscaba en commercial/testing)",
+      ],
+    },
+  },
   "2.2.0": {
     date: "2026-04-12",
     description: "Mejoras de compatibilidad API-Frontend",
