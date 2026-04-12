@@ -2,6 +2,7 @@ import type { Context } from "hono";
 
 import { FieldPath, type Query } from "firebase-admin/firestore";
 
+import { ApiErrors } from "@/lib/api-error";
 import { AGENTS_INFO_MAX_PAGE_LIMIT } from "@/constants/agents";
 import { getFirestore } from "@/lib/firestore";
 import type {
@@ -611,23 +612,23 @@ export async function assignAgentToUser(
   const firestore = getFirestore();
   const agentSnap = await firestore.collection("agent_configurations").doc(agentId).get();
   if (!agentSnap.exists) {
-    return c.json({ error: "El agente no existe" }, 404);
+    return ApiErrors.notFound(c, "El agente no existe");
   }
 
   const session = await auth.api.getSession({ headers: c.req.raw.headers });
   if (!session?.user?.id) {
-    return c.json({ error: "No autorizado" }, 401);
+    return ApiErrors.unauthorized(c, "No autorizado");
   }
 
   const userId = session.user.id as string;
   const rows = await db.select({ phone: user.phone, name: user.name }).from(user).where(eq(user.id, userId)).limit(1);
   if (!rows[0]) {
-    return c.json({ error: "Usuario no encontrado" }, 404);
+    return ApiErrors.notFound(c, "Usuario no encontrado");
   }
 
   const phone = rows[0].phone;
   if (!phone || phone.trim().length === 0) {
-    return c.json({ error: "El usuario no tiene teléfono configurado" }, 400);
+    return ApiErrors.validation(c, "El usuario no tiene teléfono configurado");
   }
 
   const phoneId = phone.trim();
