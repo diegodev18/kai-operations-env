@@ -11,6 +11,18 @@ export interface ChangelogEntry {
 }
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.2.3": {
+    date: "2026-04-12",
+    description: "Soporte para rol comercial en organización",
+    changes: {
+      added: [
+        "Rol 'commercial' ahora es válido al gestionar usuarios de organización",
+      ],
+      fixed: [
+        "Toast mostraba 'actualizado a miembro' al asignar rol comercial",
+      ],
+    },
+  },
   "2.2.2": {
     date: "2026-04-12",
     description: "Mejora en indicadores de carga del dashboard",
