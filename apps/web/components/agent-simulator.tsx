@@ -735,7 +735,7 @@ export function AgentSimulator({
 
       <div className="flex min-h-0 flex-1 items-stretch gap-4 overflow-x-auto pb-4">
         {conversations.map((conv, index) => (
-          <div key={conv.id} className="flex min-w-[480px] max-w-[600px] flex-shrink-0 flex-col">
+          <div key={conv.id} className="flex w-[540px] flex-shrink-0 flex-col">
             <ConversationCard
               index={index}
               conversation={conv}
