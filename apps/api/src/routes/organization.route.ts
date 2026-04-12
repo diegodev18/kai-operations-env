@@ -13,6 +13,7 @@ import {
   postOrganizationInvitation,
   postOrganizationInvitationLink,
   postOrganizationInvitationRefreshLink,
+  postOrganizationUserResetPassword,
 } from "@/controllers/organization.controller";
 import { auth } from "@/lib/auth";
 import { isOperationsAdmin } from "@/utils/operations-access";
@@ -85,6 +86,19 @@ organizationRouter.delete("/users/:userId", async (c) => {
     return c.json({ error: "No autorizado" }, 401);
   }
   return deleteOrganizationUser(c, actorId, targetUserId);
+});
+
+organizationRouter.post("/users/:userId/reset-password", async (c) => {
+  const ctx = await requireSession(c);
+  if ("error" in ctx) return ctx.error;
+  if (!isOperationsAdmin(ctx.role)) {
+    return c.json({ error: "No autorizado" }, 403);
+  }
+  const targetUserId = c.req.param("userId");
+  if (!targetUserId) {
+    return c.json({ error: "Usuario no encontrado" }, 404);
+  }
+  return postOrganizationUserResetPassword(c, targetUserId);
 });
 
 organizationRouter.get("/invitations", async (c) => {

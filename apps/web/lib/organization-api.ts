@@ -226,3 +226,27 @@ export async function updateUserPhone(
   }
   return { ok: false, error };
 }
+
+export async function resetUserPassword(
+  userId: string,
+): Promise<{ ok: true; tempPassword: string } | { ok: false; error: string }> {
+  const res = await fetch(
+    `/api/organization/users/${encodeURIComponent(userId)}/reset-password`,
+    {
+      method: "POST",
+      credentials: "include",
+    },
+  );
+  if (res.ok) {
+    const data = (await res.json()) as { tempPassword: string };
+    return { ok: true, tempPassword: data.tempPassword };
+  }
+  let error = "No se pudo reestablecer la contraseña";
+  try {
+    const data = (await res.json()) as { error?: string };
+    if (data.error) error = data.error;
+  } catch {
+    /* empty */
+  }
+  return { ok: false, error };
+}

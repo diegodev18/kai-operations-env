@@ -5,9 +5,8 @@ import {
   Building2Icon,
   CopyIcon,
   Loader2Icon,
+  PencilIcon,
   PhoneIcon,
-  ShieldOffIcon,
-  ShieldPlusIcon,
   Trash2Icon,
 } from "lucide-react";
 import Link from "next/link";
@@ -43,6 +42,7 @@ import {
   fetchOrganizationInvitations,
   fetchOrganizationMe,
   fetchOrganizationUsers,
+  resetUserPassword,
   updateOrganizationUserRole,
   updateUserPhone,
   type OrganizationInvitation,
@@ -68,6 +68,11 @@ export default function OrganizationPage() {
   const [phoneLada, setPhoneLada] = useState("+52");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [savingPhone, setSavingPhone] = useState(false);
+  const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
+  const [editUserDialogUser, setEditUserDialogUser] = useState<OrganizationUser | null>(null);
+  const [confirmDeleteEmail, setConfirmDeleteEmail] = useState("");
+  const [confirmDeleteLoading, setConfirmDeleteLoading] = useState(false);
+  const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
 
   const isAdmin = role === "admin";
   const currentUserId = session?.user?.id as string | undefined;
@@ -191,49 +196,6 @@ export default function OrganizationPage() {
     }
   }
 
-  async function onChangeRole(u: OrganizationUser, newRole: "admin" | "member" | "commercial") {
-    setRowActionId(u.id);
-    try {
-      const result = await updateOrganizationUserRole(u.id, newRole);
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success(
-        newRole === "admin"
-          ? `${u.name} es ahora administrador`
-          : newRole === "commercial"
-          ? "Rol actualizado a comercial"
-          : "Rol actualizado a miembro",
-      );
-      await load();
-    } finally {
-      setRowActionId(null);
-    }
-  }
-
-  async function onDeleteUser(u: OrganizationUser) {
-    if (
-      !globalThis.confirm(
-        `¿Eliminar a ${u.name} (${u.email})? Esta acción no se puede deshacer.`,
-      )
-    ) {
-      return;
-    }
-    setRowActionId(u.id);
-    try {
-      const result = await deleteOrganizationUser(u.id);
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success("Usuario eliminado");
-      await load();
-    } finally {
-      setRowActionId(null);
-    }
-  }
-
   function openPhoneDialog(u: OrganizationUser) {
     setPhoneDialogUser(u);
     const existing = u.phone ?? "";
@@ -287,6 +249,87 @@ export default function OrganizationPage() {
       closePhoneDialog();
     } finally {
       setSavingPhone(false);
+    }
+  }
+
+  function openEditUserDialog(u: OrganizationUser) {
+    setEditUserDialogUser(u);
+    setConfirmDeleteEmail("");
+    setEditUserDialogOpen(true);
+  }
+
+  function closeEditUserDialog() {
+    setEditUserDialogOpen(false);
+    setEditUserDialogUser(null);
+    setConfirmDeleteEmail("");
+  }
+
+  async function onChangeRoleFromDialog(newRole: "admin" | "member" | "commercial") {
+    if (!editUserDialogUser) return;
+    setRowActionId(editUserDialogUser.id);
+    try {
+      const result = await updateOrganizationUserRole(editUserDialogUser.id, newRole);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(
+        newRole === "admin"
+          ? `${editUserDialogUser.name} es ahora administrador`
+          : newRole === "commercial"
+          ? "Rol actualizado a comercial"
+          : "Rol actualizado a miembro",
+      );
+      await load();
+      if (editUserDialogUser) {
+        const updatedUser = users.find(user => user.id === editUserDialogUser.id);
+        if (updatedUser) {
+          setEditUserDialogUser({ ...updatedUser, role: newRole });
+        }
+      }
+    } finally {
+      setRowActionId(null);
+    }
+  }
+
+  async function onResetPassword() {
+    if (!editUserDialogUser) return;
+    setResetPasswordLoading(true);
+    try {
+      const result = await resetUserPassword(editUserDialogUser.id);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Contraseña temporal generada", {
+        description: `Nueva contraseña: ${result.tempPassword}`,
+        duration: 20000,
+      });
+    } finally {
+      setResetPasswordLoading(false);
+    }
+  }
+
+  async function onDeleteUserFromDialog() {
+    if (!editUserDialogUser) return;
+    const userEmail = editUserDialogUser.email.toLowerCase().trim();
+    const confirmEmail = confirmDeleteEmail.toLowerCase().trim();
+    if (userEmail !== confirmEmail) {
+      toast.error("El correo no coincide");
+      return;
+    }
+    setConfirmDeleteLoading(true);
+    try {
+      const result = await deleteOrganizationUser(editUserDialogUser.id);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Usuario eliminado");
+      closeEditUserDialog();
+      await load();
+    } finally {
+      setConfirmDeleteLoading(false);
     }
   }
 
@@ -357,19 +400,14 @@ export default function OrganizationPage() {
                       <th className="px-3 py-2 font-medium">Teléfono</th>
                       <th className="px-3 py-2 font-medium">Rol</th>
                       {isAdmin ? (
-                        <th className="px-3 py-2 font-medium text-right">
-                          Acciones
+                        <th className="px-3 py-2 font-medium w-10">
+                         
                         </th>
                       ) : null}
                     </tr>
                   </thead>
                   <tbody>
                     {users.map((u) => {
-                      const isSelf = Boolean(
-                        currentUserId && u.id === currentUserId,
-                      );
-                      const canDemoteAdmin =
-                        u.role === "admin" && admins.length >= 2;
                       const busy = rowActionId === u.id;
                       return (
                         <tr key={u.id} className="border-b border-border/60">
@@ -405,126 +443,20 @@ export default function OrganizationPage() {
                               {u.role}
                             </Badge>
                           </td>
-                          {isAdmin ? (
+{isAdmin ? (
                             <td className="px-3 py-2 text-right">
-                              {isSelf ? (
-                                (u.role === "admin" && canDemoteAdmin) || u.role === "commercial" ? (
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="gap-1"
-                                    disabled={busy}
-                                    onClick={() => {
-                                      void onChangeRole(u, "member");
-                                    }}
-                                  >
-                                    {busy ? (
-                                      <Loader2Icon className="size-3.5 animate-spin" />
-                                    ) : (
-                                      <ShieldOffIcon className="size-3.5" />
-                                    )}
-                                    Quitar mi rol admin
-                                  </Button>
-                                ) : (
-                                  <span className="text-xs text-muted-foreground">
-                                    —
-                                  </span>
-                                )
-                                  ) : (
-                                    <div className="flex flex-wrap items-center justify-end gap-2">
-                                      {u.role === "member" ? (
-                                        <>
-                                          <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            className="gap-1"
-                                            disabled={busy}
-                                            onClick={() => {
-                                              void onChangeRole(u, "admin");
-                                            }}
-                                          >
-                                            {busy ? (
-                                              <Loader2Icon className="size-3.5 animate-spin" />
-                                            ) : (
-                                              <ShieldPlusIcon className="size-3.5" />
-                                            )}
-                                            Hacer admin
-                                          </Button>
-                                          <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            className="gap-1"
-                                            disabled={busy}
-                                            onClick={() => {
-                                              void onChangeRole(u, "commercial");
-                                            }}
-                                          >
-                                            {busy ? (
-                                              <Loader2Icon className="size-3.5 animate-spin" />
-                                            ) : (
-                                              <ShieldPlusIcon className="size-3.5" />
-                                            )}
-                                            Hacer comercial
-                                          </Button>
-                                        </>
-                                      ) : u.role === "commercial" ? (
-                                        <Button
-                                          type="button"
-                                          variant="outline"
-                                          size="sm"
-                                          className="gap-1"
-                                          disabled={busy}
-                                          onClick={() => {
-                                            void onChangeRole(u, "member");
-                                          }}
-                                        >
-                                          {busy ? (
-                                            <Loader2Icon className="size-3.5 animate-spin" />
-                                          ) : (
-                                            <ShieldOffIcon className="size-3.5" />
-                                          )}
-                                          Quitar comercial
-                                        </Button>
-                                      ) : canDemoteAdmin ? (
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      className="gap-1"
-                                      disabled={busy}
-                                      onClick={() => {
-                                        void onChangeRole(u, "member");
-                                      }}
-                                    >
-                                      {busy ? (
-                                        <Loader2Icon className="size-3.5 animate-spin" />
-                                      ) : (
-                                        <ShieldOffIcon className="size-3.5" />
-                                      )}
-                                      Quitar admin
-                                    </Button>
-                                  ) : null}
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="gap-1 text-destructive hover:text-destructive"
-                                    disabled={busy}
-                                    onClick={() => {
-                                      void onDeleteUser(u);
-                                    }}
-                                  >
-                                    {busy ? (
-                                      <Loader2Icon className="size-3.5 animate-spin" />
-                                    ) : (
-                                      <Trash2Icon className="size-3.5" />
-                                    )}
-                                    Eliminar
-                                  </Button>
-                                </div>
+                              {currentUserId && u.id === currentUserId ? (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={busy}
+                                  onClick={() => openEditUserDialog(u)}
+                                >
+                                  <PencilIcon className="size-4" />
+                                </Button>
                               )}
                             </td>
                           ) : null}
@@ -705,6 +637,88 @@ export default function OrganizationPage() {
                 Guardar
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={editUserDialogOpen} onOpenChange={(open) => {
+          if (!open) closeEditUserDialog();
+        }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Editar usuario</DialogTitle>
+              <DialogDescription>
+                {editUserDialogUser?.name} ({editUserDialogUser?.email})
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Rol</Label>
+                <Select
+                  value={editUserDialogUser?.role ?? "member"}
+                  onValueChange={(value) => {
+                    void onChangeRoleFromDialog(value as "admin" | "member" | "commercial");
+                  }}
+                  disabled={rowActionId !== null}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Administrador</SelectItem>
+                    <SelectItem value="commercial">Comercial</SelectItem>
+                    <SelectItem value="member">Miembro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {editUserDialogUser && editUserDialogUser.id !== currentUserId && (
+                <div className="space-y-2">
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => void onResetPassword()}
+                    disabled={resetPasswordLoading}
+                  >
+                    {resetPasswordLoading ? (
+                      <Loader2Icon className="size-4 animate-spin mr-2" />
+                    ) : null}
+                    Generar contraseña temporal
+                  </Button>
+                </div>
+              )}
+
+              {editUserDialogUser && editUserDialogUser.id !== currentUserId && (
+                <div className="space-y-2">
+                  <Label>Expulsar usuario</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Escribe el correo del usuario para confirmar.
+                  </p>
+                  <Input
+                    value={confirmDeleteEmail}
+                    onChange={(e) => setConfirmDeleteEmail(e.target.value)}
+                    placeholder={editUserDialogUser?.email ?? ""}
+                    autoComplete="off"
+                  />
+                  <Button
+                    variant="destructive"
+                    className="w-full"
+                    onClick={() => void onDeleteUserFromDialog()}
+                    disabled={
+                      confirmDeleteEmail.toLowerCase().trim() !==
+                        editUserDialogUser?.email.toLowerCase().trim() ||
+                      confirmDeleteLoading
+                    }
+                  >
+                    {confirmDeleteLoading ? (
+                      <Loader2Icon className="size-4 animate-spin mr-2" />
+                    ) : (
+                      <Trash2Icon className="size-4 mr-2" />
+                    )}
+                    Eliminar usuario
+                  </Button>
+                </div>
+              )}
+            </div>
           </DialogContent>
         </Dialog>
       </main>

@@ -14,7 +14,7 @@ import {
   normalizeInviteEmail,
   rotatePendingInvitationToken,
 } from "@/lib/invitations";
-import { changeMemberRole, removeMember } from "@/lib/organizationMembers";
+import { changeMemberRole, removeMember, resetUserPassword } from "@/lib/organizationMembers";
 import { generateInvitationPlainToken } from "@/utils/invitationToken";
 import { isValidEmail } from "@/utils/validation";
 
@@ -236,4 +236,15 @@ export const patchOrganizationUserPhone = async (
     console.error("[organization PATCH phone]", msg);
     return c.json({ error: "Error al actualizar teléfono" }, 500);
   }
+};
+
+export const postOrganizationUserResetPassword = async (
+  c: Context,
+  targetUserId: string,
+) => {
+  const result = await resetUserPassword(targetUserId);
+  if (!result.ok) {
+    return c.json({ error: result.message }, result.status);
+  }
+  return c.json({ ok: true, tempPassword: result.tempPassword });
 };
