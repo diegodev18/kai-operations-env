@@ -62,7 +62,7 @@ const MESSAGE_LIMIT_MAX = 25;
 const STORAGE_KEY = "simulator-params";
 
 const DEFAULT_PARAMS = {
-  messageLimit: "10",
+  messageLimit: "1",
   simulatorMode: "full" as SimulatorMode,
   stream: true,
   testMode: false,
@@ -665,7 +665,7 @@ export function AgentSimulator({
                 </Label>
                 <Slider
                   id="sim-limit"
-                  min={10}
+                  min={1}
                   max={MESSAGE_LIMIT_MAX}
                   step={1}
                   value={[Number(messageLimit)]}
