@@ -119,6 +119,7 @@ blogRouter.get("/", async (c) => {
       images: data.images ?? [],
       mentions: data.mentions ?? [],
       isHidden: data.isHidden,
+      type: data.type ?? "lessons",
       createdAt: toTimestamp(data.createdAt),
       updatedAt: toTimestamp(data.updatedAt),
     };
@@ -227,6 +228,7 @@ blogRouter.get("/:id", async (c) => {
       images: data.images ?? [],
       mentions: data.mentions ?? [],
       isHidden: data.isHidden,
+      type: data.type ?? "lessons",
       createdAt: toTimestamp(data.createdAt),
       updatedAt: toTimestamp(data.updatedAt),
     },

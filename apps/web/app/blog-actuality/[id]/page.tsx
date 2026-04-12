@@ -9,7 +9,6 @@ import {
   UserIcon,
   TagIcon,
   EditIcon,
-  TrashIcon,
   EyeOffIcon,
   EyeIcon,
 } from "lucide-react";
@@ -20,12 +19,7 @@ import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  fetchBlogPost,
-  deleteBlogPost,
-  hideBlogPost,
-  type BlogPost,
-} from "@/lib/blog-api";
+import { fetchBlogPost, hideBlogPost, type BlogPost } from "@/lib/blog-api";
 import { useAuth } from "@/hooks/auth";
 
 function formatDate(timestamp: number): string {
@@ -46,7 +40,6 @@ export default function ActualityPostPage() {
 
   const [post, setPost] = useState<BlogPost | null>(null);
   const [loading, setLoading] = useState(true);
-  const [deleting, setDeleting] = useState(false);
   const [hiding, setHiding] = useState(false);
 
   const userRole = (session?.user as { role?: string })?.role;
@@ -78,30 +71,15 @@ export default function ActualityPostPage() {
     void loadPost();
   }, [loadPost]);
 
-  const handleDelete = useCallback(async () => {
-    if (!confirm("¿Estás seguro de que quieres eliminar esta entrada?")) return;
-
-    setDeleting(true);
-    try {
-      const result = await deleteBlogPost(id);
-      if (result.ok) {
-        toast.success("Entrada eliminada");
-        router.push("/blog-actuality");
-      } else {
-        toast.error(result.error ?? "Error al eliminar");
-      }
-    } finally {
-      setDeleting(false);
-    }
-  }, [id, router]);
-
   const handleToggleHide = useCallback(async () => {
     if (!post) return;
     setHiding(true);
     try {
       const result = await hideBlogPost(id, !post.isHidden);
       if (result.ok) {
-        setPost((prev) => prev ? { ...prev, isHidden: !prev.isHidden } : null);
+        setPost((prev) =>
+          prev ? { ...prev, isHidden: !prev.isHidden } : null,
+        );
         toast.success(post.isHidden ? "Entrada visible" : "Entrada oculta");
       } else {
         toast.error(result.error ?? "Error al cambiar visibilidad");
@@ -163,20 +141,6 @@ export default function ActualityPostPage() {
                 Editar
               </Link>
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void handleDelete()}
-              disabled={deleting}
-              className="text-destructive hover:text-destructive"
-            >
-              {deleting ? (
-                <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <TrashIcon className="mr-2 h-4 w-4" />
-              )}
-              Eliminar
-            </Button>
           </div>
         )}
       </div>
@@ -185,15 +149,12 @@ export default function ActualityPostPage() {
         <CardContent className="space-y-6 pt-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              {post.isHidden && (
-                <Badge variant="secondary">Oculto</Badge>
-              )}
+              {post.isHidden && <Badge variant="secondary">Oculto</Badge>}
             </div>
             <h2 className="text-3xl font-bold tracking-tight">{post.title}</h2>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
               <span className="flex items-center gap-1">
-                <UserIcon className="h-3.5 w-3.5" />
-                @{post.authorMention}
+                <UserIcon className="h-3.5 w-3.5" />@{post.authorMention}
               </span>
               <span>{formatDate(post.createdAt)}</span>
               {post.updatedAt !== post.createdAt && (
