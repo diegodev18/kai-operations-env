@@ -48,13 +48,22 @@ import {
 import { UserMenu } from "@/components/user-menu";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { AgentOperationalStatus, AgentWithOperations, PaymentRecord } from "@/lib/agent";
+import type {
+  AgentOperationalStatus,
+  AgentWithOperations,
+  PaymentRecord,
+} from "@/lib/agent";
 import {
   AGENTS_PAGE_SIZE,
   type AgentGrowerRow,
@@ -109,7 +118,9 @@ export function OperationsDashboard(props: {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isLoadingAll, setIsLoadingAll] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [nextCursor, setNextCursor] = useState<string | null | undefined>(undefined);
+  const [nextCursor, setNextCursor] = useState<string | null | undefined>(
+    undefined,
+  );
   const [growerTarget, setGrowerTarget] = useState<{
     id: string;
     name: string;
@@ -129,7 +140,8 @@ export function OperationsDashboard(props: {
   const [expandedAgentId, setExpandedAgentId] = useState<string | null>(null);
   const [expandedPayments, setExpandedPayments] = useState<PaymentRecord[]>([]);
   const [paymentsLoading, setPaymentsLoading] = useState(false);
-  const [billingDialogAgent, setBillingDialogAgent] = useState<AgentWithOperations | null>(null);
+  const [billingDialogAgent, setBillingDialogAgent] =
+    useState<AgentWithOperations | null>(null);
   const [billingSaving, setBillingSaving] = useState(false);
   const [billingDomiciliated, setBillingDomiciliated] = useState(false);
   const [billingDefaultAmount, setBillingDefaultAmount] = useState("");
@@ -142,11 +154,16 @@ export function OperationsDashboard(props: {
   const [paymentNotes, setPaymentNotes] = useState("");
   const [paymentSaving, setPaymentSaving] = useState(false);
   const [defaultModeDialogOpen, setDefaultModeDialogOpen] = useState(false);
-  const [defaultBuilderMode, setDefaultBuilderMode] = useState<"form" | "conversational">("form");
+  const [defaultBuilderMode, setDefaultBuilderMode] = useState<
+    "form" | "conversational"
+  >("form");
   const [menuOpen, setMenuOpen] = useState(false);
   type FavoritesFilter = "all" | "favorites";
-  const [favoritesFilter, setFavoritesFilter] = useState<FavoritesFilter>("all");
-  const [isTogglingFavorite, setIsTogglingFavorite] = useState<string | null>(null);
+  const [favoritesFilter, setFavoritesFilter] =
+    useState<FavoritesFilter>("all");
+  const [isTogglingFavorite, setIsTogglingFavorite] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     const stored = localStorage.getItem("agent-builder-default-mode");
@@ -184,7 +201,9 @@ export function OperationsDashboard(props: {
       const q = debouncedSearch.trim() || undefined;
       const serverSearchActive = debouncedSearch.trim().length >= 3;
 
-      let filters: { status?: string; billingAlert?: string; domiciliated?: string } | undefined;
+      let filters:
+        | { status?: string; billingAlert?: string; domiciliated?: string }
+        | undefined;
 
       if (serverSearchActive) {
         if (statusFilter !== "all") {
@@ -213,7 +232,13 @@ export function OperationsDashboard(props: {
         ...(favoritesFilter === "favorites" ? { favorites: true } : {}),
       });
     },
-    [debouncedSearch, statusFilter, billingAlertOnly, cobranzaFilter, favoritesFilter],
+    [
+      debouncedSearch,
+      statusFilter,
+      billingAlertOnly,
+      cobranzaFilter,
+      favoritesFilter,
+    ],
   );
 
   const fetchAgents = useCallback(async () => {
@@ -367,9 +392,7 @@ export function OperationsDashboard(props: {
       if (growerEmailsForUi.has(e)) return true;
       const un = u.name.trim().toLowerCase();
       if (!un) return false;
-      return mergedGrowersList.some(
-        (g) => g.name.trim().toLowerCase() === un,
-      );
+      return mergedGrowersList.some((g) => g.name.trim().toLowerCase() === un);
     },
     [growerEmailsForUi, mergedGrowersList],
   );
@@ -401,7 +424,9 @@ export function OperationsDashboard(props: {
           prev.map((a) => {
             if (a.id !== growerTarget.id) return a;
             const growers = [...(a.growers ?? [])];
-            if (growers.some((g) => g.email.trim().toLowerCase() === emailNorm)) {
+            if (
+              growers.some((g) => g.email.trim().toLowerCase() === emailNorm)
+            ) {
               return a;
             }
             growers.push(row);
@@ -532,724 +557,852 @@ export function OperationsDashboard(props: {
   const hasMore = nextCursor != null && nextCursor !== undefined;
 
   return (
-    <><div className="flex h-full min-h-0 flex-col">
-      <header className="flex h-14 shrink-0 items-center justify-between border-b px-4">
-        <div className="flex items-center gap-2 font-semibold text-foreground">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="size-9"
-            onClick={() => setMenuOpen(!menuOpen)}
-          >
-            <MenuIcon className="size-5" />
-          </Button>
-          <LayoutDashboardIcon className="size-5" />
-          Operaciones
-        </div>
-        <UserMenu
-          userName={props.userName}
-          userEmail={props.userEmail}
-          onSignOut={props.onSignOut} />
-      </header>
-
-      <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-        <SheetContent side="left" className="w-64">
-          <SheetHeader>
-            <SheetTitle>Menú</SheetTitle>
-          </SheetHeader>
-          <nav className="mt-4 flex flex-col gap-1 px-2">
-            <Link
-              href={`/agents/new?mode=${defaultBuilderMode}`}
-              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-              onClick={() => setMenuOpen(false)}
+    <>
+      <div className="flex h-full min-h-0 flex-col">
+        <header className="flex h-14 shrink-0 items-center justify-between border-b px-4">
+          <div className="flex items-center gap-2 font-semibold text-foreground">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-9"
+              onClick={() => setMenuOpen(!menuOpen)}
             >
-              <PlusIcon className="size-4" />
-              Crear agente
-            </Link>
-            <Link
-              href="/changelog"
-              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-              onClick={() => setMenuOpen(false)}
-            >
-              <LayoutGridIcon className="size-4" />
-              Changelog
-            </Link>
-            <Link
-              href="/blog"
-              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-              onClick={() => setMenuOpen(false)}
-            >
-              <BookOpenIcon className="size-4" />
-              Lecciones
-            </Link>
-            <Link
-              href="/blog-actuality"
-              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-              onClick={() => setMenuOpen(false)}
-            >
-              <MegaphoneIcon className="size-4" />
-              Actualidad
-            </Link>
-            <div className="my-2 border-t" />
-            {isAdmin && (
-              <>
-                <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Database
-                </div>
-                <Link
-                  href="/database/upload-data"
-                  className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  <UploadIcon className="size-4" />
-                  Upload data
-                </Link>
-                <Link
-                  href="/database/duplicate-clone"
-                  className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  <CopyIcon className="size-4" />
-                  Duplicate / clone
-                </Link>
-                <Link
-                  href="/database/update-document"
-                  className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  <PencilIcon className="size-4" />
-                  Update document
-                </Link>
-                <Link
-                  href="/database/viewer-comparator"
-                  className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  <SearchIcon className="size-4" />
-                  Viewer and comparator
-                </Link>
-                <Link
-                  href="/database/document-explorer"
-                  className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  <FolderOpenIcon className="size-4" />
-                  Document explorer
-                </Link>
-              </>
-            )}
-          </nav>
-        </SheetContent>
-      </Sheet>
-
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="shrink-0 flex flex-col gap-4 border-b p-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Dashboard de Operaciones
-            </h1>
-            <div className="flex items-center gap-1">
-              <Button type="button" className="gap-2" asChild>
-                <Link href={`/agents/new?mode=${defaultBuilderMode}`}>
-                  <PlusIcon className="size-4" />
-                  Crear nuevo agente
-                </Link>
-              </Button>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setDefaultModeDialogOpen(true)}
-                  >
-                    <Settings2Icon className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Configurar modo por defecto</TooltipContent>
-              </Tooltip>
-            </div>
+              <MenuIcon className="size-5" />
+            </Button>
+            <LayoutDashboardIcon className="size-5" />
+            Operaciones
           </div>
+          <UserMenu
+            userName={props.userName}
+            userEmail={props.userEmail}
+            onSignOut={props.onSignOut}
+          />
+        </header>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative w-56 min-w-[12rem]">
-              <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Buscar por nombre, dueño..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="h-9 pl-8"
-                aria-busy={isSearchDebouncing ||
-                  (Boolean(search.trim()) && isLoading)} />
-              {(isSearchDebouncing ||
-                (Boolean(search.trim()) && isLoading)) ? (
-                <Loader2Icon className="absolute top-1/2 right-2.5 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-              ) : null}
-            </div>
-            <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-1">
-              <span className="px-2 py-1.5 text-xs text-muted-foreground">
-                Estatus
-              </span>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant={statusFilter === "all" ? "secondary" : "ghost"}
-                    size="icon-sm"
-                    className="size-8"
-                    onClick={() => setStatusFilter("all")}
+        <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+          <SheetContent side="left" className="w-64">
+            <SheetHeader>
+              <SheetTitle>Menú</SheetTitle>
+            </SheetHeader>
+            <nav className="mt-4 flex flex-col gap-1 px-2">
+              <Link
+                href={`/agents/new?mode=${defaultBuilderMode}`}
+                className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                onClick={() => setMenuOpen(false)}
+              >
+                <PlusIcon className="size-4" />
+                Crear agente
+              </Link>
+              <Link
+                href="/changelog"
+                className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                onClick={() => setMenuOpen(false)}
+              >
+                <LayoutGridIcon className="size-4" />
+                Changelog
+              </Link>
+              <Link
+                href="/blog"
+                className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                onClick={() => setMenuOpen(false)}
+              >
+                <BookOpenIcon className="size-4" />
+                Lecciones
+              </Link>
+              <Link
+                href="/blog-actuality"
+                className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                onClick={() => setMenuOpen(false)}
+              >
+                <MegaphoneIcon className="size-4" />
+                Actualidad
+              </Link>
+              <div className="my-2 border-t" />
+              {isAdmin && (
+                <>
+                  <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Database
+                  </div>
+                  <Link
+                    href="/database/upload-data"
+                    className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                    onClick={() => setMenuOpen(false)}
                   >
-                    <LayoutGridIcon className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Todos los estatus</TooltipContent>
-              </Tooltip>
-              {(Object.keys(STATUS_LABELS) as AgentOperationalStatus[]).map(
-                (s) => (
-                  <Tooltip key={s}>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant={statusFilter === s ? "secondary" : "ghost"}
-                        size="icon-sm"
-                        className="size-8"
-                        onClick={() => setStatusFilter(s)}
-                      >
-                        {s === "active" && (
-                          <CheckCircleIcon className="size-4" />
-                        )}
-                        {s === "testing" && (
-                          <Loader2Icon className="size-4" />
-                        )}
-                        {s === "suspended" && (
-                          <PauseCircleIcon className="size-4" />
-                        )}
-                        {s === "off" && <PowerIcon className="size-4" />}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>{STATUS_LABELS[s]}</TooltipContent>
-                  </Tooltip>
-                )
+                    <UploadIcon className="size-4" />
+                    Upload data
+                  </Link>
+                  <Link
+                    href="/database/duplicate-clone"
+                    className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    <CopyIcon className="size-4" />
+                    Duplicate / clone
+                  </Link>
+                  <Link
+                    href="/database/update-document"
+                    className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    <PencilIcon className="size-4" />
+                    Update document
+                  </Link>
+                  <Link
+                    href="/database/viewer-comparator"
+                    className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    <SearchIcon className="size-4" />
+                    Viewer and comparator
+                  </Link>
+                  <Link
+                    href="/database/document-explorer"
+                    className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    <FolderOpenIcon className="size-4" />
+                    Document explorer
+                  </Link>
+                </>
               )}
+            </nav>
+          </SheetContent>
+        </Sheet>
+
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="shrink-0 flex flex-col gap-4 border-b p-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <h1 className="text-2xl font-semibold tracking-tight">
+                Dashboard de Operaciones
+              </h1>
+              <div className="flex items-center gap-1">
+                <Button type="button" className="gap-2" asChild>
+                  <Link href={`/agents/new?mode=${defaultBuilderMode}`}>
+                    <PlusIcon className="size-4" />
+                    Crear nuevo agente
+                  </Link>
+                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setDefaultModeDialogOpen(true)}
+                    >
+                      <Settings2Icon className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Configurar modo por defecto</TooltipContent>
+                </Tooltip>
+              </div>
             </div>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant={billingAlertOnly ? "secondary" : "ghost"}
-                  size="icon-sm"
-                  className="size-9 rounded-md border border-border"
-                  onClick={() => setBillingAlertOnly((v) => !v)}
-                >
-                  <AlertCircleIcon className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Solo alerta de pago</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant={favoritesFilter === "favorites" ? "secondary" : "ghost"}
-                  size="icon-sm"
-                  className="size-9 rounded-md border border-border"
-                  onClick={() => setFavoritesFilter((v) => (v === "all" ? "favorites" : "all"))}
-                >
-                  <StarIcon className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Favoritos</TooltipContent>
-            </Tooltip>
-            <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-1">
-              <span className="px-2 py-1.5 text-xs text-muted-foreground">
-                Cobranza
-              </span>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative w-56 min-w-[12rem]">
+                <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Buscar por nombre, dueño..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="h-9 pl-8"
+                  aria-busy={
+                    isSearchDebouncing || (Boolean(search.trim()) && isLoading)
+                  }
+                />
+                {isSearchDebouncing || (Boolean(search.trim()) && isLoading) ? (
+                  <Loader2Icon className="absolute top-1/2 right-2.5 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                ) : null}
+              </div>
+              <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-1">
+                <span className="px-2 py-1.5 text-xs text-muted-foreground">
+                  Estatus
+                </span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant={statusFilter === "all" ? "secondary" : "ghost"}
+                      size="icon-sm"
+                      className="size-8"
+                      onClick={() => setStatusFilter("all")}
+                    >
+                      <LayoutGridIcon className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Todos los estatus</TooltipContent>
+                </Tooltip>
+                {(Object.keys(STATUS_LABELS) as AgentOperationalStatus[]).map(
+                  (s) => (
+                    <Tooltip key={s}>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant={statusFilter === s ? "secondary" : "ghost"}
+                          size="icon-sm"
+                          className="size-8"
+                          onClick={() => setStatusFilter(s)}
+                        >
+                          {s === "active" && (
+                            <CheckCircleIcon className="size-4" />
+                          )}
+                          {s === "testing" && (
+                            <Loader2Icon className="size-4" />
+                          )}
+                          {s === "suspended" && (
+                            <PauseCircleIcon className="size-4" />
+                          )}
+                          {s === "off" && <PowerIcon className="size-4" />}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{STATUS_LABELS[s]}</TooltipContent>
+                    </Tooltip>
+                  ),
+                )}
+              </div>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     type="button"
-                    variant={cobranzaFilter === "all" ? "secondary" : "ghost"}
+                    variant={billingAlertOnly ? "secondary" : "ghost"}
                     size="icon-sm"
-                    className="size-8"
-                    onClick={() => setCobranzaFilter("all")}
-                  >
-                    <LayoutGridIcon className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Todos</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant={cobranzaFilter === "domiciliated" ? "secondary" : "ghost"}
-                    size="icon-sm"
-                    className="size-8"
-                    onClick={() => setCobranzaFilter("domiciliated")}
-                  >
-                    <Building2Icon className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Domiciliados</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant={cobranzaFilter === "non-domiciliated" ? "secondary" : "ghost"}
-                    size="icon-sm"
-                    className="size-8"
-                    onClick={() => setCobranzaFilter("non-domiciliated")}
-                  >
-                    <BanknoteIcon className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>No domiciliados</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant={cobranzaFilter === "overdue" ? "secondary" : "ghost"}
-                    size="icon-sm"
-                    className="size-8"
-                    onClick={() => setCobranzaFilter("overdue")}
+                    className="size-9 rounded-md border border-border"
+                    onClick={() => setBillingAlertOnly((v) => !v)}
                   >
                     <AlertCircleIcon className="size-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Alerta de falta de pago</TooltipContent>
+                <TooltipContent>Solo alerta de pago</TooltipContent>
               </Tooltip>
-            </div>
-            {cobranzaFilter !== "all" && (
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5">
-                  <CalendarIcon className="size-3.5 text-muted-foreground" />
-                  <Input
-                    type="date"
-                    value={lastPaymentFrom}
-                    onChange={(e) => setLastPaymentFrom(e.target.value)}
-                    className="h-8 w-36 text-xs"
-                    placeholder="Desde" />
-                </div>
-                <span className="text-xs text-muted-foreground">a</span>
-                <Input
-                  type="date"
-                  value={lastPaymentTo}
-                  onChange={(e) => setLastPaymentTo(e.target.value)}
-                  className="h-8 w-36 text-xs"
-                  placeholder="Hasta" />
-                {(lastPaymentFrom || lastPaymentTo) && (
+              <Tooltip>
+                <TooltipTrigger asChild>
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant={
+                      favoritesFilter === "favorites" ? "secondary" : "ghost"
+                    }
                     size="icon-sm"
-                    className="size-7"
-                    onClick={() => {
-                      setLastPaymentFrom("");
-                      setLastPaymentTo("");
-                    }}
+                    className="size-9 rounded-md border border-border"
+                    onClick={() =>
+                      setFavoritesFilter((v) =>
+                        v === "all" ? "favorites" : "all",
+                      )
+                    }
                   >
-                    <XIcon className="size-3" />
+                    <StarIcon className="size-4" />
                   </Button>
-                )}
+                </TooltipTrigger>
+                <TooltipContent>Favoritos</TooltipContent>
+              </Tooltip>
+              <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-1">
+                <span className="px-2 py-1.5 text-xs text-muted-foreground">
+                  Cobranza
+                </span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant={cobranzaFilter === "all" ? "secondary" : "ghost"}
+                      size="icon-sm"
+                      className="size-8"
+                      onClick={() => setCobranzaFilter("all")}
+                    >
+                      <LayoutGridIcon className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Todos</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant={
+                        cobranzaFilter === "domiciliated"
+                          ? "secondary"
+                          : "ghost"
+                      }
+                      size="icon-sm"
+                      className="size-8"
+                      onClick={() => setCobranzaFilter("domiciliated")}
+                    >
+                      <Building2Icon className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Domiciliados</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant={
+                        cobranzaFilter === "non-domiciliated"
+                          ? "secondary"
+                          : "ghost"
+                      }
+                      size="icon-sm"
+                      className="size-8"
+                      onClick={() => setCobranzaFilter("non-domiciliated")}
+                    >
+                      <BanknoteIcon className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>No domiciliados</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant={
+                        cobranzaFilter === "overdue" ? "secondary" : "ghost"
+                      }
+                      size="icon-sm"
+                      className="size-8"
+                      onClick={() => setCobranzaFilter("overdue")}
+                    >
+                      <AlertCircleIcon className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Alerta de falta de pago</TooltipContent>
+                </Tooltip>
               </div>
-            )}
+              {cobranzaFilter !== "all" && (
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <CalendarIcon className="size-3.5 text-muted-foreground" />
+                    <Input
+                      type="date"
+                      value={lastPaymentFrom}
+                      onChange={(e) => setLastPaymentFrom(e.target.value)}
+                      className="h-8 w-36 text-xs"
+                      placeholder="Desde"
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground">a</span>
+                  <Input
+                    type="date"
+                    value={lastPaymentTo}
+                    onChange={(e) => setLastPaymentTo(e.target.value)}
+                    className="h-8 w-36 text-xs"
+                    placeholder="Hasta"
+                  />
+                  {(lastPaymentFrom || lastPaymentTo) && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="size-7"
+                      onClick={() => {
+                        setLastPaymentFrom("");
+                        setLastPaymentTo("");
+                      }}
+                    >
+                      <XIcon className="size-3" />
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
 
-        <div className="min-h-0 flex-1 overflow-auto p-6">
-          <div className="overflow-x-auto rounded-md border border-border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/50">
-                  <th className="p-3 text-left font-medium w-8"></th>
-                  <th className="p-3 text-left font-medium">Agente</th>
-                  <th className="p-3 text-left font-medium">Estatus</th>
-                  <th className="p-3 text-left font-medium">Cobranza</th>
-                  <th className="p-3 text-left font-medium">Growers</th>
-                </tr>
-              </thead>
-              <tbody>
-                {isInitialLoad || isLoading ? (
-                  [...Array(5)].map((_, i) => (
-                    <tr key={i} className="border-b border-border">
-                      <td className="p-3 w-8"></td>
-                      <td className="p-3">
-                        <div className="h-5 w-32 bg-muted animate-pulse rounded" />
-                      </td>
-                      <td className="p-3">
-                        <div className="h-5 w-16 bg-muted animate-pulse rounded" />
-                      </td>
-                      <td className="p-3">
-                        <div className="h-5 w-20 bg-muted animate-pulse rounded" />
-                      </td>
-                      <td className="p-3">
-                        <div className="h-5 w-12 bg-muted animate-pulse rounded" />
+          <div className="min-h-0 flex-1 overflow-auto p-6">
+            <div className="overflow-x-auto rounded-md border border-border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="p-3 text-left font-medium w-8"></th>
+                    <th className="p-3 text-left font-medium">Agente</th>
+                    <th className="p-3 text-left font-medium">Estatus</th>
+                    <th className="p-3 text-left font-medium">Cobranza</th>
+                    <th className="p-3 text-left font-medium">Growers</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {isInitialLoad || isLoading ? (
+                    [...Array(10)].map((_, i) => (
+                      <tr key={i} className="border-b border-border">
+                        <td className="p-3 w-8"></td>
+                        <td className="p-3">
+                          <div className="h-5 w-32 bg-muted animate-pulse rounded" />
+                        </td>
+                        <td className="p-3">
+                          <div className="h-5 w-16 bg-muted animate-pulse rounded" />
+                        </td>
+                        <td className="p-3">
+                          <div className="h-5 w-20 bg-muted animate-pulse rounded" />
+                        </td>
+                        <td className="p-3">
+                          <div className="h-5 w-12 bg-muted animate-pulse rounded" />
+                        </td>
+                      </tr>
+                    ))
+                  ) : !isLoading && filteredAgents.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={7}
+                        className="p-12 text-center text-muted-foreground"
+                      >
+                        No hay agentes que mostrar
                       </td>
                     </tr>
-                  ))
-                ) : !isLoading && filteredAgents.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="p-12 text-center text-muted-foreground">
-                      No hay agentes que mostrar
-                    </td>
-                  </tr>
-                ) : (
-                  filteredAgents.map((agent) => (
-                    <Fragment key={agent.id}>
-                      <tr
-                        className="border-b border-border transition-colors hover:bg-muted/50 cursor-pointer"
-                        onClick={() => router.push(
-                          `/agents/${encodeURIComponent(agent.id)}/prompt-design`
-                        )}
-                      >
-                        <td className="p-3">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            className="size-7"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void (async () => {
-                                if (expandedAgentId === agent.id) {
-                                  setExpandedAgentId(null);
-                                  return;
-                                }
-                                setExpandedAgentId(agent.id);
-                                setPaymentsLoading(true);
-                                const res = await fetchAgentBilling(agent.id);
-                                setExpandedPayments(res?.payments ?? []);
-                                setPaymentsLoading(false);
-                              })();
-                            }}
-                          >
-                            {expandedAgentId === agent.id ? (
-                              <ChevronDownIcon className="size-4" />
-                            ) : (
-                              <ChevronRightIcon className="size-4" />
-                            )}
-                          </Button>
-                        </td>
-                        <td className="p-3 font-medium">
-                          <div className="flex items-center gap-2">
+                  ) : (
+                    filteredAgents.map((agent) => (
+                      <Fragment key={agent.id}>
+                        <tr
+                          className="border-b border-border transition-colors hover:bg-muted/50 cursor-pointer"
+                          onClick={() =>
+                            router.push(
+                              `/agents/${encodeURIComponent(agent.id)}/prompt-design`,
+                            )
+                          }
+                        >
+                          <td className="p-3">
                             <Button
                               type="button"
                               variant="ghost"
                               size="icon-sm"
                               className="size-7"
-                              disabled={isTogglingFavorite === agent.id}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (isTogglingFavorite === agent.id) return;
                                 void (async () => {
-                                  const isFavorite = agent.isFavorite === true;
-                                  const method = isFavorite ? "DELETE" : "POST";
-                                  setIsTogglingFavorite(agent.id);
-                                  try {
-                                    const res = await fetch(
-                                      `/api/favorites/${encodeURIComponent(agent.id)}`,
-                                      { method, credentials: "include" }
-                                    );
-                                    if (res.ok) {
-                                      setAgents((prev) =>
-                                        prev.map((a) =>
-                                          a.id === agent.id
-                                            ? { ...a, isFavorite: !isFavorite }
-                                            : a
-                                        )
-                                      );
-                                      toast.success(
-                                        isFavorite
-                                          ? "Eliminado de favoritos"
-                                          : "Añadido a favoritos"
-                                      );
-                                    } else {
-                                      const err = await res.text();
-                                      toast.error(
-                                        `Error: ${res.status} - ${err || "Error desconocido"}`
-                                      );
-                                    }
-                                  } catch {
-                                    toast.error("Error de red al actualizar favoritos");
-                                  } finally {
-                                    setIsTogglingFavorite(null);
+                                  if (expandedAgentId === agent.id) {
+                                    setExpandedAgentId(null);
+                                    return;
                                   }
+                                  setExpandedAgentId(agent.id);
+                                  setPaymentsLoading(true);
+                                  const res = await fetchAgentBilling(agent.id);
+                                  setExpandedPayments(res?.payments ?? []);
+                                  setPaymentsLoading(false);
                                 })();
                               }}
                             >
-                              {isTogglingFavorite === agent.id ? (
-                                <Loader2Icon className="size-4 animate-spin" />
-                              ) : agent.isFavorite === true ? (
-                                <StarIcon className="size-4 fill-yellow-400 text-yellow-400" />
+                              {expandedAgentId === agent.id ? (
+                                <ChevronDownIcon className="size-4" />
                               ) : (
-                                <StarIcon className="size-4 text-muted-foreground" />
+                                <ChevronRightIcon className="size-4" />
                               )}
                             </Button>
-                            <Link
-                              href={`/agents/${encodeURIComponent(agent.id)}/prompt-design`}
-                              className="text-primary hover:underline"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              {agent.name}
-                            </Link>
-                          </div>
-                        </td>
-                        <td className="p-3">
-                          <Badge variant={STATUS_BADGE_VARIANT[agent.operationalStatus]}>
-                            {STATUS_LABELS[agent.operationalStatus]}
-                          </Badge>
-                        </td>
-                        <td className="p-3">
-                          <div className="flex items-center gap-2">
-                            {agent.billing.domiciliated ? (
-                              <Badge variant="outline" className="gap-1">
-                                <Building2Icon className="size-3" />
-                                Domiciliado
-                              </Badge>
-                            ) : (
-                              <Badge variant="secondary">No domiciliado</Badge>
-                            )}
-                            {agent.billing.paymentAlert && (
-                              <Badge variant="destructive" className="gap-1">
-                                <AlertCircleIcon className="size-3" />
-                                Falta de pago
-                              </Badge>
-                            )}
-                            {!agent.billing.domiciliated && agent.billing.lastPaymentDate && (
-                              <span className="text-xs text-muted-foreground">
-                                Último: {new Date(agent.billing.lastPaymentDate).toLocaleDateString("es-MX")}
-                              </span>
-                            )}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setBillingDialogAgent(agent);
-                                setBillingDomiciliated(agent.billing.domiciliated);
-                                setBillingDefaultAmount(
-                                  agent.billing.defaultPaymentAmount
-                                    ? String(agent.billing.defaultPaymentAmount)
-                                    : ""
-                                );
-                                setBillingDueDate(
-                                  agent.billing.paymentDueDate
-                                    ? agent.billing.paymentDueDate.slice(0, 10)
-                                    : ""
-                                );
-                              }}
-                            >
-                              <PencilIcon className="size-3" />
-                            </Button>
-                          </div>
-                        </td>
-                        <td className="p-3 text-muted-foreground">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <div className="min-w-0 flex-1">
-                              {agent.growers && agent.growers.length > 0 ? (
-                                <span className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
-                                  {agent.growers.map((g, i) => (
-                                    <span
-                                      key={`${g.email}-${i}`}
-                                      className="inline-flex items-center"
-                                    >
-                                      {i > 0 ? (
-                                        <span className="mr-1 text-muted-foreground/60">
-                                          ,
-                                        </span>
-                                      ) : null}
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <button
-                                            type="button"
-                                            className="cursor-default border-0 bg-transparent p-0 text-left text-inherit underline-offset-2 hover:underline"
-                                          >
-                                            {g.name}
-                                          </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>{g.email}</TooltipContent>
-                                      </Tooltip>
-                                    </span>
-                                  ))}
-                                </span>
-                              ) : (
-                                <span>—</span>
-                              )}
-                            </div>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="icon-sm"
-                                  aria-label="Gestionar growers"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setGrowerTarget({
-                                      id: agent.id,
-                                      name: agent.name,
-                                    });
-                                  }}
-                                >
-                                  <PlusIcon className="size-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Gestionar growers</TooltipContent>
-                            </Tooltip>
-                          </div>
-                        </td>
-                      </tr>
-                      {expandedAgentId === agent.id && (
-                        <tr className="bg-muted/30">
-                          <td colSpan={7} className="p-4">
-                            {agent.billing.domiciliated ? (
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Building2Icon className="size-4" />
-                                Los pagos domiciliados se renuevan automáticamente cada mes. No se requiere registro manual.
-                              </div>
-                            ) : paymentsLoading ? (
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Loader2Icon className="size-4 animate-spin" />
-                                Cargando historial...
-                              </div>
-                            ) : (
-                              <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                  <h4 className="text-sm font-medium">Historial de Pagos</h4>
-                                  <Button
-                                    size="sm"
-                                    onClick={() => {
-                                      setPaymentAmount(
-                                        agent.billing.defaultPaymentAmount
-                                          ? String(agent.billing.defaultPaymentAmount)
-                                          : ""
+                          </td>
+                          <td className="p-3 font-medium">
+                            <div className="flex items-center gap-2">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                className="size-7"
+                                disabled={isTogglingFavorite === agent.id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (isTogglingFavorite === agent.id) return;
+                                  void (async () => {
+                                    const isFavorite =
+                                      agent.isFavorite === true;
+                                    const method = isFavorite
+                                      ? "DELETE"
+                                      : "POST";
+                                    setIsTogglingFavorite(agent.id);
+                                    try {
+                                      const res = await fetch(
+                                        `/api/favorites/${encodeURIComponent(agent.id)}`,
+                                        { method, credentials: "include" },
                                       );
-                                      const now = new Date();
-                                      const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-                                      setPaymentPeriod(`${months[now.getMonth()]} ${now.getFullYear()}`);
-                                      setPaymentMethod("transferencia");
-                                      setPaymentReference("");
-                                      setPaymentNotes("");
-                                      setPaymentDialogOpen(true);
-                                    }}
-                                  >
-                                    <PlusIcon className="size-3 mr-1" /> Registrar pago
-                                  </Button>
-                                </div>
-                                {expandedPayments.length === 0 ? (
-                                  <p className="text-sm text-muted-foreground">Sin pagos registrados</p>
-                                ) : (
-                                  <table className="w-full text-xs">
-                                    <thead>
-                                      <tr className="border-b">
-                                        <th className="p-2 text-left">Período</th>
-                                        <th className="p-2 text-left">Monto</th>
-                                        <th className="p-2 text-left">Método</th>
-                                        <th className="p-2 text-left">Referencia</th>
-                                        <th className="p-2 text-left">Fecha</th>
-                                        <th className="p-2 text-left">Notas</th>
-                                        <th className="p-2 text-left">Acciones</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {expandedPayments.map((p) => (
-                                        <tr key={p.id} className="border-b border-border/50">
-                                          <td className="p-2">{p.period}</td>
-                                          <td className="p-2 font-mono">${p.amount.toFixed(2)}</td>
-                                          <td className="p-2">{p.paymentMethod}</td>
-                                          <td className="p-2 text-muted-foreground">{p.reference || "—"}</td>
-                                          <td className="p-2">{new Date(p.paidAt).toLocaleDateString("es-MX")}</td>
-                                          <td className="p-2 max-w-[200px] truncate">{p.notes || "—"}</td>
-                                          <td className="p-2">
-                                            <Button
-                                              variant="ghost"
-                                              size="icon-sm"
-                                              onClick={async () => {
-                                                const r = await deletePaymentRecord(agent.id, p.id);
-                                                if (r.ok) {
-                                                  setExpandedPayments((prev) => prev.filter((x) => x.id !== p.id));
-                                                  toast.success("Pago eliminado");
-                                                } else {
-                                                  toast.error(r.error);
+                                      if (res.ok) {
+                                        setAgents((prev) =>
+                                          prev.map((a) =>
+                                            a.id === agent.id
+                                              ? {
+                                                  ...a,
+                                                  isFavorite: !isFavorite,
                                                 }
-                                              }}
+                                              : a,
+                                          ),
+                                        );
+                                        toast.success(
+                                          isFavorite
+                                            ? "Eliminado de favoritos"
+                                            : "Añadido a favoritos",
+                                        );
+                                      } else {
+                                        const err = await res.text();
+                                        toast.error(
+                                          `Error: ${res.status} - ${err || "Error desconocido"}`,
+                                        );
+                                      }
+                                    } catch {
+                                      toast.error(
+                                        "Error de red al actualizar favoritos",
+                                      );
+                                    } finally {
+                                      setIsTogglingFavorite(null);
+                                    }
+                                  })();
+                                }}
+                              >
+                                {isTogglingFavorite === agent.id ? (
+                                  <Loader2Icon className="size-4 animate-spin" />
+                                ) : agent.isFavorite === true ? (
+                                  <StarIcon className="size-4 fill-yellow-400 text-yellow-400" />
+                                ) : (
+                                  <StarIcon className="size-4 text-muted-foreground" />
+                                )}
+                              </Button>
+                              <Link
+                                href={`/agents/${encodeURIComponent(agent.id)}/prompt-design`}
+                                className="text-primary hover:underline"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {agent.name}
+                              </Link>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <Badge
+                              variant={
+                                STATUS_BADGE_VARIANT[agent.operationalStatus]
+                              }
+                            >
+                              {STATUS_LABELS[agent.operationalStatus]}
+                            </Badge>
+                          </td>
+                          <td className="p-3">
+                            <div className="flex items-center gap-2">
+                              {agent.billing.domiciliated ? (
+                                <Badge variant="outline" className="gap-1">
+                                  <Building2Icon className="size-3" />
+                                  Domiciliado
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary">
+                                  No domiciliado
+                                </Badge>
+                              )}
+                              {agent.billing.paymentAlert && (
+                                <Badge variant="destructive" className="gap-1">
+                                  <AlertCircleIcon className="size-3" />
+                                  Falta de pago
+                                </Badge>
+                              )}
+                              {!agent.billing.domiciliated &&
+                                agent.billing.lastPaymentDate && (
+                                  <span className="text-xs text-muted-foreground">
+                                    Último:{" "}
+                                    {new Date(
+                                      agent.billing.lastPaymentDate,
+                                    ).toLocaleDateString("es-MX")}
+                                  </span>
+                                )}
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setBillingDialogAgent(agent);
+                                  setBillingDomiciliated(
+                                    agent.billing.domiciliated,
+                                  );
+                                  setBillingDefaultAmount(
+                                    agent.billing.defaultPaymentAmount
+                                      ? String(
+                                          agent.billing.defaultPaymentAmount,
+                                        )
+                                      : "",
+                                  );
+                                  setBillingDueDate(
+                                    agent.billing.paymentDueDate
+                                      ? agent.billing.paymentDueDate.slice(
+                                          0,
+                                          10,
+                                        )
+                                      : "",
+                                  );
+                                }}
+                              >
+                                <PencilIcon className="size-3" />
+                              </Button>
+                            </div>
+                          </td>
+                          <td className="p-3 text-muted-foreground">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <div className="min-w-0 flex-1">
+                                {agent.growers && agent.growers.length > 0 ? (
+                                  <span className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
+                                    {agent.growers.map((g, i) => (
+                                      <span
+                                        key={`${g.email}-${i}`}
+                                        className="inline-flex items-center"
+                                      >
+                                        {i > 0 ? (
+                                          <span className="mr-1 text-muted-foreground/60">
+                                            ,
+                                          </span>
+                                        ) : null}
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <button
+                                              type="button"
+                                              className="cursor-default border-0 bg-transparent p-0 text-left text-inherit underline-offset-2 hover:underline"
                                             >
-                                              <Trash2Icon className="size-3 text-destructive" />
-                                            </Button>
-                                          </td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
+                                              {g.name}
+                                            </button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            {g.email}
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </span>
+                                    ))}
+                                  </span>
+                                ) : (
+                                  <span>—</span>
                                 )}
                               </div>
-                            )}
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon-sm"
+                                    aria-label="Gestionar growers"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setGrowerTarget({
+                                        id: agent.id,
+                                        name: agent.name,
+                                      });
+                                    }}
+                                  >
+                                    <PlusIcon className="size-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  Gestionar growers
+                                </TooltipContent>
+                              </Tooltip>
+                            </div>
                           </td>
                         </tr>
-                      )}
-                    </Fragment>
-                  )))}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex gap-2 items-center mt-4 mb-1">
-            <span className="text-xs text-muted-foreground">
-              {agents.length} agentes
-            </span>
-          </div>
-          {!isLoading && filteredAgents.length === 0 ? (
-            <p className="py-8 text-center text-muted-foreground">
-              {agents.length === 0
-                ? serverSearchActive
-                  ? "No hay agentes que coincidan con la búsqueda."
-                  : "No hay agentes."
-                : "Ningún agente coincide con los filtros."}
-            </p>
-          ) : null}
-          {hasMore && !isLoading ? (
-            <div className="flex gap-2 items-center">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={isLoadingMore || isSearchDebouncing}
-                onClick={() => void loadMore()}
-              >
-                {isLoadingMore ? (
-                  <Loader2Icon className="mr-2 size-4 animate-spin" />
-                ) : null}
-                Cargar más
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={isLoadingAll || isSearchDebouncing || Boolean(debouncedSearch.trim())}
-                onClick={() => void loadAll()}
-                title={debouncedSearch.trim()
-                  ? "Con búsqueda activa usa «Cargar más» para ver más resultados."
-                  : undefined}
-              >
-                {isLoadingAll ? (
-                  <Loader2Icon className="mr-2 size-4 animate-spin" />
-                ) : null}
-                Cargar todos
-              </Button>
+                        {expandedAgentId === agent.id && (
+                          <tr className="bg-muted/30">
+                            <td colSpan={7} className="p-4">
+                              {agent.billing.domiciliated ? (
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <Building2Icon className="size-4" />
+                                  Los pagos domiciliados se renuevan
+                                  automáticamente cada mes. No se requiere
+                                  registro manual.
+                                </div>
+                              ) : paymentsLoading ? (
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <Loader2Icon className="size-4 animate-spin" />
+                                  Cargando historial...
+                                </div>
+                              ) : (
+                                <div className="space-y-3">
+                                  <div className="flex items-center justify-between">
+                                    <h4 className="text-sm font-medium">
+                                      Historial de Pagos
+                                    </h4>
+                                    <Button
+                                      size="sm"
+                                      onClick={() => {
+                                        setPaymentAmount(
+                                          agent.billing.defaultPaymentAmount
+                                            ? String(
+                                                agent.billing
+                                                  .defaultPaymentAmount,
+                                              )
+                                            : "",
+                                        );
+                                        const now = new Date();
+                                        const months = [
+                                          "Enero",
+                                          "Febrero",
+                                          "Marzo",
+                                          "Abril",
+                                          "Mayo",
+                                          "Junio",
+                                          "Julio",
+                                          "Agosto",
+                                          "Septiembre",
+                                          "Octubre",
+                                          "Noviembre",
+                                          "Diciembre",
+                                        ];
+                                        setPaymentPeriod(
+                                          `${months[now.getMonth()]} ${now.getFullYear()}`,
+                                        );
+                                        setPaymentMethod("transferencia");
+                                        setPaymentReference("");
+                                        setPaymentNotes("");
+                                        setPaymentDialogOpen(true);
+                                      }}
+                                    >
+                                      <PlusIcon className="size-3 mr-1" />{" "}
+                                      Registrar pago
+                                    </Button>
+                                  </div>
+                                  {expandedPayments.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground">
+                                      Sin pagos registrados
+                                    </p>
+                                  ) : (
+                                    <table className="w-full text-xs">
+                                      <thead>
+                                        <tr className="border-b">
+                                          <th className="p-2 text-left">
+                                            Período
+                                          </th>
+                                          <th className="p-2 text-left">
+                                            Monto
+                                          </th>
+                                          <th className="p-2 text-left">
+                                            Método
+                                          </th>
+                                          <th className="p-2 text-left">
+                                            Referencia
+                                          </th>
+                                          <th className="p-2 text-left">
+                                            Fecha
+                                          </th>
+                                          <th className="p-2 text-left">
+                                            Notas
+                                          </th>
+                                          <th className="p-2 text-left">
+                                            Acciones
+                                          </th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {expandedPayments.map((p) => (
+                                          <tr
+                                            key={p.id}
+                                            className="border-b border-border/50"
+                                          >
+                                            <td className="p-2">{p.period}</td>
+                                            <td className="p-2 font-mono">
+                                              ${p.amount.toFixed(2)}
+                                            </td>
+                                            <td className="p-2">
+                                              {p.paymentMethod}
+                                            </td>
+                                            <td className="p-2 text-muted-foreground">
+                                              {p.reference || "—"}
+                                            </td>
+                                            <td className="p-2">
+                                              {new Date(
+                                                p.paidAt,
+                                              ).toLocaleDateString("es-MX")}
+                                            </td>
+                                            <td className="p-2 max-w-[200px] truncate">
+                                              {p.notes || "—"}
+                                            </td>
+                                            <td className="p-2">
+                                              <Button
+                                                variant="ghost"
+                                                size="icon-sm"
+                                                onClick={async () => {
+                                                  const r =
+                                                    await deletePaymentRecord(
+                                                      agent.id,
+                                                      p.id,
+                                                    );
+                                                  if (r.ok) {
+                                                    setExpandedPayments(
+                                                      (prev) =>
+                                                        prev.filter(
+                                                          (x) => x.id !== p.id,
+                                                        ),
+                                                    );
+                                                    toast.success(
+                                                      "Pago eliminado",
+                                                    );
+                                                  } else {
+                                                    toast.error(r.error);
+                                                  }
+                                                }}
+                                              >
+                                                <Trash2Icon className="size-3 text-destructive" />
+                                              </Button>
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
-          ) : null}
+            <div className="flex gap-2 items-center mt-4 mb-1">
+              <span className="text-xs text-muted-foreground">
+                {agents.length} agentes
+              </span>
+            </div>
+            {!isLoading && filteredAgents.length === 0 ? (
+              <p className="py-8 text-center text-muted-foreground">
+                {agents.length === 0
+                  ? serverSearchActive
+                    ? "No hay agentes que coincidan con la búsqueda."
+                    : "No hay agentes."
+                  : "Ningún agente coincide con los filtros."}
+              </p>
+            ) : null}
+            {hasMore && !isLoading ? (
+              <div className="flex gap-2 items-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isLoadingMore || isSearchDebouncing}
+                  onClick={() => void loadMore()}
+                >
+                  {isLoadingMore ? (
+                    <Loader2Icon className="mr-2 size-4 animate-spin" />
+                  ) : null}
+                  Cargar más
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={
+                    isLoadingAll ||
+                    isSearchDebouncing ||
+                    Boolean(debouncedSearch.trim())
+                  }
+                  onClick={() => void loadAll()}
+                  title={
+                    debouncedSearch.trim()
+                      ? "Con búsqueda activa usa «Cargar más» para ver más resultados."
+                      : undefined
+                  }
+                >
+                  {isLoadingAll ? (
+                    <Loader2Icon className="mr-2 size-4 animate-spin" />
+                  ) : null}
+                  Cargar todos
+                </Button>
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
-    </div><Dialog
-      open={growerTarget != null}
-      onOpenChange={(open) => {
-        if (!open) setGrowerTarget(null);
-      }}
-    >
+      <Dialog
+        open={growerTarget != null}
+        onOpenChange={(open) => {
+          if (!open) setGrowerTarget(null);
+        }}
+      >
         <DialogContent showClose className="max-h-[min(90vh,32rem)]">
           <DialogHeader>
             <DialogTitle>Gestionar growers</DialogTitle>
@@ -1283,11 +1436,14 @@ export function OperationsDashboard(props: {
                       <label className="flex cursor-pointer items-center gap-3 rounded-md border border-transparent px-2 py-2 hover:bg-muted/50">
                         <Checkbox
                           checked={already}
-                          disabled={busy || growerPickerLoading || !growerTarget}
+                          disabled={
+                            busy || growerPickerLoading || !growerTarget
+                          }
                           onCheckedChange={(v) => {
                             if (v === true) void onCheckAddGrower(u);
                             else void onUncheckRemoveGrower(u);
-                          }} />
+                          }}
+                        />
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-sm font-medium">
                             {u.name}
@@ -1304,7 +1460,8 @@ export function OperationsDashboard(props: {
                         {busy ? (
                           <Loader2Icon
                             className="size-4 shrink-0 animate-spin text-muted-foreground"
-                            aria-hidden />
+                            aria-hidden
+                          />
                         ) : null}
                       </label>
                     </li>
@@ -1323,7 +1480,8 @@ export function OperationsDashboard(props: {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog><Dialog
+      </Dialog>
+      <Dialog
         open={billingDialogAgent != null}
         onOpenChange={(open) => {
           if (!open) setBillingDialogAgent(null);
@@ -1344,7 +1502,8 @@ export function OperationsDashboard(props: {
               <Checkbox
                 id="billing-domiciliated"
                 checked={billingDomiciliated}
-                onCheckedChange={(v) => setBillingDomiciliated(v === true)} />
+                onCheckedChange={(v) => setBillingDomiciliated(v === true)}
+              />
               <label
                 htmlFor="billing-domiciliated"
                 className="text-sm cursor-pointer"
@@ -1358,25 +1517,33 @@ export function OperationsDashboard(props: {
                 type="number"
                 value={billingDefaultAmount}
                 onChange={(e) => setBillingDefaultAmount(e.target.value)}
-                placeholder="p. ej. 1500" />
+                placeholder="p. ej. 1500"
+              />
             </div>
             {!billingDomiciliated && (
               <div>
-                <label className="text-sm font-medium">Fecha límite de pago</label>
+                <label className="text-sm font-medium">
+                  Fecha límite de pago
+                </label>
                 <Input
                   type="date"
                   value={billingDueDate}
-                  onChange={(e) => setBillingDueDate(e.target.value)} />
+                  onChange={(e) => setBillingDueDate(e.target.value)}
+                />
               </div>
             )}
             {billingDialogAgent?.billing.lastPaymentDate && (
               <p className="text-xs text-muted-foreground">
-                Último pago: {new Date(billingDialogAgent.billing.lastPaymentDate).toLocaleDateString("es-MX")}
+                Último pago:{" "}
+                {new Date(
+                  billingDialogAgent.billing.lastPaymentDate,
+                ).toLocaleDateString("es-MX")}
               </p>
             )}
             {billingDomiciliated && (
               <p className="text-xs text-muted-foreground bg-muted/50 rounded-md p-2">
-                Los pagos domiciliados se renuevan automáticamente cada mes. No se requiere acción manual.
+                Los pagos domiciliados se renuevan automáticamente cada mes. No
+                se requiere acción manual.
               </p>
             )}
           </div>
@@ -1395,11 +1562,16 @@ export function OperationsDashboard(props: {
                 if (!billingDialogAgent) return;
                 setBillingSaving(true);
                 try {
-                  const r = await patchAgentBillingConfig(billingDialogAgent.id, {
-                    domiciliated: billingDomiciliated,
-                    defaultPaymentAmount: billingDefaultAmount ? Number(billingDefaultAmount) : undefined,
-                    paymentDueDate: billingDueDate || null,
-                  });
+                  const r = await patchAgentBillingConfig(
+                    billingDialogAgent.id,
+                    {
+                      domiciliated: billingDomiciliated,
+                      defaultPaymentAmount: billingDefaultAmount
+                        ? Number(billingDefaultAmount)
+                        : undefined,
+                      paymentDueDate: billingDueDate || null,
+                    },
+                  );
                   if (r.ok) {
                     toast.success("Configuración actualizada");
                     void fetchAgents();
@@ -1416,7 +1588,8 @@ export function OperationsDashboard(props: {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog><Dialog
+      </Dialog>
+      <Dialog
         open={paymentDialogOpen}
         onOpenChange={(open) => {
           if (!open) setPaymentDialogOpen(false);
@@ -1439,14 +1612,16 @@ export function OperationsDashboard(props: {
                 type="number"
                 value={paymentAmount}
                 onChange={(e) => setPaymentAmount(e.target.value)}
-                placeholder="p. ej. 1500" />
+                placeholder="p. ej. 1500"
+              />
             </div>
             <div>
               <label className="text-sm font-medium">Período</label>
               <Input
                 value={paymentPeriod}
                 onChange={(e) => setPaymentPeriod(e.target.value)}
-                placeholder="p. ej. Abril 2026" />
+                placeholder="p. ej. Abril 2026"
+              />
             </div>
             <div>
               <label className="text-sm font-medium">Método de pago</label>
@@ -1463,18 +1638,22 @@ export function OperationsDashboard(props: {
               </select>
             </div>
             <div>
-              <label className="text-sm font-medium">Referencia (opcional)</label>
+              <label className="text-sm font-medium">
+                Referencia (opcional)
+              </label>
               <Input
                 value={paymentReference}
                 onChange={(e) => setPaymentReference(e.target.value)}
-                placeholder="p. ej. REF-12345" />
+                placeholder="p. ej. REF-12345"
+              />
             </div>
             <div>
               <label className="text-sm font-medium">Notas (opcional)</label>
               <Input
                 value={paymentNotes}
                 onChange={(e) => setPaymentNotes(e.target.value)}
-                placeholder="Notas adicionales" />
+                placeholder="Notas adicionales"
+              />
             </div>
           </div>
           <DialogFooter>
@@ -1517,12 +1696,17 @@ export function OperationsDashboard(props: {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog><Dialog open={defaultModeDialogOpen} onOpenChange={setDefaultModeDialogOpen}>
+      </Dialog>
+      <Dialog
+        open={defaultModeDialogOpen}
+        onOpenChange={setDefaultModeDialogOpen}
+      >
         <DialogContent showClose>
           <DialogHeader>
             <DialogTitle>Modo por defecto para crear agente</DialogTitle>
             <DialogDescription>
-              Elige el modo que se abrirá por defecto al hacer clic en &quot;Crear nuevo agente&quot;.
+              Elige el modo que se abrirá por defecto al hacer clic en
+              &quot;Crear nuevo agente&quot;.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -1533,8 +1717,12 @@ export function OperationsDashboard(props: {
                 name="builder-mode"
                 checked={defaultBuilderMode === "form"}
                 onChange={() => setDefaultBuilderMode("form")}
-                className="h-4 w-4" />
-              <label htmlFor="mode-form" className="text-sm font-medium cursor-pointer">
+                className="h-4 w-4"
+              />
+              <label
+                htmlFor="mode-form"
+                className="text-sm font-medium cursor-pointer"
+              >
                 Formulario
               </label>
             </div>
@@ -1545,8 +1733,12 @@ export function OperationsDashboard(props: {
                 name="builder-mode"
                 checked={defaultBuilderMode === "conversational"}
                 onChange={() => setDefaultBuilderMode("conversational")}
-                className="h-4 w-4" />
-              <label htmlFor="mode-conversational" className="text-sm font-medium cursor-pointer">
+                className="h-4 w-4"
+              />
+              <label
+                htmlFor="mode-conversational"
+                className="text-sm font-medium cursor-pointer"
+              >
                 Conversacional
               </label>
             </div>
@@ -1562,7 +1754,10 @@ export function OperationsDashboard(props: {
             <Button
               type="button"
               onClick={() => {
-                localStorage.setItem("agent-builder-default-mode", defaultBuilderMode);
+                localStorage.setItem(
+                  "agent-builder-default-mode",
+                  defaultBuilderMode,
+                );
                 toast.success("Modo por defecto guardado");
                 setDefaultModeDialogOpen(false);
               }}
@@ -1571,6 +1766,7 @@ export function OperationsDashboard(props: {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog></>
+      </Dialog>
+    </>
   );
 }
