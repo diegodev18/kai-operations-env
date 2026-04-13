@@ -1427,3 +1427,106 @@ export async function uploadAgentFile(
   if (!data.file) return { ok: false, error: "Respuesta inválida del servidor" };
   return { ok: true, file: data.file };
 }
+
+export interface TestingDataCollection {
+  collections: string[];
+}
+
+export interface TestingDataDocument {
+  id: string;
+  data: Record<string, unknown>;
+}
+
+export interface TestingDataDocuments {
+  documents: TestingDataDocument[];
+}
+
+export async function fetchTestingDataCollections(
+  agentId: string,
+): Promise<TestingDataCollection | null> {
+  const res = await fetch(
+    `/api/agent_configurations/${encodeURIComponent(agentId)}/testing/data`,
+    { credentials: "include" },
+  );
+  if (!res.ok) return null;
+  return res.json();
+}
+
+export async function fetchTestingDataDocuments(
+  agentId: string,
+  collection: string,
+): Promise<TestingDataDocuments | null> {
+  const res = await fetch(
+    `/api/agent_configurations/${encodeURIComponent(agentId)}/testing/data/${encodeURIComponent(collection)}`,
+    { credentials: "include" },
+  );
+  if (!res.ok) return null;
+  return res.json();
+}
+
+export async function fetchTestingDataDocument(
+  agentId: string,
+  collection: string,
+  docId: string,
+): Promise<TestingDataDocument | null> {
+  const res = await fetch(
+    `/api/agent_configurations/${encodeURIComponent(agentId)}/testing/data/${encodeURIComponent(collection)}/${encodeURIComponent(docId)}`,
+    { credentials: "include" },
+  );
+  if (!res.ok) return null;
+  return res.json();
+}
+
+export interface CreateTestingDataDocumentBody {
+  data: Record<string, unknown>;
+  merge?: boolean;
+}
+
+export async function createTestingDataDocument(
+  agentId: string,
+  collection: string,
+  body: CreateTestingDataDocumentBody,
+): Promise<TestingDataDocument | null> {
+  const res = await fetch(
+    `/api/agent_configurations/${encodeURIComponent(agentId)}/testing/data/${encodeURIComponent(collection)}`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) return null;
+  return res.json();
+}
+
+export async function updateTestingDataDocument(
+  agentId: string,
+  collection: string,
+  docId: string,
+  body: CreateTestingDataDocumentBody,
+): Promise<TestingDataDocument | null> {
+  const res = await fetch(
+    `/api/agent_configurations/${encodeURIComponent(agentId)}/testing/data/${encodeURIComponent(collection)}/${encodeURIComponent(docId)}`,
+    {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) return null;
+  return res.json();
+}
+
+export async function deleteTestingDataDocument(
+  agentId: string,
+  collection: string,
+  docId: string,
+): Promise<boolean> {
+  const res = await fetch(
+    `/api/agent_configurations/${encodeURIComponent(agentId)}/testing/data/${encodeURIComponent(collection)}/${encodeURIComponent(docId)}`,
+    { method: "DELETE", credentials: "include" },
+  );
+  return res.ok;
+}

@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 
 import agentsRouter from "@/routes/agents.route";
+import agentTestingDataRouter from "@/routes/agent-testing-data.route";
 import agentsTestingRouter from "@/routes/agents-testing.route";
 import blogRouter from "@/routes/blog.route";
 import changelogRouter from "@/routes/changelog.route";
@@ -18,6 +19,7 @@ api.route("/database", databaseRouter);
 api.route("/health", healthRouter);
 api.route("/agents", agentsRouter);
 api.route("/agents-testing", agentsTestingRouter);
+api.route("/agent_configurations", agentTestingDataRouter);
 api.route("/favorites", favoritesRouter);
 api.route("/organization", organizationRouter);
 api.route("/prompt", promptRouter);
