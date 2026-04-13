@@ -1,0 +1,164 @@
+"use client";
+
+import { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
+import { getProjectById, type ProjectId, type DbChangelogEntry } from "../changelog-data";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { ArrowLeftIcon, HomeIcon, PlusIcon } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import NewChangelogForm from "../components/new-changelog-form";
+
+export default function PanelChangelogPage() {
+  const project = getProjectById("panel");
+  const [search, setSearch] = useState("");
+  const [entries, setEntries] = useState<DbChangelogEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [openDialog, setOpenDialog] = useState(false);
+
+  useEffect(() => {
+    async function fetchEntries() {
+      try {
+        const res = await fetch("/api/changelogs/panel");
+        if (res.ok) {
+          const data = await res.json();
+          setEntries(data.entries || []);
+        }
+      } catch (error) {
+        console.error("[changelog] fetch error:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchEntries();
+  }, []);
+
+  const filteredEntries = useMemo(() => {
+    if (!search.trim()) return entries;
+    const query = search.toLowerCase();
+    return entries.filter((entry) => {
+      if (entry.version.toLowerCase().includes(query)) return true;
+      if (entry.description.toLowerCase().includes(query)) return true;
+      const allChanges = [
+        ...(entry.changes.added || []),
+        ...(entry.changes.changed || []),
+        ...(entry.changes.fixed || []),
+        ...(entry.changes.removed || []),
+        ...(entry.changes.improved || []),
+      ];
+      return allChanges.some((c) => c.toLowerCase().includes(query));
+    });
+  }, [entries, search]);
+
+  return (
+    <div className="min-h-screen bg-background p-8">
+      <div className="mx-auto max-w-4xl">
+        <header className="mb-12 flex items-center justify-between">
+          <div>
+            <h1 className="font-heading text-4xl font-bold tracking-tight text-foreground">
+              {project?.name} Changelog
+            </h1>
+            <p className="mt-2 text-muted-foreground">{project?.description}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/changelog">
+                <ArrowLeftIcon className="size-4 mr-2" />
+                Proyectos
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/">
+                <HomeIcon className="size-4" />
+                Home
+              </Link>
+            </Button>
+            <Button size="sm" onClick={() => setOpenDialog(true)}>
+              <PlusIcon className="size-4 mr-2" />
+              Nueva entrada
+            </Button>
+          </div>
+        </header>
+
+        <div className="mb-8">
+          <Input
+            type="search"
+            placeholder="Buscar versiones o cambios..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="max-w-sm"
+          />
+        </div>
+
+        {loading ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-16 animate-pulse rounded-lg bg-muted" />
+            ))}
+          </div>
+        ) : filteredEntries.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">No hay entradas todavía.</p>
+            <Button className="mt-4" onClick={() => setOpenDialog(true)}>
+              Crear primera entrada
+            </Button>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-border overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Version</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Fecha</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground hidden md:table-cell">Description</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Details</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredEntries.map((entry) => (
+                  <tr key={entry.id} className="hover:bg-muted/30 transition-colors">
+                    <td className="px-4 py-4">
+                      <Link
+                        href={`/changelog/panel/${entry.version}`}
+                        className="font-mono text-sm font-medium text-foreground hover:underline"
+                      >
+                        v{entry.version}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-4 text-sm text-muted-foreground">
+                      {new Date(entry.registerDate).toLocaleDateString("es-ES", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-muted-foreground hidden md:table-cell">
+                      {entry.description}
+                    </td>
+                    <td className="px-4 py-4 text-right">
+                      <Link
+                        href={`/changelog/panel/${entry.version}`}
+                        className="inline-flex items-center justify-center rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                      >
+                        View
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Nueva entrada - Panel Web</DialogTitle>
+          </DialogHeader>
+          <NewChangelogForm projectId="panel" onClose={() => setOpenDialog(false)} />
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

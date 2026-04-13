@@ -1,34 +1,18 @@
 "use client";
 
-import { useState, useMemo } from "react";
 import Link from "next/link";
-import { changelogData, getAllVersions } from "./changelog-data";
-import { Input } from "@/components/ui/input";
+import { PROJECTS, getProjectById } from "./changelog-data";
 import { Button } from "@/components/ui/button";
-import { ArrowLeftIcon, HomeIcon } from "lucide-react";
+import { ArrowLeftIcon, HomeIcon, LayoutDashboardIcon, PanelLeftCloseIcon, BotIcon, WrenchIcon } from "lucide-react";
+
+const PROJECT_ICONS = {
+  atlas: LayoutDashboardIcon,
+  panel: PanelLeftCloseIcon,
+  agents: BotIcon,
+  tools: WrenchIcon,
+};
 
 export default function ChangelogPage() {
-  const [search, setSearch] = useState("");
-  const versions = getAllVersions();
-
-  const filteredVersions = useMemo(() => {
-    if (!search.trim()) return versions;
-    const query = search.toLowerCase();
-    return versions.filter((version) => {
-      const entry = changelogData[version];
-      if (version.includes(query)) return true;
-      if (entry.description.toLowerCase().includes(query)) return true;
-      const allChanges = [
-        ...(entry.changes.added || []),
-        ...(entry.changes.changed || []),
-        ...(entry.changes.fixed || []),
-        ...(entry.changes.removed || []),
-        ...(entry.changes.improved || []),
-      ];
-      return allChanges.some((c) => c.toLowerCase().includes(query));
-    });
-  }, [versions, search]);
-
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="mx-auto max-w-4xl">
@@ -38,7 +22,7 @@ export default function ChangelogPage() {
               Changelog
             </h1>
             <p className="mt-2 text-muted-foreground">
-              A record of all changes, improvements, and new features.
+              Registro de cambios, mejoras y nuevas funcionalidades.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -55,80 +39,41 @@ export default function ChangelogPage() {
           </div>
         </header>
 
-        <div className="mb-8">
-          <Input
-            type="search"
-            placeholder="Search versions or changes..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="max-w-sm"
-          />
+        <div className="grid gap-4 sm:grid-cols-2">
+          {PROJECTS.map((project) => {
+            const Icon = PROJECT_ICONS[project.id];
+            const isAtlas = project.id === "atlas";
+            return (
+              <Link
+                key={project.id}
+                href={`/changelog/${project.id}`}
+                className="group relative flex flex-col rounded-lg border border-border bg-card p-6 transition-colors hover:bg-muted/50"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex size-10 items-center justify-center rounded-md bg-primary/10 text-primary">
+                    <Icon className="size-5" />
+                  </div>
+                  <div>
+                    <h2 className="font-semibold text-foreground">
+                      {project.name}
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      {project.description}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+                  {isAtlas ? (
+                    <span className="text-xs">Hardcoded</span>
+                  ) : (
+                    <span className="text-xs">Firebase</span>
+                  )}
+                  <span className="text-xs opacity-50">→</span>
+                </div>
+              </Link>
+            );
+          })}
         </div>
-
-        <div className="rounded-lg border border-border overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                  Version
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                  Date
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground hidden md:table-cell">
-                  Description
-                </th>
-                <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                  Details
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filteredVersions.map((version) => {
-                const entry = changelogData[version];
-                return (
-                  <tr
-                    key={version}
-                    className="hover:bg-muted/30 transition-colors"
-                  >
-                    <td className="px-4 py-4">
-                      <Link
-                        href={`/changelog/${version}`}
-                        className="font-mono text-sm font-medium text-foreground hover:underline"
-                      >
-                        v{version}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-4 text-sm text-muted-foreground">
-                      {new Date(entry.date).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-muted-foreground hidden md:table-cell">
-                      {entry.description}
-                    </td>
-                    <td className="px-4 py-4 text-right">
-                      <Link
-                        href={`/changelog/${version}`}
-                        className="inline-flex items-center justify-center rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-                      >
-                        View
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {filteredVersions.length === 0 && (
-          <p className="mt-8 text-center text-muted-foreground">
-            No versions found matching &quot;{search}&quot;.
-          </p>
-        )}
       </div>
     </div>
   );

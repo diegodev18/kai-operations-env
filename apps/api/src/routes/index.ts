@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import agentsRouter from "@/routes/agents.route";
 import agentsTestingRouter from "@/routes/agents-testing.route";
 import blogRouter from "@/routes/blog.route";
+import changelogRouter from "@/routes/changelog.route";
 import databaseRouter from "@/routes/database.route";
 import favoritesRouter from "@/routes/favorites.route";
 import healthRouter from "@/routes/health.route";
@@ -12,6 +13,7 @@ import promptRouter from "@/routes/prompt.route";
 const api = new Hono();
 
 api.route("/blog", blogRouter);
+api.route("/changelogs", changelogRouter);
 api.route("/database", databaseRouter);
 api.route("/health", healthRouter);
 api.route("/agents", agentsRouter);

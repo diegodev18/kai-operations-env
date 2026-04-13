@@ -1,3 +1,43 @@
+export type ProjectId = "atlas" | "panel" | "agents" | "tools";
+
+export interface Attachment {
+  name: string;
+  url: string;
+  type: "image" | "video" | "document";
+  uploadedAt: string;
+}
+
+export interface Collaborator {
+  name: string;
+  email: string;
+}
+
+export interface DbChangelogEntry {
+  id: string;
+  projectId: Exclude<ProjectId, "atlas">;
+  registerDate: string;
+  implementationDate: string;
+  version: string;
+  author: Collaborator;
+  collaborators: Collaborator[];
+  description: string;
+  changes: {
+    added?: string[];
+    changed?: string[];
+    fixed?: string[];
+    removed?: string[];
+    improved?: string[];
+  };
+  attachments: Attachment[];
+  ticketUrl?: string;
+  createTicket: boolean;
+  tags?: string[];
+  status: "draft" | "published";
+  internalNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ChangelogEntry {
   date: string;
   description: string;
@@ -9,6 +49,13 @@ export interface ChangelogEntry {
     improved?: string[];
   };
 }
+
+export const PROJECTS: { id: ProjectId; name: string; description: string }[] = [
+  { id: "atlas", name: "Atlas", description: "BackOffice - Sistema de gestión operativa" },
+  { id: "panel", name: "Panel Web", description: "Panel Web / CRM de kAI" },
+  { id: "agents", name: "kAI Agents", description: "Core de agentes IA" },
+  { id: "tools", name: "Tools MCP", description: "Herramientas MCP" },
+];
 
 export const changelogData: Record<string, ChangelogEntry> = {
   "2.2.5": {
@@ -327,4 +374,12 @@ export function getAllVersions(): string[] {
 
 export function getVersion(version: string): ChangelogEntry | undefined {
   return changelogData[version];
+}
+
+export function getAtlasVersions(): { version: string; entry: ChangelogEntry }[] {
+  return getAllVersions().map((v) => ({ version: v, entry: changelogData[v] }));
+}
+
+export function getProjectById(id: ProjectId) {
+  return PROJECTS.find((p) => p.id === id);
 }
