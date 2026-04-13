@@ -58,6 +58,21 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] = 
 ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.3.0": {
+    date: "2026-04-13",
+    description: "Sistema de changelogs multi-proyecto",
+    changes: {
+      added: [
+        "Nuevo sistema de changelogs con 4 proyectos: Atlas, Panel Web, kAI Agents, Tools MCP",
+        "Atlas permanece hardcoded, los demás proyectos usan Firebase Firestore",
+        "Formularios en dialog con todos los campos: fechas, versión, autor, colaboradores, descripción, cambios, etiquetas, URL de ticket, adjuntos, estado, notas internas",
+        "Autocompletado de colaboradores desde usuarios de la organización",
+        "Soporte para adjuntos: imágenes, videos y PDFs en Firebase Storage",
+        "API routes para operaciones CRUD"],
+      changed: [
+        "Changelog principal ahora muestra selector de proyectos"],
+    },
+  },
   "2.2.5": {
     date: "2026-04-12",
     description: "Filtro de favoritos movido al backend",
