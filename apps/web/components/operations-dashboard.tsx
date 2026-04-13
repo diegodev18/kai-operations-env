@@ -605,10 +605,8 @@ export function OperationsDashboard(props: {
                 <LayoutGridIcon className="size-4" />
                 Changelog
               </Link>
-              {/* Submenu with delay on hide */}
-              <div 
-                className="absolute left-full top-0 ml-0 opacity-0 invisible transition-all duration-200 ease-out delay-[1000ms] group-hover/changelog:opacity-100 group-hover/changelog:visible z-50 bg-background border rounded-md shadow-lg p-1 min-w-[160px]"
-              >
+              {/* Submenu */}
+              <div className="absolute left-full top-0 ml-0 z-50 hidden group-hover/changelog:block bg-background border rounded-md shadow-lg p-1 min-w-[160px]">
                 <Link href="/changelog/atlas" className="flex items-center gap-2 rounded px-3 py-2 text-sm hover:bg-muted" onClick={() => setMenuOpen(false)}>
                   <LayoutDashboardIcon className="size-4" /> Atlas
                 </Link>
