@@ -174,7 +174,7 @@ export function OperationsDashboard(props: {
   const handleChangelogMouseLeave = () => {
     changelogSubmenuTimeoutRef.current = setTimeout(() => {
       setChangelogSubmenuOpen(false);
-    }, 1000);
+    }, 500);
   };
   
   type FavoritesFilter = "all" | "favorites";
