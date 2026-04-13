@@ -36,7 +36,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import type { Environment } from "@/contexts/EnvironmentContext";
 
-const API_BASE = () => `${process.env.NEXT_PUBLIC_API_URL}/api/database`;
+const API_BASE = "/api/database";
 
 function isDocumentPath(path: string): boolean {
   const segs = path.trim().split("/").filter(Boolean);
@@ -85,7 +85,7 @@ export default function ExploradorDocumentosPage() {
       setSelectedDocId(null);
       setPath(ruta);
       try {
-        const url = `${API_BASE()}/documento?rutaDocumento=${encodeURIComponent(ruta)}`;
+        const url = `${API_BASE}/documento?rutaDocumento=${encodeURIComponent(ruta)}`;
         const res = await fetch(url, { credentials: "include", headers: { "X-Environment": environment } });
         const data = await res.json();
         if (!res.ok) {
@@ -93,7 +93,7 @@ export default function ExploradorDocumentosPage() {
           return;
         }
         setDocumentData((data.documento ?? {}) as Record<string, unknown>);
-        const subRes = await fetch(`${API_BASE()}/documento/subcolecciones?rutaDocumento=${encodeURIComponent(ruta)}`, { credentials: "include", headers: { "X-Environment": environment } });
+        const subRes = await fetch(`${API_BASE}/documento/subcolecciones?rutaDocumento=${encodeURIComponent(ruta)}`, { credentials: "include", headers: { "X-Environment": environment } });
         const subData = await subRes.json();
         if (subRes.ok && Array.isArray(subData.subcolecciones)) {
           setSubcollections(subData.subcolecciones);
@@ -120,7 +120,7 @@ export default function ExploradorDocumentosPage() {
       setSelectedDocId(null);
       setPath(ruta);
       try {
-        const url = `${API_BASE()}/coleccion/preview?rutaColeccion=${encodeURIComponent(ruta)}`;
+        const url = `${API_BASE}/coleccion/preview?rutaColeccion=${encodeURIComponent(ruta)}`;
         const res = await fetch(url, { credentials: "include", headers: { "X-Environment": environment } });
         const data = await res.json();
         if (!res.ok) {
