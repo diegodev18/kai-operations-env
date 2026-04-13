@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState, useRef } from "react";
 import {
   AlertCircleIcon,
   BanknoteIcon,
@@ -160,6 +160,23 @@ export function OperationsDashboard(props: {
     "form" | "conversational"
   >("form");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [changelogSubmenuOpen, setChangelogSubmenuOpen] = useState(false);
+  const changelogSubmenuTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  const handleChangelogMouseEnter = () => {
+    if (changelogSubmenuTimeoutRef.current) {
+      clearTimeout(changelogSubmenuTimeoutRef.current);
+      changelogSubmenuTimeoutRef.current = null;
+    }
+    setChangelogSubmenuOpen(true);
+  };
+  
+  const handleChangelogMouseLeave = () => {
+    changelogSubmenuTimeoutRef.current = setTimeout(() => {
+      setChangelogSubmenuOpen(false);
+    }, 1000);
+  };
+  
   type FavoritesFilter = "all" | "favorites";
   const [favoritesFilter, setFavoritesFilter] =
     useState<FavoritesFilter>("all");
@@ -596,7 +613,11 @@ export function OperationsDashboard(props: {
                 <PlusIcon className="size-4" />
                 Crear agente
               </Link>
-              <div className="relative group/changelog">
+              <div 
+                className="relative"
+                onMouseEnter={handleChangelogMouseEnter}
+                onMouseLeave={handleChangelogMouseLeave}
+              >
               <Link
                 href="/changelog"
                 className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
@@ -606,7 +627,7 @@ export function OperationsDashboard(props: {
                 Changelog
               </Link>
               {/* Submenu */}
-              <div className="absolute left-full top-0 ml-0 z-50 hidden group-hover/changelog:block bg-background border rounded-md shadow-lg p-1 min-w-[160px]">
+              <div className={`absolute left-full top-0 ml-0 z-50 bg-background border rounded-md shadow-lg p-1 min-w-[160px] ${changelogSubmenuOpen ? 'block' : 'hidden'}`}>
                 <Link href="/changelog/atlas" className="flex items-center gap-2 rounded px-3 py-2 text-sm hover:bg-muted" onClick={() => setMenuOpen(false)}>
                   <LayoutDashboardIcon className="size-4" /> Atlas
                 </Link>
