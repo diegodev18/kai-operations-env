@@ -23,8 +23,9 @@ import {
   UploadIcon as UploadIconLucide,
   CopyIcon as CopyIconLucide,
   PencilIcon,
-  FolderSearch as FolderSearchIcon,
 } from "lucide-react";
+import { ChangelogNavItem } from "@/components/changelog-nav";
+import { FolderSearch as FolderSearchIcon } from "lucide-react";
 
 const SERVICES = [
   {
@@ -150,10 +151,7 @@ export default function DataBasePage() {
               <LayoutDashboardIcon className="size-4" />
               Inicio
             </Link>
-            <Link href="/changelog" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted" onClick={() => setMenuOpen(false)}>
-              <LayoutGridIcon className="size-4" />
-              Changelog
-            </Link>
+            <ChangelogNavItem onClick={() => setMenuOpen(false)} />
             <Link href="/blog" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted" onClick={() => setMenuOpen(false)}>
               <BookOpenIcon className="size-4" />
               Lecciones

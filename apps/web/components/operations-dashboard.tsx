@@ -19,6 +19,8 @@ import {
   Loader2Icon,
   MegaphoneIcon,
   MenuIcon,
+  BotIcon,
+  WrenchIcon,
   PauseCircleIcon,
   PencilIcon,
   PlusIcon,
@@ -594,6 +596,7 @@ export function OperationsDashboard(props: {
                 <PlusIcon className="size-4" />
                 Crear agente
               </Link>
+              <div className="relative group/changelog">
               <Link
                 href="/changelog"
                 className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
@@ -602,6 +605,21 @@ export function OperationsDashboard(props: {
                 <LayoutGridIcon className="size-4" />
                 Changelog
               </Link>
+              <div className="absolute left-full top-0 ml-0 hidden group-hover/changelog:block z-50 bg-background border rounded-md shadow-lg p-1 min-w-[160px]">
+                <Link href="/changelog/atlas" className="flex items-center gap-2 rounded px-3 py-2 text-sm hover:bg-muted" onClick={() => setMenuOpen(false)}>
+                  <LayoutDashboardIcon className="size-4" /> Atlas
+                </Link>
+                <Link href="/changelog/panel" className="flex items-center gap-2 rounded px-3 py-2 text-sm hover:bg-muted" onClick={() => setMenuOpen(false)}>
+                  <LayoutGridIcon className="size-4" /> Panel Web
+                </Link>
+                <Link href="/changelog/agents" className="flex items-center gap-2 rounded px-3 py-2 text-sm hover:bg-muted" onClick={() => setMenuOpen(false)}>
+                  <BotIcon className="size-4" /> kAI Agents
+                </Link>
+                <Link href="/changelog/tools" className="flex items-center gap-2 rounded px-3 py-2 text-sm hover:bg-muted" onClick={() => setMenuOpen(false)}>
+                  <WrenchIcon className="size-4" /> Tools MCP
+                </Link>
+              </div>
+            </div>
               <Link
                 href="/blog"
                 className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
