@@ -11,9 +11,9 @@ import { resolveSessionUserRole } from "@/utils/sessionUser";
 
 async function requireAdmin(c: Context) {
   const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  if (!session?.user) return { error: c.json({ error: "No autorizado" }, 401) };
+  if (!session?.user) return { error: c.json({ error: "No autorizado", debug: { hasSession: false } }, 401) };
   const role = await resolveSessionUserRole(session.user);
-  if (!isOperationsAdmin(role)) return { error: c.json({ error: "Solo admins" }, 403) };
+  if (!isOperationsAdmin(role)) return { error: c.json({ error: "Solo admins", debug: { role, sessionRole: session.user.role } }, 403) };
   return { sessionUser: session.user, role };
 }
 
