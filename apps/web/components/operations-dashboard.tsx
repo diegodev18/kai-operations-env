@@ -109,6 +109,9 @@ export function OperationsDashboard(props: {
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  /** Primitivos derivados: el objeto `searchParams` cambia de referencia en cada render. */
+  const urlQ = searchParams.get("q") ?? "";
+  const queryString = searchParams.toString();
   const { isAdmin } = useUserRole();
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   /** Texto de búsqueda aplicado al API (debounce 300 ms; vacío al limpiar al instante). */
@@ -203,9 +206,8 @@ export function OperationsDashboard(props: {
 
   useEffect(() => {
     const q = search.trim();
-    const currentQ = searchParams.get("q") ?? "";
-    if (q !== currentQ) {
-      const params = new URLSearchParams(searchParams.toString());
+    if (q !== urlQ) {
+      const params = new URLSearchParams(queryString);
       if (q) {
         params.set("q", q);
       } else {
@@ -213,7 +215,7 @@ export function OperationsDashboard(props: {
       }
       router.replace(`?${params.toString()}`, { scroll: false });
     }
-  }, [search, searchParams, router]);
+  }, [search, urlQ, queryString, router]);
 
   const fetchPage = useCallback(
     async (cursor: string | undefined, usePreview = false) => {
@@ -281,15 +283,14 @@ export function OperationsDashboard(props: {
     }
   }, [fetchPage]);
 
-  // Effect to load agents when searchParams changes (initial load or q param changes)
+  // Effect to load agents when URL q or debounced search changes (not on every render)
   useEffect(() => {
     // Skip initial load if there's a search query - debouncedSearch will trigger the fetch
-    const hasSearchQuery = searchParams.get("q");
-    if (hasSearchQuery && !debouncedSearch) {
+    if (urlQ && !debouncedSearch) {
       return;
     }
     void fetchAgents();
-  }, [fetchAgents, searchParams, debouncedSearch]);
+  }, [fetchAgents, urlQ, debouncedSearch]);
 
   useEffect(() => {
     if (!growerTarget) {
