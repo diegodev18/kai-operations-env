@@ -64,6 +64,17 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] = 
 ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.3.5": {
+    date: "2026-04-14",
+    description:
+      "Home: listado de agentes estable al editar cobranza / domiciliación",
+    changes: {
+      fixed: [
+        "En el dashboard de operaciones (Home), abrir el diálogo de configuración de cobranza (lápiz junto al estado de domiciliación) y cambiar checkbox, monto o fecha ya no vaciaba el listado ni forzaba una recarga completa de agentes.",
+        "Los efectos que sincronizan la búsqueda con `?q=` y los que cargan agentes dejan de depender del objeto `searchParams` de Next.js (referencia nueva en cada render) y usan valores derivados estables (`urlQ`, `queryString`), de modo que un re-render local no dispara `fetchAgents` ni se pierde la paginación obtenida con «Cargar más».",
+      ],
+    },
+  },
   "2.3.4": {
     date: "2026-04-14",
     description:
