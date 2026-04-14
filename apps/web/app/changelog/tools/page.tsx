@@ -196,14 +196,16 @@ export default function ToolsChangelogPage() {
                         {canEditChangelogEntry(entry, sessionUser) ? (
                           <Button
                             variant="outline"
-                            size="sm"
+                            size="icon"
+                            className="size-8 shrink-0"
+                            aria-label="Editar entrada"
+                            title="Editar"
                             onClick={() => {
                               setFormEntryId(entry.id);
                               setFormDialogOpen(true);
                             }}
                           >
-                            <PencilIcon className="size-4 mr-1" />
-                            Editar
+                            <PencilIcon className="size-4" />
                           </Button>
                         ) : null}
                         {isAdmin ? (

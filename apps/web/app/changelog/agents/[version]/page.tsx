@@ -148,9 +148,15 @@ export default function AgentsVersionPage() {
               <Badge variant="outline">Oculta (solo admins)</Badge>
             ) : null}
             {canEditChangelogEntry(entry, sessionUser) ? (
-              <Button variant="outline" size="sm" onClick={() => setEditDialogOpen(true)}>
-                <PencilIcon className="size-4 mr-2" />
-                Editar
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-9 shrink-0"
+                aria-label="Editar entrada"
+                title="Editar"
+                onClick={() => setEditDialogOpen(true)}
+              >
+                <PencilIcon className="size-4" />
               </Button>
             ) : null}
           </div>
