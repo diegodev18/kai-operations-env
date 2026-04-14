@@ -257,6 +257,33 @@ function NestedDialog({
     }
     return initialData ? docToFields(initialData) : [{ key: "", value: "", type: "string" }];
   });
+  
+  const [innerNestedDialog, setInnerNestedDialog] = useState<{
+    isOpen: boolean;
+    parentKey: string;
+    initialData: Record<string, unknown>;
+    isArray: boolean;
+  } | null>(null);
+
+  const handleEditNested = (key: string, value: unknown) => {
+    if (typeof value === "object" && value !== null) {
+      if (Array.isArray(value)) {
+        setInnerNestedDialog({
+          isOpen: true,
+          parentKey: key,
+          initialData: { _array: value.map((v, i) => ({ key: String(i), value: v, type: getValueType(v) })) },
+          isArray: true,
+        });
+      } else {
+        setInnerNestedDialog({
+          isOpen: true,
+          parentKey: key,
+          initialData: value as Record<string, unknown>,
+          isArray: false,
+        });
+      }
+    }
+  };
 
   const handleSave = () => {
     if (isArray) {
@@ -278,13 +305,39 @@ function NestedDialog({
           <FieldEditor 
             fields={nestedFields} 
             onChange={setNestedFields}
-            onEditNested={() => {}}
+            onEditNested={handleEditNested}
           />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
           <Button onClick={handleSave}>Guardar</Button>
         </DialogFooter>
+        {innerNestedDialog && (
+          <NestedDialog
+            isOpen={innerNestedDialog.isOpen}
+            onClose={() => setInnerNestedDialog(null)}
+            onSave={(data) => {
+              if (!innerNestedDialog) return;
+              const isArrayEdit = "_array" in data;
+              let newValue: unknown;
+              if (isArrayEdit) {
+                newValue = (data._array as DocField[]).map(item => item.value);
+              } else {
+                newValue = data;
+              }
+              const updatedFields = nestedFields.map((field) => {
+                if (field.key === innerNestedDialog.parentKey) {
+                  return { ...field, value: newValue };
+                }
+                return field;
+              });
+              setNestedFields(updatedFields);
+              setInnerNestedDialog(null);
+            }}
+            initialData={innerNestedDialog.initialData}
+            isArray={innerNestedDialog.isArray}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
