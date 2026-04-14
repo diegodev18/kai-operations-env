@@ -2269,14 +2269,21 @@ export function AgentFormBuilder() {
         business_name: state.business_name.trim(),
         owner_name: state.owner_name.trim(),
         industry: state.industry.trim(),
+        custom_industry: state.custom_industry.trim(),
         description: state.description.trim(),
         agent_description: state.agent_description.trim(),
         target_audience: state.target_audience.trim(),
         escalation_rules: state.escalation_rules.trim(),
         country: state.country.trim(),
         business_timezone: state.business_timezone.trim(),
+        business_hours: state.business_hours.trim(),
+        require_auth: state.require_auth,
+        flow_answers: state.flow_answers,
+        flow_questions: state.flow_questions,
+        pipelines: state.pipelines as unknown as Array<Record<string, unknown>>,
         brand_values: state.brandValues,
         policies: state.policies.trim(),
+        operating_hours: state.business_hours.trim(),
       });
 
       await patchAgentDraft(draftId, {

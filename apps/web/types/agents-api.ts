@@ -71,12 +71,27 @@ export type AgentDraftPatchBody =
       business_name: string;
       owner_name: string;
       industry: string;
+      custom_industry?: string;
       description: string;
       agent_description: string;
       target_audience: string;
       escalation_rules: string;
       country: string;
       business_timezone?: string;
+      business_hours?: string;
+      require_auth?: boolean;
+      flow_answers?: Record<string, string>;
+      flow_questions?: Array<{
+        field: string;
+        label: string;
+        type: "text" | "textarea" | "select";
+        placeholder?: string;
+        options?: string[];
+        suggestions?: string[];
+        suggestion_mode?: "single" | "multi";
+        required?: boolean;
+      }>;
+      pipelines?: Array<Record<string, unknown>>;
       phone_number_id?: string;
       whatsapp_token?: string;
       brand_values?: string[];
