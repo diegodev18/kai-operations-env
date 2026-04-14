@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   fetchTestingDataCollections,
+  fetchSubcollections,
   fetchTestingDataDocuments,
   fetchTestingDataDocument,
   createTestingDataDocument,
@@ -30,11 +31,12 @@ import {
   Trash2Icon,
   PencilIcon,
   FolderIcon,
+  FolderOpenIcon,
   FileIcon,
   ChevronRightIcon,
   ChevronLeftIcon,
+  ChevronDownIcon,
   DatabaseIcon,
-  TableIcon,
   HashIcon,
   TypeIcon,
   ToggleLeftIcon,
@@ -139,18 +141,99 @@ function tryParseJson(str: string): Record<string, unknown> | null {
   }
 }
 
+function CollectionTreeItem({
+  name,
+  path,
+  currentCollection,
+  expandedPaths,
+  subcollections,
+  onSelect,
+  onToggle,
+  level,
+}: {
+  name: string;
+  path: string;
+  currentCollection: string | undefined;
+  expandedPaths: Set<string>;
+  subcollections: Record<string, string[]>;
+  onSelect: (name: string) => void;
+  onToggle: (path: string) => void;
+  level: number;
+}) {
+  const isExpanded = expandedPaths.has(path);
+  const children = subcollections[path] || [];
+  const hasChildren = children.length > 0;
+  const isSelected = currentCollection === name;
+
+  return (
+    <div>
+      <div className="flex items-center">
+        {hasChildren && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggle(path);
+            }}
+            className="p-0.5 hover:bg-muted rounded"
+          >
+            {isExpanded ? (
+              <ChevronDownIcon className="size-3.5 text-muted-foreground" />
+            ) : (
+              <ChevronRightIcon className="size-3.5 text-muted-foreground" />
+            )}
+          </button>
+        )}
+        {!hasChildren && <div className="w-5" />}
+        <button
+          onClick={() => onSelect(name)}
+          className={`flex flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm ${
+            isSelected ? "bg-muted" : "hover:bg-muted/50"
+          }`}
+        >
+          {isExpanded ? (
+            <FolderOpenIcon className="size-4 shrink-0 text-muted-foreground" />
+          ) : (
+            <FolderIcon className="size-4 shrink-0 text-muted-foreground" />
+          )}
+          <span className="truncate">{name}</span>
+        </button>
+      </div>
+      {isExpanded && hasChildren && (
+        <div className="ml-4">
+          {children.map((child) => (
+            <CollectionTreeItem
+              key={child}
+              name={child}
+              path={`${path}/${child}`}
+              currentCollection={currentCollection}
+              expandedPaths={expandedPaths}
+              subcollections={subcollections}
+              onSelect={(c) => onSelect(c)}
+              onToggle={onToggle}
+              level={level + 1}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function TestingDataPage() {
   const params = useParams();
   const router = useRouter();
   const agentId = typeof params.agentId === "string" ? params.agentId : "";
 
   const [collections, setCollections] = useState<string[]>([]);
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
+  const [subcollections, setSubcollections] = useState<Record<string, string[]>>({});
   const [breadcrumbs, setBreadcrumbs] = useState<string[]>([]);
   const [documents, setDocuments] = useState<TestingDataDocument[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<TestingDataDocument | null>(null);
   const [fields, setFields] = useState<FieldDisplay[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingDocs, setLoadingDocs] = useState(false);
+  const [loadingSubs, setLoadingSubs] = useState(false);
 
   const [createCollectionDialogOpen, setCreateCollectionDialogOpen] = useState(false);
   const [newCollectionName, setNewCollectionName] = useState("");
@@ -161,6 +244,7 @@ export default function TestingDataPage() {
   const [jsonError, setJsonError] = useState<string | null>(null);
 
   const currentCollection = breadcrumbs[breadcrumbs.length - 1];
+  const currentPath = currentCollection ? `testing/data/${currentCollection}` : "testing/data";
 
   const loadCollections = useCallback(async () => {
     if (!agentId) return;
@@ -174,6 +258,32 @@ export default function TestingDataPage() {
       setLoading(false);
     }
   }, [agentId]);
+
+  const loadSubcollections = useCallback(async (path: string) => {
+    if (!agentId) return;
+    setLoadingSubs(true);
+    try {
+      const data = await fetchSubcollections(agentId, path);
+      if (data?.collections) {
+        setSubcollections((prev) => ({ ...prev, [path]: data.collections }));
+      }
+    } finally {
+      setLoadingSubs(false);
+    }
+  }, [agentId]);
+
+  const toggleExpand = (path: string) => {
+    setExpandedPaths((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
+        void loadSubcollections(path);
+      }
+      return next;
+    });
+  };
 
   const loadDocuments = useCallback(async () => {
     if (!agentId || !currentCollection) return;
@@ -343,16 +453,17 @@ export default function TestingDataPage() {
                 <p className="text-sm text-muted-foreground">No hay colecciones</p>
               ) : (
                 collections.map((col) => (
-                  <button
+                  <CollectionTreeItem
                     key={col}
-                    onClick={() => navigateToCollection(col)}
-                    className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm ${
-                      currentCollection === col ? "bg-muted" : "hover:bg-muted/50"
-                    }`}
-                  >
-                    <FolderIcon className="size-4 shrink-0 text-muted-foreground" />
-                    <span className="truncate">{col}</span>
-                  </button>
+                    name={col}
+                    path={`testing/data/${col}`}
+                    currentCollection={currentCollection}
+                    expandedPaths={expandedPaths}
+                    subcollections={subcollections}
+                    onSelect={(c) => navigateToCollection(c)}
+                    onToggle={toggleExpand}
+                    level={0}
+                  />
                 ))
               )}
             </div>

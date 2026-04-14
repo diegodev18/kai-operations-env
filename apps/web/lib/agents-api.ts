@@ -1452,6 +1452,18 @@ export async function fetchTestingDataCollections(
   return res.json();
 }
 
+export async function fetchSubcollections(
+  agentId: string,
+  path: string,
+): Promise<TestingDataCollection | null> {
+  const res = await fetch(
+    `/api/agent_configurations/${encodeURIComponent(agentId)}/testing/data/${encodeURIComponent(path)}`,
+    { credentials: "include" },
+  );
+  if (!res.ok) return null;
+  return res.json();
+}
+
 export async function fetchTestingDataDocuments(
   agentId: string,
   collection: string,

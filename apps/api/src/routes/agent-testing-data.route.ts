@@ -4,6 +4,7 @@ import {
   createTestingDataDocument,
   deleteTestingDataDocument,
   getTestingDataDocument,
+  listSubcollections,
   listTestingDataCollections,
   listTestingDataDocuments,
   updateTestingDataDocument,
@@ -16,6 +17,12 @@ router.get("/:agentId/testing/data", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   return listTestingDataCollections(ctx.authCtx, c);
+});
+
+router.get("/:agentId/testing/data/:path*", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  return listSubcollections(ctx.authCtx, c);
 });
 
 router.get("/:agentId/testing/data/:collection", async (c) => {
