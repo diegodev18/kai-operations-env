@@ -527,7 +527,7 @@ export default function TestingDataPage() {
     <div className="flex h-full min-h-0 flex-col gap-4">
       <div className="flex items-center gap-2">
         <DatabaseIcon className="size-5 text-muted-foreground" />
-        <h2 className="text-lg font-semibold">Testing Data</h2>
+        <h2 className="text-lg font-semibold">Testing</h2>
       </div>
 
         <div className="flex flex-1 min-h-0 gap-4 overflow-hidden">
