@@ -278,10 +278,14 @@ export async function postAgentDraft(
 
     const areaCode = detectAreaCodeFromPhoneNumber(userPhone);
 
-    const usersBuildersRef = db.collection(USERS_BUILDERS).doc(userId);
-    const usersBuildersSnap = await usersBuildersRef.get();
-    if (!usersBuildersSnap.exists) {
-      await usersBuildersRef.set({
+    const usersBuildersQuery = await db
+      .collection(USERS_BUILDERS)
+      .where("phoneNumber", "==", userPhone)
+      .limit(1)
+      .get();
+
+    if (usersBuildersQuery.empty) {
+      await db.collection(USERS_BUILDERS).doc(userPhone).set({
         uid: userId,
         email: creatorEmail,
         name: growerName,
@@ -289,7 +293,7 @@ export async function postAgentDraft(
         createdAt: ts,
         updatedAt: ts,
       });
-      logger.info(`[agents/drafts] Created usersBuilders document for user: ${userId}`);
+      logger.info(`[agents/drafts] Created usersBuilders document for phone: ${userPhone}`);
     }
 
     const draftPayload: Record<string, unknown> = {
