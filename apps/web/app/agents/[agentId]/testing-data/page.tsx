@@ -101,6 +101,14 @@ function docToFields(doc: Record<string, unknown>): DocField[] {
   }));
 }
 
+function arrayToFields(arr: unknown[]): DocField[] {
+  return arr.map((value, index) => ({
+    key: String(index),
+    value,
+    type: getValueType(value),
+  }));
+}
+
 function fieldsToDoc(fields: DocField[]): Record<string, unknown> {
   const doc: Record<string, unknown> = {};
   for (const field of fields) {
@@ -235,18 +243,28 @@ function NestedDialog({
   onClose,
   onSave,
   initialData,
+  isArray = false,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: Record<string, unknown>) => void;
   initialData: Record<string, unknown>;
+  isArray?: boolean;
 }) {
-  const [nestedFields, setNestedFields] = useState<DocField[]>(() => 
-    initialData ? docToFields(initialData) : [{ key: "", value: "", type: "string" }]
-  );
+  const [nestedFields, setNestedFields] = useState<DocField[]>(() => {
+    if (isArray && "_array" in initialData) {
+      return initialData._array as DocField[];
+    }
+    return initialData ? docToFields(initialData) : [{ key: "", value: "", type: "string" }];
+  });
 
   const handleSave = () => {
-    onSave(fieldsToDoc(nestedFields));
+    if (isArray) {
+      const arrayData = nestedFields.map(f => f.value);
+      onSave({ _array: arrayData });
+    } else {
+      onSave(fieldsToDoc(nestedFields));
+    }
     onClose();
   };
 
@@ -254,7 +272,7 @@ function NestedDialog({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Editar objeto</DialogTitle>
+          <DialogTitle>{isArray ? "Editar array" : "Editar objeto"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-2 max-h-[60vh] overflow-y-auto">
           <FieldEditor 
@@ -465,6 +483,7 @@ export default function TestingDataPage() {
     isOpen: boolean;
     parentKey: string;
     initialData: Record<string, unknown>;
+    isArray: boolean;
   } | null>(null);
 
   const currentCollection = breadcrumbs[breadcrumbs.length - 1];
@@ -726,21 +745,41 @@ export default function TestingDataPage() {
   };
 
   const handleEditNested = (key: string, value: unknown) => {
-    if (typeof value === "object" && value !== null && !Array.isArray(value)) {
-      setNestedDialog({
-        isOpen: true,
-        parentKey: key,
-        initialData: value as Record<string, unknown>,
-      });
+    if (typeof value === "object" && value !== null) {
+      if (Array.isArray(value)) {
+        setNestedDialog({
+          isOpen: true,
+          parentKey: key,
+          initialData: { _array: value.map((v, i) => ({ key: String(i), value: v, type: getValueType(v) })) },
+          isArray: true,
+        });
+      } else {
+        setNestedDialog({
+          isOpen: true,
+          parentKey: key,
+          initialData: value as Record<string, unknown>,
+          isArray: false,
+        });
+      }
     }
   };
 
   const handleSaveNested = (data: Record<string, unknown>) => {
     if (!nestedDialog) return;
     
+    const isArrayEdit = "_array" in data;
+    let newValue: unknown;
+    
+    if (isArrayEdit) {
+      const arrData = data._array as { key: string; value: unknown; type: string }[];
+      newValue = arrData.map((item) => item.value);
+    } else {
+      newValue = data;
+    }
+    
     const updatedFields = docFields.map((field) => {
       if (field.key === nestedDialog.parentKey) {
-        return { ...field, value: data };
+        return { ...field, value: newValue };
       }
       return field;
     });
@@ -1028,6 +1067,7 @@ export default function TestingDataPage() {
           onClose={() => setNestedDialog(null)}
           onSave={handleSaveNested}
           initialData={nestedDialog.initialData}
+          isArray={nestedDialog.isArray}
         />
       )}
     </div>
