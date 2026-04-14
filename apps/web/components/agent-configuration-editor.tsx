@@ -548,6 +548,13 @@ export function AgentConfigurationEditor({
     }
   }, [agentId, formState, isEnabled, update, refetch, onAgentUpdated]);
 
+  const pendingDocIds = useMemo(
+    () => (data && formState ? getPendingDocumentIds(formState, data) : []),
+    [formState, data]
+  );
+
+  const hasLocalChanges = pendingDocIds.length > 0 || !!pendingVersionRef.current;
+
   const propertiesDiff = useMemo(
     () => (diffData || []).filter((d) => d.collection === "properties"),
     [diffData]
@@ -1563,7 +1570,7 @@ export function AgentConfigurationEditor({
                 disabled={
                   saving ||
                   !data ||
-                  propertiesDiff.length === 0
+                  !hasLocalChanges
                 }
                 className="w-full shrink-0 sm:w-auto"
               >
