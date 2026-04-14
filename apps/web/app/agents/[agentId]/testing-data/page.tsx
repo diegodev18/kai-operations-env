@@ -155,6 +155,7 @@ function CollectionTreeItem({
   expandedPaths,
   onToggleExpand,
   onSelect,
+  onCreateSubcollection,
   depth = 0,
 }: {
   node: CollectionNode;
@@ -163,6 +164,7 @@ function CollectionTreeItem({
   expandedPaths: Set<string>;
   onToggleExpand: (path: string) => void;
   onSelect: (path: string) => void;
+  onCreateSubcollection: (parentPath: string) => void;
   depth?: number;
 }) {
   const hasChildren = node.subcollections.length > 0 || expandedPaths.has(path);
@@ -205,6 +207,16 @@ function CollectionTreeItem({
           )}
           <span className="truncate">{node.name}</span>
         </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onCreateSubcollection(path);
+          }}
+          className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-muted rounded"
+          title="Crear subcolección"
+        >
+          <PlusIcon className="size-3 text-muted-foreground" />
+        </button>
       </div>
       {isExpanded && node.subcollections.length > 0 && (
         <div>
@@ -217,6 +229,7 @@ function CollectionTreeItem({
               expandedPaths={expandedPaths}
               onToggleExpand={onToggleExpand}
               onSelect={onSelect}
+              onCreateSubcollection={onCreateSubcollection}
               depth={depth + 1}
             />
           ))}
@@ -292,55 +305,42 @@ export default function TestingDataPage() {
 
   const toggleExpand = useCallback(async (path: string) => {
     const newExpanded = new Set(expandedPaths);
+    
     if (newExpanded.has(path)) {
       newExpanded.delete(path);
-    } else {
-      newExpanded.add(path);
-      const parts = path.split("/");
-      const collName = parts[parts.length - 1];
-      const parentPath = parts.slice(0, -1).join("/");
-      const parentKey = parentPath || agentId;
-      
-      const updateTree = (nodes: CollectionNode[], key: string): CollectionNode[] => {
+      setExpandedPaths(newExpanded);
+      return;
+    }
+
+    newExpanded.add(path);
+    setExpandedPaths(newExpanded);
+
+    const subcollections = await loadSubcollections(path);
+    const parts = path.split("/");
+    
+    const addSubToTree = (nodes: CollectionNode[], depth: number): CollectionNode[] => {
+      if (depth === parts.length - 1) {
         return nodes.map((node) => {
-          if (node.name === key) {
-            return { ...node, expanded: !node.expanded };
-          }
-          if (node.subcollections.length > 0) {
-            return { ...node, subcollections: updateTree(node.subcollections, key) };
+          if (node.name === parts[depth]) {
+            return { ...node, subcollections, expanded: true };
           }
           return node;
         });
-      };
-      
-      const key = parentPath ? parentPath.split("/").pop() : agentId;
-      if (key) {
-        const subcollections = await loadSubcollections(path);
-        const addSubcollections = (nodes: CollectionNode[], parentKeyName: string): CollectionNode[] => {
-          return nodes.map((node) => {
-            if (node.name === parentKeyName) {
-              return { ...node, subcollections };
-            }
-            if (node.subcollections.length > 0) {
-              return { ...node, subcollections: addSubcollections(node.subcollections, parentKeyName) };
-            }
-            return node;
-          });
-        };
-        
-        let updatedTree = collectionTree;
-        if (parts.length === 1) {
-          updatedTree = collectionTree.map((node) => {
-            if (node.name === collName) {
-              return { ...node, subcollections, expanded: true };
-            }
-            return node;
-          });
-        }
-        setCollectionTree(updatedTree);
       }
-    }
-    setExpandedPaths(newExpanded);
+      
+      return nodes.map((node) => {
+        if (node.name === parts[depth]) {
+          return { ...node, subcollections: addSubToTree(node.subcollections, depth + 1) };
+        }
+        if (node.subcollections.length > 0) {
+          return { ...node, subcollections: addSubToTree(node.subcollections, depth) };
+        }
+        return node;
+      });
+    };
+
+    const newTree = addSubToTree(collectionTree, 0);
+    setCollectionTree(newTree);
   }, [agentId, expandedPaths, loadSubcollections, collectionTree]);
 
   const loadDocuments = useCallback(async () => {
@@ -441,6 +441,11 @@ export default function TestingDataPage() {
     setBreadcrumbs([...breadcrumbs, newName]);
     setJsonEditor("{\n  \n}");
     setCreateDocDialogOpen(true);
+  };
+
+  const handleCreateSubcollection = (parentPath: string) => {
+    setBreadcrumbs(parentPath.split("/"));
+    setCreateCollectionDialogOpen(true);
   };
 
   const handleCreateDocument = async () => {
@@ -545,17 +550,20 @@ export default function TestingDataPage() {
               ) : collectionTree.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No hay colecciones</p>
               ) : (
-                collectionTree.map((node) => (
-                  <CollectionTreeItem
-                    key={node.name}
-                    node={node}
-                    path={node.name}
-                    currentPath={currentPath}
-                    expandedPaths={expandedPaths}
-                    onToggleExpand={toggleExpand}
-                    onSelect={navigateToCollection}
-                  />
-                ))
+                <div className="group">
+                  {collectionTree.map((node) => (
+                    <CollectionTreeItem
+                      key={node.name}
+                      node={node}
+                      path={node.name}
+                      currentPath={currentPath}
+                      expandedPaths={expandedPaths}
+                      onToggleExpand={toggleExpand}
+                      onSelect={navigateToCollection}
+                      onCreateSubcollection={handleCreateSubcollection}
+                    />
+                  ))}
+                </div>
               )}
             </div>
           </div>
