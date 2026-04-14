@@ -42,6 +42,10 @@ const nextConfig: NextConfig = {
         source: "/api/favorites/:path*",
         destination: `${API_INTERNAL_URL}/api/favorites/:path*`,
       },
+      {
+        source: "/api/changelogs/:path*",
+        destination: `${API_INTERNAL_URL}/api/changelogs/:path*`,
+      },
     ];
   },
 };

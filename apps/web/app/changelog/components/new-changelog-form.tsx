@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getProjectById, type Collaborator, type Attachment, type ProjectId } from "../changelog-data";
+import { getProjectById, type Collaborator, type Attachment } from "../changelog-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -41,10 +41,11 @@ const TAGS = ["frontend", "backend", "bug", "feature", "performance", "security"
 export default function NewChangelogForm({ projectId, onClose }: NewChangelogFormProps) {
   const router = useRouter();
   const project = getProjectById(projectId);
+  const embedded = Boolean(onClose);
 
   const [currentUser, setCurrentUser] = useState<{ name: string; email: string } | null>(null);
   const [organizationUsers, setOrganizationUsers] = useState<OrganizationUser[]>([]);
-  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [authLoading, setAuthLoading] = useState(true);
 
   const [formData, setFormData] = useState({
     registerDate: new Date().toISOString().split("T")[0],
@@ -99,7 +100,7 @@ export default function NewChangelogForm({ projectId, onClose }: NewChangelogFor
       } catch (error) {
         console.error("[fetch data] error:", error);
       } finally {
-        setLoadingUsers(false);
+        setAuthLoading(false);
       }
     }
     fetchData();
@@ -153,6 +154,8 @@ export default function NewChangelogForm({ projectId, onClose }: NewChangelogFor
     setUploading(true);
     const newAttachments: Attachment[] = [];
 
+    const uploadErrors: string[] = [];
+
     for (const file of Array.from(files)) {
       const formDataUpload = new FormData();
       formDataUpload.append("file", file);
@@ -166,10 +169,24 @@ export default function NewChangelogForm({ projectId, onClose }: NewChangelogFor
         if (res.ok) {
           const data = await res.json();
           newAttachments.push(data.file);
+        } else {
+          let msg = `No se pudo subir "${file.name}"`;
+          try {
+            const err = await res.json();
+            if (err?.error) msg = `${file.name}: ${err.error}`;
+          } catch {
+            /* ignore */
+          }
+          uploadErrors.push(msg);
         }
       } catch (error) {
         console.error("[upload] error:", error);
+        uploadErrors.push(`Error de red al subir "${file.name}"`);
       }
+    }
+
+    if (uploadErrors.length > 0) {
+      alert(uploadErrors.join("\n"));
     }
 
     setAttachments([...attachments, ...newAttachments]);
@@ -194,12 +211,23 @@ export default function NewChangelogForm({ projectId, onClose }: NewChangelogFor
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    if (!formData.version || !formData.description || !currentUser) {
-      console.log("[submit] validation failed:", { version: formData.version, description: formData.description, currentUser });
+    if (authLoading) {
+      alert("Espera a que termine de cargar la sesión.");
+      return;
+    }
+    if (!currentUser) {
+      alert("No se pudo obtener la sesión. Recarga la página o vuelve a iniciar sesión.");
+      return;
+    }
+    if (!formData.version.trim()) {
+      alert("Indica la versión (por ejemplo 1.0.0).");
+      return;
+    }
+    if (!formData.description.trim()) {
+      alert("Añade una descripción.");
       return;
     }
 
-    console.log("[submit] saving...");
     setSaving(true);
 
     const payload = {
@@ -225,16 +253,12 @@ export default function NewChangelogForm({ projectId, onClose }: NewChangelogFor
       internalNotes: formData.internalNotes || undefined,
     };
 
-    console.log("[submit] payload:", payload);
-
     try {
       const res = await fetch(`/api/changelogs/${projectId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-
-      console.log("[submit] response:", res.status, res.ok);
 
       if (res.ok) {
         if (onClose) onClose();
@@ -252,35 +276,32 @@ export default function NewChangelogForm({ projectId, onClose }: NewChangelogFor
     }
   }
 
-  if (loadingUsers) {
-    return (
-      <div className="min-h-screen bg-background p-8">
-        <div className="mx-auto max-w-3xl">
-          <div className="h-96 animate-pulse rounded-lg bg-muted" />
-        </div>
-      </div>
-    );
-  }
+  const outerClass = embedded
+    ? "bg-background"
+    : "min-h-screen bg-background p-8";
+  const innerClass = embedded ? "mx-auto max-w-3xl px-1" : "mx-auto max-w-3xl";
 
   return (
-    <div className="min-h-screen bg-background p-8">
-      <div className="mx-auto max-w-3xl">
-        <header className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">
-              Nueva entrada - {project?.name}
-            </h1>
-            <p className="mt-1 text-muted-foreground">{project?.description}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/changelog/${projectId}`}>
-                <ArrowLeftIcon className="size-4 mr-2" />
-                Volver
-              </Link>
-            </Button>
-          </div>
-        </header>
+    <div className={outerClass}>
+      <div className={innerClass}>
+        {!embedded && (
+          <header className="mb-8 flex items-center justify-between">
+            <div>
+              <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">
+                Nueva entrada - {project?.name}
+              </h1>
+              <p className="mt-1 text-muted-foreground">{project?.description}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/changelog/${projectId}`}>
+                  <ArrowLeftIcon className="size-4 mr-2" />
+                  Volver
+                </Link>
+              </Button>
+            </div>
+          </header>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-8">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -319,9 +340,22 @@ export default function NewChangelogForm({ projectId, onClose }: NewChangelogFor
             </div>
             <div>
               <Label>Autor</Label>
-              <div className="flex items-center gap-2 rounded-md border border-input bg-muted/50 px-3 py-2 text-sm">
-                <UserIcon className="size-4 text-muted-foreground" />
-                <span>{currentUser?.name}</span>
+              <div className="flex min-h-10 items-center gap-2 rounded-md border border-input bg-muted/50 px-3 py-2 text-sm">
+                {authLoading ? (
+                  <>
+                    <Loader2Icon className="size-4 shrink-0 animate-spin text-muted-foreground" />
+                    <span className="text-muted-foreground">Cargando sesión…</span>
+                  </>
+                ) : currentUser ? (
+                  <>
+                    <UserIcon className="size-4 shrink-0 text-muted-foreground" />
+                    <span>{currentUser.name}</span>
+                  </>
+                ) : (
+                  <span className="text-destructive">
+                    No se pudo obtener la sesión. Recarga o vuelve a iniciar sesión.
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -557,7 +591,10 @@ export default function NewChangelogForm({ projectId, onClose }: NewChangelogFor
           </div>
 
           <div className="flex gap-4 pt-4">
-            <Button type="submit" disabled={saving} onClick={handleSubmit}>
+            <Button
+              type="submit"
+              disabled={saving || authLoading || !currentUser}
+            >
               {saving ? <Loader2Icon className="mr-2 size-4 animate-spin" /> : null}
               Guardar
             </Button>
