@@ -37,6 +37,25 @@ interface NewChangelogFormProps {
   onSaved?: () => void | Promise<void>;
 }
 
+function digitsOnly(value: string, maxLen: number): string {
+  return value.replace(/\D/g, "").slice(0, maxLen);
+}
+
+/** Lee major.minor.patch desde una versión guardada (solo dígitos por segmento). */
+function semverPartsFromStored(version: string): {
+  major: string;
+  minor: string;
+  patch: string;
+} {
+  const trimmed = version.trim().replace(/^v/i, "");
+  const segments = trimmed.split(".");
+  return {
+    major: digitsOnly(segments[0] ?? "", 6),
+    minor: digitsOnly(segments[1] ?? "", 6),
+    patch: digitsOnly(segments[2] ?? "", 6),
+  };
+}
+
 function changesFromEntry(entry: DbChangelogEntry): Record<string, ChangeItem[]> {
   const keys = ["added", "changed", "fixed", "removed", "improved"] as const;
   const out: Record<string, ChangeItem[]> = {
@@ -77,10 +96,13 @@ export default function NewChangelogForm({
   const [organizationUsers, setOrganizationUsers] = useState<OrganizationUser[]>([]);
   const [entryLoading, setEntryLoading] = useState(Boolean(entryId));
 
+  const [versionMajor, setVersionMajor] = useState("");
+  const [versionMinor, setVersionMinor] = useState("");
+  const [versionPatch, setVersionPatch] = useState("");
+
   const [formData, setFormData] = useState({
     registerDate: new Date().toISOString().split("T")[0],
     implementationDate: new Date().toISOString().split("T")[0],
-    version: "",
     description: "",
     ticketUrl: "",
     createTicket: false,
@@ -139,10 +161,13 @@ export default function NewChangelogForm({
         const data = await res.json();
         const entry = data.entry as DbChangelogEntry;
         if (cancelled || !entry) return;
+        const vParts = semverPartsFromStored(entry.version);
+        setVersionMajor(vParts.major);
+        setVersionMinor(vParts.minor);
+        setVersionPatch(vParts.patch);
         setFormData({
           registerDate: entry.registerDate.slice(0, 10),
           implementationDate: entry.implementationDate.slice(0, 10),
-          version: entry.version,
           description: entry.description,
           ticketUrl: entry.ticketUrl ?? "",
           createTicket: entry.createTicket,
@@ -270,10 +295,14 @@ export default function NewChangelogForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    if (!formData.version.trim()) {
-      alert("Indica la versión (por ejemplo 1.0.0).");
+    const major = digitsOnly(versionMajor, 6);
+    const minor = digitsOnly(versionMinor, 6);
+    const patch = digitsOnly(versionPatch, 6);
+    if (!major || !minor || !patch) {
+      alert("Indica la versión completa: mayor, menor y parche (solo números), por ejemplo 1 0 0.");
       return;
     }
+    const combinedVersion = `${major}.${minor}.${patch}`;
     if (!formData.description.trim()) {
       alert("Añade una descripción.");
       return;
@@ -292,7 +321,7 @@ export default function NewChangelogForm({
     const patchBody = {
       registerDate: formData.registerDate,
       implementationDate: formData.implementationDate,
-      version: formData.version,
+      version: combinedVersion,
       collaborators,
       description: formData.description,
       changes: changesPayload,
@@ -308,7 +337,7 @@ export default function NewChangelogForm({
       projectId,
       registerDate: formData.registerDate,
       implementationDate: formData.implementationDate,
-      version: formData.version,
+      version: combinedVersion,
       collaborators,
       description: formData.description,
       changes: changesPayload,
@@ -425,14 +454,58 @@ export default function NewChangelogForm({
           </div>
 
           <div>
-            <Label htmlFor="version">Versión</Label>
-            <Input
-              id="version"
-              placeholder="1.0.0"
-              value={formData.version}
-              onChange={(e) => setFormData({ ...formData, version: e.target.value })}
-              required
-            />
+            <Label id="version-semver-label">Versión (semver)</Label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Solo números; se guarda como mayor.menor.parche (ej. 1.0.0).
+            </p>
+            <div
+              className="mt-2 flex max-w-xs flex-wrap items-center gap-1 sm:flex-nowrap"
+              role="group"
+              aria-labelledby="version-semver-label"
+            >
+              <Input
+                id="version-major"
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="1"
+                value={versionMajor}
+                onChange={(e) => setVersionMajor(digitsOnly(e.target.value, 6))}
+                className="w-14 text-center font-mono tabular-nums sm:w-16"
+                aria-label="Versión mayor"
+                required
+              />
+              <span className="select-none text-muted-foreground" aria-hidden="true">
+                .
+              </span>
+              <Input
+                id="version-minor"
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="0"
+                value={versionMinor}
+                onChange={(e) => setVersionMinor(digitsOnly(e.target.value, 6))}
+                className="w-14 text-center font-mono tabular-nums sm:w-16"
+                aria-label="Versión menor"
+                required
+              />
+              <span className="select-none text-muted-foreground" aria-hidden="true">
+                .
+              </span>
+              <Input
+                id="version-patch"
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="0"
+                value={versionPatch}
+                onChange={(e) => setVersionPatch(digitsOnly(e.target.value, 6))}
+                className="w-14 text-center font-mono tabular-nums sm:w-16"
+                aria-label="Parche"
+                required
+              />
+            </div>
           </div>
 
           <div>
