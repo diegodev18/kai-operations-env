@@ -10,9 +10,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ChangelogNavItem } from "@/components/changelog-nav";
 import { UserMenu } from "@/components/user-menu";
 import { useAuth } from "@/hooks/auth";
-import { Loader2Icon, PlusIcon, Trash2Icon, MenuIcon, LayoutDashboardIcon, LayoutGridIcon, BookOpenIcon, MegaphoneIcon, UploadIcon, CopyIcon as CopyIconLucide, PencilIcon, FolderSearch as FolderSearchIcon } from "lucide-react";
+import { Loader2Icon, PlusIcon, Trash2Icon, MenuIcon, LayoutDashboardIcon, BookOpenIcon, MegaphoneIcon, UploadIcon, CopyIcon as CopyIconLucide, PencilIcon, FolderSearch as FolderSearchIcon } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -238,10 +239,7 @@ export default function VisorComparadorPage() {
               <LayoutDashboardIcon className="size-4" />
               Inicio
             </Link>
-            <Link href="/changelog" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted" onClick={() => setMenuOpen(false)}>
-              <LayoutGridIcon className="size-4" />
-              Changelog
-            </Link>
+            <ChangelogNavItem onClick={() => setMenuOpen(false)} />
             <Link href="/blog" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted" onClick={() => setMenuOpen(false)}>
               <BookOpenIcon className="size-4" />
               Lecciones

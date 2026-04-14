@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ChangelogNavItem } from "@/components/changelog-nav";
 import { UserMenu } from "@/components/user-menu";
 import { useAuth } from "@/hooks/auth";
 import {
@@ -22,7 +23,6 @@ import {
   Trash2Icon,
   MenuIcon,
   LayoutDashboardIcon,
-  LayoutGridIcon,
   BookOpenIcon,
   MegaphoneIcon,
   CopyIcon as CopyIconLucide,
@@ -339,10 +339,7 @@ export default function SubirDatosPage() {
               <LayoutDashboardIcon className="size-4" />
               Inicio
             </Link>
-            <Link href="/changelog" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted" onClick={() => setMenuOpen(false)}>
-              <LayoutGridIcon className="size-4" />
-              Changelog
-            </Link>
+            <ChangelogNavItem onClick={() => setMenuOpen(false)} />
             <Link href="/blog" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted" onClick={() => setMenuOpen(false)}>
               <BookOpenIcon className="size-4" />
               Lecciones

@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircleIcon,
   BanknoteIcon,
@@ -19,8 +19,6 @@ import {
   Loader2Icon,
   MegaphoneIcon,
   MenuIcon,
-  BotIcon,
-  WrenchIcon,
   PauseCircleIcon,
   PencilIcon,
   PlusIcon,
@@ -82,6 +80,7 @@ import {
   fetchOrganizationUsers,
   type OrganizationUser,
 } from "@/lib/organization-api";
+import { ChangelogNavItem } from "@/components/changelog-nav";
 
 const STATUS_LABELS: Record<AgentOperationalStatus, string> = {
   active: "Activo",
@@ -163,23 +162,6 @@ export function OperationsDashboard(props: {
     "form" | "conversational"
   >("form");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [changelogSubmenuOpen, setChangelogSubmenuOpen] = useState(false);
-  const changelogSubmenuTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
-  const handleChangelogMouseEnter = () => {
-    if (changelogSubmenuTimeoutRef.current) {
-      clearTimeout(changelogSubmenuTimeoutRef.current);
-      changelogSubmenuTimeoutRef.current = null;
-    }
-    setChangelogSubmenuOpen(true);
-  };
-  
-  const handleChangelogMouseLeave = () => {
-    changelogSubmenuTimeoutRef.current = setTimeout(() => {
-      setChangelogSubmenuOpen(false);
-    }, 500);
-  };
-  
   type FavoritesFilter = "all" | "favorites";
   const [favoritesFilter, setFavoritesFilter] =
     useState<FavoritesFilter>("all");
@@ -614,35 +596,7 @@ export function OperationsDashboard(props: {
                 <PlusIcon className="size-4" />
                 Crear agente
               </Link>
-              <div 
-                className="relative"
-                onMouseEnter={handleChangelogMouseEnter}
-                onMouseLeave={handleChangelogMouseLeave}
-              >
-              <Link
-                href="/changelog"
-                className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-                onClick={() => setMenuOpen(false)}
-              >
-                <LayoutGridIcon className="size-4" />
-                Changelog
-              </Link>
-              {/* Submenu */}
-              <div className={`absolute left-full top-0 ml-0 z-50 bg-background border rounded-md shadow-lg p-1 min-w-[160px] ${changelogSubmenuOpen ? 'block' : 'hidden'}`}>
-                <Link href="/changelog/atlas" className="flex items-center gap-2 rounded px-3 py-2 text-sm hover:bg-muted" onClick={() => setMenuOpen(false)}>
-                  <LayoutDashboardIcon className="size-4" /> Atlas
-                </Link>
-                <Link href="/changelog/panel" className="flex items-center gap-2 rounded px-3 py-2 text-sm hover:bg-muted" onClick={() => setMenuOpen(false)}>
-                  <LayoutGridIcon className="size-4" /> Panel Web
-                </Link>
-                <Link href="/changelog/agents" className="flex items-center gap-2 rounded px-3 py-2 text-sm hover:bg-muted" onClick={() => setMenuOpen(false)}>
-                  <BotIcon className="size-4" /> kAI Agents
-                </Link>
-                <Link href="/changelog/tools" className="flex items-center gap-2 rounded px-3 py-2 text-sm hover:bg-muted" onClick={() => setMenuOpen(false)}>
-                  <WrenchIcon className="size-4" /> Tools MCP
-                </Link>
-              </div>
-            </div>
+              <ChangelogNavItem onClick={() => setMenuOpen(false)} />
               <Link
                 href="/blog"
                 className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"

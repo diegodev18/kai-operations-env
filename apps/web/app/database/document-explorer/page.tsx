@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ChangelogNavItem } from "@/components/changelog-nav";
 import { UserMenu } from "@/components/user-menu";
 import { useAuth } from "@/hooks/auth";
 import JsonTreeView from "@/components/JsonTreeView";
@@ -24,7 +25,6 @@ import {
   FolderOpen,
   MenuIcon,
   LayoutDashboardIcon,
-  LayoutGridIcon,
   BookOpenIcon,
   MegaphoneIcon,
   UploadIcon,
@@ -207,10 +207,7 @@ export default function ExploradorDocumentosPage() {
               <LayoutDashboardIcon className="size-4" />
               Inicio
             </Link>
-            <Link href="/changelog" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted" onClick={() => setMenuOpen(false)}>
-              <LayoutGridIcon className="size-4" />
-              Changelog
-            </Link>
+            <ChangelogNavItem onClick={() => setMenuOpen(false)} />
             <Link href="/blog" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted" onClick={() => setMenuOpen(false)}>
               <BookOpenIcon className="size-4" />
               Lecciones
