@@ -30,6 +30,13 @@ interface ChangelogPayload {
   internalNotes?: string;
 }
 
+/** Firestore rejects `undefined`; strip top-level optional fields before `.set()`. */
+function firestoreDocData(data: Record<string, unknown>) {
+  return Object.fromEntries(
+    Object.entries(data).filter(([, v]) => v !== undefined),
+  );
+}
+
 function isValidProject(project: string): typeof ALLOWED_PROJECTS[number] | null {
   if (ALLOWED_PROJECTS.includes(project as typeof ALLOWED_PROJECTS[number])) {
     return project as typeof ALLOWED_PROJECTS[number];
@@ -190,11 +197,13 @@ export async function postChangelogEntry(
     .doc(validProject)
     .collection("entries")
     .doc(id)
-    .set({
-      ...payload,
-      createdAt: now,
-      updatedAt: now,
-    });
+    .set(
+      firestoreDocData({
+        ...payload,
+        createdAt: now,
+        updatedAt: now,
+      }),
+    );
 
   return c.json({ id, ...payload }, 201);
 }

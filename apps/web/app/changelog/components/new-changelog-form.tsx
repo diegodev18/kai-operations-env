@@ -238,9 +238,21 @@ export default function NewChangelogForm({ projectId, onClose }: NewChangelogFor
         if (onClose) onClose();
         else router.push(`/changelog/${projectId}`);
       } else {
-        const error = await res.json();
-        console.error("[submit] error response:", error);
-        alert("Error: " + (error.error || "Error desconocido"));
+        let message = `Error ${res.status}`;
+        const ct = res.headers.get("content-type") || "";
+        try {
+          if (ct.includes("application/json")) {
+            const error = await res.json();
+            if (error?.error) message = error.error;
+          } else {
+            const text = (await res.text()).trim();
+            if (text) message = text.slice(0, 200);
+          }
+        } catch {
+          message = `Error del servidor (${res.status})`;
+        }
+        console.error("[submit] error response:", message);
+        alert("Error: " + message);
       }
     } catch (error) {
       console.error("[submit] catch error:", error);
