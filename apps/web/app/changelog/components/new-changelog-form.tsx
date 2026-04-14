@@ -26,6 +26,8 @@ interface ChangeItem {
 interface NewChangelogFormProps {
   projectId: "panel" | "agents" | "tools";
   onClose?: () => void;
+  /** Tras guardar con éxito (p. ej. refrescar lista en la página padre). Se espera antes de cerrar el diálogo. */
+  onSaved?: () => void | Promise<void>;
 }
 
 const sectionLabels: Record<string, { label: string }> = {
@@ -38,7 +40,7 @@ const sectionLabels: Record<string, { label: string }> = {
 
 const TAGS = ["frontend", "backend", "bug", "feature", "performance", "security", "ui", "ux", "database", "api"];
 
-export default function NewChangelogForm({ projectId, onClose }: NewChangelogFormProps) {
+export default function NewChangelogForm({ projectId, onClose, onSaved }: NewChangelogFormProps) {
   const router = useRouter();
   const project = getProjectById(projectId);
   const embedded = Boolean(onClose);
@@ -235,6 +237,11 @@ export default function NewChangelogForm({ projectId, onClose }: NewChangelogFor
       });
 
       if (res.ok) {
+        try {
+          await Promise.resolve(onSaved?.());
+        } catch (e) {
+          console.error("[submit] onSaved:", e);
+        }
         if (onClose) onClose();
         else router.push(`/changelog/${projectId}`);
       } else {

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
-import { getProjectById, type ProjectId, type DbChangelogEntry } from "../changelog-data";
+import { getProjectById, type DbChangelogEntry } from "../changelog-data";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ArrowLeftIcon, HomeIcon, PlusIcon } from "lucide-react";
@@ -16,22 +16,23 @@ export default function AgentsChangelogPage() {
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
 
-  useEffect(() => {
-    async function fetchEntries() {
-      try {
-        const res = await fetch("/api/changelogs/agents");
-        if (res.ok) {
-          const data = await res.json();
-          setEntries(data.entries || []);
-        }
-      } catch (error) {
-        console.error("[changelog] fetch error:", error);
-      } finally {
-        setLoading(false);
+  const fetchEntries = useCallback(async () => {
+    try {
+      const res = await fetch("/api/changelogs/agents", { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        setEntries(data.entries || []);
       }
+    } catch (error) {
+      console.error("[changelog] fetch error:", error);
+    } finally {
+      setLoading(false);
     }
-    fetchEntries();
   }, []);
+
+  useEffect(() => {
+    fetchEntries();
+  }, [fetchEntries]);
 
   const filteredEntries = useMemo(() => {
     if (!search.trim()) return entries;
@@ -156,7 +157,11 @@ export default function AgentsChangelogPage() {
           <DialogHeader>
             <DialogTitle>Nueva entrada - kAI Agents</DialogTitle>
           </DialogHeader>
-          <NewChangelogForm projectId="agents" onClose={() => setOpenDialog(false)} />
+          <NewChangelogForm
+            projectId="agents"
+            onClose={() => setOpenDialog(false)}
+            onSaved={fetchEntries}
+          />
         </DialogContent>
       </Dialog>
     </div>
