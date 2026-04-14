@@ -16,6 +16,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   fetchTestingDataCollections,
   fetchTestingDataDocuments,
   fetchTestingDataDocument,
@@ -69,6 +76,200 @@ interface FieldDisplay {
   key: string;
   value: FieldValue;
   type: "string" | "number" | "boolean" | "null" | "timestamp" | "geopoint" | "docref" | "array" | "object";
+}
+
+interface DocField {
+  key: string;
+  value: unknown;
+  type: "string" | "number" | "boolean" | "null" | "object" | "array";
+}
+
+function getValueType(value: unknown): DocField["type"] {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return "array";
+  if (typeof value === "object") return "object";
+  if (typeof value === "number") return "number";
+  if (typeof value === "boolean") return "boolean";
+  return "string";
+}
+
+function docToFields(doc: Record<string, unknown>): DocField[] {
+  return Object.entries(doc).map(([key, value]) => ({
+    key,
+    value,
+    type: getValueType(value),
+  }));
+}
+
+function fieldsToDoc(fields: DocField[]): Record<string, unknown> {
+  const doc: Record<string, unknown> = {};
+  for (const field of fields) {
+    if (!field.key.trim()) continue;
+    doc[field.key.trim()] = field.value;
+  }
+  return doc;
+}
+
+function FieldEditor({
+  fields,
+  onChange,
+  onEditNested,
+}: {
+  fields: DocField[];
+  onChange: (fields: DocField[]) => void;
+  onEditNested: (key: string, value: unknown) => void;
+}) {
+  const addField = () => {
+    onChange([...fields, { key: "", value: "", type: "string" }]);
+  };
+
+  const removeField = (index: number) => {
+    onChange(fields.filter((_, i) => i !== index));
+  };
+
+  const updateField = (index: number, updated: DocField) => {
+    const newFields = [...fields];
+    newFields[index] = updated;
+    onChange(newFields);
+  };
+
+  const formatValue = (value: unknown, type: DocField["type"]): string => {
+    if (type === "object") return `{${Object.keys(value as object).length} campos}`;
+    if (type === "array") return `[${(value as unknown[]).length} items]`;
+    if (value === null) return "null";
+    return String(value);
+  };
+
+  return (
+    <div className="space-y-2">
+      {fields.map((field, index) => (
+        <div key={index} className="flex gap-2 items-start">
+          <Input
+            value={field.key}
+            onChange={(e) => updateField(index, { ...field, key: e.target.value })}
+            placeholder="Campo"
+            className="w-40"
+          />
+          <Select
+            value={field.type}
+            onValueChange={(type: DocField["type"]) => {
+              let value: unknown = field.value;
+              if (type === "null") value = null;
+              else if (type === "boolean") value = true;
+              else if (type === "number") value = 0;
+              else if (type === "object") value = {};
+              else if (type === "array") value = [];
+              else value = "";
+              updateField(index, { ...field, type, value });
+            }}
+          >
+            <SelectTrigger className="w-28">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="string">Texto</SelectItem>
+              <SelectItem value="number">Número</SelectItem>
+              <SelectItem value="boolean">Booleano</SelectItem>
+              <SelectItem value="null">Nulo</SelectItem>
+              <SelectItem value="object">Object</SelectItem>
+              <SelectItem value="array">Array</SelectItem>
+            </SelectContent>
+          </Select>
+          {field.type === "string" ? (
+            <Input
+              value={String(field.value ?? "")}
+              onChange={(e) => updateField(index, { ...field, value: e.target.value })}
+              placeholder="Valor"
+              className="flex-1"
+            />
+          ) : field.type === "number" ? (
+            <Input
+              type="number"
+              value={String(field.value ?? 0)}
+              onChange={(e) => updateField(index, { ...field, value: parseFloat(e.target.value) || 0 })}
+              placeholder="0"
+              className="flex-1"
+            />
+          ) : field.type === "boolean" ? (
+            <Select
+              value={String(field.value ?? true)}
+              onValueChange={(value) => updateField(index, { ...field, value: value === "true" })}
+            >
+              <SelectTrigger className="flex-1">
+                <SelectValue placeholder="Seleccionar" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="true">true</SelectItem>
+                <SelectItem value="false">false</SelectItem>
+              </SelectContent>
+            </Select>
+          ) : field.type === "null" ? (
+            <Input value="null" disabled className="flex-1 bg-muted" />
+          ) : (
+            <div className="flex-1 flex items-center gap-2">
+              <Input
+                value={formatValue(field.value, field.type)}
+                disabled
+                className="flex-1 bg-muted"
+              />
+              <Button variant="outline" size="icon" onClick={() => onEditNested(field.key, field.value)}>
+                <PencilIcon className="size-4" />
+              </Button>
+            </div>
+          )}
+          <Button variant="ghost" size="icon" className="size-9" onClick={() => removeField(index)}>
+            <Trash2Icon className="size-4 text-destructive" />
+          </Button>
+        </div>
+      ))}
+      <Button variant="outline" size="sm" onClick={addField}>
+        <PlusIcon className="size-4 mr-1" />
+        Agregar campo
+      </Button>
+    </div>
+  );
+}
+
+function NestedDialog({
+  isOpen,
+  onClose,
+  onSave,
+  initialData,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (data: Record<string, unknown>) => void;
+  initialData: Record<string, unknown>;
+}) {
+  const [nestedFields, setNestedFields] = useState<DocField[]>(() => 
+    initialData ? docToFields(initialData) : [{ key: "", value: "", type: "string" }]
+  );
+
+  const handleSave = () => {
+    onSave(fieldsToDoc(nestedFields));
+    onClose();
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Editar objeto</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+          <FieldEditor 
+            fields={nestedFields} 
+            onChange={setNestedFields}
+            onEditNested={() => {}}
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={handleSave}>Guardar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function getFieldType(value: unknown): FieldDisplay["type"] {
@@ -258,8 +459,13 @@ export default function TestingDataPage() {
   const [createDocDialogOpen, setCreateDocDialogOpen] = useState(false);
   const [editDocDialogOpen, setEditDocDialogOpen] = useState(false);
   const [deleteDocDialogOpen, setDeleteDocDialogOpen] = useState(false);
-  const [jsonEditor, setJsonEditor] = useState("{\n  \n}");
+  const [docFields, setDocFields] = useState<DocField[]>([{ key: "", value: "", type: "string" }]);
   const [jsonError, setJsonError] = useState<string | null>(null);
+  const [nestedDialog, setNestedDialog] = useState<{
+    isOpen: boolean;
+    parentKey: string;
+    initialData: Record<string, unknown>;
+  } | null>(null);
 
   const currentCollection = breadcrumbs[breadcrumbs.length - 1];
   const currentPath = breadcrumbs.join("/");
@@ -439,7 +645,7 @@ export default function TestingDataPage() {
     setCreateCollectionDialogOpen(false);
     setNewCollectionName("");
     setBreadcrumbs([...breadcrumbs, newName]);
-    setJsonEditor("{\n  \n}");
+    setDocFields([{ key: "", value: "", type: "string" }]);
     setCreateDocDialogOpen(true);
   };
 
@@ -449,18 +655,18 @@ export default function TestingDataPage() {
   };
 
   const handleCreateDocument = async () => {
-    const parsed = tryParseJson(jsonEditor);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      setJsonError("Debe ser un objeto JSON");
+    const data = fieldsToDoc(docFields);
+    if (Object.keys(data).length === 0) {
+      setJsonError("Debe tener al menos un campo");
       return;
     }
     setJsonError(null);
 
-    const result = await createTestingDataDocument(agentId, currentCollection, { data: parsed });
+    const result = await createTestingDataDocument(agentId, currentCollection, { data });
     if (result) {
       toast.success("Documento creado");
       setCreateDocDialogOpen(false);
-      setJsonEditor("{\n  \n}");
+      setDocFields([{ key: "", value: "", type: "string" }]);
       void loadDocuments();
     } else {
       toast.error("Error al crear documento");
@@ -469,14 +675,14 @@ export default function TestingDataPage() {
 
   const handleUpdateDocument = async () => {
     if (!selectedDoc) return;
-    const parsed = tryParseJson(jsonEditor);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      setJsonError("Debe ser un objeto JSON");
+    const data = fieldsToDoc(docFields);
+    if (Object.keys(data).length === 0) {
+      setJsonError("Debe tener al menos un campo");
       return;
     }
     setJsonError(null);
 
-    const result = await updateTestingDataDocument(agentId, currentCollection, selectedDoc.id, { data: parsed });
+    const result = await updateTestingDataDocument(agentId, currentCollection, selectedDoc.id, { data });
     if (result) {
       toast.success("Documento actualizado");
       setEditDocDialogOpen(false);
@@ -507,16 +713,39 @@ export default function TestingDataPage() {
   };
 
   const openCreateDoc = () => {
-    setJsonEditor("{\n  \n}");
+    setDocFields([{ key: "", value: "", type: "string" }]);
     setJsonError(null);
     setCreateDocDialogOpen(true);
   };
 
   const openEditDoc = () => {
     if (!selectedDoc) return;
-    setJsonEditor(JSON.stringify(selectedDoc.data, null, 2));
+    setDocFields(docToFields(selectedDoc.data));
     setJsonError(null);
     setEditDocDialogOpen(true);
+  };
+
+  const handleEditNested = (key: string, value: unknown) => {
+    if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+      setNestedDialog({
+        isOpen: true,
+        parentKey: key,
+        initialData: value as Record<string, unknown>,
+      });
+    }
+  };
+
+  const handleSaveNested = (data: Record<string, unknown>) => {
+    if (!nestedDialog) return;
+    
+    const updatedFields = docFields.map((field) => {
+      if (field.key === nestedDialog.parentKey) {
+        return { ...field, value: data };
+      }
+      return field;
+    });
+    setDocFields(updatedFields);
+    setNestedDialog(null);
   };
 
   if (!agentId) {
@@ -741,19 +970,13 @@ export default function TestingDataPage() {
             <DialogTitle>Crear documento</DialogTitle>
             <DialogDescription>Colección: {currentCollection}</DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="json-create">JSON</Label>
-            <Textarea
-              id="json-create"
-              value={jsonEditor}
-              onChange={(e) => { setJsonEditor(e.target.value); setJsonError(null); }}
-              className="font-mono text-xs h-80"
-              placeholder='{"field": "value"}'
+          <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+            <FieldEditor 
+              fields={docFields} 
+              onChange={setDocFields}
+              onEditNested={handleEditNested}
             />
             {jsonError && <p className="text-sm text-destructive">{jsonError}</p>}
-            <p className="text-xs text-muted-foreground">
-              Tipos Firestore: Timestamp {"{ _seconds, _nanoseconds }"}, GeoPoint {"{ _latitude, _longitude }"}, DocumentRef {"{ _path }"}
-            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateDocDialogOpen(false)}>Cancelar</Button>
@@ -768,13 +991,11 @@ export default function TestingDataPage() {
             <DialogTitle>Editar documento</DialogTitle>
             <DialogDescription>{selectedDoc?.id}</DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="json-edit">JSON</Label>
-            <Textarea
-              id="json-edit"
-              value={jsonEditor}
-              onChange={(e) => { setJsonEditor(e.target.value); setJsonError(null); }}
-              className="font-mono text-xs h-80"
+          <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+            <FieldEditor 
+              fields={docFields} 
+              onChange={setDocFields}
+              onEditNested={handleEditNested}
             />
             {jsonError && <p className="text-sm text-destructive">{jsonError}</p>}
           </div>
@@ -800,6 +1021,15 @@ export default function TestingDataPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {nestedDialog && (
+        <NestedDialog
+          isOpen={nestedDialog.isOpen}
+          onClose={() => setNestedDialog(null)}
+          onSave={handleSaveNested}
+          initialData={nestedDialog.initialData}
+        />
+      )}
     </div>
   );
 }
