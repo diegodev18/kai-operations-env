@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { UserMenu } from "@/components/user-menu";
@@ -30,6 +31,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import type { Environment } from "@/contexts/EnvironmentContext";
 
 const BATCH_SIZE = 50;
 const API_BASE = () => `${process.env.NEXT_PUBLIC_API_URL}/api/database`;
@@ -67,9 +69,11 @@ function parseJsonSafe(text: string): ParsedDatos | { error: string } {
 }
 
 export default function SubirDatosPage() {
-  const { environment } = useEnvironment();
+  const { environment, allowedEnvironments } = useEnvironment();
+  const envOptions = allowedEnvironments.length > 0 ? allowedEnvironments : (["testing", "production"] as Environment[]);
   const { session, signOut } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [uploadEnvironment, setUploadEnvironment] = useState<Environment>(environment);
   const [rutaColeccion, setRutaColeccion] = useState("");
   const [jsonText, setJsonText] = useState("");
   const [sobrescribir, setSobrescribir] = useState(false);
@@ -128,7 +132,7 @@ export default function SubirDatosPage() {
     setPreviewDocs(null);
     try {
       const url = `${API_BASE()}/coleccion/preview?rutaColeccion=${encodeURIComponent(ruta)}`;
-      const res = await fetch(url, { credentials: "include", headers: { "X-Environment": environment } });
+      const res = await fetch(url, { credentials: "include", headers: { "X-Environment": uploadEnvironment } });
       const data = await res.json();
       if (!res.ok) {
         toast.error(data.error ?? "Error al obtener el preview");
@@ -141,7 +145,7 @@ export default function SubirDatosPage() {
     } finally {
       setPreviewLoading(false);
     }
-  }, [rutaColeccion, environment]);
+  }, [rutaColeccion, uploadEnvironment]);
 
   const validateAgainstSchema = useCallback((docs: unknown[], schema: unknown): { valid: boolean; errors: string[] } => {
     const errors: string[] = [];
@@ -244,7 +248,7 @@ export default function SubirDatosPage() {
         const res = await fetch(url, {
           method: "POST",
           credentials: "include",
-          headers: { "Content-Type": "application/json", "X-Environment": environment },
+          headers: { "Content-Type": "application/json", "X-Environment": uploadEnvironment },
           body: JSON.stringify({ datos, rutaColeccion: ruta, opciones: { sobrescribir, merge } }),
         });
         const data = await res.json();
@@ -278,7 +282,7 @@ export default function SubirDatosPage() {
         const res = await fetch(url, {
           method: "POST",
           credentials: "include",
-          headers: { "Content-Type": "application/json", "X-Environment": environment },
+          headers: { "Content-Type": "application/json", "X-Environment": uploadEnvironment },
           body: JSON.stringify({ datos: chunks[i], rutaColeccion: ruta, opciones: { sobrescribir, merge } }),
         });
         const data = await res.json();
@@ -304,7 +308,7 @@ export default function SubirDatosPage() {
     setUploadProgress(null);
     setResultados(accumulated);
     toast.success(`Subida completada: ${accumulated.exitosos} exitosos, ${accumulated.fallidos} fallidos, ${accumulated.omitidos} omitidos`);
-  }, [rutaColeccion, datos, hasValidDatos, isSingleObject, environment, sobrescribir, merge, validateSchema, schemaText, schemaBlockUpload, validateAgainstSchema]);
+  }, [rutaColeccion, datos, hasValidDatos, isSingleObject, uploadEnvironment, sobrescribir, merge, validateSchema, schemaText, schemaBlockUpload, validateAgainstSchema]);
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -379,6 +383,30 @@ export default function SubirDatosPage() {
 
       <main ref={containerRef} className="flex flex-1 flex-col lg:flex-row min-h-0 overflow-hidden p-6 gap-0" style={{ ["--left-pct" as string]: `${leftPanelPercent}%` }}>
         <div className="flex flex-col gap-4 min-w-0 overflow-auto w-full lg:shrink-0 lg:[width:var(--left-pct)]">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Ambiente de destino</CardTitle>
+              <CardDescription>Los datos se suben al proyecto Firestore seleccionado (igual que en Duplicate / clone).</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-2 max-w-xs">
+                <Label htmlFor="upload-env">Subir a</Label>
+                <Select value={uploadEnvironment} onValueChange={(v) => setUploadEnvironment(v as Environment)}>
+                  <SelectTrigger id="upload-env" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {envOptions.map((env) => (
+                      <SelectItem key={env} value={env}>
+                        {env === "production" ? "Production" : "Testing"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Ruta (colección o documento)</CardTitle>
