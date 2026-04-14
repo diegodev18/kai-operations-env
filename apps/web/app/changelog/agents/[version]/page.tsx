@@ -18,7 +18,9 @@ import {
   PencilIcon,
 } from "lucide-react";
 import type { DbChangelogEntry } from "../../changelog-data";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import NewChangelogForm from "../../components/new-changelog-form";
 
 const sectionLabels: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   added: { label: "Añadido", variant: "default" },
@@ -42,6 +44,7 @@ export default function AgentsVersionPage() {
   const { isAdmin } = useUserRole();
   const [entry, setEntry] = useState<DbChangelogEntry | null>(null);
   const [loading, setLoading] = useState(true);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   const sessionUser = session?.user
     ? {
@@ -50,23 +53,41 @@ export default function AgentsVersionPage() {
       }
     : null;
 
+  const refetchEntry = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/changelogs/agents?version=${version}`, {
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setEntry(data.entry || null);
+      }
+    } catch (error) {
+      console.error("[changelog] fetch error:", error);
+    }
+  }, [version]);
+
   useEffect(() => {
-    async function fetchEntry() {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
       try {
         const res = await fetch(`/api/changelogs/agents?version=${version}`, {
           cache: "no-store",
         });
-        if (res.ok) {
+        if (res.ok && !cancelled) {
           const data = await res.json();
           setEntry(data.entry || null);
         }
       } catch (error) {
         console.error("[changelog] fetch error:", error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    }
-    fetchEntry();
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [version]);
 
   if (loading) {
@@ -127,11 +148,9 @@ export default function AgentsVersionPage() {
               <Badge variant="outline">Oculta (solo admins)</Badge>
             ) : null}
             {canEditChangelogEntry(entry, sessionUser) ? (
-              <Button variant="outline" size="sm" asChild>
-                <Link href={`/changelog/edit/agents/${entry.id}`}>
-                  <PencilIcon className="size-4 mr-2" />
-                  Editar
-                </Link>
+              <Button variant="outline" size="sm" onClick={() => setEditDialogOpen(true)}>
+                <PencilIcon className="size-4 mr-2" />
+                Editar
               </Button>
             ) : null}
           </div>
@@ -243,6 +262,23 @@ export default function AgentsVersionPage() {
           </section>
         )}
       </div>
+
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar entrada - {project?.name}</DialogTitle>
+          </DialogHeader>
+          {entry ? (
+            <NewChangelogForm
+              key={entry.id}
+              projectId="agents"
+              entryId={entry.id}
+              onClose={() => setEditDialogOpen(false)}
+              onSaved={refetchEntry}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

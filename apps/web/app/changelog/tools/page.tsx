@@ -18,7 +18,8 @@ export default function ToolsChangelogPage() {
   const [search, setSearch] = useState("");
   const [entries, setEntries] = useState<DbChangelogEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [openDialog, setOpenDialog] = useState(false);
+  const [formDialogOpen, setFormDialogOpen] = useState(false);
+  const [formEntryId, setFormEntryId] = useState<string | undefined>(undefined);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const sessionUser = session?.user
@@ -108,7 +109,13 @@ export default function ToolsChangelogPage() {
                 Home
               </Link>
             </Button>
-            <Button size="sm" onClick={() => setOpenDialog(true)}>
+            <Button
+              size="sm"
+              onClick={() => {
+                setFormEntryId(undefined);
+                setFormDialogOpen(true);
+              }}
+            >
               <PlusIcon className="size-4 mr-2" />
               Nueva entrada
             </Button>
@@ -134,7 +141,13 @@ export default function ToolsChangelogPage() {
         ) : filteredEntries.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground">No hay entradas todavía.</p>
-            <Button className="mt-4" onClick={() => setOpenDialog(true)}>
+            <Button
+              className="mt-4"
+              onClick={() => {
+                setFormEntryId(undefined);
+                setFormDialogOpen(true);
+              }}
+            >
               Crear primera entrada
             </Button>
           </div>
@@ -181,11 +194,16 @@ export default function ToolsChangelogPage() {
                     <td className="px-4 py-4 text-right">
                       <div className="flex flex-wrap items-center justify-end gap-2">
                         {canEditChangelogEntry(entry, sessionUser) ? (
-                          <Button variant="outline" size="sm" asChild>
-                            <Link href={`/changelog/edit/tools/${entry.id}`}>
-                              <PencilIcon className="size-4 mr-1" />
-                              Editar
-                            </Link>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setFormEntryId(entry.id);
+                              setFormDialogOpen(true);
+                            }}
+                          >
+                            <PencilIcon className="size-4 mr-1" />
+                            Editar
                           </Button>
                         ) : null}
                         {isAdmin ? (
@@ -221,14 +239,27 @@ export default function ToolsChangelogPage() {
         )}
       </div>
 
-      <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+      <Dialog
+        open={formDialogOpen}
+        onOpenChange={(open) => {
+          setFormDialogOpen(open);
+          if (!open) setFormEntryId(undefined);
+        }}
+      >
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Nueva entrada - Tools MCP</DialogTitle>
+            <DialogTitle>
+              {formEntryId ? "Editar entrada - Tools MCP" : "Nueva entrada - Tools MCP"}
+            </DialogTitle>
           </DialogHeader>
           <NewChangelogForm
+            key={formEntryId ?? "new"}
             projectId="tools"
-            onClose={() => setOpenDialog(false)}
+            entryId={formEntryId}
+            onClose={() => {
+              setFormDialogOpen(false);
+              setFormEntryId(undefined);
+            }}
             onSaved={fetchEntries}
           />
         </DialogContent>
