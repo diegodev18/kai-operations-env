@@ -4,6 +4,7 @@ import { nanoid } from "nanoid";
 import type { AgentsInfoAuthContext } from "@/types/agents";
 import { getFirestore, FieldValue } from "@/lib/firestore";
 import { isOperationsAdmin } from "@/utils/operations-access";
+import { compareChangelogEntriesVersionThenRegisterDateDesc } from "@/utils/semver-compare";
 
 const ALLOWED_PROJECTS = ["panel", "agents", "tools"] as const;
 const STORAGE_BUCKET = "kai-project-26879.appspot.com";
@@ -108,7 +109,7 @@ export async function getChangelogEntries(
     ref = ref.where("status", "==", status) as typeof ref;
   }
 
-  const snapshot = await ref.orderBy("registerDate", "desc").get();
+  const snapshot = await ref.get();
   const admin = isOperationsAdmin(authCtx.userRole);
   let entries = snapshot.docs.map((doc) => {
     const data = doc.data() as Record<string, unknown>;
@@ -118,6 +119,8 @@ export async function getChangelogEntries(
   if (!admin) {
     entries = entries.filter((e) => !e.hidden);
   }
+
+  entries.sort(compareChangelogEntriesVersionThenRegisterDateDesc);
 
   let filtered = entries;
   if (search) {
