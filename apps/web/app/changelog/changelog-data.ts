@@ -64,6 +64,74 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] = 
 ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.3.4": {
+    date: "2026-04-14",
+    description:
+      "Organización y registro: teléfono en formato WhatsApp (México 521)",
+    changes: {
+      added: [
+        "Módulo compartido `lib/whatsapp-phone-format.ts` (lada, `buildWhatsappApiPhone`, `parseStoredPhoneForEditor`, lista de ladas).",
+        "En registro con invitación (`/register`): selector de lada, número nacional, texto de ayuda y vista previa del formato final; el alta envía el mismo formato que en Organización.",
+        "En API (Better Auth): `databaseHooks.user.create.before` y `lib/mexico-mobile-whatsapp-normalize.ts` para corregir en servidor el caso seguro 12 dígitos `52…` sin el `1` móvil → `521…`.",
+      ],
+      changed: [
+        "Pantalla Organización: edición de teléfono reutiliza el módulo compartido (guardado, preview y apertura del diálogo).",
+      ],
+      fixed: [
+        "Al registrarse, el teléfono opcional ya no se guardaba tal cual; México queda alineado con el prefijo `521` usado por la API de WhatsApp.",
+      ],
+    },
+  },
+  "2.3.3": {
+    date: "2026-04-14",
+    description: "Changelogs Firebase (Panel, Agents, Tools): proxy, permisos, UX y versión semver",
+    changes: {
+      added: [
+        "Rewrite en Next de /api/changelogs hacia la API Bun (lista, alta, subida de adjuntos dejan de responder 404).",
+        "Autor de entrada resuelto solo en backend desde la sesión (sin campo Autor en el formulario).",
+        "Al crear: createdByUserId; admins pueden ocultar entradas (hidden); listas y detalle ocultan entradas ocultas para no-admins.",
+        "PATCH por id de documento (/entries/:id): creador edita contenido; admin alterna visibilidad; DELETE permitido a creador o admin.",
+        "Versión en el formulario como tres campos solo numéricos (mayor · menor · parche) que se unen al guardar.",
+        "Edición en el mismo diálogo que la creación (sin página dedicada); botón de editar solo ícono de lápiz (accesible con aria-label).",
+        "Tras crear o editar, la lista se refresca sin recargar la página (onSaved + fetch con cache: no-store).",
+      ],
+      fixed: [
+        "Firestore rechazaba undefined en ticketUrl (y campos opcionales): se omiten claves undefined antes del set.",
+        "Respuestas de error no JSON en el cliente ya no rompen con SyntaxError al parsear el cuerpo.",
+      ],
+      changed: [
+        "Formulario de changelog en diálogo: sin bloqueo con skeleton de pantalla completa mientras carga la sesión de colaboradores.",
+      ],
+    },
+  },
+  "2.3.2": {
+    date: "2026-04-14",
+    description: "Database: selector de ambiente en Subir datos",
+    changes: {
+      added: [
+        "En /database/upload-data, tarjeta «Ambiente de destino» con selector Testing / Production (mismo patrón que Duplicate / clone: opciones desde allowedEnvironments).",
+        "Preview de colección y todas las peticiones de subida envían X-Environment según el ambiente elegido, independiente del selector global del layout.",
+      ],
+    },
+  },
+  "2.3.1": {
+    date: "2026-04-14",
+    description: "Constructor de agentes: persistencia completa y aprovisionamiento al crear",
+    changes: {
+      added: [
+        "Al crear borrador de agente se guardan status pending_tools_selection, owner_user_id y owner_phone",
+        "Al completar creación (step complete) se aprovisiona el agente: wallet inicial, colaborador administrador, pipelines y etapas (desde el formulario o plantilla por defecto), moduleAccess según herramientas y sincronización de assignedModules en usersBuilders",
+        "Registro en logs del evento agent_created con agentId, módulos y conteo de herramientas",
+      ],
+      changed: [
+        "PATCH de borrador (negocio) acepta y persiste custom_industry, business_timezone, business_hours, require_auth, flow_questions, flow_answers y pipelines en el documento raíz y en properties/business",
+        "El formulario del constructor envía en el paso negocio todos los campos anteriores además de operating_hours alineado con horario",
+      ],
+      improved: [
+        "El flujo de creación queda alineado con el comportamiento esperado post-creación (sin incluir aún la vinculación de número de WhatsApp)",
+      ],
+    },
+  },
   "2.3.0": {
     date: "2026-04-13",
     description: "Sistema de changelogs multi-proyecto",
