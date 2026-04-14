@@ -136,12 +136,12 @@ export async function listTestingDataCollections(authCtx: AgentsInfoAuthContext,
   }
 }
 
-export async function listSubcollections(authCtx: AgentsInfoAuthContext, c: Context) {
+export async function listTestingDataSubcollections(authCtx: AgentsInfoAuthContext, c: Context) {
   const agentId = c.req.param("agentId")?.trim() ?? "";
-  const path = c.req.param("path")?.trim() ?? "";
-
-  if (!agentId || !path) {
-    return c.json({ error: "Agent ID y path requeridos" }, 400);
+  const collection = c.req.param("collection")?.trim() ?? "";
+  
+  if (!agentId || !collection) {
+    return c.json({ error: "Agent ID y collection requeridos" }, 400);
   }
 
   const hasAccess = await userCanEditAgent(authCtx, agentId);
@@ -151,28 +151,9 @@ export async function listSubcollections(authCtx: AgentsInfoAuthContext, c: Cont
 
   try {
     const db = getFirestore();
-    let docRef: admin.firestore.DocumentReference;
+    const parentRef = db.collection("agent_configurations").doc(agentId).collection("testing").doc("data").collection(collection);
     
-    if (path.startsWith("testing/data/")) {
-      const subPath = path.replace("testing/data/", "");
-      if (subPath.includes("/")) {
-        const parts = subPath.split("/");
-        const collectionName = parts[0];
-        const docId = parts.slice(1).join("/");
-        docRef = db.collection("agent_configurations").doc(agentId).collection("testing").doc("data").collection(collectionName).doc(docId);
-      } else {
-        return c.json({ collections: [] });
-      }
-    } else {
-      return c.json({ collections: [] });
-    }
-
-    const docSnap = await docRef.get();
-    if (!docSnap.exists) {
-      return c.json({ collections: [] });
-    }
-
-    const collections = await docRef.listCollections();
+    const collections = await parentRef.listCollections();
     const collectionNames = collections.map((col) => col.id);
 
     return c.json({ collections: collectionNames });

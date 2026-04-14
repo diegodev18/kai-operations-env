@@ -4,9 +4,9 @@ import {
   createTestingDataDocument,
   deleteTestingDataDocument,
   getTestingDataDocument,
-  listSubcollections,
   listTestingDataCollections,
   listTestingDataDocuments,
+  listTestingDataSubcollections,
   updateTestingDataDocument,
 } from "@/controllers/agent-testing-data.controller";
 import { resolveAgentsAuthContext } from "@/routes/agents-auth";
@@ -19,16 +19,16 @@ router.get("/:agentId/testing/data", async (c) => {
   return listTestingDataCollections(ctx.authCtx, c);
 });
 
-router.get("/:agentId/testing/data/:path*", async (c) => {
-  const ctx = await resolveAgentsAuthContext(c);
-  if (!ctx.ok) return ctx.response;
-  return listSubcollections(ctx.authCtx, c);
-});
-
 router.get("/:agentId/testing/data/:collection", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   return listTestingDataDocuments(ctx.authCtx, c);
+});
+
+router.get("/:agentId/testing/data/:collection/subcollections", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  return listTestingDataSubcollections(ctx.authCtx, c);
 });
 
 router.get("/:agentId/testing/data/:collection/:docId", async (c) => {

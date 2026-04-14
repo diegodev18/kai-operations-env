@@ -17,9 +17,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   fetchTestingDataCollections,
-  fetchSubcollections,
   fetchTestingDataDocuments,
   fetchTestingDataDocument,
+  fetchTestingDataSubcollections,
   createTestingDataDocument,
   updateTestingDataDocument,
   deleteTestingDataDocument,
@@ -34,9 +34,10 @@ import {
   FolderOpenIcon,
   FileIcon,
   ChevronRightIcon,
-  ChevronLeftIcon,
   ChevronDownIcon,
+  ChevronLeftIcon,
   DatabaseIcon,
+  TableIcon,
   HashIcon,
   TypeIcon,
   ToggleLeftIcon,
@@ -141,76 +142,82 @@ function tryParseJson(str: string): Record<string, unknown> | null {
   }
 }
 
-function CollectionTreeItem({
-  name,
-  path,
-  currentCollection,
-  expandedPaths,
-  subcollections,
-  onSelect,
-  onToggle,
-  level,
-}: {
+interface CollectionNode {
   name: string;
+  subcollections: CollectionNode[];
+  expanded: boolean;
+}
+
+function CollectionTreeItem({
+  node,
+  path,
+  currentPath,
+  expandedPaths,
+  onToggleExpand,
+  onSelect,
+  depth = 0,
+}: {
+  node: CollectionNode;
   path: string;
-  currentCollection: string | undefined;
+  currentPath: string;
   expandedPaths: Set<string>;
-  subcollections: Record<string, string[]>;
-  onSelect: (name: string) => void;
-  onToggle: (path: string) => void;
-  level: number;
+  onToggleExpand: (path: string) => void;
+  onSelect: (path: string) => void;
+  depth?: number;
 }) {
+  const hasChildren = node.subcollections.length > 0 || expandedPaths.has(path);
+  const isSelected = currentPath === path;
   const isExpanded = expandedPaths.has(path);
-  const children = subcollections[path] || [];
-  const hasChildren = children.length > 0;
-  const isSelected = currentCollection === name;
 
   return (
     <div>
-      <div className="flex items-center">
-        {hasChildren && (
+      <div
+        className={`flex w-full items-center gap-1 rounded-md px-2 py-1.5 text-left text-sm ${
+          isSelected ? "bg-muted" : "hover:bg-muted/50"
+        }`}
+        style={{ paddingLeft: `${depth * 12 + 8}px` }}
+      >
+        {node.subcollections.length > 0 ? (
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onToggle(path);
+              onToggleExpand(path);
             }}
             className="p-0.5 hover:bg-muted rounded"
           >
             {isExpanded ? (
-              <ChevronDownIcon className="size-3.5 text-muted-foreground" />
+              <ChevronDownIcon className="size-3 text-muted-foreground" />
             ) : (
-              <ChevronRightIcon className="size-3.5 text-muted-foreground" />
+              <ChevronRightIcon className="size-3 text-muted-foreground" />
             )}
           </button>
+        ) : (
+          <span className="w-4" />
         )}
-        {!hasChildren && <div className="w-5" />}
         <button
-          onClick={() => onSelect(name)}
-          className={`flex flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm ${
-            isSelected ? "bg-muted" : "hover:bg-muted/50"
-          }`}
+          onClick={() => onSelect(path)}
+          className="flex flex-1 items-center gap-1.5 min-w-0"
         >
-          {isExpanded ? (
+          {isExpanded && node.subcollections.length > 0 ? (
             <FolderOpenIcon className="size-4 shrink-0 text-muted-foreground" />
           ) : (
             <FolderIcon className="size-4 shrink-0 text-muted-foreground" />
           )}
-          <span className="truncate">{name}</span>
+          <span className="truncate">{node.name}</span>
         </button>
       </div>
-      {isExpanded && hasChildren && (
-        <div className="ml-4">
-          {children.map((child) => (
+      {isExpanded && node.subcollections.length > 0 && (
+        <div>
+          {node.subcollections.map((child) => (
             <CollectionTreeItem
-              key={child}
-              name={child}
-              path={`${path}/${child}`}
-              currentCollection={currentCollection}
+              key={child.name}
+              node={child}
+              path={`${path}/${child.name}`}
+              currentPath={currentPath}
               expandedPaths={expandedPaths}
-              subcollections={subcollections}
-              onSelect={(c) => onSelect(c)}
-              onToggle={onToggle}
-              level={level + 1}
+              onToggleExpand={onToggleExpand}
+              onSelect={onSelect}
+              depth={depth + 1}
             />
           ))}
         </div>
@@ -224,16 +231,14 @@ export default function TestingDataPage() {
   const router = useRouter();
   const agentId = typeof params.agentId === "string" ? params.agentId : "";
 
-  const [collections, setCollections] = useState<string[]>([]);
-  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
-  const [subcollections, setSubcollections] = useState<Record<string, string[]>>({});
+  const [collectionTree, setCollectionTree] = useState<CollectionNode[]>([]);
   const [breadcrumbs, setBreadcrumbs] = useState<string[]>([]);
   const [documents, setDocuments] = useState<TestingDataDocument[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<TestingDataDocument | null>(null);
   const [fields, setFields] = useState<FieldDisplay[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingDocs, setLoadingDocs] = useState(false);
-  const [loadingSubs, setLoadingSubs] = useState(false);
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
 
   const [createCollectionDialogOpen, setCreateCollectionDialogOpen] = useState(false);
   const [newCollectionName, setNewCollectionName] = useState("");
@@ -244,46 +249,99 @@ export default function TestingDataPage() {
   const [jsonError, setJsonError] = useState<string | null>(null);
 
   const currentCollection = breadcrumbs[breadcrumbs.length - 1];
-  const currentPath = currentCollection ? `testing/data/${currentCollection}` : "testing/data";
+  const currentPath = breadcrumbs.join("/");
 
-  const loadCollections = useCallback(async () => {
+  const loadSubcollections = useCallback(async (parentPath: string): Promise<CollectionNode[]> => {
+    const parts = parentPath.split("/");
+    const agentId = parts[0];
+    const collection = parts.slice(1).join("/");
+    
+    let data;
+    if (parts.length === 1) {
+      data = await fetchTestingDataCollections(agentId);
+    } else {
+      data = await fetchTestingDataSubcollections(agentId, collection);
+    }
+    
+    if (!data?.collections) return [];
+    
+    return data.collections.map((name) => ({
+      name,
+      subcollections: [],
+      expanded: false,
+    }));
+  }, []);
+
+  const loadCollectionTree = useCallback(async () => {
     if (!agentId) return;
     setLoading(true);
     try {
       const data = await fetchTestingDataCollections(agentId);
       if (data?.collections) {
-        setCollections(data.collections);
+        const tree: CollectionNode[] = data.collections.map((name) => ({
+          name,
+          subcollections: [],
+          expanded: false,
+        }));
+        setCollectionTree(tree);
       }
     } finally {
       setLoading(false);
     }
   }, [agentId]);
 
-  const loadSubcollections = useCallback(async (path: string) => {
-    if (!agentId) return;
-    setLoadingSubs(true);
-    try {
-      const data = await fetchSubcollections(agentId, path);
-      if (data?.collections) {
-        setSubcollections((prev) => ({ ...prev, [path]: data.collections }));
+  const toggleExpand = useCallback(async (path: string) => {
+    const newExpanded = new Set(expandedPaths);
+    if (newExpanded.has(path)) {
+      newExpanded.delete(path);
+    } else {
+      newExpanded.add(path);
+      const parts = path.split("/");
+      const collName = parts[parts.length - 1];
+      const parentPath = parts.slice(0, -1).join("/");
+      const parentKey = parentPath || agentId;
+      
+      const updateTree = (nodes: CollectionNode[], key: string): CollectionNode[] => {
+        return nodes.map((node) => {
+          if (node.name === key) {
+            return { ...node, expanded: !node.expanded };
+          }
+          if (node.subcollections.length > 0) {
+            return { ...node, subcollections: updateTree(node.subcollections, key) };
+          }
+          return node;
+        });
+      };
+      
+      const key = parentPath ? parentPath.split("/").pop() : agentId;
+      if (key) {
+        const subcollections = await loadSubcollections(path);
+        const addSubcollections = (nodes: CollectionNode[], parentKeyName: string): CollectionNode[] => {
+          return nodes.map((node) => {
+            if (node.name === parentKeyName) {
+              return { ...node, subcollections };
+            }
+            if (node.subcollections.length > 0) {
+              return { ...node, subcollections: addSubcollections(node.subcollections, parentKeyName) };
+            }
+            return node;
+          });
+        };
+        
+        let updatedTree = collectionTree;
+        if (parts.length === 1) {
+          updatedTree = collectionTree.map((node) => {
+            if (node.name === collName) {
+              return { ...node, subcollections, expanded: true };
+            }
+            return node;
+          });
+        }
+        setCollectionTree(updatedTree);
       }
-    } finally {
-      setLoadingSubs(false);
     }
-  }, [agentId]);
-
-  const toggleExpand = (path: string) => {
-    setExpandedPaths((prev) => {
-      const next = new Set(prev);
-      if (next.has(path)) {
-        next.delete(path);
-      } else {
-        next.add(path);
-        void loadSubcollections(path);
-      }
-      return next;
-    });
-  };
+    setExpandedPaths(newExpanded);
+  }, [agentId, expandedPaths, loadSubcollections, collectionTree]);
 
   const loadDocuments = useCallback(async () => {
     if (!agentId || !currentCollection) return;
@@ -305,7 +363,7 @@ export default function TestingDataPage() {
 
   useEffect(() => {
     if (!agentId) return;
-    void loadCollections();
+    void loadCollectionTree();
   }, [agentId]);
 
   useEffect(() => {
@@ -320,8 +378,9 @@ export default function TestingDataPage() {
     void loadDocuments();
   }, [agentId, currentCollection]);
 
-  const navigateToCollection = (collectionName: string) => {
-    setBreadcrumbs([collectionName]);
+  const navigateToCollection = (path: string) => {
+    const parts = path.split("/");
+    setBreadcrumbs(parts);
   };
 
   const navigateBack = () => {
@@ -343,9 +402,43 @@ export default function TestingDataPage() {
 
   const handleCreateCollection = () => {
     if (!newCollectionName.trim()) return;
+    const newName = newCollectionName.trim();
+    
+    const addNewCollection = (nodes: CollectionNode[], currentPathKey: string): CollectionNode[] => {
+      if (currentPathKey === "") {
+        if (!nodes.find((n) => n.name === newName)) {
+          return [...nodes, { name: newName, subcollections: [], expanded: false }];
+        }
+      }
+      return nodes.map((node) => {
+        if (node.name === currentPathKey) {
+          const existingSub = node.subcollections.find((n) => n.name === newName);
+          if (!existingSub) {
+            return {
+              ...node,
+              subcollections: [...node.subcollections, { name: newName, subcollections: [], expanded: false }],
+              expanded: true,
+            };
+          }
+        }
+        if (node.subcollections.length > 0) {
+          return { ...node, subcollections: addNewCollection(node.subcollections, node.name) };
+        }
+        return node;
+      });
+    };
+
+    const parentKey = currentPath || "";
+    const updatedTree = addNewCollection(collectionTree, parentKey);
+    setCollectionTree(updatedTree);
+    
+    if (parentKey) {
+      setExpandedPaths((prev) => new Set([...prev, parentKey]));
+    }
+    
     setCreateCollectionDialogOpen(false);
     setNewCollectionName("");
-    setBreadcrumbs([newCollectionName.trim()]);
+    setBreadcrumbs([...breadcrumbs, newName]);
     setJsonEditor("{\n  \n}");
     setCreateDocDialogOpen(true);
   };
@@ -433,11 +526,11 @@ export default function TestingDataPage() {
       </div>
 
         <div className="flex flex-1 min-h-0 gap-4 overflow-hidden">
-          <div className="flex w-56 shrink-0 flex-col gap-2">
+          <div className="flex w-64 shrink-0 flex-col gap-2">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Colecciones</span>
               <div className="flex gap-1">
-                <Button variant="ghost" size="icon" className="size-7" onClick={() => void loadCollections()}>
+                <Button variant="ghost" size="icon" className="size-7" onClick={() => void loadCollectionTree()}>
                   <Loader2Icon className={`size-4 ${loading ? "animate-spin" : ""}`} />
                 </Button>
                 <Button variant="ghost" size="icon" className="size-7" onClick={() => setCreateCollectionDialogOpen(true)}>
@@ -449,20 +542,18 @@ export default function TestingDataPage() {
             <div className="flex-1 overflow-y-auto rounded-md border p-2">
               {loading ? (
                 <p className="text-sm text-muted-foreground">Cargando...</p>
-              ) : collections.length === 0 ? (
+              ) : collectionTree.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No hay colecciones</p>
               ) : (
-                collections.map((col) => (
+                collectionTree.map((node) => (
                   <CollectionTreeItem
-                    key={col}
-                    name={col}
-                    path={`testing/data/${col}`}
-                    currentCollection={currentCollection}
+                    key={node.name}
+                    node={node}
+                    path={node.name}
+                    currentPath={currentPath}
                     expandedPaths={expandedPaths}
-                    subcollections={subcollections}
-                    onSelect={(c) => navigateToCollection(c)}
-                    onToggle={toggleExpand}
-                    level={0}
+                    onToggleExpand={toggleExpand}
+                    onSelect={navigateToCollection}
                   />
                 ))
               )}
