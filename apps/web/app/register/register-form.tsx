@@ -8,8 +8,20 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { authClient } from "@/lib/auth-client";
 import { fetchInvitationPreview } from "@/lib/organization-api";
+import {
+  buildWhatsappApiPhone,
+  DEFAULT_WHATSAPP_LADA,
+  WHATSAPP_LADA_OPTIONS,
+} from "@/lib/whatsapp-phone-format";
 
 export function RegisterWithInvitation() {
   const router = useRouter();
@@ -20,7 +32,8 @@ export function RegisterWithInvitation() {
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(true);
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [phoneLada, setPhoneLada] = useState(DEFAULT_WHATSAPP_LADA);
+  const [phoneNational, setPhoneNational] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -60,11 +73,17 @@ export function RegisterWithInvitation() {
     setFormError(null);
     setSubmitting(true);
     try {
+      const nationalDigits = phoneNational.replace(/\D/g, "");
+      const phoneForApi =
+        nationalDigits.length > 0
+          ? buildWhatsappApiPhone(phoneLada, phoneNational)
+          : undefined;
+
       const result = await authClient.signUp.email({
         email,
         password,
         name: name.trim() || email.split("@")[0] || "Usuario",
-        phone: phone.trim() || undefined,
+        phone: phoneForApi,
         invitationToken: token,
       } as {
         email: string;
@@ -133,15 +152,48 @@ export function RegisterWithInvitation() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="reg-phone">Teléfono (opcional)</Label>
-              <Input
-                id="reg-phone"
-                type="tel"
-                autoComplete="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+1 234 567 8900"
-              />
+              <Label>Teléfono (opcional)</Label>
+              <p className="text-xs text-muted-foreground">
+                Se guarda en formato API de WhatsApp (igual que en Organización).
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="reg-phone-lada" className="text-muted-foreground">
+                  Lada
+                </Label>
+                <Select value={phoneLada} onValueChange={setPhoneLada}>
+                  <SelectTrigger id="reg-phone-lada">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {WHATSAPP_LADA_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="reg-phone" className="text-muted-foreground">
+                  Número
+                </Label>
+                <Input
+                  id="reg-phone"
+                  type="tel"
+                  autoComplete="tel-national"
+                  value={phoneNational}
+                  onChange={(e) => setPhoneNational(e.target.value)}
+                  placeholder="9932639212"
+                />
+              </div>
+              {phoneNational.replace(/\D/g, "").length > 0 ? (
+                <div className="rounded-md bg-muted px-3 py-2 text-sm">
+                  <span className="text-muted-foreground">Formato final: </span>
+                  <code className="font-mono">
+                    {buildWhatsappApiPhone(phoneLada, phoneNational)}
+                  </code>
+                </div>
+              ) : null}
             </div>
             <div className="space-y-2">
               <Label htmlFor="reg-password">Contraseña</Label>

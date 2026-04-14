@@ -48,6 +48,12 @@ import {
   type OrganizationInvitation,
   type OrganizationUser,
 } from "@/lib/organization-api";
+import {
+  buildWhatsappApiPhone,
+  DEFAULT_WHATSAPP_LADA,
+  parseStoredPhoneForEditor,
+  WHATSAPP_LADA_OPTIONS,
+} from "@/lib/whatsapp-phone-format";
 
 export default function OrganizationPage() {
   const router = useRouter();
@@ -65,7 +71,7 @@ export default function OrganizationPage() {
   const [removeInviteId, setRemoveInviteId] = useState<string | null>(null);
   const [phoneDialogOpen, setPhoneDialogOpen] = useState(false);
   const [phoneDialogUser, setPhoneDialogUser] = useState<OrganizationUser | null>(null);
-  const [phoneLada, setPhoneLada] = useState("+52");
+  const [phoneLada, setPhoneLada] = useState(DEFAULT_WHATSAPP_LADA);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [savingPhone, setSavingPhone] = useState(false);
   const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
@@ -198,26 +204,9 @@ export default function OrganizationPage() {
 
   function openPhoneDialog(u: OrganizationUser) {
     setPhoneDialogUser(u);
-    const existing = u.phone ?? "";
-    if (existing.startsWith("521") && existing.length > 3) {
-      setPhoneLada("+52");
-      setPhoneNumber(existing.slice(3));
-    } else if (existing.startsWith("52") && existing.length > 2) {
-      setPhoneLada("+52");
-      setPhoneNumber(existing.slice(2));
-    } else if (existing.startsWith("+")) {
-      const match = existing.match(/^\+(\d+)/);
-      if (match) {
-        setPhoneLada("+" + match[1]);
-        setPhoneNumber(existing.replace("+" + match[1], ""));
-      } else {
-        setPhoneLada("+52");
-        setPhoneNumber(existing);
-      }
-    } else {
-      setPhoneLada("+52");
-      setPhoneNumber(existing);
-    }
+    const { lada, nationalNumber } = parseStoredPhoneForEditor(u.phone);
+    setPhoneLada(lada);
+    setPhoneNumber(nationalNumber);
     setPhoneDialogOpen(true);
   }
 
@@ -231,14 +220,7 @@ export default function OrganizationPage() {
     if (!phoneDialogUser) return;
     setSavingPhone(true);
     try {
-      const ladaDigits = phoneLada.replace("+", "");
-      const cleanNumber = phoneNumber.replace(/\D/g, "");
-      let finalPhone: string;
-      if (phoneLada === "+52") {
-        finalPhone = `${ladaDigits}1${cleanNumber}`;
-      } else {
-        finalPhone = `${ladaDigits}${cleanNumber}`;
-      }
+      const finalPhone = buildWhatsappApiPhone(phoneLada, phoneNumber);
       const result = await updateUserPhone(phoneDialogUser.id, finalPhone);
       if (!result.ok) {
         toast.error(result.error);
@@ -597,16 +579,11 @@ export default function OrganizationPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="+52">🇲🇽 +52 (México)</SelectItem>
-                    <SelectItem value="+1">🇺🇸 +1 (EE.UU.)</SelectItem>
-                    <SelectItem value="+34">🇪🇸 +34 (España)</SelectItem>
-                    <SelectItem value="+54">🇦🇷 +54 (Argentina)</SelectItem>
-                    <SelectItem value="+57">🇨🇴 +57 (Colombia)</SelectItem>
-                    <SelectItem value="+56">🇨🇱 +56 (Chile)</SelectItem>
-                    <SelectItem value="+51">🇵🇪 +51 (Perú)</SelectItem>
-                    <SelectItem value="+593">🇪🇨 +593 (Ecuador)</SelectItem>
-                    <SelectItem value="+507">🇵🇦 +507 (Panamá)</SelectItem>
-                    <SelectItem value="+506">🇨🇷 +506 (Costa Rica)</SelectItem>
+                    {WHATSAPP_LADA_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -622,9 +599,7 @@ export default function OrganizationPage() {
               <div className="rounded-md bg-muted px-3 py-2 text-sm">
                 <span className="text-muted-foreground">Formato final: </span>
                 <code className="font-mono">
-                  {phoneLada === "+52"
-                    ? `521${phoneNumber.replace(/\D/g, "")}`
-                    : `${phoneLada.replace("+", "")}${phoneNumber.replace(/\D/g, "")}`}
+                  {buildWhatsappApiPhone(phoneLada, phoneNumber)}
                 </code>
               </div>
             </div>

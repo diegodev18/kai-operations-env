@@ -9,6 +9,7 @@ import {
 import { db } from "@/db/client";
 import { invitationSignUpPlugin } from "@/lib/auth-invitation-plugin";
 import { consumePendingInvitationForEmail } from "@/lib/invitations";
+import { normalizeMexicoMobileWhatsappPhone } from "@/lib/mexico-mobile-whatsapp-normalize";
 
 if (!BETTER_AUTH_SECRET) {
   throw new Error("BETTER_AUTH_SECRET is required");
@@ -27,6 +28,19 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
+        before: async (user) => {
+          const u = user as { phone?: string | null };
+          const normalized = normalizeMexicoMobileWhatsappPhone(u.phone);
+          if (normalized === undefined) {
+            return { data: user };
+          }
+          return {
+            data: {
+              ...user,
+              phone: normalized,
+            },
+          };
+        },
         after: async (user) => {
           const email =
             user && typeof (user as { email?: unknown }).email === "string"
