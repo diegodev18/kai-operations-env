@@ -146,19 +146,30 @@ export async function postChangelogEntry(
     typeof body.registerDate !== "string" ||
     typeof body.implementationDate !== "string" ||
     typeof body.version !== "string" ||
-    typeof body.description !== "string" ||
-    typeof body.author?.name !== "string" ||
-    typeof body.author?.email !== "string"
+    typeof body.description !== "string"
   ) {
     return c.json({ error: "Campos requeridos faltantes" }, 400);
   }
+
+  const email = authCtx.userEmail?.trim();
+  if (!email) {
+    return c.json(
+      { error: "No se pudo determinar el autor desde la sesión" },
+      400,
+    );
+  }
+  const authorName =
+    authCtx.userName?.trim() && authCtx.userName.trim().length > 0
+      ? authCtx.userName.trim()
+      : (email.split("@")[0] || "Usuario");
+  const author = { name: authorName, email };
 
   const payload: ChangelogPayload = {
     projectId: validProject,
     registerDate: body.registerDate,
     implementationDate: body.implementationDate,
     version: body.version,
-    author: body.author,
+    author,
     collaborators: body.collaborators || [],
     description: body.description,
     changes: body.changes || {},

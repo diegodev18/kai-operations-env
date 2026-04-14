@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeftIcon, PlusIcon, XIcon, UploadIcon, FileIcon, VideoIcon, ImageIcon, UserIcon, Loader2Icon } from "lucide-react";
+import { ArrowLeftIcon, PlusIcon, XIcon, UploadIcon, FileIcon, VideoIcon, ImageIcon, Loader2Icon } from "lucide-react";
 
 interface OrganizationUser {
   id: string;
@@ -43,9 +43,7 @@ export default function NewChangelogForm({ projectId, onClose }: NewChangelogFor
   const project = getProjectById(projectId);
   const embedded = Boolean(onClose);
 
-  const [currentUser, setCurrentUser] = useState<{ name: string; email: string } | null>(null);
   const [organizationUsers, setOrganizationUsers] = useState<OrganizationUser[]>([]);
-  const [authLoading, setAuthLoading] = useState(true);
 
   const [formData, setFormData] = useState({
     registerDate: new Date().toISOString().split("T")[0],
@@ -78,37 +76,22 @@ export default function NewChangelogForm({ projectId, onClose }: NewChangelogFor
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    async function fetchData() {
+    async function fetchOrgUsers() {
       try {
-        const [userRes, usersRes] = await Promise.all([
-          fetch("/api/auth/me"),
-          fetch("/api/organization/users"),
-        ]);
-
-        if (userRes.ok) {
-          const userData = await userRes.json();
-          setCurrentUser({
-            name: userData.name || userData.email?.split("@")[0] || "Usuario",
-            email: userData.email || "",
-          });
-        }
-
+        const usersRes = await fetch("/api/organization/users");
         if (usersRes.ok) {
           const data = await usersRes.json();
           setOrganizationUsers(data.users || []);
         }
       } catch (error) {
-        console.error("[fetch data] error:", error);
-      } finally {
-        setAuthLoading(false);
+        console.error("[changelog form] organization users:", error);
       }
     }
-    fetchData();
+    fetchOrgUsers();
   }, []);
 
   const filteredUsers = organizationUsers.filter(
     (u) =>
-      u.email !== currentUser?.email &&
       !collaborators.some((c) => c.email === u.email) &&
       (u.name.toLowerCase().includes(collaboratorSearch.toLowerCase()) ||
         u.email.toLowerCase().includes(collaboratorSearch.toLowerCase()))
@@ -211,14 +194,6 @@ export default function NewChangelogForm({ projectId, onClose }: NewChangelogFor
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    if (authLoading) {
-      alert("Espera a que termine de cargar la sesión.");
-      return;
-    }
-    if (!currentUser) {
-      alert("No se pudo obtener la sesión. Recarga la página o vuelve a iniciar sesión.");
-      return;
-    }
     if (!formData.version.trim()) {
       alert("Indica la versión (por ejemplo 1.0.0).");
       return;
@@ -235,7 +210,6 @@ export default function NewChangelogForm({ projectId, onClose }: NewChangelogFor
       registerDate: formData.registerDate,
       implementationDate: formData.implementationDate,
       version: formData.version,
-      author: { name: currentUser.name, email: currentUser.email },
       collaborators,
       description: formData.description,
       changes: {
@@ -327,37 +301,15 @@ export default function NewChangelogForm({ projectId, onClose }: NewChangelogFor
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="version">Versión</Label>
-              <Input
-                id="version"
-                placeholder="1.0.0"
-                value={formData.version}
-                onChange={(e) => setFormData({ ...formData, version: e.target.value })}
-                required
-              />
-            </div>
-            <div>
-              <Label>Autor</Label>
-              <div className="flex min-h-10 items-center gap-2 rounded-md border border-input bg-muted/50 px-3 py-2 text-sm">
-                {authLoading ? (
-                  <>
-                    <Loader2Icon className="size-4 shrink-0 animate-spin text-muted-foreground" />
-                    <span className="text-muted-foreground">Cargando sesión…</span>
-                  </>
-                ) : currentUser ? (
-                  <>
-                    <UserIcon className="size-4 shrink-0 text-muted-foreground" />
-                    <span>{currentUser.name}</span>
-                  </>
-                ) : (
-                  <span className="text-destructive">
-                    No se pudo obtener la sesión. Recarga o vuelve a iniciar sesión.
-                  </span>
-                )}
-              </div>
-            </div>
+          <div>
+            <Label htmlFor="version">Versión</Label>
+            <Input
+              id="version"
+              placeholder="1.0.0"
+              value={formData.version}
+              onChange={(e) => setFormData({ ...formData, version: e.target.value })}
+              required
+            />
           </div>
 
           <div>
@@ -591,10 +543,7 @@ export default function NewChangelogForm({ projectId, onClose }: NewChangelogFor
           </div>
 
           <div className="flex gap-4 pt-4">
-            <Button
-              type="submit"
-              disabled={saving || authLoading || !currentUser}
-            >
+            <Button type="submit" disabled={saving}>
               {saving ? <Loader2Icon className="mr-2 size-4 animate-spin" /> : null}
               Guardar
             </Button>
