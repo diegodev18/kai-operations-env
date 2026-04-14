@@ -490,7 +490,7 @@ export default function SubirDatosPage() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Validación de esquema (opcional)</CardTitle>
-              <CardDescription>JSON con "required" (array de claves) y/o "properties" (tipos). Si activas validar, se comprobará antes de subir.</CardDescription>
+              <CardDescription>JSON con &quot;required&quot; (array de claves) y/o "properties" (tipos). Si activas validar, se comprobará antes de subir.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center space-x-2">
