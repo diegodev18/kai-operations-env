@@ -36,6 +36,12 @@ export interface DbChangelogEntry {
   internalNotes?: string;
   createdAt: string;
   updatedAt: string;
+  /** Better Auth user id del creador (si existía al crear). */
+  createdByUserId?: string | null;
+  /** Oculta la entrada en listas y detalle para no-admins. */
+  hidden?: boolean;
+  hiddenAt?: string;
+  hiddenByUserId?: string | null;
 }
 
 export interface ChangelogEntry {
@@ -397,4 +403,18 @@ export function getAtlasVersions(): { version: string; entry: ChangelogEntry }[]
 
 export function getProjectById(id: ProjectId) {
   return PROJECTS.find((p) => p.id === id);
+}
+
+/** True si el usuario de sesión es el creador de la entrada (id o email de autor). */
+export function canEditChangelogEntry(
+  entry: DbChangelogEntry,
+  sessionUser: { id?: string; email?: string | null } | null | undefined,
+): boolean {
+  if (!sessionUser) return false;
+  const uid = sessionUser.id?.trim();
+  if (uid && entry.createdByUserId && uid === entry.createdByUserId) return true;
+  const e = sessionUser.email?.trim().toLowerCase();
+  const a = entry.author?.email?.trim().toLowerCase();
+  if (e && a && e === a) return true;
+  return false;
 }

@@ -2,19 +2,53 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
-import { getProjectById, type DbChangelogEntry } from "../changelog-data";
+import { getProjectById, type DbChangelogEntry, canEditChangelogEntry } from "../changelog-data";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ArrowLeftIcon, HomeIcon, PlusIcon } from "lucide-react";
+import { useUserRole } from "@/hooks/useUserRole";
+import { useAuth } from "@/hooks/auth";
+import { ArrowLeftIcon, HomeIcon, PlusIcon, PencilIcon, EyeOffIcon, EyeIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import NewChangelogForm from "../components/new-changelog-form";
 
 export default function ToolsChangelogPage() {
   const project = getProjectById("tools");
+  const { session } = useAuth();
+  const { isAdmin } = useUserRole();
   const [search, setSearch] = useState("");
   const [entries, setEntries] = useState<DbChangelogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  const sessionUser = session?.user
+    ? {
+        id: session.user.id,
+        email: (session.user as { email?: string }).email,
+      }
+    : null;
+
+  async function toggleEntryHidden(entry: DbChangelogEntry) {
+    setTogglingId(entry.id);
+    try {
+      const res = await fetch(`/api/changelogs/tools/entries/${entry.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hidden: !entry.hidden }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || "No se pudo actualizar la visibilidad");
+        return;
+      }
+      await fetchEntries();
+    } catch (e) {
+      console.error(e);
+      alert("Error de red");
+    } finally {
+      setTogglingId(null);
+    }
+  }
 
   const fetchEntries = useCallback(async () => {
     try {
@@ -112,6 +146,9 @@ export default function ToolsChangelogPage() {
                   <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Version</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Fecha</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground hidden md:table-cell">Description</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
+                    Acciones
+                  </th>
                   <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Details</th>
                 </tr>
               </thead>
@@ -119,12 +156,17 @@ export default function ToolsChangelogPage() {
                 {filteredEntries.map((entry) => (
                   <tr key={entry.id} className="hover:bg-muted/30 transition-colors">
                     <td className="px-4 py-4">
-                      <Link
-                        href={`/changelog/tools/${entry.version}`}
-                        className="font-mono text-sm font-medium text-foreground hover:underline"
-                      >
-                        v{entry.version}
-                      </Link>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                          href={`/changelog/tools/${entry.version}`}
+                          className="font-mono text-sm font-medium text-foreground hover:underline"
+                        >
+                          v{entry.version}
+                        </Link>
+                        {isAdmin && entry.hidden ? (
+                          <span className="text-xs text-muted-foreground">(oculta)</span>
+                        ) : null}
+                      </div>
                     </td>
                     <td className="px-4 py-4 text-sm text-muted-foreground">
                       {new Date(entry.registerDate).toLocaleDateString("es-ES", {
@@ -135,6 +177,33 @@ export default function ToolsChangelogPage() {
                     </td>
                     <td className="px-4 py-4 text-sm text-muted-foreground hidden md:table-cell">
                       {entry.description}
+                    </td>
+                    <td className="px-4 py-4 text-right">
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        {canEditChangelogEntry(entry, sessionUser) ? (
+                          <Button variant="outline" size="sm" asChild>
+                            <Link href={`/changelog/edit/tools/${entry.id}`}>
+                              <PencilIcon className="size-4 mr-1" />
+                              Editar
+                            </Link>
+                          </Button>
+                        ) : null}
+                        {isAdmin ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={togglingId === entry.id}
+                            onClick={() => toggleEntryHidden(entry)}
+                            title={entry.hidden ? "Mostrar en el changelog" : "Ocultar del changelog"}
+                          >
+                            {entry.hidden ? (
+                              <EyeIcon className="size-4" />
+                            ) : (
+                              <EyeOffIcon className="size-4" />
+                            )}
+                          </Button>
+                        ) : null}
+                      </div>
                     </td>
                     <td className="px-4 py-4 text-right">
                       <Link

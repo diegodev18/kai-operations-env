@@ -2,10 +2,21 @@
 
 import { useParams, notFound } from "next/navigation";
 import Link from "next/link";
-import { getProjectById } from "../../changelog-data";
+import { getProjectById, canEditChangelogEntry } from "../../changelog-data";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeftIcon, HomeIcon, UserIcon, LinkIcon, FileIcon, VideoIcon, ImageIcon } from "lucide-react";
+import { useAuth } from "@/hooks/auth";
+import { useUserRole } from "@/hooks/useUserRole";
+import {
+  ArrowLeftIcon,
+  HomeIcon,
+  UserIcon,
+  LinkIcon,
+  FileIcon,
+  VideoIcon,
+  ImageIcon,
+  PencilIcon,
+} from "lucide-react";
 import type { DbChangelogEntry } from "../../changelog-data";
 import { useState, useEffect } from "react";
 
@@ -27,13 +38,24 @@ export default function PanelVersionPage() {
   const params = useParams();
   const version = params.version as string;
   const project = getProjectById("panel");
+  const { session } = useAuth();
+  const { isAdmin } = useUserRole();
   const [entry, setEntry] = useState<DbChangelogEntry | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const sessionUser = session?.user
+    ? {
+        id: session.user.id,
+        email: (session.user as { email?: string }).email,
+      }
+    : null;
 
   useEffect(() => {
     async function fetchEntry() {
       try {
-        const res = await fetch(`/api/changelogs/panel?version=${version}`);
+        const res = await fetch(`/api/changelogs/panel?version=${version}`, {
+          cache: "no-store",
+        });
         if (res.ok) {
           const data = await res.json();
           setEntry(data.entry || null);
@@ -94,13 +116,24 @@ export default function PanelVersionPage() {
         </nav>
 
         <header className="mb-8">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">
               Versión {version}
             </h1>
             {entry.status === "draft" && (
               <Badge variant="secondary">Borrador</Badge>
             )}
+            {isAdmin && entry.hidden ? (
+              <Badge variant="outline">Oculta (solo admins)</Badge>
+            ) : null}
+            {canEditChangelogEntry(entry, sessionUser) ? (
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/changelog/edit/panel/${entry.id}`}>
+                  <PencilIcon className="size-4 mr-2" />
+                  Editar
+                </Link>
+              </Button>
+            ) : null}
           </div>
 
           <div className="mt-3 flex flex-wrap gap-4 text-sm text-muted-foreground">

@@ -3,7 +3,12 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getProjectById, type Collaborator, type Attachment } from "../changelog-data";
+import {
+  getProjectById,
+  type Collaborator,
+  type Attachment,
+  type DbChangelogEntry,
+} from "../changelog-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,9 +30,27 @@ interface ChangeItem {
 
 interface NewChangelogFormProps {
   projectId: "panel" | "agents" | "tools";
+  /** Si se indica, el formulario carga la entrada y guarda con PATCH. */
+  entryId?: string;
   onClose?: () => void;
   /** Tras guardar con éxito (p. ej. refrescar lista en la página padre). Se espera antes de cerrar el diálogo. */
   onSaved?: () => void | Promise<void>;
+}
+
+function changesFromEntry(entry: DbChangelogEntry): Record<string, ChangeItem[]> {
+  const keys = ["added", "changed", "fixed", "removed", "improved"] as const;
+  const out: Record<string, ChangeItem[]> = {
+    added: [],
+    changed: [],
+    fixed: [],
+    removed: [],
+    improved: [],
+  };
+  for (const k of keys) {
+    const arr = entry.changes[k];
+    out[k] = (arr ?? []).map((value) => ({ id: crypto.randomUUID(), value }));
+  }
+  return out;
 }
 
 const sectionLabels: Record<string, { label: string }> = {
@@ -40,12 +63,19 @@ const sectionLabels: Record<string, { label: string }> = {
 
 const TAGS = ["frontend", "backend", "bug", "feature", "performance", "security", "ui", "ux", "database", "api"];
 
-export default function NewChangelogForm({ projectId, onClose, onSaved }: NewChangelogFormProps) {
+export default function NewChangelogForm({
+  projectId,
+  entryId,
+  onClose,
+  onSaved,
+}: NewChangelogFormProps) {
   const router = useRouter();
   const project = getProjectById(projectId);
   const embedded = Boolean(onClose);
+  const isEdit = Boolean(entryId);
 
   const [organizationUsers, setOrganizationUsers] = useState<OrganizationUser[]>([]);
+  const [entryLoading, setEntryLoading] = useState(Boolean(entryId));
 
   const [formData, setFormData] = useState({
     registerDate: new Date().toISOString().split("T")[0],
@@ -91,6 +121,50 @@ export default function NewChangelogForm({ projectId, onClose, onSaved }: NewCha
     }
     fetchOrgUsers();
   }, []);
+
+  useEffect(() => {
+    if (!entryId) return;
+    let cancelled = false;
+    async function loadEntry() {
+      setEntryLoading(true);
+      try {
+        const res = await fetch(`/api/changelogs/${projectId}/entries/${entryId}`, {
+          cache: "no-store",
+        });
+        if (!res.ok) {
+          alert("No se pudo cargar la entrada o no tienes permiso.");
+          router.replace(`/changelog/${projectId}`);
+          return;
+        }
+        const data = await res.json();
+        const entry = data.entry as DbChangelogEntry;
+        if (cancelled || !entry) return;
+        setFormData({
+          registerDate: entry.registerDate.slice(0, 10),
+          implementationDate: entry.implementationDate.slice(0, 10),
+          version: entry.version,
+          description: entry.description,
+          ticketUrl: entry.ticketUrl ?? "",
+          createTicket: entry.createTicket,
+          tags: entry.tags ?? [],
+          status: entry.status,
+          internalNotes: entry.internalNotes ?? "",
+        });
+        setCollaborators(entry.collaborators ?? []);
+        setChanges(changesFromEntry(entry));
+        setAttachments(entry.attachments ?? []);
+      } catch (e) {
+        console.error("[changelog form] load entry:", e);
+        router.replace(`/changelog/${projectId}`);
+      } finally {
+        if (!cancelled) setEntryLoading(false);
+      }
+    }
+    loadEntry();
+    return () => {
+      cancelled = true;
+    };
+  }, [entryId, projectId, router]);
 
   const filteredUsers = organizationUsers.filter(
     (u) =>
@@ -207,33 +281,53 @@ export default function NewChangelogForm({ projectId, onClose, onSaved }: NewCha
 
     setSaving(true);
 
-    const payload = {
+    const changesPayload = {
+      added: changes.added.filter((i) => i.value.trim()).map((i) => i.value.trim()),
+      changed: changes.changed.filter((i) => i.value.trim()).map((i) => i.value.trim()),
+      fixed: changes.fixed.filter((i) => i.value.trim()).map((i) => i.value.trim()),
+      removed: changes.removed.filter((i) => i.value.trim()).map((i) => i.value.trim()),
+      improved: changes.improved.filter((i) => i.value.trim()).map((i) => i.value.trim()),
+    };
+
+    const patchBody = {
+      registerDate: formData.registerDate,
+      implementationDate: formData.implementationDate,
+      version: formData.version,
+      collaborators,
+      description: formData.description,
+      changes: changesPayload,
+      attachments,
+      ticketUrl: formData.ticketUrl.trim() === "" ? null : formData.ticketUrl.trim(),
+      createTicket: formData.createTicket,
+      tags: formData.tags.length > 0 ? formData.tags : null,
+      status: formData.status,
+      internalNotes: formData.internalNotes.trim() === "" ? null : formData.internalNotes.trim(),
+    };
+
+    const postBody = {
       projectId,
       registerDate: formData.registerDate,
       implementationDate: formData.implementationDate,
       version: formData.version,
       collaborators,
       description: formData.description,
-      changes: {
-        added: changes.added.filter((i) => i.value.trim()).map((i) => i.value.trim()),
-        changed: changes.changed.filter((i) => i.value.trim()).map((i) => i.value.trim()),
-        fixed: changes.fixed.filter((i) => i.value.trim()).map((i) => i.value.trim()),
-        removed: changes.removed.filter((i) => i.value.trim()).map((i) => i.value.trim()),
-        improved: changes.improved.filter((i) => i.value.trim()).map((i) => i.value.trim()),
-      },
+      changes: changesPayload,
       attachments,
-      ticketUrl: formData.ticketUrl || undefined,
+      ticketUrl: formData.ticketUrl.trim() || undefined,
       createTicket: formData.createTicket,
       tags: formData.tags.length > 0 ? formData.tags : undefined,
       status: formData.status,
-      internalNotes: formData.internalNotes || undefined,
+      internalNotes: formData.internalNotes.trim() || undefined,
     };
 
     try {
-      const res = await fetch(`/api/changelogs/${projectId}`, {
-        method: "POST",
+      const url = entryId
+        ? `/api/changelogs/${projectId}/entries/${entryId}`
+        : `/api/changelogs/${projectId}`;
+      const res = await fetch(url, {
+        method: entryId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(entryId ? patchBody : postBody),
       });
 
       if (res.ok) {
@@ -274,6 +368,16 @@ export default function NewChangelogForm({ projectId, onClose, onSaved }: NewCha
     : "min-h-screen bg-background p-8";
   const innerClass = embedded ? "mx-auto max-w-3xl px-1" : "mx-auto max-w-3xl";
 
+  if (entryId && entryLoading) {
+    return (
+      <div className={outerClass}>
+        <div className={`${innerClass} flex min-h-[240px] items-center justify-center`}>
+          <Loader2Icon className="size-8 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={outerClass}>
       <div className={innerClass}>
@@ -281,7 +385,7 @@ export default function NewChangelogForm({ projectId, onClose, onSaved }: NewCha
           <header className="mb-8 flex items-center justify-between">
             <div>
               <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">
-                Nueva entrada - {project?.name}
+                {isEdit ? "Editar entrada" : "Nueva entrada"} - {project?.name}
               </h1>
               <p className="mt-1 text-muted-foreground">{project?.description}</p>
             </div>
@@ -562,7 +666,7 @@ export default function NewChangelogForm({ projectId, onClose, onSaved }: NewCha
           </div>
 
           <div className="flex gap-4 pt-4">
-            <Button type="submit" disabled={saving}>
+            <Button type="submit" disabled={saving || entryLoading}>
               {saving ? <Loader2Icon className="mr-2 size-4 animate-spin" /> : null}
               Guardar
             </Button>
