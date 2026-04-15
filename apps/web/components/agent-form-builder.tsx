@@ -57,7 +57,6 @@ import {
   STAGE_COLORS,
   STAGE_ICONS,
   STAGE_TYPES,
-  PERSONALITY_PRESETS,
 } from "@/lib/form-builder-constants";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/auth";
@@ -1419,60 +1418,20 @@ function SectionTools({
   );
 }
 
-function SectionPersonality({ state, onChange, isSaving }: SectionProps) {
-  const [showPresetConfirm, setShowPresetConfirm] = useState<string | null>(null);
-
-  const applyPreset = useCallback(
-    (presetId: string) => {
-      const preset = PERSONALITY_PRESETS.find((p) => p.id === presetId);
-      if (preset) {
-        onChange({
-          agent_personality: preset.agent_personality,
-          use_emojis: preset.use_emojis,
-          personality_traits: preset.traits,
-        });
-        toast.success(`Preset "${preset.label}" aplicado`);
-      }
-    },
-    [onChange]
-  );
-
+function SectionPersonality({ state, onChange }: SectionProps) {
   return (
     <div className="space-y-6">
       <div>
-        <p className="mb-3 text-sm font-medium">¿Quieres empezar con un preset?</p>
-        <div className="grid grid-cols-2 gap-2">
-          {PERSONALITY_PRESETS.map((preset) => (
-            <button
-              key={preset.id}
-              type="button"
-              onClick={() => applyPreset(preset.id)}
-              disabled={isSaving}
-              className="flex items-start gap-2 rounded-lg border border-border p-3 text-left transition-colors hover:bg-muted/50"
-            >
-              <span className="text-xl">{preset.icon}</span>
-              <div>
-                <p className="font-medium">{preset.label}</p>
-                <p className="text-xs text-muted-foreground">{preset.description}</p>
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="border-t pt-4">
-        <div>
-          <label className="text-sm font-medium">
-            Nombre del agente <span className="text-destructive">*</span>
-          </label>
-          <input
-            type="text"
-            value={state.agent_name}
-            onChange={(e) => onChange({ agent_name: e.target.value })}
-            placeholder="Ej: Asistente de Tienda Moda"
-            className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          />
-        </div>
+        <label className="text-sm font-medium">
+          Nombre del agente <span className="text-destructive">*</span>
+        </label>
+        <input
+          type="text"
+          value={state.agent_name}
+          onChange={(e) => onChange({ agent_name: e.target.value })}
+          placeholder="Ej: Asistente de Tienda Moda"
+          className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        />
       </div>
 
       <div>
@@ -1956,7 +1915,6 @@ function TemplatesSection({
       description: "Configuración completa para ventas, con gestión de clientes",
       icon: "🛒",
       industry: "Retail",
-      personalityPreset: "sales",
     },
     {
       id: "support",
@@ -1964,7 +1922,6 @@ function TemplatesSection({
       description: "Ayuda a clientes con problemas técnicos",
       icon: "📞",
       industry: "Servicios",
-      personalityPreset: "support",
     },
     {
       id: "admin",
@@ -1972,7 +1929,6 @@ function TemplatesSection({
       description: "Gestión de citas, agenda y tareas",
       icon: "💼",
       industry: "Servicios",
-      personalityPreset: "admin",
     },
     {
       id: "concierge",
@@ -1980,7 +1936,6 @@ function TemplatesSection({
       description: "Atención al cliente cálida y personalizada",
       icon: "🏨",
       industry: "Servicios",
-      personalityPreset: "concierge",
     },
     {
       id: "custom",
@@ -1988,7 +1943,6 @@ function TemplatesSection({
       description: "Construye tu agente paso a paso",
       icon: "✨",
       industry: "",
-      personalityPreset: null,
     },
   ];
 
@@ -1999,19 +1953,15 @@ function TemplatesSection({
           key={template.id}
           type="button"
           onClick={() => {
-            const preset = template.personalityPreset 
-              ? PERSONALITY_PRESETS.find(p => p.id === template.personalityPreset)
-              : null;
-            
             if (template.id === "custom") {
               onChange({ industry: "" });
             } else {
               onChange({
                 industry: template.industry || "Servicios",
                 agent_description: `Soy un ${template.label.toLowerCase()} que ayuda a los clientes...`,
-                agent_personality: preset?.agent_personality || "",
-                use_emojis: preset?.use_emojis || "moderate",
-                personality_traits: preset?.traits || [],
+                agent_personality: "",
+                use_emojis: "moderate",
+                personality_traits: [],
               });
               toast.success(`Plantilla "${template.label}" aplicada`);
             }

@@ -51,16 +51,6 @@ export interface ToolCategory {
   color: string;
 }
 
-export interface PersonalityPreset {
-  id: string;
-  label: string;
-  description: string;
-  agent_personality: string;
-  use_emojis: EmojiPreference;
-  traits: PersonalityTrait[];
-  icon: string;
-}
-
 export interface AgentTemplate {
   id: string;
   label: string;
@@ -360,45 +350,6 @@ export const PERSONALITY_TRAITS: { id: PersonalityTrait; label: string; emoji: s
   { id: "patient", label: "Paciente", emoji: "⏰", description: "Tolerante y detallista" },
   { id: "proactive", label: "Proactivo", emoji: "💡", description: "Toma la iniciativa" },
   { id: "technical", label: "Técnico", emoji: "🔧", description: "Preciso y especializado" },
-];
-
-export const PERSONALITY_PRESETS: PersonalityPreset[] = [
-  {
-    id: "sales",
-    label: "Asistente de Ventas",
-    description: "Amigable, persuasivo y orientado a cerrar ventas",
-    agent_personality: "Soy un asesor de ventas amigable y profesional. Mi objetivo es ayudar a los clientes a encontrar los productos perfectos para sus necesidades. Soy proactivo en ofrecer sugerencias y siempre busco superar las expectativas.",
-    use_emojis: "moderate",
-    traits: ["friendly", "proactive", "close"],
-    icon: "🛒",
-  },
-  {
-    id: "support",
-    label: "Soporte Técnico",
-    description: "Empático, paciente y orientado a resolver problemas",
-    agent_personality: "Soy un agente de soporte técnico paciente y empático. Mi prioridad es entender el problema del cliente y guiarlo hacia la mejor solución. Soy detallista y me aseguro de que el cliente quede completamente satisfecho.",
-    use_emojis: "never",
-    traits: ["empathetic", "patient", "technical"],
-    icon: "📞",
-  },
-  {
-    id: "admin",
-    label: "Asistente Admin",
-    description: "Directo, eficiente y orientado a tareas",
-    agent_personality: "Soy un asistente administrativo eficiente y directo. Mi objetivo es ayudar con tareas como agendar citas, gestionar información y coordinar actividades. Soy organizado y preciso en mi trabajo.",
-    use_emojis: "never",
-    traits: ["direct", "professional", "proactive"],
-    icon: "💼",
-  },
-  {
-    id: "concierge",
-    label: "Concierge",
-    description: "Cálido, servicial y orientado a la experiencia del cliente",
-    agent_personality: "Soy un conserje cálido y servicial. Mi misión es hacer que la experiencia del cliente sea excepcional. Soy muy amigable, anticipo necesidades y siempre estoy dispuesto a ayudar de manera personalizada.",
-    use_emojis: "always",
-    traits: ["friendly", "close", "empathetic"],
-    icon: "🏨",
-  },
 ];
 
 export const TOOL_CATEGORIES: ToolCategory[] = [
