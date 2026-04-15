@@ -107,10 +107,6 @@ export default function AgentDetailLayout({
     businessName: string;
   } | null>(null);
   const [enabled, setEnabled] = useState<boolean | null>(null);
-  const [deploymentInfo, setDeploymentInfo] = useState<{
-    inCommercial: boolean;
-    inProduction: boolean;
-  } | null>(null);
   const [favoriteAgentIds, setFavoriteAgentIds] = useState<Set<string>>(new Set());
   const [togglingFavorite, setTogglingFavorite] = useState<string | null>(null);
 
@@ -123,7 +119,6 @@ export default function AgentDetailLayout({
       if (!a) {
         setHeaderNames({ agentName: "", businessName: "" });
         setEnabled(false);
-        setDeploymentInfo(null);
         return;
       }
       const business =
@@ -136,10 +131,6 @@ export default function AgentDetailLayout({
           : "";
       setHeaderNames({ agentName: agent, businessName: business });
       setEnabled(typeof a.enabled === "boolean" ? a.enabled : true);
-      setDeploymentInfo({
-        inCommercial: Boolean(a.inCommercial),
-        inProduction: Boolean(a.inProduction),
-      });
     };
     void load();
     return () => {
@@ -164,30 +155,6 @@ export default function AgentDetailLayout({
     void loadFavorites();
     return () => {
       cancelled = true;
-    };
-  }, [agentId]);
-
-  useEffect(() => {
-    if (!agentId) return;
-    const onDeploymentChange = () => {
-      void (async () => {
-        const a = await fetchAgentById(agentId);
-        if (!a) {
-          setDeploymentInfo(null);
-          return;
-        }
-        setDeploymentInfo({
-          inCommercial: Boolean(a.inCommercial),
-          inProduction: Boolean(a.inProduction),
-        });
-      })();
-    };
-    window.addEventListener("kai-agent-deployment-changed", onDeploymentChange);
-    return () => {
-      window.removeEventListener(
-        "kai-agent-deployment-changed",
-        onDeploymentChange,
-      );
     };
   }, [agentId]);
 
@@ -241,16 +208,6 @@ export default function AgentDetailLayout({
 
         <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
           <AgentEnabledBadge enabled={enabled} />
-          {deploymentInfo?.inCommercial ? (
-            <Badge variant="outline" className="shrink-0 font-normal">
-              Testing (comercial)
-            </Badge>
-          ) : null}
-          {deploymentInfo?.inProduction ? (
-            <Badge variant="secondary" className="shrink-0 font-normal">
-              Producción (kai)
-            </Badge>
-          ) : null}
           <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
