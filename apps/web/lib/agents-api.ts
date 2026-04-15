@@ -10,6 +10,7 @@ import type {
   ImplementationTaskStatus,
   ImplementationTaskType,
   ImplementationTaskAttachment,
+  ImplementationActivityEntry,
   ToolsCatalogItem,
   BuilderChatDraftPatch,
   BuilderChatMessage,
@@ -27,6 +28,7 @@ export type {
   ImplementationTaskStatus,
   ImplementationTaskType,
   ImplementationTaskAttachment,
+  ImplementationActivityEntry,
   ToolsCatalogItem,
   BuilderChatDraftPatch,
   BuilderChatMessage,
@@ -1284,6 +1286,54 @@ export async function patchImplementationTask(
   }
   if (!data.task) return { ok: false, error: "Respuesta inválida del servidor" };
   return { ok: true, task: data.task };
+}
+
+export async function fetchImplementationActivity(
+  agentId: string,
+): Promise<{ entries: ImplementationActivityEntry[] } | null> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/implementation-activity`,
+    {
+      credentials: "include",
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) return null;
+  try {
+    return (await res.json()) as { entries: ImplementationActivityEntry[] };
+  } catch {
+    return null;
+  }
+}
+
+export async function createImplementationActivityComment(
+  agentId: string,
+  bodyHtml: string,
+): Promise<
+  { ok: true; entry: ImplementationActivityEntry } | { ok: false; error: string }
+> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/implementation-activity`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ bodyHtml }),
+    },
+  );
+  let data: { entry?: ImplementationActivityEntry; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return { ok: false, error: data.error ?? "No se pudo publicar el comentario" };
+  }
+  if (!data.entry) {
+    return { ok: false, error: "Respuesta inválida del servidor" };
+  }
+  return { ok: true, entry: data.entry };
 }
 
 export async function assignAgentToUser(

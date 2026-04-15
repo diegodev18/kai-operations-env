@@ -3,6 +3,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { z } from "zod";
 
 import { getFirestore } from "@/lib/firestore";
+import { appendImplementationActivityEntry } from "@/services/implementation-activity.service";
 import type { AgentsInfoAuthContext } from "@/types/agents";
 import { isOperationsAdmin, isOperationsCommercial } from "@/utils/operations-access";
 import { parseBillingDoc, parsePaymentRecordDoc } from "@/utils/agents";
@@ -112,6 +113,15 @@ export async function patchAgentBillingConfig(
     { ...existing, ...updates, updated_at: ts },
     { merge: true },
   );
+
+  const changedKeys = Object.keys(updates);
+  void appendImplementationActivityEntry(db, agentId, {
+    kind: "system",
+    actorEmail: authCtx.userEmail?.toLowerCase().trim() ?? null,
+    action: "billing_config_updated",
+    summary: `Actualizó cobranza: ${changedKeys.join(", ")}.`,
+    metadata: { fields: changedKeys },
+  });
 
   return c.json({ ok: true });
 }

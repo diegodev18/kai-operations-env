@@ -13,6 +13,11 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   UserCircleIcon,
+  MessageSquareIcon,
+  Settings2Icon,
+  ArrowDownWideNarrowIcon,
+  ArrowUpWideNarrowIcon,
+  FilterIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -45,21 +50,25 @@ import {
 } from "@/components/ui/tooltip";
 import type {
   AgentGrowerRow,
+  ImplementationActivityEntry,
   ImplementationTask,
   ImplementationTaskAttachment,
   WhatsappIntegrationStatusItem,
 } from "@/types/agents-api";
 import type { AgentBilling } from "@/lib/agent";
 import {
+  createImplementationActivityComment,
   createImplementationTask,
   fetchAgentBilling,
   fetchAgentGrowers,
+  fetchImplementationActivity,
   fetchImplementationTasks,
   fetchWhatsappIntegrationStatus,
   patchAgentBillingConfig,
   patchImplementationTask,
 } from "@/lib/agents-api";
 import { FileUploadButton, AttachmentList } from "@/components/file-upload-button";
+import { ImplementationActivityCommentEditor } from "@/components/implementation-activity-comment-editor";
 import { useUserRole } from "@/hooks/useUserRole";
 
 function toDateInputValue(value?: string | null): string {
@@ -117,6 +126,25 @@ function isOperationsRole(role: string): boolean {
   return r === "admin" || r === "commercial";
 }
 
+function formatDateTime(iso?: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("es-MX", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+}
+
+function actorLabel(
+  email: string | null | undefined,
+  growersByEmail: Map<string, string>,
+): string {
+  if (!email) return "Sistema";
+  const norm = email.trim().toLowerCase();
+  return growersByEmail.get(norm) ?? norm;
+}
+
 export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) {
   const { role: userRole } = useUserRole();
   const isOperations = isOperationsRole(userRole);
@@ -146,13 +174,17 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
   const [billingSaving, setBillingSaving] = useState(false);
   const [waIntegrations, setWaIntegrations] = useState<WhatsappIntegrationStatusItem[]>([]);
   const [repDraft, setRepDraft] = useState<Record<string, { email: string; phone: string }>>({});
+  const [activity, setActivity] = useState<ImplementationActivityEntry[]>([]);
+  const [activityFilter, setActivityFilter] = useState<"all" | "comment" | "system">("all");
+  const [activitySortDesc, setActivitySortDesc] = useState(true);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [tasksRes, growersRes] = await Promise.all([
+      const [tasksRes, growersRes, activityRes] = await Promise.all([
         fetchImplementationTasks(agentId),
         fetchAgentGrowers(agentId),
+        fetchImplementationActivity(agentId),
       ]);
       if (tasksRes == null) {
         toast.error("No se pudieron cargar las tareas");
@@ -164,6 +196,12 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
         setGrowers([]);
       } else {
         setGrowers(Array.isArray(growersRes.growers) ? growersRes.growers : []);
+      }
+      if (activityRes == null) {
+        toast.error("No se pudo cargar la bitácora");
+        setActivity([]);
+      } else {
+        setActivity(Array.isArray(activityRes.entries) ? activityRes.entries : []);
       }
     } finally {
       setLoading(false);
@@ -306,6 +344,19 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
         }),
     [tasks],
   );
+
+  const filteredActivity = useMemo(() => {
+    const list =
+      activityFilter === "all"
+        ? [...activity]
+        : activity.filter((e) => e.kind === activityFilter);
+    list.sort((a, b) => {
+      const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return activitySortDesc ? tb - ta : ta - tb;
+    });
+    return list;
+  }, [activity, activityFilter, activitySortDesc]);
 
   const toggleAssigneeForCreate = useCallback((email: string, checked: boolean) => {
     const normalized = email.trim().toLowerCase();
@@ -476,6 +527,19 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
     [agentId, isOperations],
   );
 
+  const onPublishComment = useCallback(
+    async (bodyHtml: string) => {
+      const result = await createImplementationActivityComment(agentId, bodyHtml);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setActivity((prev) => [result.entry, ...prev]);
+      toast.success("Comentario publicado");
+    },
+    [agentId],
+  );
+
   const onSaveRepresentative = useCallback(
     async (taskId: string) => {
       const draft = repDraft[taskId];
@@ -533,7 +597,7 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
             <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground" />
           )}
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Checklist obligatoria
+            Checklist obligatorios
           </h3>
           {mandatoryCollapsed && mandatoryProgress.total > 0 && (
             <span className="text-xs text-muted-foreground">
@@ -768,6 +832,15 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
                           ? task.description
                           : "Sin descripción."}
                       </CardDescription>
+                      <p className="text-xs text-muted-foreground">
+                        Creada {formatDateTime(task.createdAt)}
+                        {task.createdByEmail ? (
+                          <>
+                            {" "}
+                            · {actorLabel(task.createdByEmail, growersByEmail)}
+                          </>
+                        ) : null}
+                      </p>
                     </div>
                     <Badge
                       variant={task.status === "completed" ? "secondary" : "default"}
@@ -990,6 +1063,100 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
               </Button>
             </CardFooter>
           </Card>
+        </div>
+      </section>
+
+      {/* Bitácora y comentarios */}
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Bitácora y comentarios
+          </h3>
+          <div className="flex flex-wrap items-center gap-1">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1 px-2"
+                    onClick={() => setActivitySortDesc((d) => !d)}
+                    aria-label={activitySortDesc ? "Orden: más recientes primero" : "Orden: más antiguos primero"}
+                  >
+                    {activitySortDesc ? (
+                      <ArrowDownWideNarrowIcon className="size-4" />
+                    ) : (
+                      <ArrowUpWideNarrowIcon className="size-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent sideOffset={6}>
+                  {activitySortDesc ? "Más recientes arriba" : "Más antiguos arriba"}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <div className="flex items-center gap-1 rounded-md border bg-background px-2 py-0.5">
+              <FilterIcon className="size-3.5 text-muted-foreground" aria-hidden />
+              <select
+                className="h-7 max-w-[140px] border-0 bg-transparent text-xs outline-none"
+                value={activityFilter}
+                onChange={(e) =>
+                  setActivityFilter(e.target.value as "all" | "comment" | "system")
+                }
+                aria-label="Filtrar bitácora"
+              >
+                <option value="all">Todos</option>
+                <option value="comment">Comentarios</option>
+                <option value="system">Registros</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div className="relative space-y-0 border-l border-border pl-4 ml-1.5">
+          {filteredActivity.length === 0 ? (
+            <p className="pb-2 text-sm text-muted-foreground pl-1">
+              No hay entradas en la bitácora todavía.
+            </p>
+          ) : (
+            filteredActivity.map((entry) => {
+              const isComment = entry.kind === "comment";
+              const Icon = isComment ? MessageSquareIcon : Settings2Icon;
+              const when = formatDateTime(entry.createdAt);
+              const who = actorLabel(entry.actorEmail, growersByEmail);
+              return (
+                <div key={entry.id} className="relative pb-6 last:pb-2">
+                  <span className="absolute -left-[21px] top-0 flex size-7 items-center justify-center rounded-full border bg-muted">
+                    <Icon className="size-3.5 text-muted-foreground" aria-hidden />
+                  </span>
+                  <div className="space-y-1 pl-1">
+                    <p className="text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">{who}</span>
+                      {isComment ? " comentó" : " · registro automático"}
+                      <span className="text-muted-foreground"> · {when}</span>
+                    </p>
+                    {isComment && entry.bodyHtml ? (
+                      <div
+                        className="prose prose-sm max-w-none text-sm dark:prose-invert [&_a]:text-primary [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1"
+                        dangerouslySetInnerHTML={{ __html: entry.bodyHtml }}
+                      />
+                    ) : (
+                      <p className="text-sm text-foreground">{entry.summary ?? "—"}</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground">Agregar comentario</p>
+          <ImplementationActivityCommentEditor
+            disabled={loading}
+            onSubmit={onPublishComment}
+          />
         </div>
       </section>
 

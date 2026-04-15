@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import { FieldValue } from "firebase-admin/firestore";
 
 import { ApiErrors } from "@/lib/api-error";
+import { appendImplementationActivityEntry } from "@/services/implementation-activity.service";
 import type { AgentsInfoAuthContext } from "@/types/agents";
 import { resolveAgentWriteDatabase, userCanAccessAgent } from "@/utils/agents";
 import {
@@ -346,6 +347,16 @@ export async function updateAgentTool(
     const updatedSnap = await toolRef.get();
     const data = updatedSnap.data() as Record<string, unknown>;
     const result = parseToolDoc(toolId, { ...data, id: toolId });
+
+    const fieldKeys = Object.keys(updates).filter((k) => k !== "updatedAt");
+    void appendImplementationActivityEntry(database, agentId, {
+      kind: "system",
+      actorEmail: authCtx.userEmail?.toLowerCase().trim() ?? null,
+      action: "tool_updated",
+      summary: `Actualizó la herramienta (${toolId}).`,
+      metadata: { toolId, fields: fieldKeys },
+    });
+
     return c.json(result);
   } catch (error) {
     const r = handleFs(c, error, "[agent-tools PATCH]");

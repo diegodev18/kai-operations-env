@@ -7,6 +7,7 @@ import {
 } from "@/constants/agentPropertyDefaults";
 import { getFirestore } from "@/lib/firestore";
 import type { AgentsInfoAuthContext } from "@/types/agents";
+import { appendImplementationActivityEntry } from "@/services/implementation-activity.service";
 import {
   extractFirestoreIndexUrl,
   firestoreFailureHint,
@@ -190,6 +191,15 @@ export async function updateTestingPropertyDocument(
 
     const docRef = testingDataRef.collection("properties").doc(documentId);
     await docRef.set(body as Record<string, unknown>, { merge: true });
+
+    const actorEmail = authCtx.userEmail?.toLowerCase().trim() ?? null;
+    void appendImplementationActivityEntry(db, agentId, {
+      kind: "system",
+      actorEmail,
+      action: "testing_properties_updated",
+      summary: `Actualizó propiedades de testing (${documentId}).`,
+      metadata: { documentId },
+    });
 
     return c.json({ documentId, success: true });
   } catch (error) {

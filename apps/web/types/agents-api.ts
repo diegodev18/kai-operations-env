@@ -37,6 +37,20 @@ export type ImplementationTask = {
   representativePhone?: string | null;
 };
 
+export type ImplementationActivityKind = "comment" | "system";
+
+export type ImplementationActivityEntry = {
+  id: string;
+  kind: ImplementationActivityKind;
+  createdAt: string | null;
+  actorEmail: string | null;
+  format?: "html";
+  bodyHtml?: string;
+  action?: string;
+  summary?: string;
+  metadata?: Record<string, unknown>;
+};
+
 /** Respuesta de GET .../whatsapp-integration-status (sin datos sensibles). */
 export type WhatsappIntegrationStatusItem = {
   id: string;

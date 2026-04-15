@@ -13,6 +13,7 @@ import {
   runSystemPromptGenerationJob,
   setSystemPromptGeneratingFlags,
 } from "@/services/system-prompt-generation-job";
+import { appendImplementationActivityEntry } from "@/services/implementation-activity.service";
 import type { AgentsInfoAuthContext } from "@/types/agents";
 import {
   getAgentDeploymentFlags,
@@ -444,6 +445,14 @@ export async function updateAgentPrompt(
       ),
     ]);
 
+    const actorEmail = authCtx.userEmail?.toLowerCase().trim() ?? null;
+    void appendImplementationActivityEntry(database, agentId, {
+      kind: "system",
+      actorEmail,
+      action: "prompt_updated",
+      summary: "Actualizó el system prompt.",
+    });
+
     return c.json({ prompt, success: true });
   } catch (error) {
     const r = handleFirestoreError(c, error, "[agents/:id/prompt PATCH]");
@@ -562,6 +571,15 @@ export async function promotePromptToProduction(
         "mcp_configuration.system_prompt": prompt,
       }),
     ]);
+
+    const actorEmail = authCtx.userEmail?.toLowerCase().trim() ?? null;
+    void appendImplementationActivityEntry(prod, agentId, {
+      kind: "system",
+      actorEmail,
+      action: "prompt_promoted_to_production",
+      summary: "Promovió el system prompt a producción.",
+      ...(hasAuth ? { metadata: { includesAuthVariants: true } } : {}),
+    });
 
     return c.json({ ok: true });
   } catch (error) {

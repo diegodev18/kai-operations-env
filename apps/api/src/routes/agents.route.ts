@@ -51,6 +51,10 @@ import {
   getImplementationTasks,
   patchImplementationTask,
 } from "@/controllers/agents-implementation-tasks.controller";
+import {
+  createImplementationActivityComment,
+  getImplementationActivity,
+} from "@/controllers/agents-implementation-activity.controller";
 import { getWhatsappIntegrationStatus } from "@/controllers/agents-whatsapp-integration.controller";
 import {
   postPromoteToProduction,
@@ -522,6 +526,26 @@ agentsRouter.patch("/:agentId/implementation-tasks/:taskId", async (c) => {
     return c.json({ error: "Agente o tarea no encontrado" }, 404);
   }
   return patchImplementationTask(c, ctx.authCtx, agentId, taskId);
+});
+
+agentsRouter.get("/:agentId/implementation-activity", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return getImplementationActivity(c, ctx.authCtx, agentId);
+});
+
+agentsRouter.post("/:agentId/implementation-activity", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return createImplementationActivityComment(c, ctx.authCtx, agentId);
 });
 
 agentsRouter.post("/:agentId/assign-to-user", async (c) => {
