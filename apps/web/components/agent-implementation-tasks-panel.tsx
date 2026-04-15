@@ -13,11 +13,6 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   UserCircleIcon,
-  MessageSquareIcon,
-  Settings2Icon,
-  ArrowDownWideNarrowIcon,
-  ArrowUpWideNarrowIcon,
-  FilterIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -50,18 +45,15 @@ import {
 } from "@/components/ui/tooltip";
 import type {
   AgentGrowerRow,
-  ImplementationActivityEntry,
   ImplementationTask,
   ImplementationTaskAttachment,
   WhatsappIntegrationStatusItem,
 } from "@/types/agents-api";
 import type { AgentBilling } from "@/lib/agent";
 import {
-  createImplementationActivityComment,
   createImplementationTask,
   fetchAgentBilling,
   fetchAgentGrowers,
-  fetchImplementationActivity,
   fetchImplementationTasks,
   fetchWhatsappIntegrationStatus,
   patchAgentBillingConfig,
@@ -71,7 +63,6 @@ import {
   FileUploadButton,
   AttachmentList,
 } from "@/components/file-upload-button";
-import { ImplementationActivityCommentEditor } from "@/components/implementation-activity-comment-editor";
 import { useUserRole } from "@/hooks/useUserRole";
 
 function toDateInputValue(value?: string | null): string {
@@ -199,19 +190,13 @@ export function AgentImplementationTasksPanel({
   const [repDraft, setRepDraft] = useState<
     Record<string, { email: string; phone: string }>
   >({});
-  const [activity, setActivity] = useState<ImplementationActivityEntry[]>([]);
-  const [activityFilter, setActivityFilter] = useState<
-    "all" | "comment" | "system"
-  >("all");
-  const [activitySortDesc, setActivitySortDesc] = useState(true);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [tasksRes, growersRes, activityRes] = await Promise.all([
+      const [tasksRes, growersRes] = await Promise.all([
         fetchImplementationTasks(agentId),
         fetchAgentGrowers(agentId),
-        fetchImplementationActivity(agentId),
       ]);
       if (tasksRes == null) {
         toast.error("No se pudieron cargar las tareas");
@@ -223,14 +208,6 @@ export function AgentImplementationTasksPanel({
         setGrowers([]);
       } else {
         setGrowers(Array.isArray(growersRes.growers) ? growersRes.growers : []);
-      }
-      if (activityRes == null) {
-        toast.error("No se pudo cargar la bitácora");
-        setActivity([]);
-      } else {
-        setActivity(
-          Array.isArray(activityRes.entries) ? activityRes.entries : [],
-        );
       }
     } finally {
       setLoading(false);
@@ -395,19 +372,6 @@ export function AgentImplementationTasksPanel({
         }),
     [tasks],
   );
-
-  const filteredActivity = useMemo(() => {
-    const list =
-      activityFilter === "all"
-        ? [...activity]
-        : activity.filter((e) => e.kind === activityFilter);
-    list.sort((a, b) => {
-      const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return activitySortDesc ? tb - ta : ta - tb;
-    });
-    return list;
-  }, [activity, activityFilter, activitySortDesc]);
 
   const toggleAssigneeForCreate = useCallback(
     (email: string, checked: boolean) => {
@@ -593,22 +557,6 @@ export function AgentImplementationTasksPanel({
       }
     },
     [agentId, isOperations],
-  );
-
-  const onPublishComment = useCallback(
-    async (bodyHtml: string) => {
-      const result = await createImplementationActivityComment(
-        agentId,
-        bodyHtml,
-      );
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      setActivity((prev) => [result.entry, ...prev]);
-      toast.success("Comentario publicado");
-    },
-    [agentId],
   );
 
   const onSaveRepresentative = useCallback(
@@ -1168,128 +1116,6 @@ export function AgentImplementationTasksPanel({
               </Button>
             </CardFooter>
           </Card>
-        </div>
-      </section>
-
-      {/* Bitácora y comentarios */}
-      <section className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Bitácora y comentarios
-          </h3>
-          <div className="flex flex-wrap items-center gap-1">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8 gap-1 px-2"
-                    onClick={() => setActivitySortDesc((d) => !d)}
-                    aria-label={
-                      activitySortDesc
-                        ? "Orden: más recientes primero"
-                        : "Orden: más antiguos primero"
-                    }
-                  >
-                    {activitySortDesc ? (
-                      <ArrowDownWideNarrowIcon className="size-4" />
-                    ) : (
-                      <ArrowUpWideNarrowIcon className="size-4" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent sideOffset={6}>
-                  {activitySortDesc
-                    ? "Más recientes arriba"
-                    : "Más antiguos arriba"}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <div className="flex items-center gap-1 rounded-md border bg-background px-2 py-0.5">
-              <FilterIcon
-                className="size-3.5 text-muted-foreground"
-                aria-hidden
-              />
-              <select
-                className="h-7 max-w-[140px] border-0 bg-transparent text-xs outline-none"
-                value={activityFilter}
-                onChange={(e) =>
-                  setActivityFilter(
-                    e.target.value as "all" | "comment" | "system",
-                  )
-                }
-                aria-label="Filtrar bitácora"
-              >
-                <option value="all">Todos</option>
-                <option value="comment">Comentarios</option>
-                <option value="system">Registros</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {filteredActivity.length === 0 ? (
-          <p className="pb-2 text-sm text-muted-foreground">
-            No hay entradas en la bitácora todavía.
-          </p>
-        ) : (
-          <div className="relative flex flex-col">
-            {/* Centro de columna w-7 = mitad de 1.75rem; la línea coincide con el centro del círculo */}
-            <div
-              className="pointer-events-none absolute top-2 bottom-2 left-[0.875rem] z-0 w-px -translate-x-1/2 bg-border"
-              aria-hidden
-            />
-            {filteredActivity.map((entry) => {
-              const isComment = entry.kind === "comment";
-              const Icon = isComment ? MessageSquareIcon : Settings2Icon;
-              const when = formatDateTime(entry.createdAt);
-              const who = actorLabel(entry.actorEmail, growersByEmail);
-              return (
-                <div
-                  key={entry.id}
-                  className="relative z-10 flex gap-3 pb-6 last:pb-2"
-                >
-                  <div className="flex w-7 shrink-0 justify-center pt-0.5">
-                    <span className="flex size-7 shrink-0 items-center justify-center rounded-full border bg-muted ring-2 ring-background">
-                      <Icon
-                        className="size-3.5 text-muted-foreground"
-                        aria-hidden
-                      />
-                    </span>
-                  </div>
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <p className="text-xs text-muted-foreground">
-                      <span className="font-medium text-foreground">{who}</span>
-                      {isComment ? " comentó" : " · registro automático"}
-                      <span className="text-muted-foreground"> · {when}</span>
-                    </p>
-                    {isComment && entry.bodyHtml ? (
-                      <div
-                        className="prose prose-sm max-w-none text-sm dark:prose-invert [&_a]:text-primary [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1"
-                        dangerouslySetInnerHTML={{ __html: entry.bodyHtml }}
-                      />
-                    ) : (
-                      <p className="text-sm text-foreground">
-                        {entry.summary ?? "—"}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground">
-            Agregar comentario
-          </p>
-          <ImplementationActivityCommentEditor
-            disabled={loading}
-            onSubmit={onPublishComment}
-          />
         </div>
       </section>
 

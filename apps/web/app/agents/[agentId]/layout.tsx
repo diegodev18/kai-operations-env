@@ -21,6 +21,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { UserMenu } from "@/components/user-menu";
+import { AgentActivitySheet } from "@/components/agent-activity-sheet";
 import { useAuth } from "@/hooks/auth";
 import { cn } from "@/lib/utils";
 import {
@@ -294,6 +295,7 @@ export default function AgentDetailLayout({
                 </p>
               </TooltipContent>
             </Tooltip>
+              <AgentActivitySheet agentId={agentId} />
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button

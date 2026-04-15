@@ -18,7 +18,10 @@ type Props = {
   onSubmit: (html: string) => void | Promise<void>;
 };
 
-export function ImplementationActivityCommentEditor({ disabled, onSubmit }: Props) {
+export function ImplementationActivityCommentEditor({
+  disabled,
+  onSubmit,
+}: Props) {
   const [submitting, setSubmitting] = useState(false);
 
   const editor = useEditor({
@@ -56,7 +59,9 @@ export function ImplementationActivityCommentEditor({ disabled, onSubmit }: Prop
           variant={editor.isActive("bold") ? "secondary" : "ghost"}
           size="sm"
           className="h-8 w-8 p-0"
-          disabled={disabled || !editor.can().chain().focus().toggleBold().run()}
+          disabled={
+            disabled || !editor.can().chain().focus().toggleBold().run()
+          }
           onClick={() => editor.chain().focus().toggleBold().run()}
           aria-label="Negrita"
         >
@@ -67,7 +72,9 @@ export function ImplementationActivityCommentEditor({ disabled, onSubmit }: Prop
           variant={editor.isActive("italic") ? "secondary" : "ghost"}
           size="sm"
           className="h-8 w-8 p-0"
-          disabled={disabled || !editor.can().chain().focus().toggleItalic().run()}
+          disabled={
+            disabled || !editor.can().chain().focus().toggleItalic().run()
+          }
           onClick={() => editor.chain().focus().toggleItalic().run()}
           aria-label="Cursiva"
         >
@@ -78,7 +85,9 @@ export function ImplementationActivityCommentEditor({ disabled, onSubmit }: Prop
           variant={editor.isActive("strike") ? "secondary" : "ghost"}
           size="sm"
           className="h-8 w-8 p-0"
-          disabled={disabled || !editor.can().chain().focus().toggleStrike().run()}
+          disabled={
+            disabled || !editor.can().chain().focus().toggleStrike().run()
+          }
           onClick={() => editor.chain().focus().toggleStrike().run()}
           aria-label="Tachado"
         >
