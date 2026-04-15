@@ -64,6 +64,24 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] = 
 ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.3.9": {
+    date: "2026-04-14",
+    description:
+      "Tareas de implementación: checklist obligatoria, cobranza, WhatsApp y representante",
+    changes: {
+      added: [
+        "API `GET /api/agents/:agentId/whatsapp-integration-status`: lista integraciones WhatsApp por `agentDocId` (sin datos sensibles), consumida por el panel de tareas.",
+        "Tarea obligatoria «Correo o teléfono del representante» con campos `representativeEmail` / `representativePhone` persistidos en la tarea (validación al marcar completada).",
+        "En `next.config.ts`, comentario de referencia junto al rewrite de `/api/agents/*` documentando la ruta de estado de integración WhatsApp.",
+      ],
+      changed: [
+        "Checklist obligatoria del agente: textos alineados (adjuntar cotización, constancia de situación fiscal, domiciliación vinculada a `billing/main` como en la Home).",
+        "Operaciones (admin/comercial): checkbox de cliente domiciliado en la fila de domiciliación; la tarea se sincroniza con cobranza (domiciliado o fecha límite de pago). Growers ven solo texto informativo.",
+        "Adjuntos de archivo visibles para cotización y CSF; detección automática del número conectado (polling) y marcado de la tarea «Conectar número» cuando `setupStatus` es `completed`.",
+        "Tras cada `GET` de tareas de implementación, los documentos obligatorios existentes actualizan título y descripción si cambió la plantilla en servidor.",
+      ],
+    },
+  },
   "2.3.8": {
     date: "2026-04-14",
     description:
