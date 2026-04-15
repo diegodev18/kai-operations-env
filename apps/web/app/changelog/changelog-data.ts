@@ -64,6 +64,20 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] = 
 ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.4.9": {
+    date: "2026-04-15",
+    description:
+      "Constructor de agentes: sin presets de personalidad (UI y plantillas)",
+    changes: {
+      removed: [
+        "Bloque «¿Quieres empezar con un preset?» y la cuadrícula de presets (ventas, soporte, admin, concierge) en el paso Personalidad de `agent-form-builder.tsx`.",
+        "Constante `PERSONALITY_PRESETS` y el tipo `PersonalityPreset` en `lib/form-builder-constants.ts`.",
+      ],
+      changed: [
+        "Al elegir una plantilla inicial (excepto «Empezar desde cero»), la personalidad queda vacía para rellenarla a mano; emojis en modo moderado y sin rasgos preseleccionados (antes se copiaban desde el preset asociado a cada plantilla).",
+      ],
+    },
+  },
   "2.4.8": {
     date: "2026-04-15",
     description:
