@@ -38,6 +38,55 @@ function handleFirestoreError(c: Context, error: unknown, logPrefix: string) {
   return c.json({ error: "Error al acceder a Firestore." }, 500);
 }
 
+const TESTING_PATCH_SKIP_KEYS = new Set(["_createdAt", "_updatedAt"]);
+
+function isPlainRecord(v: unknown): v is Record<string, unknown> {
+  return (
+    v !== null &&
+    typeof v === "object" &&
+    !Array.isArray(v) &&
+    Object.getPrototypeOf(v) === Object.prototype
+  );
+}
+
+/**
+ * Rutas tipo `isMultiMessageEnable` o `mcp_configuration.model` a partir del JSON del PATCH (merge).
+ */
+function collectTestingPropertyPatchPaths(body: Record<string, unknown>): string[] {
+  const out: string[] = [];
+
+  function walk(node: unknown, prefix: string): void {
+    if (node === null || node === undefined) {
+      if (prefix) out.push(prefix);
+      return;
+    }
+    if (Array.isArray(node)) {
+      if (prefix) out.push(prefix);
+      return;
+    }
+    if (!isPlainRecord(node)) {
+      if (prefix) out.push(prefix);
+      return;
+    }
+    const entries = Object.entries(node).filter(([k]) => !TESTING_PATCH_SKIP_KEYS.has(k));
+    if (entries.length === 0) {
+      if (prefix) out.push(prefix);
+      return;
+    }
+    for (const [k, v] of entries) {
+      const next = prefix ? `${prefix}.${k}` : k;
+      if (isPlainRecord(v)) {
+        walk(v, next);
+      } else {
+        out.push(next);
+      }
+    }
+  }
+
+  walk(body, "");
+  return [...new Set(out)].sort();
+}
+
 function mergeWithDefaults<T extends PropertyDocId>(
   docId: T,
   data: Record<string, unknown> | undefined,
@@ -190,16 +239,36 @@ export async function updateTestingPropertyDocument(
     }
 
     const docRef = testingDataRef.collection("properties").doc(documentId);
-    await docRef.set(body as Record<string, unknown>, { merge: true });
+    const bodyObj = body as Record<string, unknown>;
+    await docRef.set(bodyObj, { merge: true });
 
+    const patchPaths = collectTestingPropertyPatchPaths(bodyObj);
     const actorEmail = authCtx.userEmail?.toLowerCase().trim() ?? null;
-    void appendImplementationActivityEntry(db, agentId, {
-      kind: "system",
-      actorEmail,
-      action: "testing_properties_updated",
-      summary: `Actualizó propiedades de testing (${documentId}).`,
-      metadata: { documentId },
-    });
+
+    // Más de 2 propiedades en un mismo PATCH: un registro de bitácora por cada ruta.
+    if (patchPaths.length > 2) {
+      for (const p of patchPaths) {
+        void appendImplementationActivityEntry(db, agentId, {
+          kind: "system",
+          actorEmail,
+          action: "testing_properties_updated",
+          summary: `Actualizó propiedades de testing (${documentId} -> ${p}).`,
+          metadata: { documentId, fields: [p] },
+        });
+      }
+    } else {
+      const detail =
+        patchPaths.length > 0
+          ? patchPaths.map((path) => `${documentId} -> ${path}`).join(", ")
+          : documentId;
+      void appendImplementationActivityEntry(db, agentId, {
+        kind: "system",
+        actorEmail,
+        action: "testing_properties_updated",
+        summary: `Actualizó propiedades de testing (${detail}).`,
+        metadata: { documentId, fields: patchPaths },
+      });
+    }
 
     return c.json({ documentId, success: true });
   } catch (error) {

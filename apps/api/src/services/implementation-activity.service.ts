@@ -9,6 +9,10 @@ export type ImplementationActivityAction =
   | "prompt_updated"
   | "prompt_promoted_to_production"
   | "testing_properties_updated"
+  | "tool_created"
+  | "tool_deleted"
+  | "tool_disabled"
+  | "tool_enabled"
   | "tool_updated"
   | "billing_config_updated";
 

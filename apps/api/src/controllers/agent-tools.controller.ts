@@ -100,6 +100,29 @@ function parseToolDoc(
   };
 }
 
+const TOOL_FIELD_LABELS_ES: Record<string, string> = {
+  name: "nombre interno",
+  description: "descripción",
+  type: "tipo",
+  parameters: "parámetros",
+  properties: "propiedades",
+  crmConfig: "CRM",
+  required_agent_properties: "propiedades de agente requeridas",
+  displayName: "nombre para mostrar",
+  path: "ruta",
+  enabled: "activación",
+};
+
+function toolDisplayLabel(toolId: string, data: Record<string, unknown>): string {
+  const parsed = parseToolDoc(toolId, data);
+  const label = parsed.displayName?.trim() || parsed.name?.trim();
+  return label.length > 0 ? label : toolId;
+}
+
+function spanishToolFieldLabels(keys: string[]): string {
+  return keys.map((k) => TOOL_FIELD_LABELS_ES[k] ?? k).join(", ");
+}
+
 export async function getAgentTools(
   c: Context,
   authCtx: AgentsInfoAuthContext,
@@ -236,6 +259,15 @@ export async function createAgentTool(
     const ref = await toolsRef.add(toolData);
     await ref.update({ id: ref.id });
 
+    const createdLabel = (displayName?.trim() || name).slice(0, 200);
+    void appendImplementationActivityEntry(database, agentId, {
+      kind: "system",
+      actorEmail: authCtx.userEmail?.toLowerCase().trim() ?? null,
+      action: "tool_created",
+      summary: `Agregó la herramienta «${createdLabel}».`,
+      metadata: { toolId: ref.id, name },
+    });
+
     const created = parseToolDoc(ref.id, { ...toolData, id: ref.id });
     return c.json(created, 201);
   } catch (error) {
@@ -343,19 +375,46 @@ export async function updateAgentTool(
       return ApiErrors.notFound(c, "Tool no encontrada");
     }
 
+    const existingData = toolSnap.data() as Record<string, unknown>;
+    const labelBefore = toolDisplayLabel(toolId, existingData);
+
     await toolRef.update(updates);
     const updatedSnap = await toolRef.get();
     const data = updatedSnap.data() as Record<string, unknown>;
     const result = parseToolDoc(toolId, { ...data, id: toolId });
 
     const fieldKeys = Object.keys(updates).filter((k) => k !== "updatedAt");
-    void appendImplementationActivityEntry(database, agentId, {
-      kind: "system",
-      actorEmail: authCtx.userEmail?.toLowerCase().trim() ?? null,
-      action: "tool_updated",
-      summary: `Actualizó la herramienta (${toolId}).`,
-      metadata: { toolId, fields: fieldKeys },
-    });
+    const actorEmail = authCtx.userEmail?.toLowerCase().trim() ?? null;
+
+    if (
+      fieldKeys.length === 1 &&
+      fieldKeys[0] === "enabled" &&
+      typeof updates.enabled === "boolean"
+    ) {
+      const on = updates.enabled;
+      void appendImplementationActivityEntry(database, agentId, {
+        kind: "system",
+        actorEmail,
+        action: on ? "tool_enabled" : "tool_disabled",
+        summary: on
+          ? `Activó la herramienta «${labelBefore}».`
+          : `Desactivó la herramienta «${labelBefore}».`,
+        metadata: { toolId, name: parseToolDoc(toolId, existingData).name },
+      });
+    } else {
+      const labelAfter = toolDisplayLabel(toolId, data);
+      const parts = spanishToolFieldLabels(fieldKeys);
+      const summary = parts
+        ? `Modificó la herramienta «${labelAfter}» (${parts}).`
+        : `Modificó la herramienta «${labelAfter}».`;
+      void appendImplementationActivityEntry(database, agentId, {
+        kind: "system",
+        actorEmail,
+        action: "tool_updated",
+        summary,
+        metadata: { toolId, fields: fieldKeys },
+      });
+    }
 
     return c.json(result);
   } catch (error) {
@@ -390,7 +449,19 @@ export async function deleteAgentTool(
       return ApiErrors.notFound(c, "Tool no encontrada");
     }
 
+    const deletedData = toolSnap.data() as Record<string, unknown>;
+    const deletedLabel = toolDisplayLabel(toolId, deletedData);
+
     await toolRef.delete();
+
+    void appendImplementationActivityEntry(database, agentId, {
+      kind: "system",
+      actorEmail: authCtx.userEmail?.toLowerCase().trim() ?? null,
+      action: "tool_deleted",
+      summary: `Eliminó la herramienta «${deletedLabel}».`,
+      metadata: { toolId, name: parseToolDoc(toolId, deletedData).name },
+    });
+
     return c.json({ success: true });
   } catch (error) {
     const r = handleFs(c, error, "[agent-tools DELETE]");
