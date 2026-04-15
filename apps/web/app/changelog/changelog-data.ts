@@ -64,6 +64,21 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] = 
 ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.4.10": {
+    date: "2026-04-15",
+    description:
+      "Constructor de agentes: paso Avanzado alineado con la configuración técnica del agente",
+    changes: {
+      added: [
+        "En el paso **Avanzado** del constructor (`agent-form-builder.tsx`): modelo LLM y temperatura, tiempo de espera antes de procesar (`response.waitTime`), activar memoria conversacional (`isMemoryEnable`), partir la respuesta en varios mensajes (`isMultiMessageResponseEnable`), agente validador y reintentos MCP (`isValidatorAgentEnable`, `mcp.maxRetries`), mensaje cuando el envío no es soportado (`answer.notSupport`), y **Requiere autenticación** (sincronizado con `agent.isAuthEnable` al crear el borrador).",
+        "API y utilidad `applyBuilderAdvancedProperties` (`apps/api/src/utils/apply-builder-advanced-properties.ts`): tras el PATCH `step: business` se fusionan `properties/*` y `testing/data/properties/*` (incl. `prompt.model` / `temperature` alineados con `ai`), y `time.zone` se deriva de `business_timezone` del paso Negocio.",
+        "Campos opcionales en el cuerpo del PATCH de borrador `business` (Zod en API y `packages/shared`, tipos en `apps/web/types/agents-api.ts`).",
+      ],
+      removed: [
+        "Controles quitados del paso Avanzado (siguen disponibles en el editor de configuración del agente cuando aplique): máximo de llamadas a herramientas por turno, lista blanca (`limitation`), horario de atención y `operating_hours` enviados vacíos desde el constructor, aviso de «Zona horaria del agente», y cantidad máxima de recuerdos (`memory.limit`).",
+      ],
+    },
+  },
   "2.4.9": {
     date: "2026-04-15",
     description:
