@@ -1252,19 +1252,23 @@ export function OperationsDashboard(props: {
                           {isAdmin ? (
                             <td className="p-3">
                               {agent.status === "archived" ? (
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="gap-1"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    void submitArchiveStatusChange(agent.id, "active");
-                                  }}
-                                >
-                                  <ArchiveRestoreIcon className="size-3.5" />
-                                  Desarchivar
-                                </Button>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="icon-sm"
+                                      aria-label="Desarchivar"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        void submitArchiveStatusChange(agent.id, "active");
+                                      }}
+                                    >
+                                      <ArchiveRestoreIcon className="size-3.5" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Desarchivar</TooltipContent>
+                                </Tooltip>
                               ) : (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
