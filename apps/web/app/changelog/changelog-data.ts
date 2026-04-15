@@ -64,6 +64,36 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] = 
 ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.4.5": {
+    date: "2026-04-15",
+    description:
+      "Atlas instalable: íconos y manifest web para agregar al Dock o pantalla de inicio",
+    changes: {
+      added: [
+        "Archivo `app/manifest.ts` con nombre corto, modo `standalone`, colores de tema y referencias a íconos PNG para instalación como aplicación web.",
+        "Assets `icon-192.png`, `icon-512.png` y `apple-touch-icon.png` en `public/`, generados a partir del favicon SVG para Safari y otros clientes que no usan solo SVG.",
+      ],
+      changed: [
+        "Metadatos de íconos en `app/layout.tsx`: favicon SVG más variantes PNG y `apple-touch-icon` para que «Agregar al Dock» / añadir a inicio muestren el ícono correcto.",
+      ],
+    },
+  },
+  "2.4.4": {
+    date: "2026-04-15",
+    description:
+      "Testing Data: ID de documento configurable al crear, validación de duplicados y generación aleatoria",
+    changes: {
+      added: [
+        "En la página de datos de testing (`/agents/[agentId]/testing-data`), al crear un documento se puede indicar el ID del documento de forma explícita.",
+        "Botón «ID aleatorio» que rellena el campo con un identificador único (equivalente al comportamiento anterior de ID autogenerado por el servidor).",
+        "Validación en cliente: si el ID ya existe en la colección actual, se muestra un aviso y no se crea el documento.",
+        "El cuerpo de `POST` hacia testing data admite `docId` opcional; si se envía vacío o el documento ya existe, la API responde con error claro (`409` en caso de duplicado).",
+      ],
+      changed: [
+        "La creación de documentos en `testing/data` deja de depender únicamente de un ID generado en servidor cuando el usuario elige definir el ID manualmente.",
+      ],
+    },
+  },
   "2.4.3": {
     date: "2026-04-15",
     description:
