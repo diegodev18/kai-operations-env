@@ -306,6 +306,11 @@ export function AgentActivitySheet({ agentId }: { agentId: string }) {
                     (entry.actorEmail?.trim().toLowerCase() ?? null) === currentUserEmail;
                   const isHovered = hoveredEntryId === entry.id;
                   const isHidden = entry.hidden === true;
+
+                  if (isComment && isHidden && !isOwnComment) {
+                    return null;
+                  }
+
                   const when = formatDateTime(entry.createdAt);
                   const who = actorLabel(entry.actorEmail, growersByEmail);
                   return (
@@ -369,7 +374,7 @@ export function AgentActivitySheet({ agentId }: { agentId: string }) {
                         </p>
                         {isComment && isHidden ? (
                           <p className="text-sm italic text-muted-foreground">
-                            Comentario oculto por su autor.
+                            Ocultaste este mensaje.
                           </p>
                         ) : isComment && entry.bodyHtml ? (
                           <div
