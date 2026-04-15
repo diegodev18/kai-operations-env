@@ -51,12 +51,17 @@ function actorLabel(
 }
 
 export function AgentActivitySheet({ agentId }: { agentId: string }) {
+  const MIN_SHEET_WIDTH = 420;
+  const MAX_SHEET_WIDTH = 980;
+
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [entries, setEntries] = useState<ImplementationActivityEntry[]>([]);
   const [growers, setGrowers] = useState<AgentGrowerRow[]>([]);
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
   const [activitySortDesc, setActivitySortDesc] = useState(false);
+  const [sheetWidth, setSheetWidth] = useState(560);
+  const [isResizing, setIsResizing] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
 
   const growersByEmail = useMemo(() => {
@@ -136,6 +141,35 @@ export function AgentActivitySheet({ agentId }: { agentId: string }) {
     }
   };
 
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const onPointerMove = (event: PointerEvent) => {
+      const viewportWidth = window.innerWidth;
+      const nextWidth = Math.max(
+        MIN_SHEET_WIDTH,
+        Math.min(MAX_SHEET_WIDTH, viewportWidth - event.clientX),
+      );
+      setSheetWidth(nextWidth);
+    };
+
+    const onPointerUp = () => {
+      setIsResizing(false);
+    };
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+  }, [isResizing]);
+
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <Tooltip>
@@ -151,7 +185,24 @@ export function AgentActivitySheet({ agentId }: { agentId: string }) {
         </TooltipContent>
       </Tooltip>
 
-      <SheetContent side="right" className="w-full sm:max-w-lg">
+      <SheetContent
+        side="right"
+        className="w-full sm:max-w-none"
+        style={{
+          width: `min(100vw, ${sheetWidth}px)`,
+          maxWidth: "100vw",
+        }}
+      >
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Redimensionar panel"
+          className="absolute top-0 bottom-0 left-0 z-20 hidden w-2 cursor-col-resize bg-transparent transition-colors hover:bg-border/60 sm:block"
+          onPointerDown={(event) => {
+            event.preventDefault();
+            setIsResizing(true);
+          }}
+        />
         <SheetHeader>
           <SheetTitle>Bitácora y comentarios</SheetTitle>
           <SheetDescription>
