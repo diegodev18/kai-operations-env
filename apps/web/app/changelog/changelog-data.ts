@@ -64,6 +64,21 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] = 
 ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.4.6": {
+    date: "2026-04-15",
+    description:
+      "Constructor de agentes: contexto de tools obligatorias en preguntas de flujo y prompts en inglés",
+    changes: {
+      added: [
+        "Paquete `@kai/shared`: constantes `AGENT_BUILDER_MANDATORY_TOOL_NAMES` y `AGENT_BUILDER_MANDATORY_TOOLS_LLM_CONTEXT` (texto para el modelo sobre capacidades siempre incluidas: base de conocimiento y escalamiento a soporte).",
+        "El endpoint de generación de preguntas de flujo (`/api/agents/builder/flow-questions`) incorpora ese contexto y reglas explícitas para no repetir temas ya cubiertos por `escalation_rules` ni preguntar si el asistente «puede» usar conocimiento o escalar (ya están garantizados).",
+      ],
+      changed: [
+        "Recomendación de herramientas y el formulario de construcción de agentes usan la misma lista de tools obligatorias desde `@kai/shared` en lugar de arrays duplicados.",
+        "Instrucciones del modelo para flow-questions redactadas en inglés; el JSON generado sigue exigiendo etiquetas, opciones y sugerencias en español latinoamericano para el usuario final.",
+      ],
+    },
+  },
   "2.4.5": {
     date: "2026-04-15",
     description:
