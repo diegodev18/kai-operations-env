@@ -215,39 +215,4 @@ router.post("/", async (c) => {
   }
 });
 
-router.delete("/:id", async (c) => {
-  const sessionUser = await getSessionUser(c);
-  if (!sessionUser?.id) {
-    return c.json({ error: "No autorizado" }, 401);
-  }
-
-  const resolved = await resolveUsersBuildersId(sessionUser.id);
-  if (!resolved.ok) {
-    return c.json({ error: resolved.error }, 400);
-  }
-
-  const id = c.req.param("id")?.trim();
-  if (!id) {
-    return c.json({ error: "ID inválido" }, 400);
-  }
-
-  try {
-    const fs = getFirestore();
-    const ref = fs.collection(BUILDER_COMPANIES_COLLECTION).doc(id);
-    const snap = await ref.get();
-    if (!snap.exists) {
-      return c.json({ error: "No encontrado" }, 404);
-    }
-    const d = snap.data() as Record<string, unknown>;
-    if (d.usersBuildersId !== resolved.usersBuildersId) {
-      return c.json({ error: "No autorizado" }, 403);
-    }
-    await ref.delete();
-    return c.json({ ok: true });
-  } catch (error) {
-    const r = firestoreJsonError(c, error, "[builder/saved-companies DELETE]");
-    return r ?? c.json({ error: "Error al eliminar." }, 500);
-  }
-});
-
 export default router;

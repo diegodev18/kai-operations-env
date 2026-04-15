@@ -398,32 +398,6 @@ export async function postSavedBuilderCompany(body: {
   return { ok: false, error: "Respuesta inválida del servidor" };
 }
 
-export async function deleteSavedBuilderCompany(
-  id: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  const res = await fetch(
-    `/api/builder/saved-companies/${encodeURIComponent(id)}`,
-    {
-      method: "DELETE",
-      credentials: "include",
-    },
-  );
-  let data: { ok?: boolean; error?: string } = {};
-  try {
-    data = (await res.json()) as typeof data;
-  } catch {
-    return { ok: false, error: "Respuesta inválida del servidor" };
-  }
-  if (!res.ok) {
-    return {
-      ok: false,
-      error: data.error ?? "No se pudo eliminar",
-    };
-  }
-  if (data.ok) return { ok: true };
-  return { ok: false, error: "Respuesta inválida del servidor" };
-}
-
 export async function postAgentDraft(body: {
   agent_name: string;
   agent_personality: string;

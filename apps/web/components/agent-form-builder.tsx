@@ -15,7 +15,6 @@ import {
   ListChecks,
   GripVerticalIcon,
   PlusIcon,
-  TrashIcon,
   PencilIcon,
   HomeIcon,
   ChevronDownIcon,
@@ -40,7 +39,6 @@ import {
   fetchAgentFlowQuestions,
   fetchSavedBuilderCompanies,
   postSavedBuilderCompany,
-  deleteSavedBuilderCompany,
   type ToolsCatalogItem,
   type DynamicQuestion,
   type BuilderCompanyPayload,
@@ -467,7 +465,10 @@ function SectionBusiness({
     if (!q) return savedCompanies;
     return savedCompanies.filter((c) => {
       if (c.name.toLowerCase().includes(q)) return true;
-      const blob = `${c.payload.businessName ?? ""} ${c.payload.industry ?? ""}`.toLowerCase();
+      const desc = (c.payload.description ?? "").toLowerCase();
+      if (desc.includes(q)) return true;
+      const blob =
+        `${c.payload.businessName ?? ""} ${c.payload.industry ?? ""}`.toLowerCase();
       return blob.includes(q);
     });
   }, [savedCompanies, savedSearch]);
@@ -506,19 +507,6 @@ function SectionBusiness({
     }
   }, [state, onBusinessProfileSaved]);
 
-  const handleDeleteSavedCompany = useCallback(
-    async (id: string) => {
-      const res = await deleteSavedBuilderCompany(id);
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-      toast.success("Empresa eliminada");
-      setSavedCompanies((prev) => prev.filter((x) => x.id !== id));
-    },
-    [],
-  );
-
   return (
     <div className="space-y-4">
       <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
@@ -556,7 +544,7 @@ function SectionBusiness({
             >
               <div className="border-b border-border p-2">
                 <Input
-                  placeholder="Filtrar por nombre…"
+                  placeholder="Filtrar por nombre o descripción…"
                   value={savedSearch}
                   onChange={(e) => setSavedSearch(e.target.value)}
                   className="h-9"
@@ -571,33 +559,24 @@ function SectionBusiness({
                       : "Sin coincidencias."}
                   </p>
                 ) : (
-                  filteredSavedCompanies.map((c) => (
-                    <div
-                      key={c.id}
-                      className="flex items-center gap-1 rounded-md px-1 py-0.5 hover:bg-accent/50"
-                    >
+                  filteredSavedCompanies.map((c) => {
+                    const desc = (c.payload.description ?? "").trim();
+                    return (
                       <button
+                        key={c.id}
                         type="button"
-                        className="min-w-0 flex-1 truncate rounded px-2 py-1.5 text-left text-sm"
+                        className="w-full rounded-md px-2 py-2 text-left hover:bg-accent/50"
                         onClick={() => applySavedCompany(c)}
                       >
-                        {c.name}
+                        <span className="block font-medium leading-tight">{c.name}</span>
+                        {desc ? (
+                          <span className="mt-0.5 line-clamp-2 block text-xs text-muted-foreground">
+                            {desc}
+                          </span>
+                        ) : null}
                       </button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
-                        aria-label={`Eliminar ${c.name}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void handleDeleteSavedCompany(c.id);
-                        }}
-                      >
-                        <TrashIcon className="size-4" />
-                      </Button>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </DropdownMenuContent>
