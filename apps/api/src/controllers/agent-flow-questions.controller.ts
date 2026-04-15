@@ -1,5 +1,6 @@
 import type { Context } from "hono";
 import { GoogleGenAI } from "@google/genai";
+import { AGENT_BUILDER_MANDATORY_TOOLS_LLM_CONTEXT } from "@kai/shared";
 import { existsSync } from "fs";
 import { dirname, join } from "path";
 import { z } from "zod";
@@ -216,6 +217,10 @@ export async function postAgentFlowQuestions(
 
   const systemInstruction = `You generate follow-up questions for a small-business owner in Latin American Spanish who is configuring a WhatsApp assistant (not a technical user).
 
+The JSON profile may include "escalation_rules": if it is non-empty, that text is ALREADY the owner's answer about when to pass the conversation to a human or support. Do NOT ask a flow question that repeats or paraphrases that topic (e.g. "in what situations should the assistant transfer to you?"). Only ask about operational details that are NOT already covered there (e.g. specific hours a human is available), if truly needed.
+
+${AGENT_BUILDER_MANDATORY_TOOLS_LLM_CONTEXT}
+
 Output STRICT JSON only: a single JSON array (no markdown, no prose). Each element must be an object with:
 - "field": unique snake_case id, only lowercase letters, digits and underscores, starting with a letter (e.g. "toma_pedidos", "citas_whatsapp")
 - "label": the question shown to the user, in clear everyday Spanish. Warm, short, concrete. NO technical jargon: avoid words like "integración", "API", "tool", "stack", "MCP", "endpoint" unless the user profile already uses them.
@@ -228,8 +233,8 @@ Output STRICT JSON only: a single JSON array (no markdown, no prose). Each eleme
 
 Rules:
 1. Generate between 6 and 9 questions total.
-2. Questions must be tailored to THIS business profile (industry, what they sell, audience, agent role, escalation rules, hours). Example: if they are a retail store, ask whether the assistant should help take orders on WhatsApp or only inform and redirect. If they are a clinic, ask about appointments and reminders. If restaurant, reservations and menu.
-3. Cover these areas with natural wording (not as section titles): what the assistant should actually do in the chat (orders, quotes, appointments, payments info, handoff to human), how they sell or serve (in person, delivery, online, stock), and how they run day-to-day (calendar, spreadsheet, another app they already mention or typical for their sector).
+2. Questions must be tailored to THIS business profile (industry, what they sell, audience, agent role, hours). Example: if they are a retail store, ask whether the assistant should help take orders on WhatsApp or only inform and redirect. If they are a clinic, ask about appointments and reminders. If restaurant, reservations and menu.
+3. Cover these areas with natural wording (not as section titles): what the assistant should actually do in the chat (orders, quotes, appointments, payments info), how they sell or serve (in person, delivery, online, stock), and how they run day-to-day (calendar, spreadsheet, another app they already mention or typical for their sector). Do NOT include a separate "when to escalate to a human" theme if escalation_rules already answers that; the mandatory capabilities above already include human handoff as an option.
 4. One question per topic when possible; avoid repeating the same idea.
 5. Prefer "select" when there are clear mutually exclusive options; use "textarea" when you need a sentence or two.
 6. For at least 3 questions with type text or textarea, include "suggestions" and "suggestion_mode" so users can tap realistic answers.
@@ -238,8 +243,11 @@ Rules:
 Return only the JSON array.`;
 
   const userContent = [
-    "Perfil del negocio y del asistente (JSON). Genera las preguntas en español:",
+    "Business and assistant profile (JSON). Apply the system rules; all labels, options, placeholders, and suggestions in the output must be in Latin American Spanish:",
     JSON.stringify(profile, null, 0),
+    "",
+    "Reminder (fixed capabilities; do not generate questions whose only purpose is whether these exist):",
+    AGENT_BUILDER_MANDATORY_TOOLS_LLM_CONTEXT,
   ].join("\n");
 
   try {

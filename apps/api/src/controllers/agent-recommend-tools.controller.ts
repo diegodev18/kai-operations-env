@@ -1,5 +1,6 @@
 import type { Context } from "hono";
 import { GoogleGenAI } from "@google/genai";
+import { AGENT_BUILDER_MANDATORY_TOOL_NAMES } from "@kai/shared";
 import { existsSync } from "fs";
 import { dirname, join } from "path";
 import { z } from "zod";
@@ -14,11 +15,6 @@ const TOOLS_DOCS_STORE_DISPLAY_NAME = "agents-tools-default-docs";
 const MODEL = "gemini-2.5-pro";
 const TOOLS_DOCS_STORE_NAME_ENV =
   process.env.GEMINI_TOOLS_DOCS_STORE_NAME?.trim() ?? "";
-
-export const MANDATORY_TOOL_NAMES = [
-  "kai_knowledge_base_ask_for_knowledge_base",
-  "kai_help_escalate_to_support",
-] as const;
 
 const MAX_RECOMMENDED_TOOLS = 20;
 const DESC_TRUNCATE = 220;
@@ -282,7 +278,7 @@ function resolveMandatoryIds(catalog: CatalogItem[]): {
   }
   const ids: string[] = [];
   const missingNames: string[] = [];
-  for (const name of MANDATORY_TOOL_NAMES) {
+  for (const name of AGENT_BUILDER_MANDATORY_TOOL_NAMES) {
     const id = byName.get(name);
     if (id) ids.push(id);
     else missingNames.push(name);
@@ -312,7 +308,7 @@ export function mergeMandatoryToolDocIds(
     if (name) byName.set(name, docId);
   }
   const mandatory: string[] = [];
-  for (const toolName of MANDATORY_TOOL_NAMES) {
+  for (const toolName of AGENT_BUILDER_MANDATORY_TOOL_NAMES) {
     const id = byName.get(toolName);
     if (id) mandatory.push(id);
   }

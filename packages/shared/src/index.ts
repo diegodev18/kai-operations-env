@@ -49,6 +49,12 @@ export interface ImplementationTask {
   representativePhone?: string | null;
 }
 
+export {
+  AGENT_BUILDER_MANDATORY_TOOL_NAMES,
+  AGENT_BUILDER_MANDATORY_TOOLS_LLM_CONTEXT,
+  type AgentBuilderMandatoryToolName,
+} from "./agent-builder-mandatory-tools.js";
+
 export interface ToolsCatalogItem {
   id: string;
   name: string;

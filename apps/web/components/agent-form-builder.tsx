@@ -20,6 +20,7 @@ import {
   HomeIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { AGENT_BUILDER_MANDATORY_TOOL_NAMES } from "@kai/shared";
 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -986,15 +987,11 @@ function SectionTools({
   toolReasonById,
   operationalSummary,
 }: SectionToolsProps) {
-  const UNREMOVABLE_TOOLS = [
-    "kai_knowledge_base_ask_for_knowledge_base",
-    "kai_help_escalate_to_support",
-  ];
-
+  const mandatoryToolNames = new Set<string>(AGENT_BUILDER_MANDATORY_TOOL_NAMES);
   const canRemove = (toolId: string) => {
     const tool = catalog.find((t) => t.id === toolId);
     const toolName = tool?.name || "";
-    return !UNREMOVABLE_TOOLS.includes(toolName);
+    return !mandatoryToolNames.has(toolName);
   };
 
   const confirmRemoveTool = (toolId: string) => {
