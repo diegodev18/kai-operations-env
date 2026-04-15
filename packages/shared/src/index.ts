@@ -45,6 +45,8 @@ export interface ImplementationTask {
     url: string;
     uploadedAt: string;
   }>;
+  representativeEmail?: string | null;
+  representativePhone?: string | null;
 }
 
 export interface ToolsCatalogItem {

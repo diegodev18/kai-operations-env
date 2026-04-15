@@ -21,6 +21,7 @@ type ImplementationTaskType =
   | "csf-request"
   | "payment-domiciliation"
   | "quote-sent"
+  | "representative-contact"
   | "custom";
 
 type ImplementationTaskAttachment = {
@@ -42,6 +43,8 @@ type ImplementationTaskRow = {
   mandatory?: boolean;
   taskType?: ImplementationTaskType;
   attachments?: ImplementationTaskAttachment[];
+  representativeEmail?: string | null;
+  representativePhone?: string | null;
 };
 
 const MANDATORY_TASKS: Array<{
@@ -54,27 +57,36 @@ const MANDATORY_TASKS: Array<{
     id: "mandatory-connect-number",
     title: "Conectar número",
     taskType: "connect-number",
-    description: "Conectar el número de WhatsApp del cliente.",
+    description:
+      "Conectar el número de WhatsApp del cliente. Se marcará automáticamente cuando exista una integración vinculada en el sistema.",
   },
   {
     id: "mandatory-csf-request",
-    title: "Solicitud de CSF",
+    title: "Adjuntar constancia de situación fiscal (CSF)",
     taskType: "csf-request",
-    description: "Solicitar la CSF al cliente.",
+    description: "Adjuntar el PDF o archivo de la constancia de situación fiscal del cliente.",
   },
   {
     id: "mandatory-payment-domiciliation",
     title: "Domiciliación del pago",
     taskType: "payment-domiciliation",
-    description: "Configurar la domiciliación del pago.",
+    description: "Definir si el cliente está domiciliado o no (mismo estado que en la Home de Operaciones).",
   },
   {
     id: "mandatory-quote-sent",
-    title: "Cotización enviada",
+    title: "Adjuntar cotización",
     taskType: "quote-sent",
-    description: "Enviar la cotización al cliente.",
+    description: "Adjuntar el documento de cotización enviada al cliente.",
+  },
+  {
+    id: "mandatory-representative-contact",
+    title: "Correo o teléfono del representante",
+    taskType: "representative-contact",
+    description: "Registrar el correo y/o el número de WhatsApp del representante del cliente.",
   },
 ];
+
+const MANDATORY_BY_ID = new Map(MANDATORY_TASKS.map((m) => [m.id, m]));
 
 function getTaskItemsCollection(db: Firestore, agentId: string) {
   return db
@@ -103,6 +115,26 @@ function parseDueDate(input: unknown): string | null | undefined {
   const date = new Date(input);
   if (Number.isNaN(date.getTime())) return undefined;
   return date.toISOString();
+}
+
+function parseRepresentativeEmail(input: unknown): string | null | undefined {
+  if (input === undefined) return undefined;
+  if (input === null || input === "") return null;
+  if (typeof input !== "string") return undefined;
+  const t = input.trim().toLowerCase();
+  if (!t) return null;
+  if (!isValidEmail(t)) return undefined;
+  return t;
+}
+
+function parseRepresentativePhone(input: unknown): string | null | undefined {
+  if (input === undefined) return undefined;
+  if (input === null || input === "") return null;
+  if (typeof input !== "string") return undefined;
+  const t = input.trim();
+  if (!t) return null;
+  if (t.length > 80) return undefined;
+  return t;
 }
 
 function parseAttachments(input: unknown): ImplementationTaskAttachment[] | null | undefined {
@@ -160,6 +192,19 @@ function mapTaskDoc(doc: QueryDocumentSnapshot): ImplementationTaskRow {
       .filter((a) => a.name && a.url);
   }
 
+  let representativeEmail: string | null | undefined;
+  if (data.representativeEmail === null) representativeEmail = null;
+  else if (typeof data.representativeEmail === "string") {
+    const t = data.representativeEmail.trim().toLowerCase();
+    representativeEmail = t.length > 0 ? t : null;
+  }
+  let representativePhone: string | null | undefined;
+  if (data.representativePhone === null) representativePhone = null;
+  else if (typeof data.representativePhone === "string") {
+    const t = data.representativePhone.trim();
+    representativePhone = t.length > 0 ? t : null;
+  }
+
   return {
     id: doc.id,
     title: typeof data.title === "string" ? data.title : "",
@@ -174,6 +219,8 @@ function mapTaskDoc(doc: QueryDocumentSnapshot): ImplementationTaskRow {
     mandatory: data.mandatory === true,
     taskType: typeof data.taskType === "string" ? (data.taskType as ImplementationTaskType) : "custom",
     attachments,
+    ...(representativeEmail !== undefined ? { representativeEmail } : {}),
+    ...(representativePhone !== undefined ? { representativePhone } : {}),
   };
 }
 
@@ -239,7 +286,7 @@ export async function getImplementationTasks(
       return c.json({ error: "Agente no encontrado" }, 404);
     }
 
-    const existingTasks = snap.docs.map((doc) => mapTaskDoc(doc as QueryDocumentSnapshot));
+    let existingTasks = snap.docs.map((doc) => mapTaskDoc(doc as QueryDocumentSnapshot));
     const existingIds = new Set(existingTasks.map((t) => t.id));
 
     const now = FieldValue.serverTimestamp();
@@ -262,7 +309,30 @@ export async function getImplementationTasks(
       await itemsRef.doc(mt.id).set(payload);
     }
 
-    const tasks = missingMandatory.length > 0
+    if (missingMandatory.length > 0) {
+      const refreshed = await itemsRef.orderBy("createdAt", "desc").get();
+      existingTasks = refreshed.docs.map((doc) => mapTaskDoc(doc as QueryDocumentSnapshot));
+    }
+
+    let templateSyncChanged = false;
+    for (const task of existingTasks) {
+      const mt = MANDATORY_BY_ID.get(task.id);
+      if (!mt) continue;
+      const desc = task.description ?? "";
+      if (task.title !== mt.title || desc !== mt.description) {
+        await itemsRef.doc(task.id).set(
+          {
+            title: mt.title,
+            description: mt.description,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+        templateSyncChanged = true;
+      }
+    }
+
+    const tasks = templateSyncChanged
       ? (await itemsRef.orderBy("createdAt", "desc").get()).docs.map((doc) =>
           mapTaskDoc(doc as QueryDocumentSnapshot),
         )
@@ -419,9 +489,28 @@ export async function patchImplementationTask(
     patch.attachments = attachments;
   }
 
+  if (Object.prototype.hasOwnProperty.call(body, "representativeEmail")) {
+    const v = parseRepresentativeEmail((body as { representativeEmail?: unknown }).representativeEmail);
+    if (v === undefined) {
+      return c.json({ error: "representativeEmail inválido" }, 400);
+    }
+    patch.representativeEmail = v;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "representativePhone")) {
+    const v = parseRepresentativePhone((body as { representativePhone?: unknown }).representativePhone);
+    if (v === undefined) {
+      return c.json({ error: "representativePhone inválido" }, 400);
+    }
+    patch.representativePhone = v;
+  }
+
   if (Object.keys(patch).length === 1) {
     return c.json(
-      { error: "No hay campos para actualizar (status, dueDate, assigneeEmails, attachments)" },
+      {
+        error:
+          "No hay campos para actualizar (status, dueDate, assigneeEmails, attachments, representativeEmail, representativePhone)",
+      },
       400,
     );
   }
@@ -442,6 +531,31 @@ export async function patchImplementationTask(
     }
     if (!taskSnap.exists) {
       return c.json({ error: "Tarea no encontrada" }, 404);
+    }
+
+    const existing = mapTaskDoc(taskSnap as QueryDocumentSnapshot);
+
+    if (hasStatus && patch.status === "completed" && existing.taskType === "representative-contact") {
+      const mergedEmail =
+        Object.prototype.hasOwnProperty.call(patch, "representativeEmail")
+          ? (patch.representativeEmail as string | null)
+          : (existing.representativeEmail ?? null);
+      const mergedPhone =
+        Object.prototype.hasOwnProperty.call(patch, "representativePhone")
+          ? (patch.representativePhone as string | null)
+          : (existing.representativePhone ?? null);
+      const hasRep = Boolean(
+        (mergedEmail != null && mergedEmail !== "") || (mergedPhone != null && mergedPhone !== ""),
+      );
+      if (!hasRep) {
+        return c.json(
+          {
+            error:
+              "Indica al menos el correo o el teléfono del representante para completar la tarea.",
+          },
+          400,
+        );
+      }
     }
 
     await taskSnap.ref.set(patch, { merge: true });

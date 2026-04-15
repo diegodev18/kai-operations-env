@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
         source: "/api/auth/:path*",
         destination: `${API_INTERNAL_URL}/api/auth/:path*`,
       },
+      /** Incluye p. ej. `GET /api/agents/:agentId/whatsapp-integration-status` (integración WhatsApp por agente). */
       {
         source: "/api/agents/:path*",
         destination: `${API_INTERNAL_URL}/api/agents/:path*`,

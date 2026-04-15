@@ -14,6 +14,7 @@ import type {
   BuilderChatDraftPatch,
   BuilderChatMessage,
   BuilderChatUI,
+  WhatsappIntegrationStatusItem,
 } from "@/types/agents-api";
 
 export type {
@@ -30,6 +31,7 @@ export type {
   BuilderChatDraftPatch,
   BuilderChatMessage,
   BuilderChatUI,
+  WhatsappIntegrationStatusItem,
 };
 
 export type DraftPropertyItem = {
@@ -868,6 +870,25 @@ export async function fetchImplementationTasks(
   }
 }
 
+/** Integraciones WhatsApp del agente (para detectar número conectado). */
+export async function fetchWhatsappIntegrationStatus(
+  agentId: string,
+): Promise<{ items: WhatsappIntegrationStatusItem[] } | null> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/whatsapp-integration-status`,
+    {
+      credentials: "include",
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) return null;
+  try {
+    return (await res.json()) as { items: WhatsappIntegrationStatusItem[] };
+  } catch {
+    return null;
+  }
+}
+
 export async function postAgentBuilderChat(body: {
   messages: BuilderChatMessage[];
   draftState: Record<string, unknown>;
@@ -1234,6 +1255,8 @@ export async function patchImplementationTask(
     dueDate?: string | null;
     assigneeEmails?: string[];
     attachments?: ImplementationTaskAttachment[];
+    representativeEmail?: string | null;
+    representativePhone?: string | null;
   },
 ): Promise<
   { ok: true; task: ImplementationTask } | { ok: false; error: string }

@@ -17,6 +17,7 @@ export type ImplementationTaskType =
   | "csf-request"
   | "payment-domiciliation"
   | "quote-sent"
+  | "representative-contact"
   | "custom";
 
 export type ImplementationTask = {
@@ -32,6 +33,19 @@ export type ImplementationTask = {
   mandatory?: boolean;
   taskType?: ImplementationTaskType;
   attachments?: ImplementationTaskAttachment[];
+  representativeEmail?: string | null;
+  representativePhone?: string | null;
+};
+
+/** Respuesta de GET .../whatsapp-integration-status (sin datos sensibles). */
+export type WhatsappIntegrationStatusItem = {
+  id: string;
+  phoneNumber?: string;
+  formattedPhoneNumber?: string;
+  setupStatus?: string;
+  registrationStatus?: string;
+  connectedAt?: string | null;
+  isCoexistence?: boolean;
 };
 
 export type ToolsCatalogItem = {

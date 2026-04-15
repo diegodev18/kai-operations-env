@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarIcon,
   Loader2Icon,
@@ -12,11 +12,13 @@ import {
   CheckIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  UserCircleIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardContent,
@@ -45,14 +47,20 @@ import type {
   AgentGrowerRow,
   ImplementationTask,
   ImplementationTaskAttachment,
+  WhatsappIntegrationStatusItem,
 } from "@/types/agents-api";
+import type { AgentBilling } from "@/lib/agent";
 import {
   createImplementationTask,
+  fetchAgentBilling,
   fetchAgentGrowers,
   fetchImplementationTasks,
+  fetchWhatsappIntegrationStatus,
+  patchAgentBillingConfig,
   patchImplementationTask,
 } from "@/lib/agents-api";
 import { FileUploadButton, AttachmentList } from "@/components/file-upload-button";
+import { useUserRole } from "@/hooks/useUserRole";
 
 function toDateInputValue(value?: string | null): string {
   if (!value) return "";
@@ -74,24 +82,48 @@ const MANDATORY_TASK_TYPES = new Set([
   "csf-request",
   "payment-domiciliation",
   "quote-sent",
+  "representative-contact",
 ]);
+
+/** Tareas donde el entregable es un archivo adjunto. */
+const TASK_TYPES_WITH_ATTACHMENTS = new Set(["quote-sent", "csf-request"]);
 
 const TASK_TYPE_CONFIG: Record<
   string,
   { icon: React.ElementType; badge?: string; badgeVariant?: "default" | "secondary" | "outline" }
 > = {
   "connect-number": { icon: PhoneIcon },
-  "csf-request": { icon: FileTextIcon, badge: "Necesaria", badgeVariant: "default" as const },
+  "csf-request": { icon: FileTextIcon, badge: "CSF", badgeVariant: "default" as const },
   "payment-domiciliation": {
     icon: CreditCardIcon,
-    badge: "Pago manual",
+    badge: "Cobranza",
     badgeVariant: "secondary" as const,
   },
-  "quote-sent": { icon: SendIcon, badge: "Adjuntar doc", badgeVariant: "outline" as const },
+  "quote-sent": { icon: SendIcon, badge: "Cotización", badgeVariant: "outline" as const },
+  "representative-contact": {
+    icon: UserCircleIcon,
+    badge: "Contacto",
+    badgeVariant: "outline" as const,
+  },
 };
 
+function paymentDomiciliationShouldComplete(billing: AgentBilling): boolean {
+  if (billing.domiciliated) return true;
+  return Boolean(billing.paymentDueDate);
+}
+
+function isOperationsRole(role: string): boolean {
+  const r = role.toLowerCase();
+  return r === "admin" || r === "commercial";
+}
+
 export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) {
+  const { role: userRole } = useUserRole();
+  const isOperations = isOperationsRole(userRole);
+
   const [tasks, setTasks] = useState<ImplementationTask[]>([]);
+  const tasksRef = useRef<ImplementationTask[]>([]);
+  tasksRef.current = tasks;
   const [growers, setGrowers] = useState<AgentGrowerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingCreate, setSavingCreate] = useState(false);
@@ -109,6 +141,11 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
   const [taskDueDates, setTaskDueDates] = useState<Record<string, string>>({});
   const [taskAssignees, setTaskAssignees] = useState<Record<string, string[]>>({});
   const [mandatoryCollapsed, setMandatoryCollapsed] = useState(true);
+  const [agentBilling, setAgentBilling] = useState<AgentBilling | null>(null);
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [billingSaving, setBillingSaving] = useState(false);
+  const [waIntegrations, setWaIntegrations] = useState<WhatsappIntegrationStatusItem[]>([]);
+  const [repDraft, setRepDraft] = useState<Record<string, { email: string; phone: string }>>({});
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -147,6 +184,97 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
     setTaskDueDates(nextDates);
     setTaskAssignees(nextAssignees);
   }, [tasks]);
+
+  useEffect(() => {
+    setRepDraft((prev) => {
+      const next = { ...prev };
+      for (const t of tasks) {
+        if (t.taskType !== "representative-contact") continue;
+        if (next[t.id] === undefined) {
+          next[t.id] = {
+            email: t.representativeEmail ?? "",
+            phone: t.representativePhone ?? "",
+          };
+        }
+      }
+      return next;
+    });
+  }, [tasks]);
+
+  useEffect(() => {
+    if (!isOperations || !agentId) return;
+    let cancelled = false;
+    setBillingLoading(true);
+    void (async () => {
+      const res = await fetchAgentBilling(agentId);
+      if (cancelled) return;
+      if (res?.billing) {
+        setAgentBilling(res.billing);
+      } else {
+        setAgentBilling(null);
+      }
+      setBillingLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [agentId, isOperations]);
+
+  const paymentDomiciliationTask = useMemo(
+    () => tasks.find((t) => t.id === "mandatory-payment-domiciliation"),
+    [tasks],
+  );
+
+  useEffect(() => {
+    if (!isOperations || !agentBilling || !paymentDomiciliationTask) return;
+    const wantStatus = paymentDomiciliationShouldComplete(agentBilling) ? "completed" : "pending";
+    if (paymentDomiciliationTask.status === wantStatus) return;
+    let cancelled = false;
+    const taskId = paymentDomiciliationTask.id;
+    void (async () => {
+      const r = await patchImplementationTask(agentId, taskId, {
+        status: wantStatus,
+      });
+      if (!cancelled && r.ok) {
+        setTasks((prev) => prev.map((t) => (t.id === taskId ? r.task : t)));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    agentId,
+    isOperations,
+    agentBilling,
+    paymentDomiciliationTask?.id,
+    paymentDomiciliationTask?.status,
+  ]);
+
+  useEffect(() => {
+    if (!agentId) return;
+    let cancelled = false;
+    const poll = async () => {
+      const res = await fetchWhatsappIntegrationStatus(agentId);
+      if (cancelled || !res) return;
+      setWaIntegrations(res.items);
+      const connectTask = tasksRef.current.find((t) => t.taskType === "connect-number");
+      if (
+        connectTask?.status === "pending" &&
+        res.items.some((i) => i.setupStatus === "completed")
+      ) {
+        const r = await patchImplementationTask(agentId, connectTask.id, { status: "completed" });
+        if (!cancelled && r.ok) {
+          setTasks((prev) => prev.map((t) => (t.id === connectTask.id ? r.task : t)));
+        }
+      }
+    };
+    void poll();
+    const id = window.setInterval(poll, 30_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [agentId]);
 
   const growersByEmail = useMemo(() => {
     const map = new Map<string, string>();
@@ -328,6 +456,58 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
     [agentId, tasks],
   );
 
+  const onBillingDomiciliatedChange = useCallback(
+    async (checked: boolean) => {
+      if (!isOperations) return;
+      setBillingSaving(true);
+      try {
+        const r = await patchAgentBillingConfig(agentId, { domiciliated: checked });
+        if (!r.ok) {
+          toast.error(r.error);
+          return;
+        }
+        const fresh = await fetchAgentBilling(agentId);
+        if (fresh?.billing) setAgentBilling(fresh.billing);
+        toast.success("Cobranza actualizada");
+      } finally {
+        setBillingSaving(false);
+      }
+    },
+    [agentId, isOperations],
+  );
+
+  const onSaveRepresentative = useCallback(
+    async (taskId: string) => {
+      const draft = repDraft[taskId];
+      if (!draft) return;
+      setSavingTaskId(taskId);
+      try {
+        const email = draft.email.trim().toLowerCase();
+        const phone = draft.phone.trim();
+        const result = await patchImplementationTask(agentId, taskId, {
+          representativeEmail: email.length > 0 ? email : null,
+          representativePhone: phone.length > 0 ? phone : null,
+        });
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
+        setTasks((prev) => prev.map((t) => (t.id === taskId ? result.task : t)));
+        setRepDraft((prev) => ({
+          ...prev,
+          [taskId]: {
+            email: result.task.representativeEmail ?? "",
+            phone: result.task.representativePhone ?? "",
+          },
+        }));
+        toast.success("Datos guardados");
+      } finally {
+        setSavingTaskId(null);
+      }
+    },
+    [agentId, repDraft],
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -370,56 +550,197 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
             const isSaving = savingTaskId === task.id;
             const config = task.taskType ? TASK_TYPE_CONFIG[task.taskType] : null;
             const Icon = config?.icon ?? FileTextIcon;
+            const showUpload =
+              Boolean(task.taskType) && TASK_TYPES_WITH_ATTACHMENTS.has(task.taskType!);
+            const checkboxDisabled =
+              isSaving || task.taskType === "payment-domiciliation";
+            const primaryWa = waIntegrations[0];
+            const draft = repDraft[task.id] ?? { email: "", phone: "" };
+
+            if (task.taskType === "representative-contact") {
+              return (
+                <div
+                  key={task.id}
+                  className="flex flex-col gap-3 rounded-lg border px-3 py-2.5 transition-colors hover:bg-muted/50"
+                >
+                  <div className="flex flex-wrap items-start gap-3">
+                    <button
+                      type="button"
+                      disabled={isSaving}
+                      onClick={() => void onToggleTaskStatus(task)}
+                      className={`flex size-6 shrink-0 items-center justify-center rounded border-2 transition-colors ${
+                        task.status === "completed"
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-muted-foreground/30 hover:border-primary"
+                      }`}
+                    >
+                      {task.status === "completed" && <CheckIcon className="size-3.5" />}
+                    </button>
+                    <Icon className="size-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-medium text-foreground">{task.title}</span>
+                        {config?.badge ? (
+                          <Badge
+                            variant={config.badgeVariant ?? "outline"}
+                            className="shrink-0 text-[10px]"
+                          >
+                            {config.badge}
+                          </Badge>
+                        ) : null}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Indica al menos un medio de contacto y guarda antes de marcar como hecha.
+                      </p>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <Input
+                          type="email"
+                          autoComplete="email"
+                          placeholder="Correo del representante"
+                          value={draft.email}
+                          onChange={(e) =>
+                            setRepDraft((prev) => ({
+                              ...prev,
+                              [task.id]: {
+                                email: e.target.value,
+                                phone: prev[task.id]?.phone ?? "",
+                              },
+                            }))
+                          }
+                        />
+                        <Input
+                          type="tel"
+                          autoComplete="tel"
+                          placeholder="WhatsApp o teléfono"
+                          value={draft.phone}
+                          onChange={(e) =>
+                            setRepDraft((prev) => ({
+                              ...prev,
+                              [task.id]: {
+                                email: prev[task.id]?.email ?? "",
+                                phone: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        disabled={isSaving}
+                        onClick={() => void onSaveRepresentative(task.id)}
+                      >
+                        Guardar datos
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <div
                 key={task.id}
-                className="flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors hover:bg-muted/50"
+                className="flex flex-col gap-2 rounded-lg border px-3 py-2.5 transition-colors hover:bg-muted/50"
               >
-                <button
-                  type="button"
-                  disabled={isSaving}
-                  onClick={() => void onToggleTaskStatus(task)}
-                  className={`flex size-6 shrink-0 items-center justify-center rounded border-2 transition-colors ${
-                    task.status === "completed"
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-muted-foreground/30 hover:border-primary"
-                  }`}
-                >
-                  {task.status === "completed" && <CheckIcon className="size-3.5" />}
-                </button>
+                <div className="flex flex-wrap items-start gap-3">
+                  <button
+                    type="button"
+                    disabled={checkboxDisabled}
+                    title={
+                      task.taskType === "payment-domiciliation"
+                        ? "El estado se sincroniza con la cobranza (Home)"
+                        : undefined
+                    }
+                    onClick={() => void onToggleTaskStatus(task)}
+                    className={`flex size-6 shrink-0 items-center justify-center rounded border-2 transition-colors ${
+                      task.status === "completed"
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-muted-foreground/30 hover:border-primary"
+                    } ${checkboxDisabled ? "cursor-not-allowed opacity-60" : ""}`}
+                  >
+                    {task.status === "completed" && <CheckIcon className="size-3.5" />}
+                  </button>
 
-                <Icon className="size-4 shrink-0 text-muted-foreground" />
+                  <Icon className="size-4 shrink-0 text-muted-foreground" />
 
-                <span
-                  className={`min-w-0 flex-1 text-sm ${
-                    task.status === "completed"
-                      ? "text-muted-foreground line-through"
-                      : "text-foreground"
-                  }`}
-                >
-                  {task.title}
-                </span>
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={`text-sm ${
+                          task.status === "completed"
+                            ? "text-muted-foreground line-through"
+                            : "text-foreground"
+                        }`}
+                      >
+                        {task.title}
+                      </span>
+                      {config?.badge ? (
+                        <Badge
+                          variant={config.badgeVariant ?? "outline"}
+                          className="shrink-0 text-[10px]"
+                        >
+                          {config.badge}
+                        </Badge>
+                      ) : null}
+                    </div>
+                    {task.taskType === "connect-number" && primaryWa ? (
+                      <p className="text-xs text-muted-foreground">
+                        Detectado:{" "}
+                        <span className="font-medium text-foreground">
+                          {primaryWa.formattedPhoneNumber ?? primaryWa.phoneNumber ?? "—"}
+                        </span>
+                        {primaryWa.setupStatus ? (
+                          <span className="text-muted-foreground">
+                            {" "}
+                            · Estado: {primaryWa.setupStatus}
+                          </span>
+                        ) : null}
+                      </p>
+                    ) : null}
+                    {task.taskType === "connect-number" && !primaryWa ? (
+                      <p className="text-xs text-muted-foreground">
+                        Aún no hay integración vinculada; se actualizará sola al conectar el número.
+                      </p>
+                    ) : null}
+                    {task.taskType === "payment-domiciliation" && isOperations ? (
+                      <label className="flex cursor-pointer flex-wrap items-center gap-2 text-xs text-foreground">
+                        <Checkbox
+                          checked={agentBilling?.domiciliated ?? false}
+                          disabled={billingLoading || billingSaving}
+                          onCheckedChange={(v) => {
+                            void onBillingDomiciliatedChange(v === true);
+                          }}
+                        />
+                        <span>
+                          Cliente domiciliado (mismo valor que en la Home de Operaciones)
+                        </span>
+                      </label>
+                    ) : null}
+                    {task.taskType === "payment-domiciliation" && !isOperations ? (
+                      <p className="text-xs text-muted-foreground">
+                        La domiciliación la definen usuarios de Operaciones en la Home (cobranza).
+                      </p>
+                    ) : null}
+                  </div>
 
-                {config?.badge && (
-                  <Badge variant={config.badgeVariant ?? "outline"} className="shrink-0 text-[10px]">
-                    {config.badge}
-                  </Badge>
-                )}
-
-                <AttachmentList
-                  attachments={task.attachments ?? []}
-                  onRemove={(i) => onRemoveAttachment(task.id, i)}
-                />
-
-                {(task.taskType === "quote-sent" || !config?.badge) && (
-                  <FileUploadButton
-                    agentId={agentId}
-                    taskId={task.id}
-                    onUploaded={onFileUploaded(task.id)}
-                    label="Adjuntar"
-                    size="sm"
-                  />
-                )}
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    <AttachmentList
+                      attachments={task.attachments ?? []}
+                      onRemove={(i) => onRemoveAttachment(task.id, i)}
+                    />
+                    {showUpload ? (
+                      <FileUploadButton
+                        agentId={agentId}
+                        taskId={task.id}
+                        onUploaded={onFileUploaded(task.id)}
+                        label="Adjuntar"
+                        size="sm"
+                      />
+                    ) : null}
+                  </div>
+                </div>
               </div>
             );
           })}

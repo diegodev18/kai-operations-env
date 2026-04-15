@@ -51,6 +51,7 @@ import {
   getImplementationTasks,
   patchImplementationTask,
 } from "@/controllers/agents-implementation-tasks.controller";
+import { getWhatsappIntegrationStatus } from "@/controllers/agents-whatsapp-integration.controller";
 import {
   postPromoteToProduction,
   postSyncFromProduction,
@@ -480,6 +481,16 @@ agentsRouter.delete("/:agentId/techLeads/:techLeadEmail", async (c) => {
     return c.json({ error: "Agente o tech lead no encontrado" }, 404);
   }
   return deleteAgentTechLead(c, ctx.authCtx, agentId, techLeadEmail);
+});
+
+agentsRouter.get("/:agentId/whatsapp-integration-status", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return getWhatsappIntegrationStatus(c, ctx.authCtx, agentId);
 });
 
 agentsRouter.get("/:agentId/implementation-tasks", async (c) => {
