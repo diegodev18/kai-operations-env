@@ -64,6 +64,31 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] = 
 ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.3.7": {
+    date: "2026-04-14",
+    description:
+      "Menú lateral: misma UI de Changelog en todas las pantallas (lista expandida por proyecto)",
+    changes: {
+      changed: [
+        "El menú hamburguesa (Sheet) del dashboard de operaciones y de las herramientas de database (upload-data, viewer-comparator, update-document, document-explorer) usa el componente compartido `ChangelogNavItem`: enlace a `/changelog` y debajo Atlas, Panel Web, kAI Agents y Tools MCP siempre visibles, con el mismo estilo que en database index y duplicate-clone.",
+        "Se eliminó el submenú de Changelog activado por hover en el dashboard de operaciones.",
+      ],
+    },
+  },
+  "2.3.6": {
+    date: "2026-04-14",
+    description:
+      "Changelogs Firebase: listas ordenadas por versión (semver), no por fecha",
+    changes: {
+      fixed: [
+        "En la API (`getChangelogEntries`), las entradas de Panel Web, kAI Agents y Tools MCP dejan de ordenarse por `registerDate` en Firestore y pasan a ordenarse por número de versión (major · minor · patch) de mayor a menor, con desempate por fecha de registro si hubiera la misma versión.",
+        "Cuando varias filas compartían la misma fecha, el orden por fecha no distinguía versiones y la tabla podía verse desordenada; ahora el criterio principal es siempre semver.",
+      ],
+      added: [
+        "Util `apps/api/src/utils/semver-compare.ts` (`compareSemverDesc`, comparador de filas con desempate por `registerDate`).",
+      ],
+    },
+  },
   "2.3.5": {
     date: "2026-04-14",
     description:
