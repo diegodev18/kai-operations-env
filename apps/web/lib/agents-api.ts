@@ -1658,6 +1658,7 @@ export async function fetchTestingDataDocument(
 export interface CreateTestingDataDocumentBody {
   data: Record<string, unknown>;
   merge?: boolean;
+  docId?: string;
 }
 
 export async function createTestingDataDocument(

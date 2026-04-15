@@ -56,6 +56,13 @@ import {
   XIcon,
 } from "lucide-react";
 
+function generateRandomDocId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 interface SerializedTimestamp {
   _seconds: number;
   _nanoseconds: number;
@@ -531,7 +538,9 @@ export default function TestingDataPage() {
   const [editDocDialogOpen, setEditDocDialogOpen] = useState(false);
   const [deleteDocDialogOpen, setDeleteDocDialogOpen] = useState(false);
   const [docFields, setDocFields] = useState<DocField[]>([{ key: "", value: "", type: "string" }]);
+  const [newDocId, setNewDocId] = useState("");
   const [jsonError, setJsonError] = useState<string | null>(null);
+  const [docIdError, setDocIdError] = useState<string | null>(null);
   const [nestedDialog, setNestedDialog] = useState<{
     isOpen: boolean;
     parentKey: string;
@@ -727,18 +736,37 @@ export default function TestingDataPage() {
   };
 
   const handleCreateDocument = async () => {
+    const trimmedDocId = newDocId.trim();
+    if (!trimmedDocId) {
+      setDocIdError("Ingresa un ID para el documento");
+      return;
+    }
+
+    const existingDoc = await loadDocument(trimmedDocId);
+    if (existingDoc) {
+      const message = `Ya existe un documento con el ID "${trimmedDocId}"`;
+      setDocIdError(message);
+      toast.error(message);
+      return;
+    }
+
     const data = fieldsToDoc(docFields);
     if (Object.keys(data).length === 0) {
       setJsonError("Debe tener al menos un campo");
       return;
     }
+    setDocIdError(null);
     setJsonError(null);
 
-    const result = await createTestingDataDocument(agentId, currentCollection, { data });
+    const result = await createTestingDataDocument(agentId, currentCollection, {
+      data,
+      docId: trimmedDocId,
+    });
     if (result) {
       toast.success("Documento creado");
       setCreateDocDialogOpen(false);
       setDocFields([{ key: "", value: "", type: "string" }]);
+      setNewDocId("");
       void loadDocuments();
     } else {
       toast.error("Error al crear documento");
@@ -786,7 +814,9 @@ export default function TestingDataPage() {
 
   const openCreateDoc = () => {
     setDocFields([{ key: "", value: "", type: "string" }]);
+    setNewDocId(generateRandomDocId());
     setJsonError(null);
+    setDocIdError(null);
     setCreateDocDialogOpen(true);
   };
 
@@ -1062,6 +1092,32 @@ export default function TestingDataPage() {
             <DialogTitle>Crear documento</DialogTitle>
             <DialogDescription>Colección: {currentCollection}</DialogDescription>
           </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="create-doc-id">ID del documento</Label>
+            <div className="flex gap-2">
+              <Input
+                id="create-doc-id"
+                value={newDocId}
+                onChange={(e) => {
+                  setNewDocId(e.target.value);
+                  setDocIdError(null);
+                }}
+                placeholder="mi-documento"
+                className="font-mono"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setNewDocId(generateRandomDocId());
+                  setDocIdError(null);
+                }}
+              >
+                ID aleatorio
+              </Button>
+            </div>
+            {docIdError && <p className="text-sm text-destructive">{docIdError}</p>}
+          </div>
           <div className="space-y-2 max-h-[60vh] overflow-y-auto">
             <FieldEditor 
               fields={docFields} 

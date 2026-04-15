@@ -9,6 +9,7 @@ import { userCanEditAgent } from "@/utils/agents/agentAccess";
 interface DocumentBody {
   data: Record<string, unknown>;
   merge?: boolean;
+  docId?: string;
 }
 
 interface SerializedTimestamp {
@@ -246,16 +247,27 @@ export async function createTestingDataDocument(authCtx: AgentsInfoAuthContext, 
     return c.json({ error: "Body JSON inválido" }, 400);
   }
 
-  const { data, merge } = body;
+  const { data, merge, docId } = body;
+  const normalizedDocId = typeof docId === "string" ? docId.trim() : "";
 
   if (!data || typeof data !== "object" || Array.isArray(data)) {
     return c.json({ error: "data debe ser un objeto" }, 400);
+  }
+  if (docId !== undefined && !normalizedDocId) {
+    return c.json({ error: "docId no puede estar vacío" }, 400);
   }
 
   try {
     const testingDataRef = getTestingDataRef(agentId);
     const colRef = testingDataRef.collection(collection);
-    const docRef = colRef.doc();
+    const docRef = normalizedDocId ? colRef.doc(normalizedDocId) : colRef.doc();
+
+    if (normalizedDocId) {
+      const existingDoc = await docRef.get();
+      if (existingDoc.exists) {
+        return c.json({ error: "Ya existe un documento con ese ID" }, 409);
+      }
+    }
 
     const restoredData = restoreFirestoreTypes(data) as Record<string, unknown>;
 
