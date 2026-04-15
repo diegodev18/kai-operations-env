@@ -245,8 +245,8 @@ export async function updateTestingPropertyDocument(
     const patchPaths = collectTestingPropertyPatchPaths(bodyObj);
     const actorEmail = authCtx.userEmail?.toLowerCase().trim() ?? null;
 
-    // Más de 2 propiedades en un mismo PATCH: un registro de bitácora por cada ruta.
-    if (patchPaths.length > 2) {
+    // Varias propiedades en un mismo PATCH: un registro de bitácora por cada ruta (no agrupar con comas).
+    if (patchPaths.length > 1) {
       for (const p of patchPaths) {
         void appendImplementationActivityEntry(db, agentId, {
           kind: "system",
@@ -258,8 +258,8 @@ export async function updateTestingPropertyDocument(
       }
     } else {
       const detail =
-        patchPaths.length > 0
-          ? patchPaths.map((path) => `${documentId} -> ${path}`).join(", ")
+        patchPaths.length === 1
+          ? `${documentId} -> ${patchPaths[0]}`
           : documentId;
       void appendImplementationActivityEntry(db, agentId, {
         kind: "system",
