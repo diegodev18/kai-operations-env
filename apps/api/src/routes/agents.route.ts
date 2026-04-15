@@ -59,6 +59,7 @@ import {
 import {
   createImplementationActivityComment,
   getImplementationActivity,
+  patchImplementationActivityCommentVisibility,
 } from "@/controllers/agents-implementation-activity.controller";
 import { getWhatsappIntegrationStatus } from "@/controllers/agents-whatsapp-integration.controller";
 import {
@@ -567,6 +568,22 @@ agentsRouter.post("/:agentId/implementation-activity", async (c) => {
     return c.json({ error: "Agente no encontrado" }, 404);
   }
   return createImplementationActivityComment(c, ctx.authCtx, agentId);
+});
+
+agentsRouter.patch("/:agentId/implementation-activity/:entryId", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  const entryId = c.req.param("entryId")?.trim() ?? "";
+  if (!agentId || !entryId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente o comentario no encontrado" }, 404);
+  }
+  return patchImplementationActivityCommentVisibility(
+    c,
+    ctx.authCtx,
+    agentId,
+    entryId,
+  );
 });
 
 agentsRouter.post("/:agentId/assign-to-user", async (c) => {

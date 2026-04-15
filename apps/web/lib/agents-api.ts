@@ -1392,6 +1392,41 @@ export async function createImplementationActivityComment(
   return { ok: true, entry: data.entry };
 }
 
+export async function patchImplementationActivityCommentVisibility(
+  agentId: string,
+  entryId: string,
+  hidden: boolean,
+): Promise<
+  { ok: true; entry: ImplementationActivityEntry } | { ok: false; error: string }
+> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/implementation-activity/${encodeURIComponent(entryId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ hidden }),
+    },
+  );
+  let data: { entry?: ImplementationActivityEntry; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error:
+        data.error ?? "No se pudo actualizar la visibilidad del comentario",
+    };
+  }
+  if (!data.entry) {
+    return { ok: false, error: "Respuesta inválida del servidor" };
+  }
+  return { ok: true, entry: data.entry };
+}
+
 export async function assignAgentToUser(
   agentId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {

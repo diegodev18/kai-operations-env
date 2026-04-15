@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownWideNarrowIcon,
   ArrowUpWideNarrowIcon,
+  EyeIcon,
+  EyeOffIcon,
   FilterIcon,
   Loader2Icon,
   MessageSquareIcon,
@@ -15,6 +17,7 @@ import {
   createImplementationActivityComment,
   fetchAgentGrowers,
   fetchImplementationActivity,
+  patchImplementationActivityCommentVisibility,
 } from "@/lib/agents-api";
 import type { AgentGrowerRow, ImplementationActivityEntry } from "@/types/agents-api";
 import { Button } from "@/components/ui/button";
@@ -28,6 +31,7 @@ import {
 } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ImplementationActivityCommentEditor } from "@/components/implementation-activity-comment-editor";
+import { useAuth } from "@/hooks/auth";
 
 type ActivityFilter = "all" | "comment" | "system";
 
@@ -60,9 +64,13 @@ export function AgentActivitySheet({ agentId }: { agentId: string }) {
   const [growers, setGrowers] = useState<AgentGrowerRow[]>([]);
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
   const [activitySortDesc, setActivitySortDesc] = useState(false);
+  const [hoveredEntryId, setHoveredEntryId] = useState<string | null>(null);
+  const [togglingEntryId, setTogglingEntryId] = useState<string | null>(null);
   const [sheetWidth, setSheetWidth] = useState(560);
   const [isResizing, setIsResizing] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const { session } = useAuth();
+  const currentUserEmail = session?.user?.email?.trim().toLowerCase() ?? null;
 
   const growersByEmail = useMemo(() => {
     const map = new Map<string, string>();
@@ -138,6 +146,32 @@ export function AgentActivitySheet({ agentId }: { agentId: string }) {
     toast.success("Comentario publicado");
     if (listRef.current) {
       listRef.current.scrollTop = listRef.current.scrollHeight;
+    }
+  };
+
+  const onToggleCommentVisibility = async (entry: ImplementationActivityEntry) => {
+    if (entry.kind !== "comment") return;
+    const entryActorEmail = entry.actorEmail?.trim().toLowerCase() ?? null;
+    if (!entryActorEmail || !currentUserEmail || entryActorEmail !== currentUserEmail) {
+      return;
+    }
+    setTogglingEntryId(entry.id);
+    try {
+      const result = await patchImplementationActivityCommentVisibility(
+        agentId,
+        entry.id,
+        !(entry.hidden === true),
+      );
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setEntries((prev) =>
+        prev.map((item) => (item.id === entry.id ? result.entry : item)),
+      );
+      toast.success(result.entry.hidden ? "Comentario oculto" : "Comentario visible");
+    } finally {
+      setTogglingEntryId(null);
     }
   };
 
@@ -266,20 +300,66 @@ export function AgentActivitySheet({ agentId }: { agentId: string }) {
                 {filteredActivity.map((entry) => {
                   const isComment = entry.kind === "comment";
                   const Icon = isComment ? MessageSquareIcon : Settings2Icon;
+                  const isOwnComment =
+                    isComment &&
+                    Boolean(currentUserEmail) &&
+                    (entry.actorEmail?.trim().toLowerCase() ?? null) === currentUserEmail;
+                  const isHovered = hoveredEntryId === entry.id;
+                  const isHidden = entry.hidden === true;
                   const when = formatDateTime(entry.createdAt);
                   const who = actorLabel(entry.actorEmail, growersByEmail);
                   return (
                     <div
                       key={entry.id}
                       className="relative z-10 flex gap-3 pb-6 last:pb-2"
+                      onMouseEnter={() => setHoveredEntryId(entry.id)}
+                      onMouseLeave={() => setHoveredEntryId((prev) => (prev === entry.id ? null : prev))}
                     >
                       <div className="flex w-7 shrink-0 justify-center pt-0.5">
-                        <span className="flex size-7 shrink-0 items-center justify-center rounded-full border bg-muted ring-2 ring-background">
-                          <Icon
-                            className="size-3.5 text-muted-foreground"
-                            aria-hidden
-                          />
-                        </span>
+                        {isOwnComment ? (
+                          <button
+                            type="button"
+                            className="flex size-7 shrink-0 items-center justify-center rounded-full border bg-muted ring-2 ring-background transition-colors hover:bg-muted/80 disabled:cursor-not-allowed disabled:opacity-50"
+                            onClick={() => void onToggleCommentVisibility(entry)}
+                            disabled={togglingEntryId === entry.id}
+                            aria-label={
+                              isHidden
+                                ? "Mostrar comentario"
+                                : "Ocultar comentario"
+                            }
+                          >
+                            {togglingEntryId === entry.id ? (
+                              <Loader2Icon
+                                className="size-3.5 animate-spin text-muted-foreground"
+                                aria-hidden
+                              />
+                            ) : isHovered ? (
+                              isHidden ? (
+                                <EyeIcon
+                                  className="size-3.5 text-emerald-600"
+                                  aria-hidden
+                                />
+                              ) : (
+                                <EyeOffIcon
+                                  className="size-3.5 text-amber-600"
+                                  aria-hidden
+                                />
+                              )
+                            ) : (
+                              <Icon
+                                className="size-3.5 text-muted-foreground"
+                                aria-hidden
+                              />
+                            )}
+                          </button>
+                        ) : (
+                          <span className="flex size-7 shrink-0 items-center justify-center rounded-full border bg-muted ring-2 ring-background">
+                            <Icon
+                              className="size-3.5 text-muted-foreground"
+                              aria-hidden
+                            />
+                          </span>
+                        )}
                       </div>
                       <div className="min-w-0 flex-1 space-y-1">
                         <p className="text-xs text-muted-foreground">
@@ -287,7 +367,11 @@ export function AgentActivitySheet({ agentId }: { agentId: string }) {
                           {isComment ? " comentó" : " · registro automático"}
                           <span className="text-muted-foreground"> · {when}</span>
                         </p>
-                        {isComment && entry.bodyHtml ? (
+                        {isComment && isHidden ? (
+                          <p className="text-sm italic text-muted-foreground">
+                            Comentario oculto por su autor.
+                          </p>
+                        ) : isComment && entry.bodyHtml ? (
                           <div
                             className="prose prose-sm max-w-none text-sm dark:prose-invert [&_a]:text-primary [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1"
                             dangerouslySetInnerHTML={{ __html: entry.bodyHtml }}

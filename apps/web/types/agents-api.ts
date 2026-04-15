@@ -46,6 +46,7 @@ export type ImplementationActivityEntry = {
   actorEmail: string | null;
   format?: "html";
   bodyHtml?: string;
+  hidden?: boolean;
   action?: string;
   summary?: string;
   metadata?: Record<string, unknown>;
