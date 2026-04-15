@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { getFirestore } from "@/lib/firestore";
 import type { AgentsInfoAuthContext } from "@/types/agents";
+import { appendImplementationActivityEntry } from "@/services/implementation-activity.service";
 import {
   extractFirestoreIndexUrl,
   firestoreFailureHint,
@@ -174,6 +175,30 @@ export async function postPromoteToProduction(
         const prodGrowerRef = agentRef.collection("growers").doc(field.documentId);
         await prodGrowerRef.set({ [field.fieldKey]: field.value }, { merge: true });
       }
+    }
+
+    const collectionLabelEs: Record<string, string> = {
+      properties: "propiedades",
+      tools: "herramientas",
+      collaborators: "colaboradores",
+    };
+    const actorEmail = authCtx.userEmail?.toLowerCase().trim() ?? null;
+    const loggedCollections = new Set(["properties", "tools", "collaborators"]);
+    for (const field of parsed.data.fields) {
+      if (!loggedCollections.has(field.collection)) continue;
+      const collectionEs =
+        collectionLabelEs[field.collection] ?? field.collection;
+      void appendImplementationActivityEntry(db, agentId, {
+        kind: "system",
+        actorEmail,
+        action: "promoted_to_production",
+        summary: `Subió a producción (${collectionEs}: ${field.documentId} -> ${field.fieldKey}).`,
+        metadata: {
+          collection: field.collection,
+          documentId: field.documentId,
+          fieldKey: field.fieldKey,
+        },
+      });
     }
 
     return c.json({ ok: true });
