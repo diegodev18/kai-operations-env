@@ -168,6 +168,7 @@ export function OperationsDashboard(props: {
   type FavoritesFilter = "all" | "favorites";
   const [favoritesFilter, setFavoritesFilter] =
     useState<FavoritesFilter>("all");
+  const [showOnlyArchived, setShowOnlyArchived] = useState(false);
   const [isTogglingFavorite, setIsTogglingFavorite] = useState<string | null>(
     null,
   );
@@ -239,6 +240,7 @@ export function OperationsDashboard(props: {
         ...(filters ? { filters } : {}),
         ...(usePreview ? { preview: true } : {}),
         ...(favoritesFilter === "favorites" ? { favorites: true } : {}),
+        ...(showOnlyArchived ? { archivedOnly: true } : {}),
       });
     },
     [
@@ -247,6 +249,7 @@ export function OperationsDashboard(props: {
       billingAlertOnly,
       cobranzaFilter,
       favoritesFilter,
+      showOnlyArchived,
     ],
   );
 
@@ -549,6 +552,9 @@ export function OperationsDashboard(props: {
     if (favoritesFilter === "favorites") {
       list = list.filter((a) => a.isFavorite === true);
     }
+    if (showOnlyArchived) {
+      list = list.filter((a) => a.status === "archived");
+    }
     return list;
   }, [
     agents,
@@ -560,6 +566,7 @@ export function OperationsDashboard(props: {
     lastPaymentFrom,
     lastPaymentTo,
     favoritesFilter,
+    showOnlyArchived,
   ]);
   const activeAgents = useMemo(
     () => filteredAgents.filter((a) => a.status !== "archived"),
@@ -572,10 +579,12 @@ export function OperationsDashboard(props: {
   const hasSearchTerm = search.trim().length > 0;
   const orderedAgents = useMemo(
     () =>
-      hasSearchTerm
+      showOnlyArchived
+        ? archivedAgents
+        : hasSearchTerm
         ? [...activeAgents, ...archivedAgents]
         : activeAgents,
-    [activeAgents, archivedAgents, hasSearchTerm],
+    [activeAgents, archivedAgents, hasSearchTerm, showOnlyArchived],
   );
   const archivedStartIndex = activeAgents.length;
 
@@ -843,6 +852,20 @@ export function OperationsDashboard(props: {
                 </TooltipTrigger>
                 <TooltipContent>Favoritos</TooltipContent>
               </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={showOnlyArchived ? "secondary" : "ghost"}
+                    size="icon-sm"
+                    className="size-9 rounded-md border border-border"
+                    onClick={() => setShowOnlyArchived((v) => !v)}
+                  >
+                    <ArchiveIcon className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Solo archivados</TooltipContent>
+              </Tooltip>
               <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-1">
                 <span className="px-2 py-1.5 text-xs text-muted-foreground">
                   Cobranza
@@ -999,7 +1022,8 @@ export function OperationsDashboard(props: {
                   ) : (
                     orderedAgents.map((agent, idx) => (
                       <Fragment key={agent.id}>
-                        {hasSearchTerm &&
+                        {!showOnlyArchived &&
+                        hasSearchTerm &&
                         idx === archivedStartIndex &&
                         archivedAgents.length > 0 ? (
                           <tr className="bg-muted/30">

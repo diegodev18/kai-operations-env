@@ -263,6 +263,7 @@ type AgentFilters = {
   status?: string;
   billingAlert?: string;
   domiciliated?: string;
+  archivedOnly?: boolean;
 };
 
 /** Paginación sobre `sortedIds` filtrando por subcadena `qLower` (coincidencias consecutivas en orden). */
@@ -337,6 +338,7 @@ async function paginateLightAgentsWithSearch(
         if (filters.billingAlert === "true" && !row.billing?.paymentAlert) continue;
         if (filters.domiciliated === "true" && !row.billing?.domiciliated) continue;
         if (filters.domiciliated === "false" && row.billing?.domiciliated) continue;
+        if (filters.archivedOnly && row.status !== "archived") continue;
       }
 
       agents.push(row);
@@ -383,6 +385,7 @@ export const getAgentsInfo = async (
   const statusFilter = c.req.query("status");
   const billingAlertFilter = c.req.query("billingAlert");
   const domiciliatedFilter = c.req.query("domiciliated");
+  const archivedOnly = c.req.query("archived") === "only";
   const preview = c.req.query("preview") === "1";
   const favoritesOnly = c.req.query("favorites") === "1";
 
@@ -439,7 +442,17 @@ export const getAgentsInfo = async (
         const parent = d.ref.parent.parent;
         if (parent) idSet.add(parent.id);
       }
-      const sortedIds = [...idSet].sort((a, b) => a.localeCompare(b));
+      let sortedIds = [...idSet].sort((a, b) => a.localeCompare(b));
+      if (archivedOnly && sortedIds.length > 0) {
+        const checks = await Promise.all(
+          sortedIds.map(async (id) => {
+            const snap = await db.collection("agent_configurations").doc(id).get();
+            const status = snap.exists ? normalizeAgentStatus(snap.data()?.status) : "active";
+            return { id, archived: status === "archived" };
+          }),
+        );
+        sortedIds = checks.filter((item) => item.archived).map((item) => item.id);
+      }
 
       if (searchQ) {
         const { agents: agentRows, nextCursor } =
@@ -449,7 +462,12 @@ export const getAgentsInfo = async (
             cursor,
             effectiveLimit,
             { commercial: new Map(), production: new Map(), growersMap: new Map(), techLeadsMap: new Map() },
-            { status: statusFilter, billingAlert: billingAlertFilter, domiciliated: domiciliatedFilter },
+            {
+              status: statusFilter,
+              billingAlert: billingAlertFilter,
+              domiciliated: domiciliatedFilter,
+              archivedOnly,
+            },
           );
         return c.json({ agents: agentRows, nextCursor });
       }
@@ -503,6 +521,11 @@ export const getAgentsInfo = async (
           if (!favoriteAgentIds.includes(id)) techLeadsMap.delete(id);
         }
       }
+      if (archivedOnly) {
+        sortedIds = sortedIds.filter(
+          (id) => normalizeAgentStatus(productionMap.get(id)?.status) === "archived",
+        );
+      }
 
       if (searchQ) {
         if (cursor && isGrowerCursor(cursor)) {
@@ -517,7 +540,12 @@ export const getAgentsInfo = async (
           cursor,
           effectiveLimit,
           { commercial: commercialMap, production: productionMap, growersMap, techLeadsMap },
-          { status: statusFilter, billingAlert: billingAlertFilter, domiciliated: domiciliatedFilter },
+          {
+            status: statusFilter,
+            billingAlert: billingAlertFilter,
+            domiciliated: domiciliatedFilter,
+            archivedOnly,
+          },
         );
         return c.json({ agents, nextCursor });
       }
@@ -554,6 +582,7 @@ export const getAgentsInfo = async (
       if (billingAlertFilter === "true") filterFns.push((a) => a.billing?.paymentAlert === true);
       if (domiciliatedFilter === "true") filterFns.push((a) => a.billing?.domiciliated === true);
       if (domiciliatedFilter === "false") filterFns.push((a) => a.billing?.domiciliated === false);
+      if (archivedOnly) filterFns.push((a) => a.status === "archived");
 
       let agents = agentsRows.filter((row): row is LightAgent => row != null);
       for (const fn of filterFns) {

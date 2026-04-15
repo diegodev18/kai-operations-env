@@ -64,6 +64,7 @@ function agentsInfoUrl(
   },
   preview?: boolean,
   favorites?: boolean,
+  archivedOnly?: boolean,
 ): string {
   const params = new URLSearchParams();
   if (light) params.set("light", "1");
@@ -80,6 +81,7 @@ function agentsInfoUrl(
   }
   if (preview) params.set("preview", "1");
   if (favorites) params.set("favorites", "1");
+  if (archivedOnly) params.set("archived", "only");
   return `/api/agents/info?${params.toString()}`;
 }
 
@@ -100,6 +102,8 @@ export async function fetchAgentsPage(
     preview?: boolean;
     /** Filtro de favoritos del usuario actual */
     favorites?: boolean;
+    /** Filtro de archivados (query server-side). */
+    archivedOnly?: boolean;
   } = {},
 ): Promise<{ agents: AgentWithOperations[]; nextCursor: string | null } | null> {
   const {
@@ -111,8 +115,19 @@ export async function fetchAgentsPage(
     filters,
     preview,
     favorites,
+    archivedOnly,
   } = options;
-  const url = agentsInfoUrl(light, paginated, pageSize, cursor, q, filters, preview, favorites);
+  const url = agentsInfoUrl(
+    light,
+    paginated,
+    pageSize,
+    cursor,
+    q,
+    filters,
+    preview,
+    favorites,
+    archivedOnly,
+  );
   const response = await fetch(url, {
     credentials: "include",
     cache: "no-store",
