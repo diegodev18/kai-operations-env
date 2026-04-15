@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import {
@@ -30,6 +30,11 @@ export function ImplementationActivityCommentEditor({
     editable: !disabled,
     immediatelyRender: false,
   });
+
+  useEffect(() => {
+    if (!editor) return;
+    editor.setEditable(!disabled);
+  }, [editor, disabled]);
 
   const handleSubmit = useCallback(async () => {
     if (!editor || disabled || submitting) return;
