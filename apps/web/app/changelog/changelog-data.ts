@@ -64,6 +64,16 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] = 
 ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.3.8": {
+    date: "2026-04-14",
+    description:
+      "Agente: header sin badges de entorno (Testing / Producción)",
+    changes: {
+      removed: [
+        "En el layout de detalle de agente (`/agents/[agentId]/*`), se quitaron del encabezado los badges «Testing (comercial)» y «Producción (kai)» y el estado y listener que solo servían para mostrarlos.",
+      ],
+    },
+  },
   "2.3.7": {
     date: "2026-04-14",
     description:
