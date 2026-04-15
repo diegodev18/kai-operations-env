@@ -569,9 +569,13 @@ export function OperationsDashboard(props: {
     () => filteredAgents.filter((a) => a.status === "archived"),
     [filteredAgents],
   );
+  const hasSearchTerm = search.trim().length > 0;
   const orderedAgents = useMemo(
-    () => [...activeAgents, ...archivedAgents],
-    [activeAgents, archivedAgents],
+    () =>
+      hasSearchTerm
+        ? [...activeAgents, ...archivedAgents]
+        : activeAgents,
+    [activeAgents, archivedAgents, hasSearchTerm],
   );
   const archivedStartIndex = activeAgents.length;
 
@@ -995,7 +999,9 @@ export function OperationsDashboard(props: {
                   ) : (
                     orderedAgents.map((agent, idx) => (
                       <Fragment key={agent.id}>
-                        {idx === archivedStartIndex && archivedAgents.length > 0 ? (
+                        {hasSearchTerm &&
+                        idx === archivedStartIndex &&
+                        archivedAgents.length > 0 ? (
                           <tr className="bg-muted/30">
                             <td
                               colSpan={isAdmin ? 6 : 5}
