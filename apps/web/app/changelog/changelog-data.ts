@@ -64,6 +64,29 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] = 
 ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.4.1": {
+    date: "2026-04-15",
+    description:
+      "Archivado de agentes en Operations con bitácora, estado visible y filtros server-side",
+    changes: {
+      added: [
+        "Nuevo estado raíz del agente `status` (`active` | `archived`) en `agent_configurations/{agentId}`, expuesto en listado (`GET /api/agents/info`) y detalle (`GET /api/agents/:id`) con normalización backward-compatible (`active` por defecto).",
+        "Endpoint `POST /api/agents/:agentId/operations-archive` para archivar/desarchivar: exige `confirm = CONFIRMAR` al archivar, valida permisos de admin y persiste `status` en producción.",
+        "Registro automático en bitácora de implementación para archivado/desarchivado (`agent_archived`, `agent_unarchived`) con `appendImplementationActivityEntry`.",
+        "En Home (Operations), acciones por fila para archivar/desarchivar con íconos y tooltips, más diálogo de confirmación para archivado.",
+        "Filtro rápido `Solo archivados` en la Home que usa query server-side (`archived=only`) para incluir también agentes no cargados en cliente.",
+      ],
+      changed: [
+        "La búsqueda mantiene visibilidad de archivados cuando hay término de búsqueda; sin búsqueda, los archivados se ocultan del listado principal por defecto.",
+        "Cards/filas de agentes archivados muestran badge `Archivado` en lugar del estado operativo estándar.",
+        "En el detalle del agente (`/agents/[agentId]/*`), el tag de estado superior muestra `Archivado` cuando aplica.",
+        "UI de acciones refinada: botones de archivar/desarchivar ahora son solo íconos con tooltip (sin texto en botón).",
+      ],
+      removed: [
+        "Encabezado visual `Activos (N)` en la tabla de Operations.",
+      ],
+    },
+  },
   "2.4.0": {
     date: "2026-04-14",
     description:
