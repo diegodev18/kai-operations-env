@@ -23,7 +23,11 @@ import {
 import { UserMenu } from "@/components/user-menu";
 import { useAuth } from "@/hooks/auth";
 import { cn } from "@/lib/utils";
-import { assignAgentToUser, fetchAgentById } from "@/lib/agents-api";
+import {
+  assignAgentToUser,
+  fetchAgentById,
+  fetchAssignedAgentForUser,
+} from "@/lib/agents-api";
 
 const SECTIONS = [
   { suffix: "tasks", label: "Tareas" },
@@ -131,6 +135,7 @@ export default function AgentDetailLayout({
   const [favoriteAgentIds, setFavoriteAgentIds] = useState<Set<string>>(new Set());
   const [togglingFavorite, setTogglingFavorite] = useState<string | null>(null);
   const [assigningAgentId, setAssigningAgentId] = useState<string | null>(null);
+  const [assignedAgentId, setAssignedAgentId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!agentId) return;
@@ -157,6 +162,20 @@ export default function AgentDetailLayout({
       setStatus(a.status === "archived" ? "archived" : "active");
     };
     void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [agentId]);
+
+  useEffect(() => {
+    if (!agentId) return;
+    let cancelled = false;
+    const loadAssignedAgent = async () => {
+      const currentAssigned = await fetchAssignedAgentForUser();
+      if (cancelled) return;
+      setAssignedAgentId(currentAssigned);
+    };
+    void loadAssignedAgent();
     return () => {
       cancelled = true;
     };
@@ -236,7 +255,7 @@ export default function AgentDetailLayout({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant="outline"
+                  variant={assignedAgentId === agentId ? "secondary" : "outline"}
                   size="icon"
                   className="size-7 shrink-0"
                   disabled={assigningAgentId === agentId}
@@ -246,6 +265,7 @@ export default function AgentDetailLayout({
                     try {
                       const result = await assignAgentToUser(agentId);
                       if (result.ok) {
+                        setAssignedAgentId(agentId);
                         toast.success("Agente asignado a testing");
                       } else {
                         toast.error(result.error);
@@ -259,13 +279,19 @@ export default function AgentDetailLayout({
                 >
                   {assigningAgentId === agentId ? (
                     <Loader2Icon className="size-3.5 animate-spin" />
+                  ) : assignedAgentId === agentId ? (
+                    <CheckCircleIcon className="size-3.5 text-emerald-600" />
                   ) : (
                     <FlaskConicalIcon className="size-3.5 text-muted-foreground" />
                   )}
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Asignar a número de testing</p>
+                <p>
+                  {assignedAgentId === agentId
+                    ? "Asignado a tu número de testing"
+                    : "Asignar a número de testing"}
+                </p>
               </TooltipContent>
             </Tooltip>
               <Tooltip>

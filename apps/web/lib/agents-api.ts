@@ -1416,6 +1416,20 @@ export async function assignAgentToUser(
   return { ok: false, error: "Respuesta inválida del servidor" };
 }
 
+export async function fetchAssignedAgentForUser(): Promise<string | null> {
+  const res = await fetch("/api/agents/assigned-to-user", {
+    credentials: "include",
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  try {
+    const data = (await res.json()) as { assignedAgentId?: string | null };
+    return data.assignedAgentId ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchAgentBilling(
   agentId: string,
 ): Promise<{ billing: AgentBilling; payments: PaymentRecord[] } | null> {

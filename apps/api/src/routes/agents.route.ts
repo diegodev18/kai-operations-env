@@ -19,7 +19,11 @@ import {
 import { postAgentBuilderChat } from "@/controllers/agent-builder-chat.controller";
 import { postAgentFlowQuestions } from "@/controllers/agent-flow-questions.controller";
 import { postAgentRecommendTools } from "@/controllers/agent-recommend-tools.controller";
-import { getAgentsInfo, assignAgentToUser } from "@/controllers/agents.controller";
+import {
+  getAgentsInfo,
+  assignAgentToUser,
+  getAssignedAgentForUser,
+} from "@/controllers/agents.controller";
 import {
   getAgentById,
   getAgentProperties,
@@ -86,6 +90,12 @@ agentsRouter.get("/info", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   return await getAgentsInfo(c, ctx.authCtx);
+});
+
+agentsRouter.get("/assigned-to-user", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  return getAssignedAgentForUser(c, ctx.authCtx);
 });
 
 agentsRouter.get("/tools-catalog", async (c) => {

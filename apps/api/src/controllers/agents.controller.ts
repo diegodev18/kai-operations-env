@@ -741,3 +741,46 @@ export async function assignAgentToUser(
 
   return c.json({ ok: true, createdUserBuilder });
 }
+
+export async function getAssignedAgentForUser(
+  c: Context,
+  _authCtx: AgentsInfoAuthContext,
+) {
+  const session = await auth.api.getSession({ headers: c.req.raw.headers });
+  if (!session?.user?.id) {
+    return ApiErrors.unauthorized(c, "No autorizado");
+  }
+
+  const userId = session.user.id as string;
+  const rows = await db
+    .select({ phone: user.phone })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+  if (!rows[0]) {
+    return ApiErrors.notFound(c, "Usuario no encontrado");
+  }
+
+  const phone = rows[0].phone;
+  if (!phone || phone.trim().length === 0) {
+    return c.json({ assignedAgentId: null });
+  }
+
+  const firestore = getFirestore();
+  const phoneNumber = phone.trim();
+  const usersBuildersQuery = await firestore
+    .collection("usersBuilders")
+    .where("phoneNumber", "==", phoneNumber)
+    .limit(1)
+    .get();
+
+  if (usersBuildersQuery.empty) {
+    return c.json({ assignedAgentId: null });
+  }
+
+  const data = usersBuildersQuery.docs[0]!.data() as {
+    customAgentConfigId?: string;
+  };
+
+  return c.json({ assignedAgentId: data.customAgentConfigId ?? null });
+}

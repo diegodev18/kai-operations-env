@@ -80,6 +80,7 @@ import {
   deletePaymentRecord,
   postAgentOperationsArchive,
   assignAgentToUser,
+  fetchAssignedAgentForUser,
 } from "@/lib/agents-api";
 import {
   fetchOrganizationUsers,
@@ -177,6 +178,7 @@ export function OperationsDashboard(props: {
   const [isAssigningAgentId, setIsAssigningAgentId] = useState<string | null>(
     null,
   );
+  const [assignedAgentId, setAssignedAgentId] = useState<string | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<AgentWithOperations | null>(null);
   const [archiveConfirmText, setArchiveConfirmText] = useState("");
   const [archiveSaving, setArchiveSaving] = useState(false);
@@ -186,6 +188,18 @@ export function OperationsDashboard(props: {
     if (stored === "form" || stored === "conversational") {
       setDefaultBuilderMode(stored);
     }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const currentAssigned = await fetchAssignedAgentForUser();
+      if (cancelled) return;
+      setAssignedAgentId(currentAssigned);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -1143,7 +1157,11 @@ export function OperationsDashboard(props: {
                                 <TooltipTrigger asChild>
                                   <Button
                                     type="button"
-                                    variant="ghost"
+                                    variant={
+                                      assignedAgentId === agent.id
+                                        ? "secondary"
+                                        : "ghost"
+                                    }
                                     size="icon-sm"
                                     className="size-7"
                                     disabled={isAssigningAgentId === agent.id}
@@ -1157,6 +1175,7 @@ export function OperationsDashboard(props: {
                                             agent.id,
                                           );
                                           if (result.ok) {
+                                            setAssignedAgentId(agent.id);
                                             toast.success(
                                               "Agente asignado a testing",
                                             );
@@ -1175,13 +1194,17 @@ export function OperationsDashboard(props: {
                                   >
                                     {isAssigningAgentId === agent.id ? (
                                       <Loader2Icon className="size-4 animate-spin" />
+                                    ) : assignedAgentId === agent.id ? (
+                                      <CheckCircleIcon className="size-4 text-emerald-600" />
                                     ) : (
                                       <FlaskConicalIcon className="size-4 text-muted-foreground" />
                                     )}
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  Asignar a número de testing
+                                  {assignedAgentId === agent.id
+                                    ? "Asignado a tu número de testing"
+                                    : "Asignar a número de testing"}
                                 </TooltipContent>
                               </Tooltip>
                               <Link
