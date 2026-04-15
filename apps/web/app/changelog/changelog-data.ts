@@ -64,6 +64,24 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] = 
 ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.4.0": {
+    date: "2026-04-14",
+    description:
+      "Implementación por agente: bitácora, comentarios y registro detallado de actividad",
+    changes: {
+      added: [
+        "Bitácora en Firestore (`agent_configurations/{id}/implementation/activity/items`) y rutas API `GET` y `POST /api/agents/:agentId/implementation-activity` (comentarios con HTML sanitizado en servidor mediante `sanitize-html`).",
+        "En el panel de tareas de implementación: sección «Bitácora y comentarios» con línea de tiempo, filtro (todos, comentarios o registros del sistema), orden por fecha, editor enriquecido TipTap y botón para publicar comentarios.",
+        "Entradas automáticas de sistema al actualizar el system prompt, al promover el prompt a producción, al guardar propiedades de testing (texto `documentId -> ruta.de.campo`), al modificar herramientas o cobranza, y al confirmar «Subir a producción» (`POST .../promote-to-production`) con un registro por cada campo promovido (`promoted_to_production`).",
+        "Registros específicos por acción sobre herramientas: creación, eliminación, solo activación/desactivación, o modificación de contenido con resumen de campos tocados en español.",
+      ],
+      changed: [
+        "Propiedades de testing: si en un mismo guardado cambian varias claves en un documento, la bitácora genera un registro independiente por cada campo (ya no se agrupan con coma en un solo renglón).",
+        "Tareas personalizadas: en cada tarjeta se muestran fecha y hora de creación y quién la creó; el checklist obligatorio pasa a titularse «Checklist obligatorios».",
+        "Línea vertical de la timeline de la bitácora alineada con el centro de los iconos de cada evento.",
+      ],
+    },
+  },
   "2.3.9": {
     date: "2026-04-14",
     description:
