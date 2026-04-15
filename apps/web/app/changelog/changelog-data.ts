@@ -64,6 +64,27 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] = 
 ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.4.7": {
+    date: "2026-04-15",
+    description:
+      "Constructor de agentes: empresas guardadas en Firestore, selector con descripción y guardado al avanzar",
+    changes: {
+      added: [
+        "Colección Firestore `builderCompanies` con documentos por perfil de negocio: `usersBuildersId` (teléfono del builder, alineado con `usersBuilders`), `name`, `payload` en camelCase (`businessName`, `description`, `industry`, etc.), `createdAt` y `updatedAt`.",
+        "API Hono `GET` y `POST /api/builder/saved-companies` (validación Zod); sin endpoint de borrado. Rewrite en `next.config.ts` hacia la API interna para `/api/builder/*`.",
+        "Cliente `fetchSavedBuilderCompanies` y `postSavedBuilderCompany` en `lib/agents-api.ts`; tipos `BuilderCompanyPayload` y `SavedBuilderCompany`.",
+        "En el paso Negocio del form builder: bloque «Empresas guardadas» con buscador por nombre o descripción, lista que muestra el nombre y debajo la descripción del negocio (para distinguir entradas con el mismo nombre), y botón «Guardar empresa actual».",
+        "Guardado automático del perfil del negocio al pulsar **Siguiente** cuando los datos obligatorios están completos, con deduplicación por hash del payload para no crear registros idénticos seguidos.",
+        "Callback `onBusinessProfileSaved` para alinear el estado de deduplicación tras guardar manualmente o cargar un perfil desde el selector.",
+      ],
+      changed: [
+        "El listado del selector permite múltiples empresas con el mismo nombre; la descripción bajo el título sirve para diferenciarlas.",
+      ],
+      removed: [
+        "Eliminación de negocios guardados (sin botón en UI y sin ruta `DELETE` en la API).",
+      ],
+    },
+  },
   "2.4.6": {
     date: "2026-04-15",
     description:
