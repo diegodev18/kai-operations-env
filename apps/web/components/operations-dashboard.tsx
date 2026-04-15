@@ -995,16 +995,6 @@ export function OperationsDashboard(props: {
                   ) : (
                     orderedAgents.map((agent, idx) => (
                       <Fragment key={agent.id}>
-                        {idx === 0 && activeAgents.length > 0 ? (
-                          <tr className="bg-muted/30">
-                            <td
-                              colSpan={isAdmin ? 6 : 5}
-                              className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-                            >
-                              Activos ({activeAgents.length})
-                            </td>
-                          </tr>
-                        ) : null}
                         {idx === archivedStartIndex && archivedAgents.length > 0 ? (
                           <tr className="bg-muted/30">
                             <td
