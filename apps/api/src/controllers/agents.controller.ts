@@ -703,24 +703,41 @@ export async function assignAgentToUser(
     return ApiErrors.validation(c, "El usuario no tiene teléfono configurado");
   }
 
-  const phoneId = phone.trim();
+  const phoneNumber = phone.trim();
   const userName = rows[0].name ?? session.user.name ?? "";
-  const assignmentRef = firestore.collection("agents_assignment").doc(phoneId);
-  const assignmentSnap = await assignmentRef.get();
+  const userEmail = (session.user.email as string | undefined) ?? "";
+  const usersBuildersCollection = firestore.collection("usersBuilders");
+  const usersBuildersQuery = await usersBuildersCollection
+    .where("phoneNumber", "==", phoneNumber)
+    .limit(1)
+    .get();
 
-  if (assignmentSnap.exists) {
-    await assignmentRef.update({
-      custom_agent_doc_id: agentId,
-      agente: "KAIROUTER",
+  const now = new Date().toISOString();
+  let createdUserBuilder = false;
+
+  if (usersBuildersQuery.empty) {
+    createdUserBuilder = true;
+    await usersBuildersCollection.doc(phoneNumber).set({
+      uid: userId,
+      email: userEmail,
       name: userName,
+      phoneNumber,
+      customAgentConfigId: agentId,
+      isTestingCustomAgent: true,
+      testingStartedAt: now,
+      lastAgentChange: now,
+      createdAt: now,
+      updatedAt: now,
     });
   } else {
-    await assignmentRef.set({
-      custom_agent_doc_id: agentId,
-      agente: "KAIROUTER",
-      name: userName,
+    await usersBuildersQuery.docs[0]!.ref.update({
+      customAgentConfigId: agentId,
+      isTestingCustomAgent: true,
+      testingStartedAt: now,
+      lastAgentChange: now,
+      updatedAt: now,
     });
   }
 
-  return c.json({ ok: true });
+  return c.json({ ok: true, createdUserBuilder });
 }

@@ -15,6 +15,7 @@ import {
   CloudDownloadIcon,
   CopyIcon,
   DatabaseIcon,
+  FlaskConicalIcon,
   FolderOpenIcon,
   LayoutDashboardIcon,
   LayoutGridIcon,
@@ -78,6 +79,7 @@ import {
   createPaymentRecord,
   deletePaymentRecord,
   postAgentOperationsArchive,
+  assignAgentToUser,
 } from "@/lib/agents-api";
 import {
   fetchOrganizationUsers,
@@ -170,6 +172,9 @@ export function OperationsDashboard(props: {
     useState<FavoritesFilter>("all");
   const [showOnlyArchived, setShowOnlyArchived] = useState(false);
   const [isTogglingFavorite, setIsTogglingFavorite] = useState<string | null>(
+    null,
+  );
+  const [isAssigningAgentId, setIsAssigningAgentId] = useState<string | null>(
     null,
   );
   const [archiveTarget, setArchiveTarget] = useState<AgentWithOperations | null>(null);
@@ -1134,6 +1139,51 @@ export function OperationsDashboard(props: {
                                   <StarIcon className="size-4 text-muted-foreground" />
                                 )}
                               </Button>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    className="size-7"
+                                    disabled={isAssigningAgentId === agent.id}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (isAssigningAgentId === agent.id) return;
+                                      void (async () => {
+                                        setIsAssigningAgentId(agent.id);
+                                        try {
+                                          const result = await assignAgentToUser(
+                                            agent.id,
+                                          );
+                                          if (result.ok) {
+                                            toast.success(
+                                              "Agente asignado a testing",
+                                            );
+                                          } else {
+                                            toast.error(result.error);
+                                          }
+                                        } catch {
+                                          toast.error(
+                                            "Error al asignar agente a testing",
+                                          );
+                                        } finally {
+                                          setIsAssigningAgentId(null);
+                                        }
+                                      })();
+                                    }}
+                                  >
+                                    {isAssigningAgentId === agent.id ? (
+                                      <Loader2Icon className="size-4 animate-spin" />
+                                    ) : (
+                                      <FlaskConicalIcon className="size-4 text-muted-foreground" />
+                                    )}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  Asignar a número de testing
+                                </TooltipContent>
+                              </Tooltip>
                               <Link
                                 href={`/agents/${encodeURIComponent(agent.id)}/prompt-design`}
                                 className="text-primary hover:underline"
