@@ -67,7 +67,10 @@ import {
   patchAgentBillingConfig,
   patchImplementationTask,
 } from "@/lib/agents-api";
-import { FileUploadButton, AttachmentList } from "@/components/file-upload-button";
+import {
+  FileUploadButton,
+  AttachmentList,
+} from "@/components/file-upload-button";
 import { ImplementationActivityCommentEditor } from "@/components/implementation-activity-comment-editor";
 import { useUserRole } from "@/hooks/useUserRole";
 
@@ -99,16 +102,28 @@ const TASK_TYPES_WITH_ATTACHMENTS = new Set(["quote-sent", "csf-request"]);
 
 const TASK_TYPE_CONFIG: Record<
   string,
-  { icon: React.ElementType; badge?: string; badgeVariant?: "default" | "secondary" | "outline" }
+  {
+    icon: React.ElementType;
+    badge?: string;
+    badgeVariant?: "default" | "secondary" | "outline";
+  }
 > = {
   "connect-number": { icon: PhoneIcon },
-  "csf-request": { icon: FileTextIcon, badge: "CSF", badgeVariant: "default" as const },
+  "csf-request": {
+    icon: FileTextIcon,
+    badge: "CSF",
+    badgeVariant: "default" as const,
+  },
   "payment-domiciliation": {
     icon: CreditCardIcon,
     badge: "Cobranza",
     badgeVariant: "secondary" as const,
   },
-  "quote-sent": { icon: SendIcon, badge: "Cotización", badgeVariant: "outline" as const },
+  "quote-sent": {
+    icon: SendIcon,
+    badge: "Cotización",
+    badgeVariant: "outline" as const,
+  },
   "representative-contact": {
     icon: UserCircleIcon,
     badge: "Contacto",
@@ -145,7 +160,11 @@ function actorLabel(
   return growersByEmail.get(norm) ?? norm;
 }
 
-export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) {
+export function AgentImplementationTasksPanel({
+  agentId,
+}: {
+  agentId: string;
+}) {
   const { role: userRole } = useUserRole();
   const isOperations = isOperationsRole(userRole);
 
@@ -167,15 +186,23 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
   >([]);
 
   const [taskDueDates, setTaskDueDates] = useState<Record<string, string>>({});
-  const [taskAssignees, setTaskAssignees] = useState<Record<string, string[]>>({});
+  const [taskAssignees, setTaskAssignees] = useState<Record<string, string[]>>(
+    {},
+  );
   const [mandatoryCollapsed, setMandatoryCollapsed] = useState(true);
   const [agentBilling, setAgentBilling] = useState<AgentBilling | null>(null);
   const [billingLoading, setBillingLoading] = useState(false);
   const [billingSaving, setBillingSaving] = useState(false);
-  const [waIntegrations, setWaIntegrations] = useState<WhatsappIntegrationStatusItem[]>([]);
-  const [repDraft, setRepDraft] = useState<Record<string, { email: string; phone: string }>>({});
+  const [waIntegrations, setWaIntegrations] = useState<
+    WhatsappIntegrationStatusItem[]
+  >([]);
+  const [repDraft, setRepDraft] = useState<
+    Record<string, { email: string; phone: string }>
+  >({});
   const [activity, setActivity] = useState<ImplementationActivityEntry[]>([]);
-  const [activityFilter, setActivityFilter] = useState<"all" | "comment" | "system">("all");
+  const [activityFilter, setActivityFilter] = useState<
+    "all" | "comment" | "system"
+  >("all");
   const [activitySortDesc, setActivitySortDesc] = useState(true);
 
   const loadData = useCallback(async () => {
@@ -201,7 +228,9 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
         toast.error("No se pudo cargar la bitácora");
         setActivity([]);
       } else {
-        setActivity(Array.isArray(activityRes.entries) ? activityRes.entries : []);
+        setActivity(
+          Array.isArray(activityRes.entries) ? activityRes.entries : [],
+        );
       }
     } finally {
       setLoading(false);
@@ -265,7 +294,9 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
 
   useEffect(() => {
     if (!isOperations || !agentBilling || !paymentDomiciliationTask) return;
-    const wantStatus = paymentDomiciliationShouldComplete(agentBilling) ? "completed" : "pending";
+    const wantStatus = paymentDomiciliationShouldComplete(agentBilling)
+      ? "completed"
+      : "pending";
     if (paymentDomiciliationTask.status === wantStatus) return;
     let cancelled = false;
     const taskId = paymentDomiciliationTask.id;
@@ -295,14 +326,20 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
       const res = await fetchWhatsappIntegrationStatus(agentId);
       if (cancelled || !res) return;
       setWaIntegrations(res.items);
-      const connectTask = tasksRef.current.find((t) => t.taskType === "connect-number");
+      const connectTask = tasksRef.current.find(
+        (t) => t.taskType === "connect-number",
+      );
       if (
         connectTask?.status === "pending" &&
         res.items.some((i) => i.setupStatus === "completed")
       ) {
-        const r = await patchImplementationTask(agentId, connectTask.id, { status: "completed" });
+        const r = await patchImplementationTask(agentId, connectTask.id, {
+          status: "completed",
+        });
         if (!cancelled && r.ok) {
-          setTasks((prev) => prev.map((t) => (t.id === connectTask.id ? r.task : t)));
+          setTasks((prev) =>
+            prev.map((t) => (t.id === connectTask.id ? r.task : t)),
+          );
         }
       }
     };
@@ -323,23 +360,37 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
   }, [growers]);
 
   const mandatoryTasks = useMemo(
-    () => tasks.filter((t) => t.mandatory || (t.taskType && MANDATORY_TASK_TYPES.has(t.taskType))),
+    () =>
+      tasks.filter(
+        (t) =>
+          t.mandatory || (t.taskType && MANDATORY_TASK_TYPES.has(t.taskType)),
+      ),
     [tasks],
   );
 
   const mandatoryProgress = useMemo(() => {
-    const completed = mandatoryTasks.filter((t) => t.status === "completed").length;
+    const completed = mandatoryTasks.filter(
+      (t) => t.status === "completed",
+    ).length;
     return { completed, total: mandatoryTasks.length };
   }, [mandatoryTasks]);
 
   const customTasks = useMemo(
     () =>
       tasks
-        .filter((t) => !t.mandatory && !(t.taskType && MANDATORY_TASK_TYPES.has(t.taskType)))
+        .filter(
+          (t) =>
+            !t.mandatory &&
+            !(t.taskType && MANDATORY_TASK_TYPES.has(t.taskType)),
+        )
         .sort((a, b) => {
           if (a.status !== b.status) return a.status === "pending" ? -1 : 1;
-          const aTime = a.dueDate ? new Date(a.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
-          const bTime = b.dueDate ? new Date(b.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
+          const aTime = a.dueDate
+            ? new Date(a.dueDate).getTime()
+            : Number.MAX_SAFE_INTEGER;
+          const bTime = b.dueDate
+            ? new Date(b.dueDate).getTime()
+            : Number.MAX_SAFE_INTEGER;
           return aTime - bTime;
         }),
     [tasks],
@@ -358,13 +409,17 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
     return list;
   }, [activity, activityFilter, activitySortDesc]);
 
-  const toggleAssigneeForCreate = useCallback((email: string, checked: boolean) => {
-    const normalized = email.trim().toLowerCase();
-    setAssigneeEmails((prev) => {
-      if (checked) return prev.includes(normalized) ? prev : [...prev, normalized];
-      return prev.filter((e) => e !== normalized);
-    });
-  }, []);
+  const toggleAssigneeForCreate = useCallback(
+    (email: string, checked: boolean) => {
+      const normalized = email.trim().toLowerCase();
+      setAssigneeEmails((prev) => {
+        if (checked)
+          return prev.includes(normalized) ? prev : [...prev, normalized];
+        return prev.filter((e) => e !== normalized);
+      });
+    },
+    [],
+  );
 
   const onCreateTask = useCallback(async () => {
     const taskTitle = title.trim();
@@ -379,7 +434,8 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
         description: description.trim() || undefined,
         dueDate: toIsoFromDateInput(dueDate),
         assigneeEmails,
-        attachments: createAttachments.length > 0 ? createAttachments : undefined,
+        attachments:
+          createAttachments.length > 0 ? createAttachments : undefined,
       });
       if (!result.ok) {
         toast.error(result.error);
@@ -408,7 +464,9 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
           toast.error(result.error);
           return;
         }
-        setTasks((prev) => prev.map((t) => (t.id === task.id ? result.task : t)));
+        setTasks((prev) =>
+          prev.map((t) => (t.id === task.id ? result.task : t)),
+        );
       } finally {
         setSavingTaskId(null);
       }
@@ -428,7 +486,9 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
           toast.error(result.error);
           return;
         }
-        setTasks((prev) => prev.map((t) => (t.id === taskId ? result.task : t)));
+        setTasks((prev) =>
+          prev.map((t) => (t.id === taskId ? result.task : t)),
+        );
         toast.success("Fecha de vencimiento actualizada");
       } finally {
         setSavingTaskId(null);
@@ -463,7 +523,9 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
           toast.error(result.error);
           return;
         }
-        setTasks((prev) => prev.map((t) => (t.id === taskId ? result.task : t)));
+        setTasks((prev) =>
+          prev.map((t) => (t.id === taskId ? result.task : t)),
+        );
         toast.success("Asignaciones actualizadas");
       } finally {
         setSavingTaskId(null);
@@ -482,7 +544,10 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
         }),
       );
       void patchImplementationTask(agentId, taskId, {
-        attachments: [...(tasks.find((t) => t.id === taskId)?.attachments ?? []), attachment],
+        attachments: [
+          ...(tasks.find((t) => t.id === taskId)?.attachments ?? []),
+          attachment,
+        ],
       });
     },
     [agentId, tasks],
@@ -499,9 +564,10 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
         }),
       );
       void patchImplementationTask(agentId, taskId, {
-        attachments: tasks
-          .find((t) => t.id === taskId)
-          ?.attachments?.filter((_, i) => i !== index) ?? [],
+        attachments:
+          tasks
+            .find((t) => t.id === taskId)
+            ?.attachments?.filter((_, i) => i !== index) ?? [],
       });
     },
     [agentId, tasks],
@@ -512,7 +578,9 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
       if (!isOperations) return;
       setBillingSaving(true);
       try {
-        const r = await patchAgentBillingConfig(agentId, { domiciliated: checked });
+        const r = await patchAgentBillingConfig(agentId, {
+          domiciliated: checked,
+        });
         if (!r.ok) {
           toast.error(r.error);
           return;
@@ -529,7 +597,10 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
 
   const onPublishComment = useCallback(
     async (bodyHtml: string) => {
-      const result = await createImplementationActivityComment(agentId, bodyHtml);
+      const result = await createImplementationActivityComment(
+        agentId,
+        bodyHtml,
+      );
       if (!result.ok) {
         toast.error(result.error);
         return;
@@ -556,7 +627,9 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
           toast.error(result.error);
           return;
         }
-        setTasks((prev) => prev.map((t) => (t.id === taskId ? result.task : t)));
+        setTasks((prev) =>
+          prev.map((t) => (t.id === taskId ? result.task : t)),
+        );
         setRepDraft((prev) => ({
           ...prev,
           [taskId]: {
@@ -612,10 +685,13 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
         >
           {mandatoryTasks.map((task) => {
             const isSaving = savingTaskId === task.id;
-            const config = task.taskType ? TASK_TYPE_CONFIG[task.taskType] : null;
+            const config = task.taskType
+              ? TASK_TYPE_CONFIG[task.taskType]
+              : null;
             const Icon = config?.icon ?? FileTextIcon;
             const showUpload =
-              Boolean(task.taskType) && TASK_TYPES_WITH_ATTACHMENTS.has(task.taskType!);
+              Boolean(task.taskType) &&
+              TASK_TYPES_WITH_ATTACHMENTS.has(task.taskType!);
             const checkboxDisabled =
               isSaving || task.taskType === "payment-domiciliation";
             const primaryWa = waIntegrations[0];
@@ -638,12 +714,16 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
                           : "border-muted-foreground/30 hover:border-primary"
                       }`}
                     >
-                      {task.status === "completed" && <CheckIcon className="size-3.5" />}
+                      {task.status === "completed" && (
+                        <CheckIcon className="size-3.5" />
+                      )}
                     </button>
                     <Icon className="size-4 shrink-0 text-muted-foreground" />
                     <div className="min-w-0 flex-1 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-medium text-foreground">{task.title}</span>
+                        <span className="text-sm font-medium text-foreground">
+                          {task.title}
+                        </span>
                         {config?.badge ? (
                           <Badge
                             variant={config.badgeVariant ?? "outline"}
@@ -654,7 +734,8 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
                         ) : null}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Indica al menos un medio de contacto y guarda antes de marcar como hecha.
+                        Indica al menos un medio de contacto y guarda antes de
+                        marcar como hecha.
                       </p>
                       <div className="grid gap-2 sm:grid-cols-2">
                         <Input
@@ -724,7 +805,9 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
                         : "border-muted-foreground/30 hover:border-primary"
                     } ${checkboxDisabled ? "cursor-not-allowed opacity-60" : ""}`}
                   >
-                    {task.status === "completed" && <CheckIcon className="size-3.5" />}
+                    {task.status === "completed" && (
+                      <CheckIcon className="size-3.5" />
+                    )}
                   </button>
 
                   <Icon className="size-4 shrink-0 text-muted-foreground" />
@@ -753,7 +836,9 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
                       <p className="text-xs text-muted-foreground">
                         Detectado:{" "}
                         <span className="font-medium text-foreground">
-                          {primaryWa.formattedPhoneNumber ?? primaryWa.phoneNumber ?? "—"}
+                          {primaryWa.formattedPhoneNumber ??
+                            primaryWa.phoneNumber ??
+                            "—"}
                         </span>
                         {primaryWa.setupStatus ? (
                           <span className="text-muted-foreground">
@@ -765,10 +850,12 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
                     ) : null}
                     {task.taskType === "connect-number" && !primaryWa ? (
                       <p className="text-xs text-muted-foreground">
-                        Aún no hay integración vinculada; se actualizará sola al conectar el número.
+                        Aún no hay integración vinculada; se actualizará sola al
+                        conectar el número.
                       </p>
                     ) : null}
-                    {task.taskType === "payment-domiciliation" && isOperations ? (
+                    {task.taskType === "payment-domiciliation" &&
+                    isOperations ? (
                       <label className="flex cursor-pointer flex-wrap items-center gap-2 text-xs text-foreground">
                         <Checkbox
                           checked={agentBilling?.domiciliated ?? false}
@@ -778,13 +865,16 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
                           }}
                         />
                         <span>
-                          Cliente domiciliado (mismo valor que en la Home de Operaciones)
+                          Cliente domiciliado (mismo valor que en la Home de
+                          Operaciones)
                         </span>
                       </label>
                     ) : null}
-                    {task.taskType === "payment-domiciliation" && !isOperations ? (
+                    {task.taskType === "payment-domiciliation" &&
+                    !isOperations ? (
                       <p className="text-xs text-muted-foreground">
-                        La domiciliación la definen usuarios de Operaciones en la Home (cobranza).
+                        La domiciliación la definen usuarios de Operaciones en
+                        la Home (cobranza).
                       </p>
                     ) : null}
                   </div>
@@ -826,7 +916,9 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
                 <CardHeader className="gap-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="space-y-1">
-                      <CardTitle className="line-clamp-2">{task.title}</CardTitle>
+                      <CardTitle className="line-clamp-2">
+                        {task.title}
+                      </CardTitle>
                       <CardDescription>
                         {task.description?.trim()
                           ? task.description
@@ -843,7 +935,9 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
                       </p>
                     </div>
                     <Badge
-                      variant={task.status === "completed" ? "secondary" : "default"}
+                      variant={
+                        task.status === "completed" ? "secondary" : "default"
+                      }
                     >
                       {task.status === "completed" ? "Completada" : "Pendiente"}
                     </Badge>
@@ -913,7 +1007,11 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
                                     type="checkbox"
                                     checked={checked}
                                     onChange={(e) =>
-                                      onToggleTaskAssignee(task.id, email, e.target.checked)
+                                      onToggleTaskAssignee(
+                                        task.id,
+                                        email,
+                                        e.target.checked,
+                                      )
                                     }
                                     className="h-4 w-4 rounded border-input"
                                   />
@@ -949,7 +1047,9 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
                   <div className="flex items-center justify-end">
                     <Button
                       type="button"
-                      variant={task.status === "completed" ? "outline" : "default"}
+                      variant={
+                        task.status === "completed" ? "outline" : "default"
+                      }
                       size="sm"
                       disabled={isSaving}
                       onClick={() => void onToggleTaskStatus(task)}
@@ -982,7 +1082,10 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
                 />
               </div>
               <div className="space-y-2">
-                <label htmlFor="task-description" className="text-sm font-medium">
+                <label
+                  htmlFor="task-description"
+                  className="text-sm font-medium"
+                >
                   Descripción
                 </label>
                 <Textarea
@@ -1032,7 +1135,9 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
                 <AttachmentList
                   attachments={createAttachments}
                   onRemove={(i) =>
-                    setCreateAttachments((prev) => prev.filter((_, idx) => idx !== i))
+                    setCreateAttachments((prev) =>
+                      prev.filter((_, idx) => idx !== i),
+                    )
                   }
                 />
               )}
@@ -1082,7 +1187,11 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
                     size="sm"
                     className="h-8 gap-1 px-2"
                     onClick={() => setActivitySortDesc((d) => !d)}
-                    aria-label={activitySortDesc ? "Orden: más recientes primero" : "Orden: más antiguos primero"}
+                    aria-label={
+                      activitySortDesc
+                        ? "Orden: más recientes primero"
+                        : "Orden: más antiguos primero"
+                    }
                   >
                     {activitySortDesc ? (
                       <ArrowDownWideNarrowIcon className="size-4" />
@@ -1092,17 +1201,24 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent sideOffset={6}>
-                  {activitySortDesc ? "Más recientes arriba" : "Más antiguos arriba"}
+                  {activitySortDesc
+                    ? "Más recientes arriba"
+                    : "Más antiguos arriba"}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
             <div className="flex items-center gap-1 rounded-md border bg-background px-2 py-0.5">
-              <FilterIcon className="size-3.5 text-muted-foreground" aria-hidden />
+              <FilterIcon
+                className="size-3.5 text-muted-foreground"
+                aria-hidden
+              />
               <select
                 className="h-7 max-w-[140px] border-0 bg-transparent text-xs outline-none"
                 value={activityFilter}
                 onChange={(e) =>
-                  setActivityFilter(e.target.value as "all" | "comment" | "system")
+                  setActivityFilter(
+                    e.target.value as "all" | "comment" | "system",
+                  )
                 }
                 aria-label="Filtrar bitácora"
               >
@@ -1114,23 +1230,36 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
           </div>
         </div>
 
-        <div className="relative space-y-0 border-l border-border pl-4 ml-1.5">
-          {filteredActivity.length === 0 ? (
-            <p className="pb-2 text-sm text-muted-foreground pl-1">
-              No hay entradas en la bitácora todavía.
-            </p>
-          ) : (
-            filteredActivity.map((entry) => {
+        {filteredActivity.length === 0 ? (
+          <p className="pb-2 text-sm text-muted-foreground">
+            No hay entradas en la bitácora todavía.
+          </p>
+        ) : (
+          <div className="relative flex flex-col">
+            {/* Centro de columna w-7 = mitad de 1.75rem; la línea coincide con el centro del círculo */}
+            <div
+              className="pointer-events-none absolute top-2 bottom-2 left-[0.875rem] z-0 w-px -translate-x-1/2 bg-border"
+              aria-hidden
+            />
+            {filteredActivity.map((entry) => {
               const isComment = entry.kind === "comment";
               const Icon = isComment ? MessageSquareIcon : Settings2Icon;
               const when = formatDateTime(entry.createdAt);
               const who = actorLabel(entry.actorEmail, growersByEmail);
               return (
-                <div key={entry.id} className="relative pb-6 last:pb-2">
-                  <span className="absolute -left-[21px] top-0 flex size-7 items-center justify-center rounded-full border bg-muted">
-                    <Icon className="size-3.5 text-muted-foreground" aria-hidden />
-                  </span>
-                  <div className="space-y-1 pl-1">
+                <div
+                  key={entry.id}
+                  className="relative z-10 flex gap-3 pb-6 last:pb-2"
+                >
+                  <div className="flex w-7 shrink-0 justify-center pt-0.5">
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-full border bg-muted ring-2 ring-background">
+                      <Icon
+                        className="size-3.5 text-muted-foreground"
+                        aria-hidden
+                      />
+                    </span>
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-1">
                     <p className="text-xs text-muted-foreground">
                       <span className="font-medium text-foreground">{who}</span>
                       {isComment ? " comentó" : " · registro automático"}
@@ -1142,17 +1271,21 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
                         dangerouslySetInnerHTML={{ __html: entry.bodyHtml }}
                       />
                     ) : (
-                      <p className="text-sm text-foreground">{entry.summary ?? "—"}</p>
+                      <p className="text-sm text-foreground">
+                        {entry.summary ?? "—"}
+                      </p>
                     )}
                   </div>
                 </div>
               );
-            })
-          )}
-        </div>
+            })}
+          </div>
+        )}
 
         <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground">Agregar comentario</p>
+          <p className="text-xs font-medium text-muted-foreground">
+            Agregar comentario
+          </p>
           <ImplementationActivityCommentEditor
             disabled={loading}
             onSubmit={onPublishComment}
@@ -1173,13 +1306,18 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
           </DialogHeader>
           <div className="max-h-64 space-y-2 overflow-y-auto rounded-md border p-3">
             {growers.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Sin growers disponibles.</p>
+              <p className="text-sm text-muted-foreground">
+                Sin growers disponibles.
+              </p>
             ) : (
               growers.map((g) => {
                 const email = g.email.trim().toLowerCase();
                 const checked = assigneeEmails.includes(email);
                 return (
-                  <label key={email} className="flex items-center gap-2 text-sm">
+                  <label
+                    key={email}
+                    className="flex items-center gap-2 text-sm"
+                  >
                     <input
                       type="checkbox"
                       checked={checked}
@@ -1189,7 +1327,9 @@ export function AgentImplementationTasksPanel({ agentId }: { agentId: string }) 
                       className="h-4 w-4 rounded border-input"
                     />
                     <span className="font-medium">{g.name}</span>
-                    <span className="text-xs text-muted-foreground">({email})</span>
+                    <span className="text-xs text-muted-foreground">
+                      ({email})
+                    </span>
                   </label>
                 );
               })
