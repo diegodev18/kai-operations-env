@@ -16,6 +16,8 @@ import type {
   BuilderChatMessage,
   BuilderChatUI,
   WhatsappIntegrationStatusItem,
+  BuilderCompanyPayload,
+  SavedBuilderCompany,
 } from "@/types/agents-api";
 
 export type {
@@ -34,6 +36,8 @@ export type {
   BuilderChatMessage,
   BuilderChatUI,
   WhatsappIntegrationStatusItem,
+  BuilderCompanyPayload,
+  SavedBuilderCompany,
 };
 
 export type DraftPropertyItem = {
@@ -335,6 +339,89 @@ export async function fetchToolsCatalog(): Promise<
   } catch {
     return null;
   }
+}
+
+// --- Builder: empresas guardadas (Firestore builderCompanies) ---
+
+export async function fetchSavedBuilderCompanies(): Promise<
+  | { ok: true; companies: SavedBuilderCompany[] }
+  | { ok: false; error: string }
+> {
+  const res = await fetch("/api/builder/saved-companies", {
+    credentials: "include",
+    cache: "no-store",
+  });
+  let data: { companies?: SavedBuilderCompany[]; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    return { ok: false, error: "Respuesta inválida del servidor" };
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: data.error ?? "No se pudieron cargar las empresas guardadas",
+    };
+  }
+  const list = Array.isArray(data.companies) ? data.companies : [];
+  return { ok: true, companies: list };
+}
+
+export async function postSavedBuilderCompany(body: {
+  name?: string;
+  payload: BuilderCompanyPayload;
+}): Promise<
+  | { ok: true; id: string; name: string }
+  | { ok: false; error: string }
+> {
+  const res = await fetch("/api/builder/saved-companies", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(body),
+  });
+  let data: { ok?: boolean; id?: string; name?: string; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    return { ok: false, error: "Respuesta inválida del servidor" };
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: data.error ?? "No se pudo guardar la empresa",
+    };
+  }
+  if (data.ok && data.id && data.name) {
+    return { ok: true, id: data.id, name: data.name };
+  }
+  return { ok: false, error: "Respuesta inválida del servidor" };
+}
+
+export async function deleteSavedBuilderCompany(
+  id: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const res = await fetch(
+    `/api/builder/saved-companies/${encodeURIComponent(id)}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+    },
+  );
+  let data: { ok?: boolean; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    return { ok: false, error: "Respuesta inválida del servidor" };
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: data.error ?? "No se pudo eliminar",
+    };
+  }
+  if (data.ok) return { ok: true };
+  return { ok: false, error: "Respuesta inválida del servidor" };
 }
 
 export async function postAgentDraft(body: {

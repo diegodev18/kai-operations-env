@@ -203,3 +203,26 @@ export type BuilderChatDraftPatch = Partial<{
   business_timezone: string;
   selected_tools: string[];
 }>;
+
+/** Payload camelCase guardado en Firestore `builderCompanies` / API builder saved-companies. */
+export type BuilderCompanyPayload = {
+  businessName: string;
+  industry: string;
+  customIndustry?: string;
+  description: string;
+  targetAudience: string;
+  agentDescription: string;
+  escalationRules: string;
+  country: string;
+  businessTimezone?: string;
+  brandValues?: string[];
+  policies?: string;
+};
+
+export type SavedBuilderCompany = {
+  id: string;
+  name: string;
+  payload: BuilderCompanyPayload;
+  createdAt: string | null;
+  updatedAt: string | null;
+};

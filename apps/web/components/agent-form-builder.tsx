@@ -18,6 +18,7 @@ import {
   TrashIcon,
   PencilIcon,
   HomeIcon,
+  ChevronDownIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AGENT_BUILDER_MANDATORY_TOOL_NAMES } from "@kai/shared";
@@ -25,14 +26,25 @@ import { AGENT_BUILDER_MANDATORY_TOOL_NAMES } from "@kai/shared";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import {
   postAgentDraft,
   patchAgentDraft,
   fetchToolsCatalog,
   analyzeAgentWithAI,
   recommendAgentTools,
   fetchAgentFlowQuestions,
+  fetchSavedBuilderCompanies,
+  postSavedBuilderCompany,
+  deleteSavedBuilderCompany,
   type ToolsCatalogItem,
   type DynamicQuestion,
+  type BuilderCompanyPayload,
+  type SavedBuilderCompany,
 } from "@/lib/agents-api";
 import {
   DEFAULT_FORM_STATE,
@@ -65,6 +77,58 @@ const ICONS: Record<string, React.ReactNode> = {
 function industryIsComplete(state: FormBuilderState): boolean {
   if (!state.industry) return false;
   if (state.industry === "Otro") return !!state.custom_industry.trim();
+  return true;
+}
+
+function formStateToBuilderCompanyPayload(
+  state: FormBuilderState,
+): BuilderCompanyPayload {
+  const payload: BuilderCompanyPayload = {
+    businessName: state.business_name.trim(),
+    industry: state.industry.trim(),
+    description: state.description.trim(),
+    targetAudience: state.target_audience.trim(),
+    agentDescription: state.agent_description.trim(),
+    escalationRules: state.escalation_rules.trim(),
+    country: state.country.trim(),
+  };
+  const ci = state.custom_industry.trim();
+  if (ci) payload.customIndustry = ci;
+  const tz = state.business_timezone.trim();
+  if (tz) payload.businessTimezone = tz;
+  if (state.brandValues.length > 0) payload.brandValues = [...state.brandValues];
+  const pol = state.policies.trim();
+  if (pol) payload.policies = pol;
+  return payload;
+}
+
+function builderCompanyPayloadToPartialState(
+  p: BuilderCompanyPayload,
+): Partial<FormBuilderState> {
+  return {
+    business_name: p.businessName,
+    industry: p.industry,
+    custom_industry: p.customIndustry ?? "",
+    description: p.description,
+    target_audience: p.targetAudience,
+    agent_description: p.agentDescription,
+    escalation_rules: p.escalationRules,
+    country: p.country,
+    business_timezone: p.businessTimezone ?? "",
+    brandValues: p.brandValues ?? [],
+    policies: p.policies ?? "",
+  };
+}
+
+/** Mínimo para persistir en API (Zod del POST). */
+function canPersistBuilderCompany(state: FormBuilderState): boolean {
+  if (!state.business_name.trim()) return false;
+  if (!industryIsComplete(state)) return false;
+  if (!state.description.trim()) return false;
+  if (!state.target_audience.trim()) return false;
+  if (!state.agent_description.trim()) return false;
+  if (!state.escalation_rules.trim()) return false;
+  if (!state.country.trim()) return false;
   return true;
 }
 
@@ -200,6 +264,8 @@ interface SectionProps {
   isSaving: boolean;
   userName?: string;
   onValidationError?: (section: string, error: string) => void;
+  /** Tras guardar manualmente o alinear ref con un perfil cargado (evita duplicar POST al pulsar Siguiente). */
+  onBusinessProfileSaved?: (payload: BuilderCompanyPayload) => void;
 }
 
 function parseEscalationRuleLines(raw: string): string[] {
@@ -358,15 +424,199 @@ function StringListInput({
   );
 }
 
-function SectionBusiness({ state, onChange, userName }: SectionProps) {
+function SectionBusiness({
+  state,
+  onChange,
+  userName,
+  onBusinessProfileSaved,
+}: SectionProps) {
+  const [savedCompanies, setSavedCompanies] = useState<SavedBuilderCompany[]>(
+    [],
+  );
+  const [savedLoading, setSavedLoading] = useState(true);
+  const [savedSearch, setSavedSearch] = useState("");
+  const [savingCompany, setSavingCompany] = useState(false);
+  const [savedMenuOpen, setSavedMenuOpen] = useState(false);
+
   useEffect(() => {
     if (userName && !state.owner_name) {
       onChange({ owner_name: userName });
     }
   }, [userName, state.owner_name, onChange]);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setSavedLoading(true);
+      const res = await fetchSavedBuilderCompanies();
+      if (cancelled) return;
+      setSavedLoading(false);
+      if (res.ok) {
+        setSavedCompanies(res.companies);
+      } else {
+        toast.error(res.error);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const filteredSavedCompanies = useMemo(() => {
+    const q = savedSearch.trim().toLowerCase();
+    if (!q) return savedCompanies;
+    return savedCompanies.filter((c) => {
+      if (c.name.toLowerCase().includes(q)) return true;
+      const blob = `${c.payload.businessName ?? ""} ${c.payload.industry ?? ""}`.toLowerCase();
+      return blob.includes(q);
+    });
+  }, [savedCompanies, savedSearch]);
+
+  const applySavedCompany = useCallback(
+    (c: SavedBuilderCompany) => {
+      onChange(builderCompanyPayloadToPartialState(c.payload));
+      onBusinessProfileSaved?.(c.payload);
+      toast.success(`Datos de «${c.name}» cargados`);
+      setSavedMenuOpen(false);
+    },
+    [onChange, onBusinessProfileSaved],
+  );
+
+  const handleSaveCompanyProfile = useCallback(async () => {
+    if (!canPersistBuilderCompany(state)) {
+      toast.error(
+        "Completa los campos obligatorios del negocio antes de guardar el perfil.",
+      );
+      return;
+    }
+    setSavingCompany(true);
+    try {
+      const payload = formStateToBuilderCompanyPayload(state);
+      const res = await postSavedBuilderCompany({ payload });
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      onBusinessProfileSaved?.(payload);
+      toast.success("Empresa guardada");
+      const list = await fetchSavedBuilderCompanies();
+      if (list.ok) setSavedCompanies(list.companies);
+    } finally {
+      setSavingCompany(false);
+    }
+  }, [state, onBusinessProfileSaved]);
+
+  const handleDeleteSavedCompany = useCallback(
+    async (id: string) => {
+      const res = await deleteSavedBuilderCompany(id);
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success("Empresa eliminada");
+      setSavedCompanies((prev) => prev.filter((x) => x.id !== id));
+    },
+    [],
+  );
+
   return (
     <div className="space-y-4">
+      <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
+        <p className="text-sm font-medium">Empresas guardadas</p>
+        <p className="text-xs text-muted-foreground">
+          Carga un perfil ya guardado o guarda el negocio actual. También se guarda automáticamente al
+          pulsar Siguiente si los datos cambiaron.
+        </p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <DropdownMenu open={savedMenuOpen} onOpenChange={setSavedMenuOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 w-full justify-between gap-2 sm:w-[min(100%,20rem)]"
+                disabled={savedLoading}
+              >
+                {savedLoading ? (
+                  <>
+                    <Loader2Icon className="size-4 animate-spin" />
+                    Cargando…
+                  </>
+                ) : (
+                  <>
+                    Buscar y cargar empresa
+                    <ChevronDownIcon className="size-4 opacity-60" />
+                  </>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className="w-[min(calc(100vw-2rem),22rem)] p-0"
+              align="start"
+              onCloseAutoFocus={(e) => e.preventDefault()}
+            >
+              <div className="border-b border-border p-2">
+                <Input
+                  placeholder="Filtrar por nombre…"
+                  value={savedSearch}
+                  onChange={(e) => setSavedSearch(e.target.value)}
+                  className="h-9"
+                  onKeyDown={(e) => e.stopPropagation()}
+                />
+              </div>
+              <div className="max-h-64 overflow-y-auto p-1">
+                {filteredSavedCompanies.length === 0 ? (
+                  <p className="px-2 py-3 text-center text-sm text-muted-foreground">
+                    {savedCompanies.length === 0
+                      ? "Aún no hay empresas guardadas."
+                      : "Sin coincidencias."}
+                  </p>
+                ) : (
+                  filteredSavedCompanies.map((c) => (
+                    <div
+                      key={c.id}
+                      className="flex items-center gap-1 rounded-md px-1 py-0.5 hover:bg-accent/50"
+                    >
+                      <button
+                        type="button"
+                        className="min-w-0 flex-1 truncate rounded px-2 py-1.5 text-left text-sm"
+                        onClick={() => applySavedCompany(c)}
+                      >
+                        {c.name}
+                      </button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+                        aria-label={`Eliminar ${c.name}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleDeleteSavedCompany(c.id);
+                        }}
+                      >
+                        <TrashIcon className="size-4" />
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-10 w-full sm:w-auto"
+            disabled={savedLoading || savingCompany}
+            onClick={() => void handleSaveCompanyProfile()}
+          >
+            {savingCompany ? (
+              <Loader2Icon className="mr-2 size-4 animate-spin" />
+            ) : null}
+            Guardar empresa actual
+          </Button>
+        </div>
+      </div>
+
       <div>
         <label className="text-sm font-medium">
           Nombre del negocio <span className="text-destructive">*</span>
@@ -1804,6 +2054,12 @@ export function AgentFormBuilder() {
   const [flowQuestionsRegenNonce, setFlowQuestionsRegenNonce] = useState(0);
   const lastFlowSuccessHashRef = useRef<string | null>(null);
   const lastFlowRegenNonceRef = useRef(0);
+  /** Evita POST duplicado al pulsar Siguiente si el payload del negocio no cambió. */
+  const lastAutoSavedBusinessPayloadRef = useRef<string | null>(null);
+
+  const onBusinessProfileSaved = useCallback((payload: BuilderCompanyPayload) => {
+    lastAutoSavedBusinessPayloadRef.current = JSON.stringify(payload);
+  }, []);
 
   /* eslint-disable react-hooks/exhaustive-deps -- hash Flujos: campos que disparan nuevas preguntas */
   const flowQuestionsTriggerHash = useMemo(
@@ -2169,7 +2425,25 @@ export function AgentFormBuilder() {
       alert(errorMsg);
       return;
     }
-    
+
+    if (currentSection === "business" && canPersistBuilderCompany(state)) {
+      const payload = formStateToBuilderCompanyPayload(state);
+      const serialized = JSON.stringify(payload);
+      if (serialized !== lastAutoSavedBusinessPayloadRef.current) {
+        try {
+          const res = await postSavedBuilderCompany({ payload });
+          if (res.ok) {
+            lastAutoSavedBusinessPayloadRef.current = serialized;
+            toast.success("Perfil del negocio guardado", { duration: 2200 });
+          } else {
+            toast.error(res.error, { duration: 5000 });
+          }
+        } catch (e) {
+          console.error("[AgentFormBuilder] auto-save business:", e);
+        }
+      }
+    }
+
     // Analyze with AI for dynamic questions
     if (shouldAnalyzeWithAI(currentSection)) {
       setIsAnalyzingAI(true);
@@ -2329,7 +2603,12 @@ export function AgentFormBuilder() {
       case "templates":
         return <TemplatesSection onChange={handleChange} onNext={() => handleNext()} />;
       case "business":
-        return <SectionBusiness {...sectionProps} />;
+        return (
+          <SectionBusiness
+            {...sectionProps}
+            onBusinessProfileSaved={onBusinessProfileSaved}
+          />
+        );
       case "personality":
         return <SectionPersonality {...sectionProps} />;
       case "advanced":
