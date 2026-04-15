@@ -64,6 +64,30 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] = 
 ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.4.2": {
+    date: "2026-04-15",
+    description:
+      "Asignación de agente a testing desde Home y detalle, con estado visual de asignado por usuario",
+    changes: {
+      added: [
+        "En Home (Operations), nuevo botón junto a favoritos para asignar el agente al número de testing del usuario actual.",
+        "En el header del detalle del agente (`/agents/[agentId]/*`), nuevo botón de asignación junto al botón de favorito.",
+        "Nuevo endpoint `GET /api/agents/assigned-to-user` para obtener el `customAgentConfigId` activo del usuario autenticado (resuelto por `phoneNumber` en `usersBuilders`).",
+        "Nuevo helper frontend `fetchAssignedAgentForUser()` para reflejar en UI el estado actual de asignación.",
+      ],
+      changed: [
+        "El endpoint `POST /api/agents/:agentId/assign-to-user` ahora usa `usersBuilders` por `phoneNumber` como fuente canónica para testing y persiste `customAgentConfigId`, `isTestingCustomAgent`, `testingStartedAt` y `lastAgentChange`.",
+        "Si no existe registro en `usersBuilders`, se crea automáticamente con el patrón del flujo de creación de agentes.",
+        "Si el `userBuilder` ya existe, no se sobrescriben sus datos base (`uid`, `email`, `name`, `phoneNumber`); solo se actualizan campos de asignación/testing.",
+      ],
+      removed: [
+        "La asignación de testing deja de depender de la colección deprecada `agents_assignment`.",
+      ],
+      improved: [
+        "Estado visual persistente de asignación en Home y detalle: cuando el agente ya está asignado, el botón cambia de estilo, icono y tooltip para indicar `Asignado a tu número de testing`.",
+      ],
+    },
+  },
   "2.4.1": {
     date: "2026-04-15",
     description:
