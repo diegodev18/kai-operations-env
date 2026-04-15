@@ -64,6 +64,36 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] = 
 ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.4.3": {
+    date: "2026-04-15",
+    description:
+      "Bitácora de implementación movida a Sheet en header, con editor optimizado y control de visibilidad por autor",
+    changes: {
+      added: [
+        "En el header de detalle del agente (`/agents/[agentId]/*`), nuevo botón entre favorito y avatar para abrir un `Sheet` con «Bitácora y comentarios».",
+        "Nuevo componente `AgentActivitySheet` con filtros, orden, timeline, carga de actividad y publicación de comentarios desde el panel lateral.",
+        "El `Sheet` ahora es redimensionable con cursor (drag en el borde izquierdo) para ajustar ancho en desktop.",
+        "Nueva API `PATCH /api/agents/:agentId/implementation-activity/:entryId` para ocultar/des-ocultar comentarios.",
+        "Control de visibilidad por autor: solo quien creó el comentario puede alternar ocultar/mostrar desde la timeline.",
+      ],
+      changed: [
+        "Al abrir el `Sheet`, la vista se posiciona en los registros más recientes (parte inferior).",
+        "La sección «Agregar comentario» quedó fija en la parte inferior del `Sheet` mientras el listado hace scroll.",
+        "El editor de comentarios inicia en un renglón, crece hasta 3 y después usa scroll interno.",
+        "Los íconos de ocultar/des-ocultar en hover usan color distintivo para mayor claridad visual.",
+      ],
+      fixed: [
+        "Se corrigió el editor TipTap para que vuelva a ser escribible después de estados de carga (`setEditable` al cambiar `disabled`).",
+        "Se eliminó el tope visual que impedía agrandar el `Sheet` al arrastrar, respetando el ancho dinámico.",
+      ],
+      removed: [
+        "La sección embebida «Bitácora y comentarios» salió del panel de tareas de implementación para evitar duplicidad.",
+      ],
+      improved: [
+        "Cuando un comentario está oculto, deja de mostrarse a otros usuarios; solo el autor ve el placeholder «Ocultaste este mensaje».",
+      ],
+    },
+  },
   "2.4.2": {
     date: "2026-04-15",
     description:
