@@ -34,7 +34,7 @@ import { toast } from "sonner";
 import type { Environment } from "@/contexts/EnvironmentContext";
 
 const BATCH_SIZE = 50;
-const API_BASE = () => `${process.env.NEXT_PUBLIC_API_URL}/api/database`;
+const API_BASE = "/api/database";
 
 type DocResult = {
   id: string;
@@ -131,7 +131,7 @@ export default function SubirDatosPage() {
     setPreviewLoading(true);
     setPreviewDocs(null);
     try {
-      const url = `${API_BASE()}/coleccion/preview?rutaColeccion=${encodeURIComponent(ruta)}`;
+      const url = `${API_BASE}/coleccion/preview?rutaColeccion=${encodeURIComponent(ruta)}`;
       const res = await fetch(url, { credentials: "include", headers: { "X-Environment": uploadEnvironment } });
       const data = await res.json();
       if (!res.ok) {
@@ -240,7 +240,7 @@ export default function SubirDatosPage() {
 
     setUploading(true);
     setResultados(null);
-    const url = `${API_BASE()}/subir`;
+    const url = `${API_BASE}/subir`;
 
     if (isSingleObject) {
       setUploadProgress({ current: 1, total: 1 });

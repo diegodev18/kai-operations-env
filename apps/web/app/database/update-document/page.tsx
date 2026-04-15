@@ -18,7 +18,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import type { Environment } from "@/contexts/EnvironmentContext";
 
-const API_BASE = () => `${process.env.NEXT_PUBLIC_API_URL}/api/database`;
+const API_BASE = "/api/database";
 
 function parseJsonObject(text: string): Record<string, unknown> | { error: string } {
   const t = text.trim();
@@ -64,7 +64,7 @@ export default function ActualizarDocumentoPage() {
     setLoadLoading(true);
     setResultado(null);
     try {
-      const url = `${API_BASE()}/documento?rutaDocumento=${encodeURIComponent(ruta)}`;
+      const url = `${API_BASE}/documento?rutaDocumento=${encodeURIComponent(ruta)}`;
       const res = await fetch(url, { credentials: "include", headers: { "X-Environment": environment } });
       const data = await res.json();
       if (!res.ok) {
@@ -98,7 +98,7 @@ export default function ActualizarDocumentoPage() {
     setUpdateLoading(true);
     setResultado(null);
     try {
-      const res = await fetch(`${API_BASE()}/documento/actualizar`, {
+      const res = await fetch(`${API_BASE}/documento/actualizar`, {
         credentials: "include",
         headers: { "Content-Type": "application/json", "X-Environment": environment },
         method: "POST",

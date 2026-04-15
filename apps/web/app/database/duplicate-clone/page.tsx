@@ -17,7 +17,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import type { Environment } from "@/contexts/EnvironmentContext";
 
-const API_BASE = () => `${process.env.NEXT_PUBLIC_API_URL}/api/database`;
+const API_BASE = "/api/database";
 
 type Operacion = "duplicar-coleccion" | "duplicar-documento" | "clonar-recursivo";
 
@@ -70,7 +70,7 @@ export default function DuplicarClonarPage() {
     setSubcolecciones([]);
     setSubcoleccionesIncluidas(new Set());
     try {
-      const url = `${API_BASE()}/documento/subcolecciones?rutaDocumento=${encodeURIComponent(ruta)}`;
+      const url = `${API_BASE}/documento/subcolecciones?rutaDocumento=${encodeURIComponent(ruta)}`;
       const res = await fetch(url, { credentials: "include", headers: { "X-Environment": proyectoOrigen } });
       const data = await res.json();
       if (!res.ok) {
@@ -137,9 +137,9 @@ export default function DuplicarClonarPage() {
     }
 
     let endpoint: string;
-    if (operacion === "duplicar-coleccion") endpoint = `${API_BASE()}/duplicar/coleccion`;
-    else if (operacion === "duplicar-documento") endpoint = `${API_BASE()}/duplicar/documento`;
-    else endpoint = `${API_BASE()}/clonar-recursivo`;
+    if (operacion === "duplicar-coleccion") endpoint = `${API_BASE}/duplicar/coleccion`;
+    else if (operacion === "duplicar-documento") endpoint = `${API_BASE}/duplicar/documento`;
+    else endpoint = `${API_BASE}/clonar-recursivo`;
 
     try {
       const res = await fetch(endpoint, { credentials: "include", headers: { "Content-Type": "application/json" }, method: "POST", body: JSON.stringify(body) });
