@@ -3,7 +3,14 @@
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { CheckCircleIcon, Home, PowerIcon, Loader2Icon, StarIcon } from "lucide-react";
+import {
+  CheckCircleIcon,
+  Home,
+  PowerIcon,
+  Loader2Icon,
+  StarIcon,
+  FlaskConicalIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,7 +23,7 @@ import {
 import { UserMenu } from "@/components/user-menu";
 import { useAuth } from "@/hooks/auth";
 import { cn } from "@/lib/utils";
-import { fetchAgentById } from "@/lib/agents-api";
+import { assignAgentToUser, fetchAgentById } from "@/lib/agents-api";
 
 const SECTIONS = [
   { suffix: "tasks", label: "Tareas" },
@@ -123,6 +130,7 @@ export default function AgentDetailLayout({
   const [status, setStatus] = useState<"active" | "archived" | null>(null);
   const [favoriteAgentIds, setFavoriteAgentIds] = useState<Set<string>>(new Set());
   const [togglingFavorite, setTogglingFavorite] = useState<string | null>(null);
+  const [assigningAgentId, setAssigningAgentId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!agentId) return;
@@ -225,6 +233,41 @@ export default function AgentDetailLayout({
         <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
           <AgentEnabledBadge enabled={enabled} status={status} />
           <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="size-7 shrink-0"
+                  disabled={assigningAgentId === agentId}
+                  onClick={async () => {
+                    if (assigningAgentId === agentId) return;
+                    setAssigningAgentId(agentId);
+                    try {
+                      const result = await assignAgentToUser(agentId);
+                      if (result.ok) {
+                        toast.success("Agente asignado a testing");
+                      } else {
+                        toast.error(result.error);
+                      }
+                    } catch {
+                      toast.error("Error al asignar agente a testing");
+                    } finally {
+                      setAssigningAgentId(null);
+                    }
+                  }}
+                >
+                  {assigningAgentId === agentId ? (
+                    <Loader2Icon className="size-3.5 animate-spin" />
+                  ) : (
+                    <FlaskConicalIcon className="size-3.5 text-muted-foreground" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Asignar a número de testing</p>
+              </TooltipContent>
+            </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
