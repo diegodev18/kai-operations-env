@@ -1260,20 +1260,24 @@ export function OperationsDashboard(props: {
                                   Desarchivar
                                 </Button>
                               ) : (
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="gap-1"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setArchiveTarget(agent);
-                                    setArchiveConfirmText("");
-                                  }}
-                                >
-                                  <ArchiveIcon className="size-3.5" />
-                                  Archivar
-                                </Button>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="icon-sm"
+                                      aria-label="Archivar"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setArchiveTarget(agent);
+                                        setArchiveConfirmText("");
+                                      }}
+                                    >
+                                      <ArchiveIcon className="size-3.5" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Archivar</TooltipContent>
+                                </Tooltip>
                               )}
                             </td>
                           ) : null}
