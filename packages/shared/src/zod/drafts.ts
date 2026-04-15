@@ -34,6 +34,26 @@ export const patchBusinessSchema = z.object({
   target_audience: z.string().trim().min(1),
   escalation_rules: z.string().trim().min(1),
   country: z.string().trim().min(1),
+  custom_industry: z.string().trim().optional(),
+  business_timezone: z.string().trim().optional(),
+  business_hours: z.string().trim().optional(),
+  require_auth: z.boolean().optional(),
+  flow_answers: z.record(z.string(), z.string()).optional(),
+  flow_questions: z
+    .array(
+      z.object({
+        field: z.string().trim().min(1),
+        label: z.string().trim().min(1),
+        type: z.enum(["text", "textarea", "select"]),
+        placeholder: z.string().trim().optional(),
+        options: z.array(z.string().trim()).optional(),
+        suggestions: z.array(z.string().trim()).optional(),
+        suggestion_mode: z.enum(["single", "multi"]).optional(),
+        required: z.boolean().optional(),
+      }),
+    )
+    .optional(),
+  pipelines: z.array(z.record(z.string(), z.unknown())).optional(),
   phone_number_id: z.string().trim().optional(),
   whatsapp_token: z.string().trim().optional(),
   brand_values: z.array(z.string().trim()).optional(),
@@ -42,6 +62,14 @@ export const patchBusinessSchema = z.object({
   faq: z.string().trim().optional(),
   operating_hours: z.string().trim().optional(),
   active_promotions: z.string().trim().optional(),
+  ai_model: z.string().trim().optional(),
+  ai_temperature: z.number().min(0).max(1).optional(),
+  response_wait_time: z.number().int().min(0).optional(),
+  is_memory_enable: z.boolean().optional(),
+  is_multi_message_response_enable: z.boolean().optional(),
+  is_validator_agent_enable: z.boolean().optional(),
+  mcp_max_retries: z.number().int().min(0).optional(),
+  answer_not_support: z.string().max(500).optional(),
 });
 
 export const patchToolsSchema = z.object({

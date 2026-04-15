@@ -139,12 +139,28 @@ export interface FormBuilderState {
   whatsapp_enabled: boolean;
   email_enabled: boolean;
   chat_enabled: boolean;
-  business_hours: string;
   require_auth: boolean;
+  /** Avanzado: alineado con properties (agent-configuration-editor). */
+  ai_model: string;
+  ai_temperature: number;
+  response_wait_time: number;
+  is_memory_enable: boolean;
+  is_multi_message_response_enable: boolean;
+  is_validator_agent_enable: boolean;
+  mcp_max_retries: number;
+  answer_not_support: string;
   flow_questions: AgentFlowQuestion[];
   flow_answers: Record<string, string>;
   pipelines: Pipeline[];
 }
+
+/** Modelos LLM disponibles en el constructor (misma lista que el editor de configuración). */
+export const BUILDER_LLM_MODELS = [
+  "gemini-2.5-flash",
+  "gemini-2.5-pro",
+  "gemini-3-flash-preview",
+  "gemini-3.1-flash-lite-preview",
+] as const;
 
 export const DEFAULT_FORM_STATE: FormBuilderState = {
   business_name: "",
@@ -176,8 +192,15 @@ export const DEFAULT_FORM_STATE: FormBuilderState = {
   whatsapp_enabled: true,
   email_enabled: false,
   chat_enabled: false,
-  business_hours: "",
   require_auth: false,
+  ai_model: "gemini-2.5-flash",
+  ai_temperature: 0.05,
+  response_wait_time: 3,
+  is_memory_enable: false,
+  is_multi_message_response_enable: true,
+  is_validator_agent_enable: false,
+  mcp_max_retries: 1,
+  answer_not_support: "Hola súper! Cómo te llamas?",
   flow_questions: [],
   flow_answers: {},
   pipelines: [
@@ -277,7 +300,8 @@ export const FORM_SECTIONS: FormSection[] = [
   {
     id: "advanced",
     title: "Avanzado",
-    description: "Horarios, autenticación y preferencias operativas",
+    description:
+      "Modelo IA, tiempos de respuesta, memoria, herramientas, validador, mensajes y acceso",
     icon: "⚙️",
     required: false,
   },

@@ -129,6 +129,14 @@ export type AgentDraftPatchBody =
       faq?: string;
       operating_hours?: string;
       active_promotions?: string;
+      ai_model?: string;
+      ai_temperature?: number;
+      response_wait_time?: number;
+      is_memory_enable?: boolean;
+      is_multi_message_response_enable?: boolean;
+      is_validator_agent_enable?: boolean;
+      mcp_max_retries?: number;
+      answer_not_support?: string;
     }
   | { step: "tools"; selected_tools: string[] }
   | { step: "complete" };

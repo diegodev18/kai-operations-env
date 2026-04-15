@@ -48,6 +48,7 @@ import {
 import {
   DEFAULT_FORM_STATE,
   FORM_SECTIONS,
+  BUILDER_LLM_MODELS,
   type FormBuilderState,
   type FormSectionId,
   type PersonalityTrait,
@@ -58,6 +59,7 @@ import {
   STAGE_ICONS,
   STAGE_TYPES,
 } from "@/lib/form-builder-constants";
+import { PROPERTY_DESCRIPTIONS, PROPERTY_TITLES } from "@/lib/property-descriptions";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/auth";
 
@@ -216,7 +218,6 @@ function buildFlowQuestionsTriggerHash(state: FormBuilderState): string {
     country_accent: state.country_accent,
     agent_signature: state.agent_signature,
     personality_traits: state.personality_traits,
-    business_hours: state.business_hours,
     require_auth: state.require_auth,
   });
 }
@@ -249,7 +250,6 @@ function buildToolsRecommendContextHash(state: FormBuilderState): string {
     country_accent: state.country_accent,
     agent_signature: state.agent_signature,
     personality_traits: state.personality_traits,
-    business_hours: state.business_hours,
     require_auth: state.require_auth,
     operational_context: buildOperationalContextNarrative(state),
   });
@@ -1624,37 +1624,162 @@ function SectionPersonality({ state, onChange }: SectionProps) {
 
 function SectionAdvanced({ state, onChange }: SectionProps) {
   return (
-    <div className="space-y-6">
-      <div>
-        <label className="text-sm font-medium">Horario de atención</label>
-        <select
-          value={state.business_hours}
-          onChange={(e) => onChange({ business_hours: e.target.value })}
-          className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-        >
-          <option value="">Selecciona horario</option>
-          <option value="L-V 9-18">Lunes a viernes 9am-6pm</option>
-          <option value="L-V 8-17">Lunes a viernes 8am-5pm</option>
-          <option value="L-V 10-19">Lunes a viernes 10am-7pm</option>
-          <option value="L-S 9-18">Lunes a sábado 9am-6pm</option>
-          <option value="24/7">24/7</option>
-          <option value="custom">Personalizado</option>
-        </select>
+    <div className="space-y-8">
+      <div className="space-y-3">
+        <p className="text-sm font-semibold">Modelo e IA</p>
+        <div>
+          <label className="text-sm font-medium">{PROPERTY_TITLES.ai?.model}</label>
+          <p className="text-xs text-muted-foreground">{PROPERTY_DESCRIPTIONS.ai?.model}</p>
+          <select
+            value={state.ai_model}
+            onChange={(e) => onChange({ ai_model: e.target.value })}
+            className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            {BUILDER_LLM_MODELS.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="text-sm font-medium">{PROPERTY_TITLES.ai?.temperature}</label>
+          <p className="text-xs text-muted-foreground">{PROPERTY_DESCRIPTIONS.ai?.temperature}</p>
+          <input
+            type="number"
+            min={0}
+            max={1}
+            step={0.05}
+            value={state.ai_temperature}
+            onChange={(e) => {
+              const v = parseFloat(e.target.value);
+              onChange({
+                ai_temperature: Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.05,
+              });
+            }}
+            className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          />
+        </div>
       </div>
 
-      <div>
-        <label className="flex items-center gap-2">
+      <div className="space-y-3">
+        <p className="text-sm font-semibold">Respuesta y memoria</p>
+        <div>
+          <label className="text-sm font-medium">{PROPERTY_TITLES.response?.waitTime}</label>
+          <p className="text-xs text-muted-foreground">{PROPERTY_DESCRIPTIONS.response?.waitTime}</p>
           <input
-            type="checkbox"
-            checked={state.require_auth}
-            onChange={(e) => onChange({ require_auth: e.target.checked })}
-            className="size-4"
+            type="number"
+            min={0}
+            value={state.response_wait_time}
+            onChange={(e) =>
+              onChange({
+                response_wait_time: Math.max(0, parseInt(e.target.value, 10) || 0),
+              })
+            }
+            className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           />
-          <span className="text-sm font-medium">Requiere autenticación</span>
-        </label>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Los usuarios deberán iniciar sesión para usar el agente
-        </p>
+        </div>
+        <div>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={state.is_memory_enable}
+              onChange={(e) => onChange({ is_memory_enable: e.target.checked })}
+              className="size-4"
+            />
+            <span className="text-sm font-medium">{PROPERTY_TITLES.agent?.isMemoryEnable}</span>
+          </label>
+          <p className="mt-1 text-xs text-muted-foreground">{PROPERTY_DESCRIPTIONS.agent?.isMemoryEnable}</p>
+        </div>
+        <div>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={state.is_multi_message_response_enable}
+              onChange={(e) =>
+                onChange({ is_multi_message_response_enable: e.target.checked })
+              }
+              className="size-4"
+            />
+            <span className="text-sm font-medium">Partir la respuesta en varios mensajes</span>
+          </label>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Salida en varias burbujas (p. ej. WhatsApp). No confundir con agrupar varios mensajes del usuario.
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <p className="text-sm font-semibold">Herramientas y validación</p>
+        <div>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={state.is_validator_agent_enable}
+              onChange={(e) =>
+                onChange({ is_validator_agent_enable: e.target.checked })
+              }
+              className="size-4"
+            />
+            <span className="text-sm font-medium">{PROPERTY_TITLES.agent?.isValidatorAgentEnable}</span>
+          </label>
+          <p className="mt-1 text-xs text-muted-foreground">{PROPERTY_DESCRIPTIONS.agent?.isValidatorAgentEnable}</p>
+        </div>
+        <div>
+          <label className="text-sm font-medium">{PROPERTY_TITLES.mcp?.maxRetries}</label>
+          <p className="text-xs text-muted-foreground">{PROPERTY_DESCRIPTIONS.mcp?.maxRetries}</p>
+          <input
+            type="number"
+            min={0}
+            value={state.mcp_max_retries}
+            onChange={(e) =>
+              onChange({
+                mcp_max_retries: Math.max(0, parseInt(e.target.value, 10) || 0),
+              })
+            }
+            disabled={!state.is_validator_agent_enable}
+            className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-50"
+          />
+          {!state.is_validator_agent_enable ? (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Activa el agente validador para editar reintentos.
+            </p>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <p className="text-sm font-semibold">Mensajes</p>
+        <div>
+          <label className="text-sm font-medium">{PROPERTY_TITLES.answer?.notSupport}</label>
+          <p className="text-xs text-muted-foreground">{PROPERTY_DESCRIPTIONS.answer?.notSupport}</p>
+          <input
+            type="text"
+            value={state.answer_not_support}
+            onChange={(e) => onChange({ answer_not_support: e.target.value.slice(0, 500) })}
+            className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-3 border-t pt-6">
+        <p className="text-sm font-semibold">Acceso</p>
+        <div>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={state.require_auth}
+              onChange={(e) => onChange({ require_auth: e.target.checked })}
+              className="size-4"
+            />
+            <span className="text-sm font-medium">Requiere autenticación</span>
+          </label>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Equivale a identificación en la configuración técnica del agente (
+            <code className="text-xs">isAuthEnable</code>). Los usuarios deberán iniciar sesión para usar el
+            agente cuando aplique.
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -2082,7 +2207,6 @@ export function AgentFormBuilder() {
       state.country_accent,
       state.agent_signature,
       state.personality_traits,
-      state.business_hours,
       state.require_auth,
     ],
   );
@@ -2108,7 +2232,6 @@ export function AgentFormBuilder() {
       state.country_accent,
       state.agent_signature,
       state.personality_traits,
-      state.business_hours,
       state.require_auth,
       JSON.stringify(state.flow_answers),
       JSON.stringify(state.flow_questions),
@@ -2170,7 +2293,7 @@ export function AgentFormBuilder() {
         agent_name: state.agent_name,
         agent_personality: state.agent_personality,
         response_language: state.response_language,
-        business_hours: state.business_hours,
+        business_hours: "",
         require_auth: state.require_auth,
       });
 
@@ -2211,7 +2334,6 @@ export function AgentFormBuilder() {
     state.agent_name,
     state.agent_personality,
     state.response_language,
-    state.business_hours,
     state.require_auth,
     state.use_emojis,
     state.country_accent,
@@ -2255,7 +2377,7 @@ export function AgentFormBuilder() {
         agent_name: state.agent_name,
         agent_personality: state.agent_personality,
         response_language: state.response_language,
-        business_hours: state.business_hours,
+        business_hours: "",
         require_auth: state.require_auth,
         operational_context: buildOperationalContextNarrative(state),
       });
@@ -2301,7 +2423,6 @@ export function AgentFormBuilder() {
     state.agent_name,
     state.agent_personality,
     state.response_language,
-    state.business_hours,
     state.require_auth,
     JSON.stringify(state.flow_answers),
     JSON.stringify(state.flow_questions),
@@ -2553,14 +2674,22 @@ export function AgentFormBuilder() {
         escalation_rules: state.escalation_rules.trim(),
         country: state.country.trim(),
         business_timezone: state.business_timezone.trim(),
-        business_hours: state.business_hours.trim(),
+        business_hours: "",
         require_auth: state.require_auth,
         flow_answers: state.flow_answers,
         flow_questions: state.flow_questions,
         pipelines: state.pipelines as unknown as Array<Record<string, unknown>>,
         brand_values: state.brandValues,
         policies: state.policies.trim(),
-        operating_hours: state.business_hours.trim(),
+        operating_hours: "",
+        ai_model: state.ai_model.trim(),
+        ai_temperature: state.ai_temperature,
+        response_wait_time: state.response_wait_time,
+        is_memory_enable: state.is_memory_enable,
+        is_multi_message_response_enable: state.is_multi_message_response_enable,
+        is_validator_agent_enable: state.is_validator_agent_enable,
+        mcp_max_retries: state.mcp_max_retries,
+        answer_not_support: state.answer_not_support.trim(),
       });
 
       await patchAgentDraft(draftId, {

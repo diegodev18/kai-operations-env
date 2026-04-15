@@ -14,6 +14,7 @@ import {
   writeDefaultAgentProperties,
   writeDefaultTestingProperties,
 } from "@/constants/agentPropertyDefaults";
+import { applyBuilderAdvancedProperties } from "@/utils/apply-builder-advanced-properties";
 import { db as drizzleDb } from "@/db/client";
 import { user as userTable } from "@/db/schema/auth";
 import { eq } from "drizzle-orm";
@@ -452,6 +453,15 @@ const patchBusinessSchema = z.object({
     )
     .optional(),
   pipelines: z.array(z.record(z.string(), z.unknown())).optional(),
+  /** Builder paso Avanzado → properties (mismo criterio que agent-configuration-editor). */
+  ai_model: z.string().trim().optional(),
+  ai_temperature: z.number().min(0).max(1).optional(),
+  response_wait_time: z.number().int().min(0).optional(),
+  is_memory_enable: z.boolean().optional(),
+  is_multi_message_response_enable: z.boolean().optional(),
+  is_validator_agent_enable: z.boolean().optional(),
+  mcp_max_retries: z.number().int().min(0).optional(),
+  answer_not_support: z.string().max(500).optional(),
 });
 
 const patchToolsSchema = z.object({
@@ -828,6 +838,19 @@ export async function patchAgentDraft(
         await writeDefaultAgentProperties(draftRef);
         await writeDefaultTestingProperties(draftRef);
       }
+
+      await applyBuilderAdvancedProperties(draftRef, {
+        business_timezone: body.business_timezone,
+        require_auth: body.require_auth,
+        ai_model: body.ai_model,
+        ai_temperature: body.ai_temperature,
+        response_wait_time: body.response_wait_time,
+        is_memory_enable: body.is_memory_enable,
+        is_multi_message_response_enable: body.is_multi_message_response_enable,
+        is_validator_agent_enable: body.is_validator_agent_enable,
+        mcp_max_retries: body.mcp_max_retries,
+        answer_not_support: body.answer_not_support,
+      });
 
       return c.json({ id: draftId, creation_step: "business" });
     }
