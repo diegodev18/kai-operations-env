@@ -215,4 +215,71 @@ router.post("/", async (c) => {
   }
 });
 
+router.patch("/:id", async (c) => {
+  const sessionUser = await getSessionUser(c);
+  if (!sessionUser?.id) {
+    return c.json({ error: "No autorizado" }, 401);
+  }
+
+  const resolved = await resolveUsersBuildersId(sessionUser.id);
+  if (!resolved.ok) {
+    return c.json({ error: resolved.error }, 400);
+  }
+
+  const docId = c.req.param("id")?.trim();
+  if (!docId) {
+    return c.json({ error: "ID inválido" }, 400);
+  }
+
+  let raw: unknown;
+  try {
+    raw = await c.req.json();
+  } catch {
+    return c.json({ error: "JSON inválido" }, 400);
+  }
+
+  const parsed = postBodySchema.safeParse(raw);
+  if (!parsed.success) {
+    const msg = parsed.error.issues
+      .map((i) => i.path.join(".") + ": " + i.message)
+      .join("; ");
+    return c.json({ error: msg }, 400);
+  }
+
+  const { payload } = parsed.data;
+  const name =
+    parsed.data.name && parsed.data.name.length > 0
+      ? parsed.data.name
+      : payload.businessName;
+
+  try {
+    const fs = getFirestore();
+    const ref = fs.collection(BUILDER_COMPANIES_COLLECTION).doc(docId);
+    const snap = await ref.get();
+    if (!snap.exists) {
+      return c.json({ error: "Empresa no encontrada" }, 404);
+    }
+    const d = snap.data() as Record<string, unknown>;
+    if (d.usersBuildersId !== resolved.usersBuildersId) {
+      return c.json({ error: "No autorizado" }, 403);
+    }
+
+    await ref.update({
+      name,
+      payload,
+      updatedAt: serverTimestampField(),
+    });
+
+    return c.json({
+      ok: true,
+      id: docId,
+      name,
+      payload,
+    });
+  } catch (error) {
+    const r = firestoreJsonError(c, error, "[builder/saved-companies PATCH]");
+    return r ?? c.json({ error: "Error al actualizar empresa." }, 500);
+  }
+});
+
 export default router;

@@ -64,6 +64,20 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] = 
 ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.4.8": {
+    date: "2026-04-15",
+    description:
+      "Constructor de agentes: editar empresas guardadas (PATCH) y «Guardar como nuevo»",
+    changes: {
+      added: [
+        "API `PATCH /api/builder/saved-companies/:id` para actualizar `name`, `payload` y `updatedAt` en Firestore, con comprobación de `usersBuildersId` (404/403 si no corresponde).",
+        "Cliente `patchSavedBuilderCompany` en `lib/agents-api.ts`.",
+        "Al cargar un perfil desde el selector se enlaza su documento: «Actualizar empresa» hace PATCH; el primer guardado sin perfil cargado sigue creando con POST y asocia el id para siguientes actualizaciones.",
+        "Indicador «Editando: [nombre]» y botón «Guardar como nuevo» (desvincula el doc y el siguiente guardado crea otro registro). Al elegir «Guardar como nuevo» se resetea la deduplicación del auto-guardado al pulsar Siguiente.",
+        "Guardado automático al pulsar Siguiente reutiliza la misma lógica POST/PATCH según haya perfil en edición.",
+      ],
+    },
+  },
   "2.4.7": {
     date: "2026-04-15",
     description:

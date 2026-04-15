@@ -398,6 +398,40 @@ export async function postSavedBuilderCompany(body: {
   return { ok: false, error: "Respuesta inválida del servidor" };
 }
 
+export async function patchSavedBuilderCompany(
+  id: string,
+  body: { name?: string; payload: BuilderCompanyPayload },
+): Promise<
+  | { ok: true; id: string; name: string }
+  | { ok: false; error: string }
+> {
+  const res = await fetch(
+    `/api/builder/saved-companies/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    },
+  );
+  let data: { ok?: boolean; id?: string; name?: string; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    return { ok: false, error: "Respuesta inválida del servidor" };
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: data.error ?? "No se pudo actualizar la empresa",
+    };
+  }
+  if (data.ok && data.id && data.name) {
+    return { ok: true, id: data.id, name: data.name };
+  }
+  return { ok: false, error: "Respuesta inválida del servidor" };
+}
+
 export async function postAgentDraft(body: {
   agent_name: string;
   agent_personality: string;

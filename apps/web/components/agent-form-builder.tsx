@@ -39,6 +39,7 @@ import {
   fetchAgentFlowQuestions,
   fetchSavedBuilderCompanies,
   postSavedBuilderCompany,
+  patchSavedBuilderCompany,
   type ToolsCatalogItem,
   type DynamicQuestion,
   type BuilderCompanyPayload,
@@ -264,6 +265,14 @@ interface SectionProps {
   onValidationError?: (section: string, error: string) => void;
   /** Tras guardar manualmente o alinear ref con un perfil cargado (evita duplicar POST al pulsar Siguiente). */
   onBusinessProfileSaved?: (payload: BuilderCompanyPayload) => void;
+  /** ID del doc Firestore al cargar un perfil desde el listado; `null` = nuevo perfil. */
+  editingSavedCompanyId?: string | null;
+  onEditingSavedCompanyIdChange?: (id: string | null) => void;
+  /** POST o PATCH según `editingSavedCompanyId`. */
+  saveBusinessProfileToFirestore?: () => Promise<
+    | { ok: true; mode: "created" | "updated" }
+    | { ok: false; error: string }
+  >;
 }
 
 function parseEscalationRuleLines(raw: string): string[] {
@@ -427,6 +436,9 @@ function SectionBusiness({
   onChange,
   userName,
   onBusinessProfileSaved,
+  editingSavedCompanyId,
+  onEditingSavedCompanyIdChange,
+  saveBusinessProfileToFirestore,
 }: SectionProps) {
   const [savedCompanies, setSavedCompanies] = useState<SavedBuilderCompany[]>(
     [],
@@ -477,40 +489,46 @@ function SectionBusiness({
     (c: SavedBuilderCompany) => {
       onChange(builderCompanyPayloadToPartialState(c.payload));
       onBusinessProfileSaved?.(c.payload);
+      onEditingSavedCompanyIdChange?.(c.id);
       toast.success(`Datos de «${c.name}» cargados`);
       setSavedMenuOpen(false);
     },
-    [onChange, onBusinessProfileSaved],
+    [onChange, onBusinessProfileSaved, onEditingSavedCompanyIdChange],
   );
 
+  const editingLabel = useMemo(() => {
+    if (!editingSavedCompanyId) return null;
+    return savedCompanies.find((s) => s.id === editingSavedCompanyId)?.name ?? null;
+  }, [editingSavedCompanyId, savedCompanies]);
+
   const handleSaveCompanyProfile = useCallback(async () => {
-    if (!canPersistBuilderCompany(state)) {
-      toast.error(
-        "Completa los campos obligatorios del negocio antes de guardar el perfil.",
-      );
-      return;
-    }
+    if (!saveBusinessProfileToFirestore) return;
     setSavingCompany(true);
     try {
-      const payload = formStateToBuilderCompanyPayload(state);
-      const res = await postSavedBuilderCompany({ payload });
-      if (!res.ok) {
-        toast.error(res.error);
+      const result = await saveBusinessProfileToFirestore();
+      if (!result.ok) {
+        toast.error(result.error);
         return;
       }
-      onBusinessProfileSaved?.(payload);
-      toast.success("Empresa guardada");
+      toast.success(
+        result.mode === "updated" ? "Empresa actualizada" : "Empresa guardada",
+      );
       const list = await fetchSavedBuilderCompanies();
       if (list.ok) setSavedCompanies(list.companies);
     } finally {
       setSavingCompany(false);
     }
-  }, [state, onBusinessProfileSaved]);
+  }, [saveBusinessProfileToFirestore]);
 
   return (
     <div className="space-y-4">
       <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
         <p className="text-sm font-medium">Empresas guardadas</p>
+        {editingSavedCompanyId && editingLabel ? (
+          <p className="text-xs font-medium text-foreground">
+            Editando: {editingLabel}
+          </p>
+        ) : null}
         <p className="text-xs text-muted-foreground">
           Carga un perfil ya guardado o guarda el negocio actual. También se guarda automáticamente al
           pulsar Siguiente si los datos cambiaron.
@@ -591,8 +609,19 @@ function SectionBusiness({
             {savingCompany ? (
               <Loader2Icon className="mr-2 size-4 animate-spin" />
             ) : null}
-            Guardar empresa actual
+            {editingSavedCompanyId ? "Actualizar empresa" : "Guardar empresa actual"}
           </Button>
+          {editingSavedCompanyId ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-10 w-full text-muted-foreground sm:w-auto"
+              disabled={savedLoading || savingCompany}
+              onClick={() => onEditingSavedCompanyIdChange?.(null)}
+            >
+              Guardar como nuevo
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -2036,9 +2065,51 @@ export function AgentFormBuilder() {
   /** Evita POST duplicado al pulsar Siguiente si el payload del negocio no cambió. */
   const lastAutoSavedBusinessPayloadRef = useRef<string | null>(null);
 
+  const [editingSavedCompanyId, setEditingSavedCompanyId] = useState<string | null>(
+    null,
+  );
+
   const onBusinessProfileSaved = useCallback((payload: BuilderCompanyPayload) => {
     lastAutoSavedBusinessPayloadRef.current = JSON.stringify(payload);
   }, []);
+
+  const handleEditingSavedCompanyIdChange = useCallback((id: string | null) => {
+    setEditingSavedCompanyId(id);
+    if (id === null) {
+      lastAutoSavedBusinessPayloadRef.current = null;
+    }
+  }, []);
+
+  const saveBusinessProfileToFirestore = useCallback(async (): Promise<
+    | { ok: true; mode: "created" | "updated" }
+    | { ok: false; error: string }
+  > => {
+    if (!canPersistBuilderCompany(state)) {
+      return {
+        ok: false,
+        error:
+          "Completa los campos obligatorios del negocio antes de guardar el perfil.",
+      };
+    }
+    const payload = formStateToBuilderCompanyPayload(state);
+    if (editingSavedCompanyId) {
+      const res = await patchSavedBuilderCompany(editingSavedCompanyId, {
+        payload,
+      });
+      if (res.ok) {
+        onBusinessProfileSaved(payload);
+        return { ok: true, mode: "updated" };
+      }
+      return { ok: false, error: res.error };
+    }
+    const res = await postSavedBuilderCompany({ payload });
+    if (res.ok) {
+      setEditingSavedCompanyId(res.id);
+      onBusinessProfileSaved(payload);
+      return { ok: true, mode: "created" };
+    }
+    return { ok: false, error: res.error };
+  }, [state, editingSavedCompanyId, onBusinessProfileSaved]);
 
   /* eslint-disable react-hooks/exhaustive-deps -- hash Flujos: campos que disparan nuevas preguntas */
   const flowQuestionsTriggerHash = useMemo(
@@ -2410,12 +2481,12 @@ export function AgentFormBuilder() {
       const serialized = JSON.stringify(payload);
       if (serialized !== lastAutoSavedBusinessPayloadRef.current) {
         try {
-          const res = await postSavedBuilderCompany({ payload });
-          if (res.ok) {
+          const r = await saveBusinessProfileToFirestore();
+          if (r.ok) {
             lastAutoSavedBusinessPayloadRef.current = serialized;
             toast.success("Perfil del negocio guardado", { duration: 2200 });
           } else {
-            toast.error(res.error, { duration: 5000 });
+            toast.error(r.error, { duration: 5000 });
           }
         } catch (e) {
           console.error("[AgentFormBuilder] auto-save business:", e);
@@ -2445,7 +2516,13 @@ export function AgentFormBuilder() {
     
     // No dynamic questions, advance normally
     advanceToNextSection();
-  }, [currentSection, canProceed, state, advanceToNextSection]);
+  }, [
+    currentSection,
+    canProceed,
+    state,
+    advanceToNextSection,
+    saveBusinessProfileToFirestore,
+  ]);
 
   const handleSkipDynamicQuestions = useCallback(() => {
     setDynamicQuestions([]);
@@ -2586,6 +2663,9 @@ export function AgentFormBuilder() {
           <SectionBusiness
             {...sectionProps}
             onBusinessProfileSaved={onBusinessProfileSaved}
+            editingSavedCompanyId={editingSavedCompanyId}
+            onEditingSavedCompanyIdChange={handleEditingSavedCompanyIdChange}
+            saveBusinessProfileToFirestore={saveBusinessProfileToFirestore}
           />
         );
       case "personality":
