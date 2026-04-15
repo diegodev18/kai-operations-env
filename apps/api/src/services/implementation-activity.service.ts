@@ -8,6 +8,8 @@ import logger, { formatError } from "@/lib/logger";
 export type ImplementationActivityAction =
   | "prompt_updated"
   | "prompt_promoted_to_production"
+  | "agent_archived"
+  | "agent_unarchived"
   | "testing_properties_updated"
   | "tool_created"
   | "tool_deleted"

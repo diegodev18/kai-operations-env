@@ -44,6 +44,10 @@ function cursorToAgentIdStart(cursor: string): string {
   return cursor;
 }
 
+function normalizeAgentStatus(value: unknown): "active" | "archived" {
+  return value === "archived" ? "archived" : "active";
+}
+
 async function buildLightAgentWithDeployment(
   agentId: string,
   prefetchedData?: {
@@ -150,6 +154,7 @@ async function buildLightAgentWithDeployment(
       : typeof responseData?.waitTime === "string"
         ? Number(responseData.waitTime)
         : undefined;
+  const status = normalizeAgentStatus(prodDocData?.status);
 
   return {
     ...parsed,
@@ -170,6 +175,7 @@ async function buildLightAgentWithDeployment(
     temperature: Number.isFinite(temperature) ? temperature : undefined,
     waitTime: Number.isFinite(waitTime) ? waitTime : undefined,
     billing: billingSnap.exists ? parseBillingDoc(billingSnap) : undefined,
+    status,
   };
 }
 

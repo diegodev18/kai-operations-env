@@ -24,6 +24,7 @@ import {
   getAgentById,
   getAgentProperties,
   patchAgent,
+  postAgentOperationsArchive,
   postAgentSystemPromptRegenerate,
   updateAgentPrompt,
   updateAgentPropertyDocument,
@@ -403,6 +404,16 @@ agentsRouter.patch("/:agentId", async (c) => {
     return c.json({ error: "Agente no encontrado" }, 404);
   }
   return patchAgent(c, ctx.authCtx, agentId);
+});
+
+agentsRouter.post("/:agentId/operations-archive", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return postAgentOperationsArchive(c, ctx.authCtx, agentId);
 });
 
 agentsRouter.get("/:agentId", async (c) => {

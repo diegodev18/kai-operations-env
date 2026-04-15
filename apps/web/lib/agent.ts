@@ -57,6 +57,8 @@ export interface Agent {
   version?: string;
   /** El agente es favorito del usuario actual (desde el backend). */
   isFavorite?: boolean;
+  /** Estado del agente en Operations. */
+  status?: "active" | "archived";
 }
 
 export interface AgentWithOperations extends Agent {

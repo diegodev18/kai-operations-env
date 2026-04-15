@@ -67,13 +67,26 @@ function AgentHeaderTitle({
   );
 }
 
-function AgentEnabledBadge({ enabled }: { enabled: boolean | null }) {
-  if (enabled === null) {
+function AgentEnabledBadge({
+  enabled,
+  status,
+}: {
+  enabled: boolean | null;
+  status: "active" | "archived" | null;
+}) {
+  if (enabled === null || status === null) {
     return (
       <span
         className="inline-flex h-6 min-w-[4.5rem] animate-pulse rounded-full bg-muted"
         aria-hidden
       />
+    );
+  }
+  if (status === "archived") {
+    return (
+      <Badge variant="outline" className="gap-1 font-medium">
+        Archivado
+      </Badge>
     );
   }
   if (enabled) {
@@ -107,6 +120,7 @@ export default function AgentDetailLayout({
     businessName: string;
   } | null>(null);
   const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [status, setStatus] = useState<"active" | "archived" | null>(null);
   const [favoriteAgentIds, setFavoriteAgentIds] = useState<Set<string>>(new Set());
   const [togglingFavorite, setTogglingFavorite] = useState<string | null>(null);
 
@@ -119,6 +133,7 @@ export default function AgentDetailLayout({
       if (!a) {
         setHeaderNames({ agentName: "", businessName: "" });
         setEnabled(false);
+        setStatus("active");
         return;
       }
       const business =
@@ -131,6 +146,7 @@ export default function AgentDetailLayout({
           : "";
       setHeaderNames({ agentName: agent, businessName: business });
       setEnabled(typeof a.enabled === "boolean" ? a.enabled : true);
+      setStatus(a.status === "archived" ? "archived" : "active");
     };
     void load();
     return () => {
@@ -207,7 +223,7 @@ export default function AgentDetailLayout({
         </nav>
 
         <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
-          <AgentEnabledBadge enabled={enabled} />
+          <AgentEnabledBadge enabled={enabled} status={status} />
           <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>

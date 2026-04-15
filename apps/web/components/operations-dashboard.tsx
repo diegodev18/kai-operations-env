@@ -3,6 +3,8 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircleIcon,
+  ArchiveIcon,
+  ArchiveRestoreIcon,
   BanknoteIcon,
   BookOpenIcon,
   Building2Icon,
@@ -75,6 +77,7 @@ import {
   patchAgentBillingConfig,
   createPaymentRecord,
   deletePaymentRecord,
+  postAgentOperationsArchive,
 } from "@/lib/agents-api";
 import {
   fetchOrganizationUsers,
@@ -168,6 +171,9 @@ export function OperationsDashboard(props: {
   const [isTogglingFavorite, setIsTogglingFavorite] = useState<string | null>(
     null,
   );
+  const [archiveTarget, setArchiveTarget] = useState<AgentWithOperations | null>(null);
+  const [archiveConfirmText, setArchiveConfirmText] = useState("");
+  const [archiveSaving, setArchiveSaving] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem("agent-builder-default-mode");
@@ -555,8 +561,50 @@ export function OperationsDashboard(props: {
     lastPaymentTo,
     favoritesFilter,
   ]);
+  const activeAgents = useMemo(
+    () => filteredAgents.filter((a) => a.status !== "archived"),
+    [filteredAgents],
+  );
+  const archivedAgents = useMemo(
+    () => filteredAgents.filter((a) => a.status === "archived"),
+    [filteredAgents],
+  );
+  const orderedAgents = useMemo(
+    () => [...activeAgents, ...archivedAgents],
+    [activeAgents, archivedAgents],
+  );
+  const archivedStartIndex = activeAgents.length;
 
   const hasMore = nextCursor != null && nextCursor !== undefined;
+
+  const submitArchiveStatusChange = useCallback(
+    async (
+      agentId: string,
+      nextStatus: "active" | "archived",
+      confirm?: string,
+    ) => {
+      const result = await postAgentOperationsArchive(agentId, {
+        status: nextStatus,
+        ...(confirm ? { confirm } : {}),
+      });
+      if (!result.ok) {
+        toast.error(result.error);
+        return false;
+      }
+      setAgents((prev) =>
+        prev.map((a) =>
+          a.id === agentId ? { ...a, status: result.status } : a,
+        ),
+      );
+      toast.success(
+        result.status === "archived"
+          ? "Agente archivado"
+          : "Agente desarchivado",
+      );
+      return true;
+    },
+    [],
+  );
 
   return (
     <>
@@ -911,6 +959,9 @@ export function OperationsDashboard(props: {
                     <th className="p-3 text-left font-medium">Estatus</th>
                     <th className="p-3 text-left font-medium">Cobranza</th>
                     <th className="p-3 text-left font-medium">Growers</th>
+                    {isAdmin ? (
+                      <th className="p-3 text-left font-medium">Acciones</th>
+                    ) : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -932,18 +983,38 @@ export function OperationsDashboard(props: {
                         </td>
                       </tr>
                     ))
-                  ) : !isLoading && filteredAgents.length === 0 ? (
+                  ) : !isLoading && orderedAgents.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={7}
+                        colSpan={isAdmin ? 6 : 5}
                         className="p-12 text-center text-muted-foreground"
                       >
                         No hay agentes que mostrar
                       </td>
                     </tr>
                   ) : (
-                    filteredAgents.map((agent) => (
+                    orderedAgents.map((agent, idx) => (
                       <Fragment key={agent.id}>
+                        {idx === 0 && activeAgents.length > 0 ? (
+                          <tr className="bg-muted/30">
+                            <td
+                              colSpan={isAdmin ? 6 : 5}
+                              className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                            >
+                              Activos ({activeAgents.length})
+                            </td>
+                          </tr>
+                        ) : null}
+                        {idx === archivedStartIndex && archivedAgents.length > 0 ? (
+                          <tr className="bg-muted/30">
+                            <td
+                              colSpan={isAdmin ? 6 : 5}
+                              className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                            >
+                              Archivados ({archivedAgents.length})
+                            </td>
+                          </tr>
+                        ) : null}
                         <tr
                           className="border-b border-border transition-colors hover:bg-muted/50 cursor-pointer"
                           onClick={() =>
@@ -1053,13 +1124,17 @@ export function OperationsDashboard(props: {
                             </div>
                           </td>
                           <td className="p-3">
-                            <Badge
-                              variant={
-                                STATUS_BADGE_VARIANT[agent.operationalStatus]
-                              }
-                            >
-                              {STATUS_LABELS[agent.operationalStatus]}
-                            </Badge>
+                            {agent.status === "archived" ? (
+                              <Badge variant="outline">Archivado</Badge>
+                            ) : (
+                              <Badge
+                                variant={
+                                  STATUS_BADGE_VARIANT[agent.operationalStatus]
+                                }
+                              >
+                                {STATUS_LABELS[agent.operationalStatus]}
+                              </Badge>
+                            )}
                           </td>
                           <td className="p-3">
                             <div className="flex items-center gap-2">
@@ -1178,10 +1253,44 @@ export function OperationsDashboard(props: {
                               </Tooltip>
                             </div>
                           </td>
+                          {isAdmin ? (
+                            <td className="p-3">
+                              {agent.status === "archived" ? (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="gap-1"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void submitArchiveStatusChange(agent.id, "active");
+                                  }}
+                                >
+                                  <ArchiveRestoreIcon className="size-3.5" />
+                                  Desarchivar
+                                </Button>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="gap-1"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setArchiveTarget(agent);
+                                    setArchiveConfirmText("");
+                                  }}
+                                >
+                                  <ArchiveIcon className="size-3.5" />
+                                  Archivar
+                                </Button>
+                              )}
+                            </td>
+                          ) : null}
                         </tr>
                         {expandedAgentId === agent.id && (
                           <tr className="bg-muted/30">
-                            <td colSpan={7} className="p-4">
+                            <td colSpan={isAdmin ? 6 : 5} className="p-4">
                               {agent.billing.domiciliated ? (
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                   <Building2Icon className="size-4" />
@@ -1392,6 +1501,77 @@ export function OperationsDashboard(props: {
           </div>
         </div>
       </div>
+      <Dialog
+        open={archiveTarget != null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setArchiveTarget(null);
+            setArchiveConfirmText("");
+          }
+        }}
+      >
+        <DialogContent showClose>
+          <DialogHeader>
+            <DialogTitle>Archivar agente</DialogTitle>
+            <DialogDescription>
+              Para archivar{" "}
+              <span className="font-medium text-foreground">
+                {archiveTarget?.name}
+              </span>{" "}
+              escribe <span className="font-semibold text-foreground">CONFIRMAR</span>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Input
+              value={archiveConfirmText}
+              onChange={(e) => setArchiveConfirmText(e.target.value)}
+              placeholder='Escribe "CONFIRMAR"'
+            />
+            <p className="text-xs text-muted-foreground">
+              El agente no se borra. Se moverá a la sección de archivados.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setArchiveTarget(null);
+                setArchiveConfirmText("");
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={archiveSaving || archiveConfirmText !== "CONFIRMAR"}
+              onClick={async () => {
+                if (!archiveTarget) return;
+                setArchiveSaving(true);
+                try {
+                  const ok = await submitArchiveStatusChange(
+                    archiveTarget.id,
+                    "archived",
+                    archiveConfirmText,
+                  );
+                  if (ok) {
+                    setArchiveTarget(null);
+                    setArchiveConfirmText("");
+                  }
+                } finally {
+                  setArchiveSaving(false);
+                }
+              }}
+            >
+              {archiveSaving ? (
+                <Loader2Icon className="mr-2 size-4 animate-spin" />
+              ) : null}
+              Archivar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog
         open={growerTarget != null}
         onOpenChange={(open) => {

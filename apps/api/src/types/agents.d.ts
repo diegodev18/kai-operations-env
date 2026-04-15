@@ -49,6 +49,8 @@ export interface LightAgent {
   billing?: AgentBilling;
   /** El agente es favorito del usuario actual. */
   isFavorite?: boolean;
+  /** Estado de visibilidad en Operations. */
+  status?: "active" | "archived";
 }
 
 export type ImplementationTaskStatus = "pending" | "completed";

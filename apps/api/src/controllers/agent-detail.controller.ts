@@ -29,6 +29,10 @@ import {
 } from "@/utils/firestore/errors";
 import { isOperationsAdmin, isOperationsCommercial } from "@/utils/operations-access";
 
+function normalizeAgentStatus(value: unknown): "active" | "archived" {
+  return value === "archived" ? "archived" : "active";
+}
+
 function handleFirestoreError(c: Context, error: unknown, logPrefix: string) {
   if (isFirebaseConfigError(error)) {
     return c.json(
@@ -168,9 +172,11 @@ export async function getAgentById(
     }
     const agentData = agentPropSnap.exists ? agentPropSnap.data() : undefined;
     const enabled = (agentData?.enabled as boolean | undefined) !== false;
+    const status = normalizeAgentStatus(snapshot.data()?.status);
     return c.json({
       ...agent,
       enabled,
+      status,
       in_commercial: flags.hasTestingData,
       in_production: flags.inProduction,
       primary_source: flags.hasTestingData ? "commercial" : "production",
@@ -643,5 +649,70 @@ export async function patchAgent(
   } catch (error) {
     const r = handleFirestoreError(c, error, "[agents/:id PATCH]");
     return r ?? c.json({ error: "Error al actualizar agente" }, 500);
+  }
+}
+
+export async function postAgentOperationsArchive(
+  c: Context,
+  authCtx: AgentsInfoAuthContext,
+  agentId: string,
+) {
+  const denied = await requireAgentAccess(c, authCtx, agentId);
+  if (denied) return denied;
+
+  if (!isOperationsAdmin(authCtx.userRole)) {
+    return ApiErrors.forbidden(c, "Solo un administrador puede archivar agentes");
+  }
+
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return ApiErrors.validation(c, "JSON inválido");
+  }
+
+  const bodyObj =
+    body != null && typeof body === "object" && !Array.isArray(body)
+      ? (body as Record<string, unknown>)
+      : null;
+  if (!bodyObj) {
+    return ApiErrors.validation(c, "El cuerpo debe ser un objeto");
+  }
+
+  const statusRaw = bodyObj.status;
+  if (statusRaw !== "active" && statusRaw !== "archived") {
+    return ApiErrors.validation(c, "status debe ser 'active' o 'archived'");
+  }
+  const status = statusRaw as "active" | "archived";
+  const confirm = typeof bodyObj.confirm === "string" ? bodyObj.confirm : "";
+  if (status === "archived" && confirm !== "CONFIRMAR") {
+    return ApiErrors.validation(c, "Debes escribir CONFIRMAR para archivar");
+  }
+
+  try {
+    const prod = getFirestore();
+    const docRef = prod.collection("agent_configurations").doc(agentId);
+    const snap = await docRef.get();
+    if (!snap.exists) {
+      return ApiErrors.notFound(c, "Agente no encontrado");
+    }
+
+    await docRef.update({ status });
+
+    const actorEmail = authCtx.userEmail?.toLowerCase().trim() ?? null;
+    void appendImplementationActivityEntry(prod, agentId, {
+      kind: "system",
+      actorEmail,
+      action: status === "archived" ? "agent_archived" : "agent_unarchived",
+      summary:
+        status === "archived"
+          ? "Archivó el agente en el panel de operaciones."
+          : "Desarchivó el agente en el panel de operaciones.",
+    });
+
+    return c.json({ ok: true, status });
+  } catch (error) {
+    const r = handleFirestoreError(c, error, "[agents/:id/operations-archive POST]");
+    return r ?? c.json({ error: "Error al actualizar status del agente" }, 500);
   }
 }

@@ -47,6 +47,10 @@ export type DraftPropertyItem = {
 /** Tama?o de cada p?gina al listar agentes (carga perezosa: primero solo esta cantidad). */
 export const AGENTS_PAGE_SIZE = 10;
 
+function normalizeAgentStatus(value: unknown): "active" | "archived" {
+  return value === "archived" ? "archived" : "active";
+}
+
 function agentsInfoUrl(
   light: boolean,
   paginated: boolean,
@@ -117,7 +121,12 @@ export async function fetchAgentsPage(
   const data = (await response.json()) as
     | { agents: Agent[]; nextCursor?: string | null }
     | { agents: Agent[] };
-  const list = (data.agents ?? []).map(toAgentWithOperations);
+  const list = (data.agents ?? []).map((agent) =>
+    toAgentWithOperations({
+      ...agent,
+      status: normalizeAgentStatus((agent as { status?: unknown }).status),
+    }),
+  );
   const nextCursor =
     "nextCursor" in data ? (data.nextCursor ?? null) : null;
   return { agents: list, nextCursor };
@@ -731,6 +740,7 @@ export async function fetchAgentById(agentId: string): Promise<Agent | null> {
       name: typeof j.name === "string" ? j.name : String(j.name ?? ""),
       inCommercial: Boolean(j.in_commercial ?? j.inCommercial),
       inProduction: Boolean(j.in_production ?? j.inProduction),
+      status: normalizeAgentStatus(j.status),
       primarySource:
         (j.primary_source ?? j.primarySource) === "production"
           ? "production"
@@ -741,6 +751,37 @@ export async function fetchAgentById(agentId: string): Promise<Agent | null> {
   } catch {
     return null;
   }
+}
+
+export async function postAgentOperationsArchive(
+  agentId: string,
+  body: { status: "active" | "archived"; confirm?: string },
+): Promise<{ ok: true; status: "active" | "archived" } | { ok: false; error: string }> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/operations-archive`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    },
+  );
+  let data: { ok?: boolean; status?: string; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: data.error ?? "No se pudo actualizar el estado del agente",
+    };
+  }
+  if (data.ok) {
+    return { ok: true, status: normalizeAgentStatus(data.status) };
+  }
+  return { ok: false, error: "Respuesta inválida del servidor" };
 }
 
 /** Actualiza campos del documento raíz del agente (PATCH /api/agents/:id). */
