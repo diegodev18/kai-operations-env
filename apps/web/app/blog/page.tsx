@@ -10,22 +10,13 @@ import {
   UserIcon,
   FilterIcon,
   XIcon,
-  AlertCircleIcon,
-  EyeIcon,
-  AlertTriangleIcon,
-  ShieldCheckIcon,
-  ClipboardCheckIcon,
-  SendIcon,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { toast } from "sonner";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -33,20 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  fetchBlogPosts,
-  searchBlogPosts,
-  createBlogPost,
-  type BlogPost,
-} from "@/lib/blog-api";
+import { fetchBlogPosts, searchBlogPosts, type BlogPost } from "@/lib/blog-api";
 import { BLOG_TAGS } from "@/lib/blog-tags";
 import { useAuth } from "@/hooks/auth";
 
@@ -60,121 +38,6 @@ function formatDate(timestamp: number): string {
   });
 }
 
-interface LessonFields {
-  problem: string;
-  howDiscovered: string;
-  consequences: string;
-  measuresTaken: string;
-  prevention: string;
-}
-
-function generateMarkdown(fields: LessonFields): string {
-  const parts: string[] = [];
-
-  if (fields.problem.trim()) {
-    parts.push(`## ¿Qué problema se presentó?\n${fields.problem.trim()}`);
-  }
-
-  if (fields.howDiscovered.trim()) {
-    parts.push(`## ¿Cómo te diste cuenta?\n${fields.howDiscovered.trim()}`);
-  }
-
-  if (fields.consequences.trim()) {
-    parts.push(
-      `## ¿Cuáles son las consecuencias?\n${fields.consequences.trim()}`,
-    );
-  }
-
-  if (fields.measuresTaken.trim()) {
-    parts.push(`## ¿Qué medidas tomaste?\n${fields.measuresTaken.trim()}`);
-  }
-
-  if (fields.prevention.trim()) {
-    parts.push(
-      `## ¿Qué acciones se tomarán para que no se repita?\n${fields.prevention.trim()}`,
-    );
-  }
-
-  return parts.join("\n\n");
-}
-
-function LessonFormFields({
-  fields,
-  updateField,
-}: {
-  fields: LessonFields;
-  updateField: (key: keyof LessonFields, value: string) => void;
-}) {
-  return (
-    <div className="grid gap-6">
-      <div className="space-y-2">
-        <label className="flex items-center gap-2 text-sm font-medium">
-          <AlertCircleIcon className="h-4 w-4 text-muted-foreground" />
-          ¿Qué problema se presentó?
-        </label>
-        <Textarea
-          placeholder="Describe el problema o error..."
-          value={fields.problem}
-          onChange={(e) => updateField("problem", e.target.value)}
-          rows={3}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <label className="flex items-center gap-2 text-sm font-medium">
-          <EyeIcon className="h-4 w-4 text-muted-foreground" />
-          ¿Cómo te diste cuenta?
-        </label>
-        <Textarea
-          placeholder="Explica cómo detectaste el problema (logs, alertas, reporte, etc.)..."
-          value={fields.howDiscovered}
-          onChange={(e) => updateField("howDiscovered", e.target.value)}
-          rows={3}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <label className="flex items-center gap-2 text-sm font-medium">
-          <AlertTriangleIcon className="h-4 w-4 text-muted-foreground" />
-          ¿Cuáles son las consecuencias?
-        </label>
-        <Textarea
-          placeholder="Impacto en usuarios, sistema, datos, negocio..."
-          value={fields.consequences}
-          onChange={(e) => updateField("consequences", e.target.value)}
-          rows={3}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <label className="flex items-center gap-2 text-sm font-medium">
-          <ShieldCheckIcon className="h-4 w-4 text-muted-foreground" />
-          ¿Qué medidas tomaste?
-        </label>
-        <Textarea
-          placeholder="Acciones inmediatas tomadas para resolver..."
-          value={fields.measuresTaken}
-          onChange={(e) => updateField("measuresTaken", e.target.value)}
-          rows={3}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <label className="flex items-center gap-2 text-sm font-medium">
-          <ClipboardCheckIcon className="h-4 w-4 text-muted-foreground" />
-          ¿Qué acciones se tomarán para que no se repita?
-        </label>
-        <Textarea
-          placeholder="Mejoras, alertas, tests, documentación, procesos..."
-          value={fields.prevention}
-          onChange={(e) => updateField("prevention", e.target.value)}
-          rows={3}
-        />
-      </div>
-    </div>
-  );
-}
-
 export default function BlogPage() {
   const { session } = useAuth();
   const [posts, setPosts] = useState<BlogPost[]>([]);
@@ -184,19 +47,6 @@ export default function BlogPage() {
   const [selectedAuthor, setSelectedAuthor] = useState<string>("");
   const [selectedTag, setSelectedTag] = useState<string>("");
   const [showFilters, setShowFilters] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  const [newTitle, setNewTitle] = useState("");
-  const [newFields, setNewFields] = useState<LessonFields>({
-    problem: "",
-    howDiscovered: "",
-    consequences: "",
-    measuresTaken: "",
-    prevention: "",
-  });
-  const [newTags, setNewTags] = useState<string[]>([]);
-  const [selectedNewTag, setSelectedNewTag] = useState("");
 
   const loadPosts = useCallback(async () => {
     setLoading(true);
@@ -277,81 +127,9 @@ export default function BlogPage() {
     void loadPosts();
   }, [loadPosts]);
 
-  const updateNewField = useCallback(
-    (key: keyof LessonFields, value: string) => {
-      setNewFields((prev) => ({ ...prev, [key]: value }));
-    },
-    [],
-  );
-
-  const handleAddNewTag = useCallback(
-    (tag: string) => {
-      if (tag && !newTags.includes(tag)) {
-        setNewTags((prev) => [...prev, tag]);
-      }
-    },
-    [newTags],
-  );
-
-  const handleRemoveNewTag = useCallback((tag: string) => {
-    setNewTags((prev) => prev.filter((t) => t !== tag));
-  }, []);
-
-  const handleNewTagSelect = useCallback(
-    (tag: string) => {
-      handleAddNewTag(tag);
-      setSelectedNewTag("");
-    },
-    [handleAddNewTag],
-  );
-
-  const handleCreateLesson = useCallback(async () => {
-    if (!newTitle.trim()) {
-      toast.error("El título es obligatorio");
-      return;
-    }
-
-    const hasContent = Object.values(newFields).some((f) => f.trim());
-    if (!hasContent) {
-      toast.error("Completa al menos una sección");
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const content = generateMarkdown(newFields);
-      const result = await createBlogPost({
-        title: newTitle.trim(),
-        content,
-        tags: newTags,
-      });
-      if (result.ok && result.post) {
-        toast.success("Lección creada");
-        setDialogOpen(false);
-        setNewTitle("");
-        setNewFields({
-          problem: "",
-          howDiscovered: "",
-          consequences: "",
-          measuresTaken: "",
-          prevention: "",
-        });
-        setNewTags([]);
-        void loadPosts();
-      } else {
-        toast.error(result.error ?? "Error al crear la lección");
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error("Ocurrió un error inesperado al publicar");
-    } finally {
-      setSaving(false);
-    }
-  }, [newTitle, newFields, newTags, loadPosts]);
-
   if (!session) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
+      <div className="flex min-h-[50vh] items-center justify-center px-4">
         <p className="text-muted-foreground">
           Inicia sesión para ver las lecciones.
         </p>
@@ -360,19 +138,21 @@ export default function BlogPage() {
   }
 
   return (
-    <div className="container mx-auto max-w-5xl space-y-8 px-4 py-8">
+    <div className="mx-auto w-full max-w-3xl flex-1 space-y-8 px-4 py-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">
+          <h1 className="text-2xl font-semibold tracking-tight">
             Lecciones aprendidas
           </h1>
-          <p className="mt-1 text-muted-foreground">
+          <p className="mt-1 text-sm text-muted-foreground">
             Documenta problemas, soluciones y prevenciones
           </p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>
-          <PlusIcon className="mr-2 h-4 w-4" />
-          Nueva lección
+        <Button asChild>
+          <Link href="/blog/new">
+            <PlusIcon className="mr-2 h-4 w-4" />
+            Nueva lección
+          </Link>
         </Button>
       </div>
 
@@ -398,7 +178,12 @@ export default function BlogPage() {
 
         {showFilters && (
           <div className="flex flex-wrap gap-2">
-            <Select value={selectedAuthor} onValueChange={setSelectedAuthor}>
+            <Select
+              value={selectedAuthor || "__all__"}
+              onValueChange={(v) =>
+                setSelectedAuthor(v === "__all__" ? "" : v)
+              }
+            >
               <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="Filtrar por autor" />
               </SelectTrigger>
@@ -412,7 +197,10 @@ export default function BlogPage() {
               </SelectContent>
             </Select>
 
-            <Select value={selectedTag} onValueChange={setSelectedTag}>
+            <Select
+              value={selectedTag || "__all__"}
+              onValueChange={(v) => setSelectedTag(v === "__all__" ? "" : v)}
+            >
               <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="Filtrar por etiqueta" />
               </SelectTrigger>
@@ -454,125 +242,58 @@ export default function BlogPage() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-6">
+        <ul className="divide-y divide-border/60 rounded-lg border border-border/50">
           {filteredPosts.map((post) => (
-            <Link key={post.id} href={`/blog/${post.id}`} className="block">
-              <Card className="transition-all hover:border-primary/50 hover:shadow-md">
-                <CardHeader className="gap-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-xl hover:text-primary">
-                      {post.title}
-                    </CardTitle>
-                    {post.isHidden && <Badge variant="secondary">Oculto</Badge>}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <UserIcon className="h-3.5 w-3.5" />@{post.authorMention}
-                    </span>
-                    <span>{formatDate(post.createdAt)}</span>
-                  </div>
-                </CardHeader>
-                <CardContent className="gap-4">
-                  <div className="line-clamp-3 text-muted-foreground">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {post.content.slice(0, 300)}
-                    </ReactMarkdown>
-                  </div>
-                  {post.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {post.tags.map((tag) => (
-                        <Badge key={tag} variant="outline" className="gap-1">
-                          <TagIcon className="h-3 w-3" />
-                          {tag}
+            <li key={post.id}>
+              <Link
+                href={`/blog/${post.id}`}
+                className="block px-4 py-4 transition-colors hover:bg-muted/40"
+              >
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium leading-snug text-foreground">
+                        {post.title}
+                      </span>
+                      {post.isHidden ? (
+                        <Badge variant="secondary" className="text-[10px]">
+                          Oculto
                         </Badge>
-                      ))}
+                      ) : null}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            </Link>
+                    <div className="line-clamp-2 text-sm text-muted-foreground prose prose-sm dark:prose-invert prose-p:my-0 max-w-prose">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {post.content.slice(0, 220)}
+                      </ReactMarkdown>
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <UserIcon className="h-3.5 w-3.5" />@
+                      {post.authorMention}
+                    </span>
+                    <span className="mt-0.5 block">{formatDate(post.createdAt)}</span>
+                  </div>
+                </div>
+                {post.tags.length > 0 ? (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {post.tags.map((tag) => (
+                      <Badge
+                        key={tag}
+                        variant="outline"
+                        className="gap-1 text-[11px] font-normal"
+                      >
+                        <TagIcon className="h-3 w-3" />
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
+              </Link>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
-
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Nueva lección</DialogTitle>
-            <DialogDescription>
-              Documenta el problema, cómo lo detectaste, sus consecuencias, las
-              medidas tomadas y las acciones preventivas.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label htmlFor="new-title" className="text-sm font-medium">
-                Título
-              </label>
-              <Input
-                id="new-title"
-                placeholder="Ej: Error en validación de clientes..."
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-              />
-            </div>
-
-            <LessonFormFields fields={newFields} updateField={updateNewField} />
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                Etiquetas (opcional)
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {newTags.map((tag) => (
-                  <Badge key={tag} variant="secondary" className="gap-1">
-                    {tag}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveNewTag(tag)}
-                      className="ml-1 hover:text-destructive"
-                    >
-                      <XIcon className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-              <Select value={selectedNewTag} onValueChange={handleNewTagSelect}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Selecciona una etiqueta..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {BLOG_TAGS.filter((t) => !newTags.includes(t)).map((tag) => (
-                    <SelectItem key={tag} value={tag}>
-                      {tag}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={() => void handleCreateLesson()} disabled={saving}>
-              {saving ? (
-                <>
-                  <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
-                  Guardando...
-                </>
-              ) : (
-                <>
-                  <SendIcon className="mr-2 h-4 w-4" />
-                  Publicar
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

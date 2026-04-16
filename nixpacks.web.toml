@@ -17,7 +17,7 @@ cmds = ["""
   """, "bun install --frozen-lockfile"]
 
 [phases.build]
-cmds = ["bun run --filter web build"]
+cmds = ["bun run --filter @kai/shared build", "bun run --filter web build"]
 
 [start]
 cmd = "cd apps/web && bun run start"

@@ -8,45 +8,36 @@ import {
   type ChangeEvent,
   type DragEvent,
 } from "react";
-import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeftIcon, Loader2Icon, SaveIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Loader2Icon, SendIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { ActualityMarkdownComposer } from "@/components/actuality-markdown-composer";
-import {
-  fetchBlogPost,
-  updateBlogPost,
-  uploadBlogImage,
-  type BlogPost,
-} from "@/lib/blog-api";
+import { createBlogPost, uploadBlogImage } from "@/lib/blog-api";
 import { ACTUALITY_TAGS } from "@/lib/blog-tags";
 import { fetchOrganizationUsers } from "@/lib/organization-api";
 import { useAuth } from "@/hooks/auth";
 
 const POST_TYPE = "actuality" as const;
 
-export default function EditActualityPage() {
-  const params = useParams();
+export default function NewActualityPage() {
   const router = useRouter();
   const { session } = useAuth();
-  const id = params.id as string;
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const [post, setPost] = useState<BlogPost | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [selectedTag, setSelectedTag] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
   const [mentionUsers, setMentionUsers] = useState<
     Array<{ id: string; name: string; email: string; mention: string }>
   >([]);
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     void (async () => {
@@ -64,40 +55,9 @@ export default function EditActualityPage() {
     })();
   }, []);
 
-  useEffect(() => {
-    if (!session) return;
-    void (async () => {
-      const data = await fetchBlogPost(id);
-      if (!data) {
-        toast.error("Entrada no encontrada");
-        router.push("/blog-actuality");
-        return;
-      }
-      if (data.type !== "actuality") {
-        toast.error("Entrada no encontrada");
-        router.push("/blog-actuality");
-        return;
-      }
-      const userRoleCheck = (session?.user as { role?: string })?.role;
-      const isAuthorCheck = session?.user?.id === data.authorId;
-      if (!isAuthorCheck && userRoleCheck !== "admin") {
-        toast.error("No tienes permiso para editar esta entrada");
-        router.push("/blog-actuality");
-        return;
-      }
-      setPost(data);
-      setTitle(data.title);
-      setContent(data.content);
-      setTags(data.tags);
-      setLoading(false);
-    })();
-  }, [id, router, session]);
-
   const handleAddTag = useCallback(
     (tag: string) => {
-      if (tag && !tags.includes(tag)) {
-        setTags((prev) => [...prev, tag]);
-      }
+      if (tag && !tags.includes(tag)) setTags((prev) => [...prev, tag]);
     },
     [tags],
   );
@@ -134,9 +94,9 @@ export default function EditActualityPage() {
           if (textarea) {
             const start = textarea.selectionStart;
             const end = textarea.selectionEnd;
-            const newContentValue =
+            const next =
               content.slice(0, start) + markdownImage + content.slice(end);
-            setContent(newContentValue);
+            setContent(next);
             setTimeout(() => {
               textarea.focus();
               const newPos = start + markdownImage.length;
@@ -196,7 +156,6 @@ export default function EditActualityPage() {
       toast.error("El título es obligatorio");
       return;
     }
-
     if (!content.trim()) {
       toast.error("El contenido es obligatorio");
       return;
@@ -204,35 +163,31 @@ export default function EditActualityPage() {
 
     setSaving(true);
     try {
-      const result = await updateBlogPost(id, {
+      const result = await createBlogPost({
         title: title.trim(),
         content,
         tags,
         type: POST_TYPE,
       });
       if (result.ok && result.post) {
-        toast.success("Entrada actualizada");
-        router.push(`/blog-actuality/${id}`);
+        toast.success("Entrada creada");
+        router.push(`/blog-actuality/${result.post.id}`);
       } else {
-        toast.error(result.error ?? "Error al actualizar la entrada");
+        toast.error(result.error ?? "Error al crear la entrada");
       }
+    } catch {
+      toast.error("Ocurrió un error inesperado al publicar");
     } finally {
       setSaving(false);
     }
-  }, [id, title, content, tags, router]);
+  }, [title, content, tags, router]);
 
-  if (loading) {
+  if (!session) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <Loader2Icon className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (!post) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <p className="text-muted-foreground">Entrada no encontrada</p>
+      <div className="flex min-h-[50vh] items-center justify-center px-4">
+        <p className="text-muted-foreground">
+          Inicia sesión para crear una entrada.
+        </p>
       </div>
     );
   }
@@ -240,20 +195,14 @@ export default function EditActualityPage() {
   return (
     <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-start gap-3">
-          <Button variant="ghost" size="icon" className="shrink-0" asChild>
-            <Link href={`/blog-actuality/${id}`}>
-              <ArrowLeftIcon className="h-4 w-4" />
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Editar entrada
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Markdown con vista previa en tiempo real.
-            </p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Nueva entrada
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Editor Markdown con vista previa; arrastra imágenes al panel
+            izquierdo.
+          </p>
         </div>
       </div>
 
@@ -281,7 +230,7 @@ export default function EditActualityPage() {
         footerActions={
           <div className="flex flex-wrap justify-end gap-2 pt-2">
             <Button variant="outline" asChild>
-              <Link href={`/blog-actuality/${id}`}>Cancelar</Link>
+              <Link href="/blog-actuality">Cancelar</Link>
             </Button>
             <Button onClick={() => void handleSubmit()} disabled={saving}>
               {saving ? (
@@ -291,8 +240,8 @@ export default function EditActualityPage() {
                 </>
               ) : (
                 <>
-                  <SaveIcon className="mr-2 h-4 w-4" />
-                  Guardar cambios
+                  <SendIcon className="mr-2 h-4 w-4" />
+                  Publicar
                 </>
               )}
             </Button>
