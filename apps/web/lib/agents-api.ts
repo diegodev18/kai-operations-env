@@ -18,6 +18,8 @@ import type {
   WhatsappIntegrationStatusItem,
   BuilderCompanyPayload,
   SavedBuilderCompany,
+  AgentBuilderFormResponse,
+  AgentBuilderFormAdvanced,
 } from "@/types/agents-api";
 
 export type {
@@ -38,6 +40,8 @@ export type {
   WhatsappIntegrationStatusItem,
   BuilderCompanyPayload,
   SavedBuilderCompany,
+  AgentBuilderFormResponse,
+  AgentBuilderFormAdvanced,
 };
 
 export type DraftPropertyItem = {
@@ -858,6 +862,24 @@ export async function fetchAgentById(agentId: string): Promise<Agent | null> {
             ? "commercial"
             : undefined,
     } as Agent;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchAgentBuilderForm(
+  agentId: string,
+): Promise<AgentBuilderFormResponse | null> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/builder-form`,
+    {
+      credentials: "include",
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) return null;
+  try {
+    return (await res.json()) as AgentBuilderFormResponse;
   } catch {
     return null;
   }

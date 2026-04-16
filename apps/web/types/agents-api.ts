@@ -234,3 +234,23 @@ export type SavedBuilderCompany = {
   createdAt: string | null;
   updatedAt: string | null;
 };
+
+/** Respuesta de GET /api/agents/:id/builder-form (solo lectura). */
+export type AgentBuilderFormAdvanced = {
+  agent?: Record<string, unknown>;
+  ai?: Record<string, unknown>;
+  answer?: Record<string, unknown>;
+  response?: Record<string, unknown>;
+  time?: Record<string, unknown>;
+  mcp?: Record<string, unknown>;
+};
+
+export type AgentBuilderFormResponse = {
+  root: Record<string, unknown>;
+  personality: Record<string, unknown> | null;
+  business: Record<string, unknown> | null;
+  advanced: AgentBuilderFormAdvanced;
+  in_commercial?: boolean;
+  in_production?: boolean;
+  primary_source?: "commercial" | "production";
+};

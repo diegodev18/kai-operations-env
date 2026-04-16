@@ -28,6 +28,10 @@ import {
   isFirebaseConfigError,
 } from "@/utils/firestore/errors";
 import { isOperationsAdmin, isOperationsCommercial } from "@/utils/operations-access";
+import {
+  serializeAgentConfigurationRootForClient,
+  serializeValue,
+} from "@/utils/agents/serializeAgentRootForClient";
 
 function normalizeAgentStatus(value: unknown): "active" | "archived" {
   return value === "archived" ? "archived" : "active";
@@ -271,6 +275,97 @@ export async function getAgentProperties(
   } catch (error) {
     const r = handleFirestoreError(c, error, "[agents/:id/properties GET]");
     return r ?? c.json({ error: "Error al leer propiedades" }, 500);
+  }
+}
+
+const BUILDER_FORM_ADVANCED_DOC_IDS = [
+  "agent",
+  "ai",
+  "answer",
+  "response",
+  "time",
+  "mcp",
+] as const satisfies readonly PropertyDocId[];
+
+/**
+ * Read-only builder snapshot: root agent doc (secrets stripped) + personality/business
+ * subdocs + advanced property docs. Same access as GET /agents/:id/properties.
+ */
+export async function getAgentBuilderForm(
+  c: Context,
+  authCtx: AgentsInfoAuthContext,
+  agentId: string,
+) {
+  const denied = await requireAgentAccess(c, authCtx, agentId);
+  if (denied) return denied;
+
+  try {
+    const flags = await getAgentDeploymentFlags(agentId);
+    if (!flags.hasTestingData && !flags.inProduction) {
+      return ApiErrors.notFound(c, "Agente no encontrado");
+    }
+
+    const { db: database, hasTestingData, inProduction } =
+      await resolveAgentWriteDatabase(agentId);
+    const agentRef = database.collection("agent_configurations").doc(agentId);
+    const rootSnap = await agentRef.get();
+    if (!rootSnap.exists) {
+      return ApiErrors.notFound(c, "Agente no encontrado");
+    }
+
+    const propertiesRef = hasTestingData
+      ? agentRef.collection("testing").doc("data").collection("properties")
+      : agentRef.collection("properties");
+
+    const advancedSnaps = await Promise.all(
+      BUILDER_FORM_ADVANCED_DOC_IDS.map((id) => propertiesRef.doc(id).get()),
+    );
+    const [personalitySnap, businessSnap] = await Promise.all([
+      propertiesRef.doc("personality").get(),
+      propertiesRef.doc("business").get(),
+    ]);
+
+    const advanced: Record<string, unknown> = {};
+    for (let i = 0; i < BUILDER_FORM_ADVANCED_DOC_IDS.length; i++) {
+      const docId = BUILDER_FORM_ADVANCED_DOC_IDS[i];
+      const snap = advancedSnaps[i];
+      const data = snap.exists
+        ? (snap.data() as Record<string, unknown> | undefined)
+        : undefined;
+      const merged = mergeWithDefaults(docId, data);
+      let serialized = serializeValue(merged) as Record<string, unknown>;
+      if (docId === "agent" && serialized && typeof serialized === "object") {
+        const inject =
+          serialized.injectCommandsInPrompt === true ||
+          serialized.isCommandsEnable === true;
+        serialized = { ...serialized, injectCommandsInPrompt: inject };
+        delete serialized.isCommandsEnable;
+      }
+      advanced[docId] = serialized;
+    }
+
+    const rootRaw = rootSnap.data() as Record<string, unknown>;
+
+    return c.json({
+      root: serializeAgentConfigurationRootForClient(rootRaw),
+      personality: personalitySnap.exists
+        ? (serializeValue(
+            personalitySnap.data() as Record<string, unknown>,
+          ) as Record<string, unknown>)
+        : null,
+      business: businessSnap.exists
+        ? (serializeValue(
+            businessSnap.data() as Record<string, unknown>,
+          ) as Record<string, unknown>)
+        : null,
+      advanced,
+      in_commercial: hasTestingData,
+      in_production: inProduction,
+      primary_source: hasTestingData ? "commercial" : "production",
+    });
+  } catch (error) {
+    const r = handleFirestoreError(c, error, "[agents/:id/builder-form GET]");
+    return r ?? c.json({ error: "Error al leer formulario del agente" }, 500);
   }
 }
 

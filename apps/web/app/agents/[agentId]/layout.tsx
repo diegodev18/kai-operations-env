@@ -35,6 +35,7 @@ const SECTIONS = [
   { suffix: "simulator", label: "Simulador" },
   { suffix: "tools", label: "Tools" },
   { suffix: "prompt-design", label: "Diseño de prompt" },
+  { suffix: "form", label: "Formulario" },
   { suffix: "testing-data", label: "Testing" },
   { suffix: "configuration", label: "Configuración" },
 ] as const;

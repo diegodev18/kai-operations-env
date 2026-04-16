@@ -26,6 +26,7 @@ import {
 } from "@/controllers/agents.controller";
 import {
   getAgentById,
+  getAgentBuilderForm,
   getAgentProperties,
   patchAgent,
   postAgentOperationsArchive,
@@ -261,6 +262,16 @@ agentsRouter.get("/:agentId/properties", async (c) => {
     return c.json({ error: "Agente no encontrado" }, 404);
   }
   return getAgentProperties(c, ctx.authCtx, agentId);
+});
+
+agentsRouter.get("/:agentId/builder-form", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return getAgentBuilderForm(c, ctx.authCtx, agentId);
 });
 
 agentsRouter.patch("/:agentId/properties/:documentId", async (c) => {

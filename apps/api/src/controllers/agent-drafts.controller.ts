@@ -32,6 +32,10 @@ import {
   isFirebaseConfigError,
 } from "@/utils/firestore/errors";
 import { isOperationsAdmin, isOperationsCommercial } from "@/utils/operations-access";
+import {
+  serializeAgentConfigurationRootForClient,
+  serializeValue,
+} from "@/utils/agents/serializeAgentRootForClient";
 
 /** Builder: un solo doc por agente en asistente comercial. */
 const AGENT_CONFIGURATIONS = "agent_configurations";
@@ -708,7 +712,7 @@ export async function getAgentDraft(
     const genFields = extractMcpGenerationMeta(data);
     return c.json({
       id: snap.id,
-      draft: serializeDraftForClient(data),
+      draft: serializeAgentConfigurationRootForClient(data),
       ...genFields,
     });
   } catch (error) {
@@ -1624,45 +1628,3 @@ function stripFirestoreSentinels(obj: Record<string, unknown>): Record<string, u
   return out;
 }
 
-function serializeDraftForClient(data: Record<string, unknown>): Record<string, unknown> {
-  const secretKeys = new Set([
-    "whatsappToken",
-    "whatsapp_token",
-    "AGENT_WHATSAPP_TOKEN",
-    "AGENT_LONG_LIVED_TOKEN",
-  ]);
-  let hasWhatsappToken = false;
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(data)) {
-    if (secretKeys.has(k)) {
-      hasWhatsappToken =
-        hasWhatsappToken ||
-        (typeof v === "string" ? v.length > 0 : Boolean(v));
-      continue;
-    }
-    out[k] = serializeValue(v);
-  }
-  if (hasWhatsappToken) out.has_whatsapp_token = true;
-  return out;
-}
-
-function serializeValue(v: unknown): unknown {
-  if (v == null) return v;
-  if (typeof v === "object" && v !== null && "toDate" in v && typeof (v as { toDate: () => Date }).toDate === "function") {
-    try {
-      return (v as { toDate: () => Date }).toDate().toISOString();
-    } catch {
-      return null;
-    }
-  }
-  if (Array.isArray(v)) return v.map(serializeValue);
-  if (typeof v === "object" && v !== null) {
-    const o = v as Record<string, unknown>;
-    const next: Record<string, unknown> = {};
-    for (const [k, val] of Object.entries(o)) {
-      next[k] = serializeValue(val);
-    }
-    return next;
-  }
-  return v;
-}
