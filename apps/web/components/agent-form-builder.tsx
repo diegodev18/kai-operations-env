@@ -2715,8 +2715,29 @@ export function AgentFormBuilder() {
 
       await patchAgentDraft(draftId, { step: "complete" });
 
-      toast.success("¡Agente creado exitosamente!");
-      window.location.href = `/agents/${encodeURIComponent(draftId)}/prompt-design`;
+      const promptDesignUrl = `/agents/${encodeURIComponent(draftId)}/prompt-design`;
+      let didNavigate = false;
+      let redirectTimeout: ReturnType<typeof setTimeout> | null = null;
+      const goToPromptDesign = () => {
+        if (didNavigate) return;
+        didNavigate = true;
+        if (redirectTimeout) {
+          clearTimeout(redirectTimeout);
+          redirectTimeout = null;
+        }
+        window.location.href = promptDesignUrl;
+      };
+
+      toast.success("¡Agente creado exitosamente! Ahora diseña tu prompt.", {
+        duration: 3500,
+        action: {
+          label: "Ir a diseñar prompt",
+          onClick: goToPromptDesign,
+        },
+      });
+
+      // Mantiene el flujo automático para continuar con la configuración inicial.
+      redirectTimeout = setTimeout(goToPromptDesign, 1600);
     } catch (error) {
       toast.error("Error al crear el agente");
       console.error(error);
