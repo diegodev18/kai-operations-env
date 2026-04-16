@@ -13,4 +13,10 @@ bun install
 bun run dev
 ```
 
+windows case:
+
+```bash
+bun run --filter web --filter api dev
+```
+
 La web usa rewrites a la API (`API_INTERNAL_URL`, ver `apps/web/.env.example`). Tras iniciar sesión, el dashboard lista agentes desde Firestore (`agent_configurations`) vía `GET /api/agents/info`.
