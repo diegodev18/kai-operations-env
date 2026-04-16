@@ -320,7 +320,17 @@ export default function EditLessonPage() {
             <div className="p-4">
               {previewMd.trim() ? (
                 <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:scroll-mt-20">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      p: ({ className, ...props }) => (
+                        <p
+                          className={`whitespace-pre-line ${className ?? ""}`}
+                          {...props}
+                        />
+                      ),
+                    }}
+                  >
                     {previewMd}
                   </ReactMarkdown>
                 </div>
