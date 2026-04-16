@@ -187,7 +187,25 @@ export default function BlogPostPage() {
         ) : null}
 
         <div className="prose prose-stone dark:prose-invert max-w-none prose-headings:scroll-mt-20">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{post.content}</ReactMarkdown>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              p: ({ className, ...props }) => (
+                <p
+                  className={`whitespace-pre-line ${className ?? ""}`}
+                  {...props}
+                />
+              ),
+              hr: ({ className, ...props }) => (
+                <hr
+                  className={`my-5 border-border/70 ${className ?? ""}`}
+                  {...props}
+                />
+              ),
+            }}
+          >
+            {post.content}
+          </ReactMarkdown>
         </div>
       </article>
     </div>
