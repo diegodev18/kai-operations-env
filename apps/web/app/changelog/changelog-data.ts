@@ -64,6 +64,22 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] = 
 ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.4.13": {
+    date: "2026-04-16",
+    description:
+      "Atlas: mejora del flujo post-creación del agente con CTA a Prompt Design y navegación automática segura",
+    changes: {
+      added: [
+        "Tras completar el constructor de agentes, el toast de éxito ahora incluye acción visible «Ir a diseñar prompt» para abrir directamente `/agents/{id}/prompt-design`.",
+      ],
+      changed: [
+        "Mensaje de éxito actualizado para comunicar el siguiente paso de onboarding: diseñar el prompt inicial del agente.",
+      ],
+      improved: [
+        "Se mantiene la redirección automática para no frenar la generación/configuración inicial del prompt, con protección para evitar doble navegación si el usuario pulsa el CTA.",
+      ],
+    },
+  },
   "2.4.12": {
     date: "2026-04-16",
     description:
