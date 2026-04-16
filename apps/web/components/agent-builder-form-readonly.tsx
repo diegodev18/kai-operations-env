@@ -155,53 +155,53 @@ function stageTypeLabel(stageType: StageType | null): string {
 /** Normaliza el JSON de Firestore al shape `Pipeline[]` del constructor. */
 function parsePipelinesUnknown(raw: unknown): Pipeline[] {
   if (raw == null || !Array.isArray(raw)) return [];
-  return raw
-    .map((item, idx) => {
-      if (item == null || typeof item !== "object" || Array.isArray(item)) {
-        return null;
-      }
-      const p = item as Record<string, unknown>;
-      const stagesRaw = Array.isArray(p.stages) ? p.stages : [];
-      const stages: Stage[] = stagesRaw
-        .map((s, si) => {
-          if (s == null || typeof s !== "object" || Array.isArray(s)) {
-            return null;
-          }
-          const st = s as Record<string, unknown>;
-          const stageType =
-            typeof st.stageType === "string"
-              ? (st.stageType as StageType)
-              : null;
-          return {
-            id: typeof st.id === "string" ? st.id : `stage_${si}`,
-            name: typeof st.name === "string" ? st.name : `Etapa ${si + 1}`,
-            stageType,
-            order:
-              typeof st.order === "number" && Number.isFinite(st.order)
-                ? st.order
-                : si + 1,
-            color: typeof st.color === "string" ? st.color : "#6B7280",
-            icon: typeof st.icon === "string" ? st.icon : "📌",
-            description:
-              typeof st.description === "string" ? st.description : undefined,
-            isClosedWon: st.isClosedWon === true,
-            isClosedLost: st.isClosedLost === true,
-            isDefault: st.isDefault === true,
-          };
-        })
-        .filter((x): x is Stage => x != null)
-        .sort((a, b) => a.order - b.order);
+  return raw.reduce<Pipeline[]>((acc, item, idx) => {
+    if (item == null || typeof item !== "object" || Array.isArray(item)) {
+      return acc;
+    }
 
-      return {
-        id: typeof p.id === "string" ? p.id : `pipeline_${idx}`,
-        name: typeof p.name === "string" ? p.name : "Pipeline",
-        description:
-          typeof p.description === "string" ? p.description : undefined,
-        isDefault: p.isDefault === true,
-        stages,
-      };
-    })
-    .filter((x): x is Pipeline => x != null);
+    const p = item as Record<string, unknown>;
+    const stagesRaw = Array.isArray(p.stages) ? p.stages : [];
+    const stages: Stage[] = stagesRaw
+      .reduce<Stage[]>((stagesAcc, s, si) => {
+        if (s == null || typeof s !== "object" || Array.isArray(s)) {
+          return stagesAcc;
+        }
+        const st = s as Record<string, unknown>;
+        const stageType =
+          typeof st.stageType === "string" ? (st.stageType as StageType) : null;
+
+        stagesAcc.push({
+          id: typeof st.id === "string" ? st.id : `stage_${si}`,
+          name: typeof st.name === "string" ? st.name : `Etapa ${si + 1}`,
+          stageType,
+          order:
+            typeof st.order === "number" && Number.isFinite(st.order)
+              ? st.order
+              : si + 1,
+          color: typeof st.color === "string" ? st.color : "#6B7280",
+          icon: typeof st.icon === "string" ? st.icon : "📌",
+          description:
+            typeof st.description === "string" ? st.description : undefined,
+          isClosedWon: st.isClosedWon === true,
+          isClosedLost: st.isClosedLost === true,
+          isDefault: st.isDefault === true,
+        });
+
+        return stagesAcc;
+      }, [])
+      .sort((a, b) => a.order - b.order);
+
+    acc.push({
+      id: typeof p.id === "string" ? p.id : `pipeline_${idx}`,
+      name: typeof p.name === "string" ? p.name : "Pipeline",
+      description: typeof p.description === "string" ? p.description : undefined,
+      isDefault: p.isDefault === true,
+      stages,
+    });
+
+    return acc;
+  }, []);
 }
 
 /** Misma estructura visual que `SectionPipelines` en agent-form-builder (solo lectura). */
