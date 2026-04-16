@@ -4,6 +4,8 @@ import {
   useState,
   type ChangeEvent,
   type DragEvent,
+  type HTMLAttributes,
+  type LiHTMLAttributes,
   type ReactNode,
   type RefObject,
 } from "react";
@@ -29,6 +31,63 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
+const markdownComponents = {
+  h1: ({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) => (
+    <h1
+      className={`text-2xl font-semibold tracking-tight text-foreground ${className ?? ""}`}
+      {...props}
+    />
+  ),
+  h2: ({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) => (
+    <h2
+      className={`mt-6 text-xl font-semibold tracking-tight text-foreground ${className ?? ""}`}
+      {...props}
+    />
+  ),
+  h3: ({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) => (
+    <h3 className={`mt-5 text-lg font-medium text-foreground ${className ?? ""}`} {...props} />
+  ),
+  p: ({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) => (
+    <p
+      className={`my-3 whitespace-pre-line leading-7 text-foreground/95 ${className ?? ""}`}
+      {...props}
+    />
+  ),
+  ul: ({ className, ...props }: HTMLAttributes<HTMLUListElement>) => (
+    <ul className={`my-3 ml-5 list-disc space-y-1 ${className ?? ""}`} {...props} />
+  ),
+  ol: ({ className, ...props }: HTMLAttributes<HTMLOListElement>) => (
+    <ol className={`my-3 ml-5 list-decimal space-y-1 ${className ?? ""}`} {...props} />
+  ),
+  li: ({ className, ...props }: LiHTMLAttributes<HTMLLIElement>) => (
+    <li className={`leading-7 text-foreground/95 ${className ?? ""}`} {...props} />
+  ),
+  blockquote: ({ className, ...props }: HTMLAttributes<HTMLQuoteElement>) => (
+    <blockquote
+      className={`my-4 border-l-2 border-border pl-4 text-muted-foreground italic ${className ?? ""}`}
+      {...props}
+    />
+  ),
+  a: ({ className, ...props }: HTMLAttributes<HTMLAnchorElement>) => (
+    <a
+      className={`font-medium text-primary underline underline-offset-4 hover:text-primary/80 ${className ?? ""}`}
+      {...props}
+    />
+  ),
+  code: ({ className, ...props }: HTMLAttributes<HTMLElement>) => (
+    <code
+      className={`rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em] ${className ?? ""}`}
+      {...props}
+    />
+  ),
+  pre: ({ className, ...props }: HTMLAttributes<HTMLPreElement>) => (
+    <pre
+      className={`my-4 overflow-x-auto rounded-md border border-border/60 bg-muted/50 p-3 ${className ?? ""}`}
+      {...props}
+    />
+  ),
+};
 
 function insertAroundSelection(
   textarea: HTMLTextAreaElement,
@@ -263,7 +322,7 @@ Escribe en **Markdown**. @menciones y listas.
 Arrastra imágenes para insertarlas.`}
                 value={content}
                 onChange={(e) => onContentChange(e.target.value)}
-                className="min-h-[280px] flex-1 resize-none border-0 bg-transparent px-3 py-3 font-mono text-sm leading-relaxed focus-visible:ring-0 lg:min-h-0"
+                className="field-sizing-fixed h-full min-h-[320px] flex-1 resize-none border-0 bg-transparent px-3 py-3 font-mono text-sm leading-relaxed focus-visible:ring-0 lg:min-h-0"
                 spellCheck={false}
               />
               <div
@@ -290,8 +349,11 @@ Arrastra imágenes para insertarlas.`}
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
               {content.trim() ? (
-                <div className="prose prose-sm max-w-none dark:prose-invert prose-p:leading-relaxed">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                <div className="text-sm">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={markdownComponents}
+                  >
                     {content}
                   </ReactMarkdown>
                 </div>
