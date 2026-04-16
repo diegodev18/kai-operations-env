@@ -64,6 +64,33 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] = 
 ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.4.12": {
+    date: "2026-04-16",
+    description:
+      "Atlas: rediseño de Lecciones y Actualidad con shell unificado, editor markdown mejorado y mejoras de legibilidad",
+    changes: {
+      added: [
+        "Nuevo `OperationsShell` reutilizable con header, `Sheet` de navegación y breadcrumb (`Operaciones / Lecciones` y `Operaciones / Actualidad`) aplicado en layouts de `/blog` y `/blog-actuality` (incluye detalle/edición/nueva entrada).",
+        "Nuevas rutas de creación dedicadas: `/blog/new` y `/blog-actuality/new` para reemplazar modales y permitir experiencia de edición completa.",
+        "En Actualidad, nuevo compositor markdown con toolbar (bold/italic/code/link/imagen), split editor-vista previa en desktop y tabs en móvil.",
+        "Autocomplete de menciones en Actualidad al escribir `@`, con sugerencias de usuarios de organización e inserción directa de `@mention`.",
+      ],
+      changed: [
+        "Listados de Lecciones y Actualidad ahora usan un layout más angosto (`max-w-3xl`) con estilo de lista densa tipo Notion en lugar de cards anchas.",
+        "Páginas de detalle (`/blog/[id]` y `/blog-actuality/[id]`) migradas a ancho de lectura (`max-w-prose`) y estilo editorial más limpio.",
+        "Lecciones ahora generan markdown estructurado con preguntas en bloque de cita (`> **pregunta**`) y separadores (`---`) entre secciones.",
+        "Parser de Lecciones actualizado para soportar tanto formato antiguo (`##`) como nuevo formato con `>` y `---`.",
+      ],
+      fixed: [
+        "Vista previa de Actualidad y Lecciones ahora respeta saltos de línea simples (Enter) sin colapsar texto.",
+        "Render de markdown en post final de Lecciones ajustado para mostrar correctamente `blockquote`, separadores y estilos de lectura.",
+        "Espaciado visual de separadores en Lecciones calibrado para evitar bloques pegados o exceso de separación.",
+      ],
+      improved: [
+        "Jerarquía visual y legibilidad general mejoradas en formularios y vistas finales, con enfoque minimalista inspirado en editores de notas modernos.",
+      ],
+    },
+  },
   "2.4.11": {
     date: "2026-04-15",
     description:
