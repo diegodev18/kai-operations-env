@@ -36,6 +36,7 @@ import {
   serializeAgentConfigurationRootForClient,
   serializeValue,
 } from "@/utils/agents/serializeAgentRootForClient";
+import { persistInitialBuilderSnapshotIfMissing } from "@/controllers/agent-detail.controller";
 
 /** Builder: un solo doc por agente en asistente comercial. */
 const AGENT_CONFIGURATIONS = "agent_configurations";
@@ -902,6 +903,15 @@ export async function patchAgentDraft(
     };
     await draftRef.update(genPatch);
     await provisionAgentAfterComplete(draftRef, existingDraft);
+
+    try {
+      await persistInitialBuilderSnapshotIfMissing(draftRef);
+    } catch (e) {
+      logger.error(
+        "[agents/drafts] persistInitialBuilderSnapshotIfMissing",
+        formatError(e),
+      );
+    }
 
     void runSystemPromptGenerationJob(draftId).catch((e) => {
       logger.error("[agents/drafts] system prompt generation job", formatError(e));

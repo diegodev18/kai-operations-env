@@ -20,6 +20,8 @@ import type {
   SavedBuilderCompany,
   AgentBuilderFormResponse,
   AgentBuilderFormAdvanced,
+  AgentBuilderFormPayload,
+  AgentBuilderFormInitialPayload,
 } from "@/types/agents-api";
 
 export type {
@@ -42,6 +44,8 @@ export type {
   SavedBuilderCompany,
   AgentBuilderFormResponse,
   AgentBuilderFormAdvanced,
+  AgentBuilderFormPayload,
+  AgentBuilderFormInitialPayload,
 };
 
 export type DraftPropertyItem = {

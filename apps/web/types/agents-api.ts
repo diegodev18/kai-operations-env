@@ -245,7 +245,25 @@ export type AgentBuilderFormAdvanced = {
   mcp?: Record<string, unknown>;
 };
 
+/** Bloque root + personality + business + advanced (live o primer envío). */
+export type AgentBuilderFormPayload = {
+  root: Record<string, unknown>;
+  personality: Record<string, unknown> | null;
+  business: Record<string, unknown> | null;
+  advanced: AgentBuilderFormAdvanced;
+};
+
+/** Snapshot inmutable del primer envío (incl. fecha de guardado). */
+export type AgentBuilderFormInitialPayload = AgentBuilderFormPayload & {
+  saved_at?: string | null;
+};
+
 export type AgentBuilderFormResponse = {
+  initial: AgentBuilderFormInitialPayload | null;
+  /** Ausente en respuestas antiguas; usar `root`/`personality`/… en la raíz. */
+  live?: AgentBuilderFormPayload;
+  has_initial_snapshot?: boolean;
+  /** Duplican `live` cuando existe (retrocompat). */
   root: Record<string, unknown>;
   personality: Record<string, unknown> | null;
   business: Record<string, unknown> | null;

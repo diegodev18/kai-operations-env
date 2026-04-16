@@ -64,6 +64,23 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] = 
 ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.4.11": {
+    date: "2026-04-15",
+    description:
+      "Atlas: vista Formulario del agente (solo lectura), snapshot del primer envío y pipelines visuales",
+    changes: {
+      added: [
+        "Sección **Formulario** en la barra del detalle de agente (`/agents/:id/form`): solo lectura de los datos del constructor, con layout en dos columnas (grid + flex) para evitar huecos.",
+        "API `GET /api/agents/:id/builder-form`: payload `live` (estado actual) más `initial` cuando existe snapshot del primer envío; `has_initial_snapshot`; en la raíz se mantienen `root`, `personality`, `business` y `advanced` alineados con `live` (retrocompat). Autorización con `userCanAccessAgent` (misma que propiedades).",
+        "Serialización compartida del documento raíz del agente en `serializeAgentRootForClient` (reutilizada por GET borrador y builder-form).",
+        "Al completar la creación del agente (`PATCH` borrador `step: complete`), tras `provisionAgentAfterComplete`, se guarda una sola vez en Firestore `agent_configurations/{id}/builderSnapshots/initial` el formulario (root + personality + business + advanced + `saved_at`). Los agentes anteriores sin snapshot muestran aviso y el estado actual.",
+        "Funciones exportadas `assembleBuilderFormPayload` y `persistInitialBuilderSnapshotIfMissing` en el controlador de detalle del agente.",
+      ],
+      changed: [
+        "Paso **Pipelines** en la vista de formulario: tarjetas por pipeline y etapas (icono, color, tipo, descripción) al estilo del constructor, en lugar de JSON en bruto.",
+      ],
+    },
+  },
   "2.4.10": {
     date: "2026-04-15",
     description:

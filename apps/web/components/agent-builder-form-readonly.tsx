@@ -372,7 +372,21 @@ export function AgentBuilderFormReadonly({ agentId }: { agentId: string }) {
     );
   }
 
-  const { root, personality, business, advanced } = payload;
+  const snapshot =
+    payload.initial ??
+    payload.live ?? {
+      root: payload.root,
+      personality: payload.personality,
+      business: payload.business,
+      advanced: payload.advanced,
+    };
+  const { root, personality, business, advanced } = snapshot;
+  const hasInitialSnapshot = Boolean(payload.has_initial_snapshot);
+  const initialSavedAt =
+    payload.initial?.saved_at != null && payload.initial.saved_at !== ""
+      ? payload.initial.saved_at
+      : null;
+
   const flowQuestions = getFlowQuestions(root, business);
   const flowAnswers = getFlowAnswers(root, business);
   const pipelines = getPipelines(root, business);
@@ -642,10 +656,31 @@ export function AgentBuilderFormReadonly({ agentId }: { agentId: string }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto">
-      <p className="shrink-0 text-sm text-muted-foreground">
-        Vista de solo lectura de los datos guardados del constructor. Los valores
-        reflejan el estado actual en el sistema, no un historial del primer envío.
-      </p>
+      <div className="shrink-0 space-y-1 text-sm text-muted-foreground">
+        {hasInitialSnapshot ? (
+          <>
+            <p>
+              Se muestran los datos del <strong className="text-foreground">primer envío</strong>{" "}
+              al crear el agente (solo lectura).
+            </p>
+            {initialSavedAt ? (
+              <p className="text-xs">
+                Guardado el{" "}
+                {new Date(initialSavedAt).toLocaleString("es-MX", {
+                  dateStyle: "short",
+                  timeStyle: "short",
+                })}
+              </p>
+            ) : null}
+          </>
+        ) : (
+          <p>
+            Este agente no tiene snapshot del primer envío (creado antes de esta función o
+            sin completar el paso final). Se muestra el{" "}
+            <strong className="text-foreground">estado actual</strong> guardado en el sistema.
+          </p>
+        )}
+      </div>
 
       <div
         className={cn(
