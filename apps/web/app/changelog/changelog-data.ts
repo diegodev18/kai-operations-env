@@ -64,6 +64,22 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] = 
 ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.4.14": {
+    date: "2026-04-16",
+    description:
+      "Atlas: mejoras en flujos del constructor y visibilidad de Lecciones/Actualidad para admins",
+    changes: {
+      added: [
+        "En las listas de Lecciones y Actualidad, filtro de visibilidad exclusivo para admins: solo visibles, solo ocultos o todos los posts.",
+      ],
+      changed: [
+        "Los endpoints de blog (`/api/blog` y `/api/blog/search`) ahora aceptan `includeHidden=true` y devuelven entradas ocultas únicamente a usuarios con rol admin.",
+      ],
+      fixed: [
+        "En el paso de flujos del constructor de agentes, el input de respuestas personalizadas deja de recortar espacios en tiempo real; ahora respeta el texto que escribe el usuario y solo usa `trim` para validaciones.",
+      ],
+    },
+  },
   "2.4.13": {
     date: "2026-04-16",
     description:
