@@ -196,6 +196,18 @@ export default function BlogPostPage() {
                   {...props}
                 />
               ),
+              blockquote: ({ className, ...props }) => (
+                <blockquote
+                  className={`my-3 border-l-2 border-border/70 pl-4 text-foreground ${className ?? ""}`}
+                  {...props}
+                />
+              ),
+              strong: ({ className, ...props }) => (
+                <strong
+                  className={`font-semibold text-foreground ${className ?? ""}`}
+                  {...props}
+                />
+              ),
               hr: ({ className, ...props }) => (
                 <hr
                   className={`my-5 border-border/70 ${className ?? ""}`}
