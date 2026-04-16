@@ -1,28 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ElementType } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useCallback, useMemo, useState, type ElementType } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
-  ArrowLeftIcon,
-  Loader2Icon,
-  XIcon,
-  SaveIcon,
   AlertCircleIcon,
+  ClipboardCheckIcon,
   EyeIcon,
   AlertTriangleIcon,
   ShieldCheckIcon,
-  ClipboardCheckIcon,
+  Loader2Icon,
+  SendIcon,
+  XIcon,
 } from "lucide-react";
-import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { toast } from "sonner";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Card } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -30,11 +28,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { fetchBlogPost, updateBlogPost, type BlogPost } from "@/lib/blog-api";
+import { createBlogPost } from "@/lib/blog-api";
 import { BLOG_TAGS } from "@/lib/blog-tags";
 import {
   generateMarkdown,
-  parseMarkdownContent,
   type LessonFields,
 } from "@/lib/lesson-markdown";
 import { useAuth } from "@/hooks/auth";
@@ -78,14 +75,10 @@ const SECTIONS: {
   },
 ];
 
-export default function EditLessonPage() {
-  const params = useParams();
+export default function NewLessonPage() {
   const router = useRouter();
   const { session } = useAuth();
-  const id = params.id as string;
-
-  const [post, setPost] = useState<BlogPost | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [title, setTitle] = useState("");
   const [fields, setFields] = useState<LessonFields>({
     problem: "",
@@ -96,44 +89,16 @@ export default function EditLessonPage() {
   });
   const [tags, setTags] = useState<string[]>([]);
   const [selectedTag, setSelectedTag] = useState("");
-  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (!session) return;
-    void (async () => {
-      const data = await fetchBlogPost(id);
-      if (!data) {
-        toast.error("Lección no encontrada");
-        router.push("/blog");
-        return;
-      }
-      const userRoleCheck = (session?.user as { role?: string })?.role;
-      const isAuthorCheck = session?.user?.id === data.authorId;
-      if (!isAuthorCheck && userRoleCheck !== "admin") {
-        toast.error("No tienes permiso para editar esta lección");
-        router.push("/blog");
-        return;
-      }
-      setPost(data);
-      setTitle(data.title);
-      setFields(parseMarkdownContent(data.content));
-      setTags(data.tags);
-      setLoading(false);
-    })();
-  }, [id, router, session]);
+  const previewMd = useMemo(() => generateMarkdown(fields), [fields]);
 
-  const updateField = useCallback(
-    (key: keyof LessonFields, value: string) => {
-      setFields((prev) => ({ ...prev, [key]: value }));
-    },
-    [],
-  );
+  const updateField = useCallback((key: keyof LessonFields, value: string) => {
+    setFields((prev) => ({ ...prev, [key]: value }));
+  }, []);
 
   const handleAddTag = useCallback(
     (tag: string) => {
-      if (tag && !tags.includes(tag)) {
-        setTags((prev) => [...prev, tag]);
-      }
+      if (tag && !tags.includes(tag)) setTags((prev) => [...prev, tag]);
     },
     [tags],
   );
@@ -150,52 +115,44 @@ export default function EditLessonPage() {
     [handleAddTag],
   );
 
-  const previewMd = useMemo(() => generateMarkdown(fields), [fields]);
-
   const handleSubmit = useCallback(async () => {
     if (!title.trim()) {
       toast.error("El título es obligatorio");
       return;
     }
-
     const hasContent = Object.values(fields).some((f) => f.trim());
     if (!hasContent) {
       toast.error("Completa al menos una sección");
       return;
     }
 
-    const content = generateMarkdown(fields);
-
     setSaving(true);
     try {
-      const result = await updateBlogPost(id, {
+      const content = generateMarkdown(fields);
+      const result = await createBlogPost({
         title: title.trim(),
         content,
         tags,
       });
       if (result.ok && result.post) {
-        toast.success("Lección actualizada");
-        router.push(`/blog/${id}`);
+        toast.success("Lección creada");
+        router.push(`/blog/${result.post.id}`);
       } else {
-        toast.error(result.error ?? "Error al actualizar la lección");
+        toast.error(result.error ?? "Error al crear la lección");
       }
+    } catch {
+      toast.error("Ocurrió un error inesperado al publicar");
     } finally {
       setSaving(false);
     }
-  }, [id, title, fields, tags, router]);
+  }, [title, fields, tags, router]);
 
-  if (loading) {
+  if (!session) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <Loader2Icon className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (!post) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <p className="text-muted-foreground">Lección no encontrada</p>
+      <div className="flex min-h-[50vh] items-center justify-center px-4">
+        <p className="text-muted-foreground">
+          Inicia sesión para crear una lección.
+        </p>
       </div>
     );
   }
@@ -203,24 +160,17 @@ export default function EditLessonPage() {
   return (
     <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-start gap-3">
-          <Button variant="ghost" size="icon" className="shrink-0" asChild>
-            <Link href={`/blog/${id}`}>
-              <ArrowLeftIcon className="h-4 w-4" />
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Editar lección
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Los cambios se reflejan en la vista previa.
-            </p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Nueva lección
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Completa cada bloque; a la derecha ves el markdown generado.
+          </p>
         </div>
         <div className="flex shrink-0 gap-2">
           <Button variant="outline" asChild>
-            <Link href={`/blog/${id}`}>Cancelar</Link>
+            <Link href="/blog">Cancelar</Link>
           </Button>
           <Button onClick={() => void handleSubmit()} disabled={saving}>
             {saving ? (
@@ -230,8 +180,8 @@ export default function EditLessonPage() {
               </>
             ) : (
               <>
-                <SaveIcon className="mr-2 h-4 w-4" />
-                Guardar cambios
+                <SendIcon className="mr-2 h-4 w-4" />
+                Publicar
               </>
             )}
           </Button>
@@ -241,11 +191,11 @@ export default function EditLessonPage() {
       <div className="grid gap-8 lg:grid-cols-2 lg:items-start">
         <div className="space-y-6">
           <div className="space-y-2">
-            <label htmlFor="title" className="text-sm font-medium">
+            <label htmlFor="lesson-title" className="text-sm font-medium">
               Título
             </label>
             <Input
-              id="title"
+              id="lesson-title"
               placeholder="Ej: Error en validación de clientes..."
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -313,7 +263,7 @@ export default function EditLessonPage() {
         </div>
 
         <div className="lg:sticky lg:top-4 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
-          <Card className="overflow-hidden border-border/60 bg-muted/15">
+          <div className="rounded-lg border border-border/60 bg-muted/15">
             <div className="border-b border-border/50 px-4 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
               Vista previa · Markdown
             </div>
@@ -326,11 +276,11 @@ export default function EditLessonPage() {
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  Completa los bloques para ver el resultado.
+                  Escribe en los bloques de la izquierda para ver el resultado.
                 </p>
               )}
             </div>
-          </Card>
+          </div>
         </div>
       </div>
     </div>

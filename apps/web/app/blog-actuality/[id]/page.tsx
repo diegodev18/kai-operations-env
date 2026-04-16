@@ -18,7 +18,6 @@ import remarkGfm from "remark-gfm";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { fetchBlogPost, hideBlogPost, type BlogPost } from "@/lib/blog-api";
 import { useAuth } from "@/hooks/auth";
 
@@ -91,7 +90,7 @@ export default function ActualityPostPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
+      <div className="flex min-h-[50vh] items-center justify-center">
         <Loader2Icon className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -99,25 +98,23 @@ export default function ActualityPostPage() {
 
   if (!post) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
+      <div className="flex min-h-[50vh] items-center justify-center">
         <p className="text-muted-foreground">Entrada no encontrada</p>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto max-w-4xl space-y-6 px-4 py-8">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/blog-actuality">
-              <ArrowLeftIcon className="h-4 w-4" />
-            </Link>
-          </Button>
-          <h1 className="text-2xl font-bold tracking-tight">Actualidad kAI</h1>
-        </div>
-        {canEdit && (
-          <div className="flex gap-2">
+    <div className="mx-auto w-full max-w-prose flex-1 px-4 py-8">
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
+        <Button variant="ghost" size="sm" className="-ml-2 gap-1" asChild>
+          <Link href="/blog-actuality">
+            <ArrowLeftIcon className="h-4 w-4" />
+            Lista
+          </Link>
+        </Button>
+        {canEdit ? (
+          <div className="flex flex-wrap gap-2">
             {isAdmin && (
               <Button
                 variant="outline"
@@ -142,58 +139,62 @@ export default function ActualityPostPage() {
               </Link>
             </Button>
           </div>
-        )}
+        ) : null}
       </div>
 
-      <Card>
-        <CardContent className="space-y-6 pt-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              {post.isHidden && <Badge variant="secondary">Oculto</Badge>}
-            </div>
-            <h2 className="text-3xl font-bold tracking-tight">{post.title}</h2>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <UserIcon className="h-3.5 w-3.5" />@{post.authorMention}
-              </span>
-              <span>{formatDate(post.createdAt)}</span>
-              {post.updatedAt !== post.createdAt && (
-                <span className="text-xs">(editado)</span>
-              )}
-            </div>
+      <article className="space-y-6">
+        <header className="space-y-3 border-b border-border/50 pb-6">
+          {post.isHidden ? (
+            <Badge variant="secondary" className="text-[10px]">
+              Oculto
+            </Badge>
+          ) : null}
+          <h1 className="text-3xl font-semibold tracking-tight text-balance">
+            {post.title}
+          </h1>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <UserIcon className="h-3.5 w-3.5" />@{post.authorMention}
+            </span>
+            <span>·</span>
+            <span>{formatDate(post.createdAt)}</span>
+            {post.updatedAt !== post.createdAt ? (
+              <>
+                <span>·</span>
+                <span className="text-xs">editado</span>
+              </>
+            ) : null}
           </div>
+        </header>
 
-          {post.tags.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {post.tags.map((tag) => (
-                <Badge key={tag} variant="outline" className="gap-1">
-                  <TagIcon className="h-3 w-3" />
-                  {tag}
-                </Badge>
-              ))}
-            </div>
-          )}
-
-          {post.images.length > 0 && (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {post.images.map((url, i) => (
-                <img
-                  key={url}
-                  src={url}
-                  alt={`Imagen ${i + 1}`}
-                  className="rounded-md border"
-                />
-              ))}
-            </div>
-          )}
-
-          <div className="prose prose-stone dark:prose-invert max-w-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {post.content}
-            </ReactMarkdown>
+        {post.tags.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {post.tags.map((tag) => (
+              <Badge key={tag} variant="outline" className="gap-1 font-normal">
+                <TagIcon className="h-3 w-3" />
+                {tag}
+              </Badge>
+            ))}
           </div>
-        </CardContent>
-      </Card>
+        ) : null}
+
+        {post.images.length > 0 ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {post.images.map((url, i) => (
+              <img
+                key={url}
+                src={url}
+                alt={`Imagen ${i + 1}`}
+                className="rounded-md border border-border/50"
+              />
+            ))}
+          </div>
+        ) : null}
+
+        <div className="prose prose-stone dark:prose-invert max-w-none prose-headings:scroll-mt-20">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{post.content}</ReactMarkdown>
+        </div>
+      </article>
     </div>
   );
 }
