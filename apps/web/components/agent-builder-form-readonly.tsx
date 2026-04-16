@@ -11,9 +11,13 @@ import {
 import type { AgentBuilderFormResponse } from "@/types/agents-api";
 import {
   FORM_SECTIONS,
+  STAGE_TYPES,
   type AgentFlowQuestion,
   type FormSection,
   type FormSectionId,
+  type Pipeline,
+  type Stage,
+  type StageType,
 } from "@/lib/form-builder-constants";
 import { PROPERTY_TITLES } from "@/lib/property-descriptions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -141,6 +145,142 @@ function getPipelines(
   const r = root.pipelines;
   if (Array.isArray(r) && r.length > 0) return r;
   return null;
+}
+
+function stageTypeLabel(stageType: StageType | null): string {
+  if (!stageType) return "";
+  return STAGE_TYPES.find((st) => st.value === stageType)?.label ?? stageType;
+}
+
+/** Normaliza el JSON de Firestore al shape `Pipeline[]` del constructor. */
+function parsePipelinesUnknown(raw: unknown): Pipeline[] {
+  if (raw == null || !Array.isArray(raw)) return [];
+  return raw
+    .map((item, idx) => {
+      if (item == null || typeof item !== "object" || Array.isArray(item)) {
+        return null;
+      }
+      const p = item as Record<string, unknown>;
+      const stagesRaw = Array.isArray(p.stages) ? p.stages : [];
+      const stages: Stage[] = stagesRaw
+        .map((s, si) => {
+          if (s == null || typeof s !== "object" || Array.isArray(s)) {
+            return null;
+          }
+          const st = s as Record<string, unknown>;
+          const stageType =
+            typeof st.stageType === "string"
+              ? (st.stageType as StageType)
+              : null;
+          return {
+            id: typeof st.id === "string" ? st.id : `stage_${si}`,
+            name: typeof st.name === "string" ? st.name : `Etapa ${si + 1}`,
+            stageType,
+            order:
+              typeof st.order === "number" && Number.isFinite(st.order)
+                ? st.order
+                : si + 1,
+            color: typeof st.color === "string" ? st.color : "#6B7280",
+            icon: typeof st.icon === "string" ? st.icon : "📌",
+            description:
+              typeof st.description === "string" ? st.description : undefined,
+            isClosedWon: st.isClosedWon === true,
+            isClosedLost: st.isClosedLost === true,
+            isDefault: st.isDefault === true,
+          };
+        })
+        .filter((x): x is Stage => x != null)
+        .sort((a, b) => a.order - b.order);
+
+      return {
+        id: typeof p.id === "string" ? p.id : `pipeline_${idx}`,
+        name: typeof p.name === "string" ? p.name : "Pipeline",
+        description:
+          typeof p.description === "string" ? p.description : undefined,
+        isDefault: p.isDefault === true,
+        stages,
+      };
+    })
+    .filter((x): x is Pipeline => x != null);
+}
+
+/** Misma estructura visual que `SectionPipelines` en agent-form-builder (solo lectura). */
+function PipelinesReadonlyView({ pipelines }: { pipelines: Pipeline[] }) {
+  if (pipelines.length === 0) {
+    return <p className="text-sm text-muted-foreground">—</p>;
+  }
+  return (
+    <div className="space-y-6">
+      {pipelines.map((pipeline, pipelineIndex) => (
+        <div
+          key={pipeline.id || pipelineIndex}
+          className="space-y-4 rounded-lg border p-4"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1 space-y-1">
+              <p className="text-lg font-medium leading-tight">{pipeline.name}</p>
+              {pipeline.description ? (
+                <p className="text-sm text-muted-foreground">
+                  {pipeline.description}
+                </p>
+              ) : null}
+            </div>
+            {pipeline.isDefault ? (
+              <span className="shrink-0 rounded bg-primary/10 px-2 py-1 text-xs text-primary">
+                Default
+              </span>
+            ) : null}
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-sm font-medium">Etapas (Stages)</p>
+            <div className="space-y-2">
+              {pipeline.stages.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Sin etapas</p>
+              ) : (
+                pipeline.stages.map((stage, stageIndex) => (
+                  <div
+                    key={stage.id || stageIndex}
+                    className="flex items-center gap-2 rounded-md border bg-card p-3"
+                  >
+                    <span
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-lg"
+                      style={{
+                        backgroundColor: `${stage.color}20`,
+                      }}
+                    >
+                      {stage.icon}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <span className="text-sm font-medium">{stage.name}</span>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        {stage.stageType ? (
+                          <span className="text-xs text-muted-foreground">
+                            Tipo:{" "}
+                            {stageTypeLabel(stage.stageType) || stage.stageType}
+                          </span>
+                        ) : null}
+                      </div>
+                      {stage.description ? (
+                        <p className="mt-1 line-clamp-3 text-xs text-muted-foreground">
+                          {stage.description}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div
+                      className="h-4 w-4 shrink-0 rounded-full border"
+                      style={{ backgroundColor: stage.color }}
+                      title={stage.color}
+                    />
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function getSelectedToolIds(root: Record<string, unknown>): string[] {
@@ -453,6 +593,8 @@ export function AgentBuilderFormReadonly({ agentId }: { agentId: string }) {
     }
 
     if (section.id === "pipelines") {
+      const pipelineList =
+        pipelines == null ? [] : parsePipelinesUnknown(pipelines);
       return (
         <Card className="h-fit shadow-sm">
           <CardHeader className="pb-3">
@@ -461,12 +603,10 @@ export function AgentBuilderFormReadonly({ agentId }: { agentId: string }) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {pipelines == null ? (
+            {pipelines == null || pipelineList.length === 0 ? (
               <p className="text-sm text-muted-foreground">—</p>
             ) : (
-              <pre className="max-h-[28rem] overflow-auto rounded-md border bg-muted/30 p-3 text-xs leading-relaxed">
-                {formatScalar(pipelines)}
-              </pre>
+              <PipelinesReadonlyView pipelines={pipelineList} />
             )}
           </CardContent>
         </Card>
