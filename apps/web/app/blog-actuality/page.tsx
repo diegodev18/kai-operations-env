@@ -31,6 +31,7 @@ import {
 } from "@/lib/blog-api";
 import { ACTUALITY_TAGS } from "@/lib/blog-tags";
 import { useAuth } from "@/hooks/auth";
+import { useUserRole } from "@/hooks/useUserRole";
 
 function formatDate(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString("es-ES", {
@@ -46,23 +47,27 @@ const POST_TYPE = "actuality";
 
 export default function ActualityPage() {
   const { session } = useAuth();
+  const { isAdmin } = useUserRole();
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [, setSearching] = useState(false);
   const [selectedAuthor, setSelectedAuthor] = useState<string>("");
   const [selectedTag, setSelectedTag] = useState<string>("");
+  const [visibilityFilter, setVisibilityFilter] = useState<
+    "visible" | "hidden" | "all"
+  >("visible");
   const [showFilters, setShowFilters] = useState(false);
 
   const loadPosts = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetchBlogPosts(POST_TYPE);
+      const data = await fetchBlogPosts(POST_TYPE, { includeHidden: isAdmin });
       setPosts(data ?? []);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAdmin]);
 
   const handleSearch = useCallback(async () => {
     const q = searchQuery.trim();
@@ -72,12 +77,14 @@ export default function ActualityPage() {
     }
     setSearching(true);
     try {
-      const data = await searchBlogPosts(q, POST_TYPE);
+      const data = await searchBlogPosts(q, POST_TYPE, {
+        includeHidden: isAdmin,
+      });
       setPosts(data ?? []);
     } finally {
       setSearching(false);
     }
-  }, [searchQuery, loadPosts]);
+  }, [isAdmin, searchQuery, loadPosts]);
 
   useEffect(() => {
     void loadPosts();
@@ -114,6 +121,12 @@ export default function ActualityPage() {
 
   const filteredPosts = useMemo(() => {
     return posts.filter((post) => {
+      if (visibilityFilter === "visible" && post.isHidden) {
+        return false;
+      }
+      if (visibilityFilter === "hidden" && !post.isHidden) {
+        return false;
+      }
       if (selectedAuthor && post.authorId !== selectedAuthor) {
         return false;
       }
@@ -122,14 +135,19 @@ export default function ActualityPage() {
       }
       return true;
     });
-  }, [posts, selectedAuthor, selectedTag]);
+  }, [posts, selectedAuthor, selectedTag, visibilityFilter]);
 
-  const hasActiveFilters = selectedAuthor || selectedTag || searchQuery;
+  const hasActiveFilters =
+    selectedAuthor ||
+    selectedTag ||
+    searchQuery ||
+    (isAdmin && visibilityFilter !== "visible");
 
   const clearFilters = useCallback(() => {
     setSelectedAuthor("");
     setSelectedTag("");
     setSearchQuery("");
+    setVisibilityFilter("visible");
     void loadPosts();
   }, [loadPosts]);
 
@@ -219,6 +237,23 @@ export default function ActualityPage() {
                 ))}
               </SelectContent>
             </Select>
+            {isAdmin ? (
+              <Select
+                value={visibilityFilter}
+                onValueChange={(v) =>
+                  setVisibilityFilter(v as "visible" | "hidden" | "all")
+                }
+              >
+                <SelectTrigger className="w-[220px]">
+                  <SelectValue placeholder="Visibilidad" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="visible">Solo visibles</SelectItem>
+                  <SelectItem value="hidden">Solo ocultos</SelectItem>
+                  <SelectItem value="all">Todos (visibles y ocultos)</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : null}
 
             {hasActiveFilters && (
               <Button

@@ -113,6 +113,8 @@ blogRouter.get("/", async (c) => {
   }
 
   const type = normalizePostType(c.req.query("type"));
+  const includeHidden = c.req.query("includeHidden") === "true";
+  const shouldIncludeHidden = includeHidden && user.role === "admin";
   const db = getFirestore();
 
   const query = db
@@ -154,7 +156,7 @@ blogRouter.get("/", async (c) => {
         updatedAt: toTimestamp(data.updatedAt),
       };
     })
-    .filter((post) => !post.isHidden)
+    .filter((post) => shouldIncludeHidden || !post.isHidden)
     .slice(0, 50);
 
   return c.json({ posts });
@@ -168,6 +170,8 @@ blogRouter.get("/search", async (c) => {
 
   const q = c.req.query("q")?.toLowerCase() ?? "";
   const type = normalizePostType(c.req.query("type"));
+  const includeHidden = c.req.query("includeHidden") === "true";
+  const shouldIncludeHidden = includeHidden && user.role === "admin";
   if (!q) {
     return c.json({ posts: [] });
   }
@@ -175,10 +179,10 @@ blogRouter.get("/search", async (c) => {
   const db = getFirestore();
   let snapshot;
   try {
-    snapshot = await db
-      .collection(collectionForType(type))
-      .where("isHidden", "==", false)
-      .get();
+    const baseQuery = db.collection(collectionForType(type));
+    snapshot = shouldIncludeHidden
+      ? await baseQuery.get()
+      : await baseQuery.where("isHidden", "==", false).get();
   } catch (error: any) {
     console.error("Error searching blog posts:", error);
     return c.json(

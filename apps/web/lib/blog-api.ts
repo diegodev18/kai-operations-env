@@ -15,9 +15,14 @@ export interface BlogPost {
 }
 
 export async function fetchBlogPosts(
-  type: "lessons" | "actuality" = "lessons"
+  type: "lessons" | "actuality" = "lessons",
+  options?: { includeHidden?: boolean },
 ): Promise<BlogPost[] | null> {
-  const res = await fetch(`/api/blog?type=${type}`, { credentials: "include" });
+  const includeHidden = options?.includeHidden === true;
+  const res = await fetch(
+    `/api/blog?type=${type}${includeHidden ? "&includeHidden=true" : ""}`,
+    { credentials: "include" },
+  );
   if (!res.ok) return null;
   const data = await res.json();
   return data.posts ?? [];
@@ -25,10 +30,12 @@ export async function fetchBlogPosts(
 
 export async function searchBlogPosts(
   query: string,
-  type: "lessons" | "actuality" = "lessons"
+  type: "lessons" | "actuality" = "lessons",
+  options?: { includeHidden?: boolean },
 ): Promise<BlogPost[] | null> {
+  const includeHidden = options?.includeHidden === true;
   const res = await fetch(
-    `/api/blog/search?q=${encodeURIComponent(query)}&type=${type}`,
+    `/api/blog/search?q=${encodeURIComponent(query)}&type=${type}${includeHidden ? "&includeHidden=true" : ""}`,
     { credentials: "include" },
   );
   if (!res.ok) return null;
