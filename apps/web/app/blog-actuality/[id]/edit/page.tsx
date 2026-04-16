@@ -22,6 +22,7 @@ import {
   type BlogPost,
 } from "@/lib/blog-api";
 import { ACTUALITY_TAGS } from "@/lib/blog-tags";
+import { fetchOrganizationUsers } from "@/lib/organization-api";
 import { useAuth } from "@/hooks/auth";
 
 const POST_TYPE = "actuality" as const;
@@ -43,6 +44,25 @@ export default function EditActualityPage() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [mentionUsers, setMentionUsers] = useState<
+    Array<{ id: string; name: string; email: string; mention: string }>
+  >([]);
+
+  useEffect(() => {
+    void (async () => {
+      const data = await fetchOrganizationUsers();
+      if (!data?.users) return;
+      const users = data.users
+        .map((u) => ({
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          mention: (u.email.split("@")[0] ?? "").replace(/[^\w]/g, "").toLowerCase(),
+        }))
+        .filter((u) => u.mention.length > 0);
+      setMentionUsers(users);
+    })();
+  }, []);
 
   useEffect(() => {
     if (!session) return;
@@ -256,6 +276,7 @@ export default function EditActualityPage() {
         onDrop={handleDrop}
         onPickImage={() => fileInputRef.current?.click()}
         uploading={uploading}
+        mentionUsers={mentionUsers}
         density="full"
         footerActions={
           <div className="flex flex-wrap justify-end gap-2 pt-2">

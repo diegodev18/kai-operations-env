@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useMemo,
   useState,
   type ChangeEvent,
   type DragEvent,
@@ -129,6 +130,7 @@ export function ActualityMarkdownComposer(props: {
   onDrop: (e: DragEvent) => void;
   onPickImage: () => void;
   uploading: boolean;
+  mentionUsers?: Array<{ id: string; name: string; email: string; mention: string }>;
   footerActions: ReactNode;
   density?: "md" | "full";
 }) {
@@ -151,11 +153,16 @@ export function ActualityMarkdownComposer(props: {
     onDrop,
     onPickImage,
     uploading,
+    mentionUsers = [],
     footerActions,
     density = "full",
   } = props;
 
   const [mobileTab, setMobileTab] = useState<"edit" | "preview">("edit");
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [mentionStart, setMentionStart] = useState<number | null>(null);
+  const [mentionCursor, setMentionCursor] = useState<number | null>(null);
 
   const runToolbar = (action: "bold" | "italic" | "code" | "link") => {
     const ta = textareaRef.current;
@@ -191,6 +198,60 @@ export function ActualityMarkdownComposer(props: {
 
   const editorMinH =
     density === "full" ? "min-h-[min(70vh,560px)]" : "min-h-[320px]";
+
+  const filteredMentionUsers = useMemo(() => {
+    if (!mentionOpen) return [];
+    const q = mentionQuery.trim().toLowerCase();
+    return mentionUsers
+      .filter((u) => {
+        if (!q) return true;
+        return (
+          u.mention.toLowerCase().includes(q) ||
+          u.name.toLowerCase().includes(q) ||
+          u.email.toLowerCase().includes(q)
+        );
+      })
+      .slice(0, 8);
+  }, [mentionOpen, mentionQuery, mentionUsers]);
+
+  const updateMentionStateFromTextarea = () => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const cursor = textarea.selectionStart;
+    const beforeCursor = content.slice(0, cursor);
+    const match = beforeCursor.match(/(^|\s)@(\w*)$/);
+    if (!match) {
+      setMentionOpen(false);
+      setMentionQuery("");
+      setMentionStart(null);
+      setMentionCursor(null);
+      return;
+    }
+    const query = match[2] ?? "";
+    const start = cursor - query.length - 1;
+    setMentionQuery(query);
+    setMentionStart(start);
+    setMentionCursor(cursor);
+    setMentionOpen(true);
+  };
+
+  const insertMention = (mention: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea || mentionStart == null || mentionCursor == null) return;
+    const insertion = `@${mention} `;
+    const next =
+      content.slice(0, mentionStart) + insertion + content.slice(mentionCursor);
+    onContentChange(next);
+    setMentionOpen(false);
+    setMentionQuery("");
+    setMentionStart(null);
+    setMentionCursor(null);
+    requestAnimationFrame(() => {
+      textarea.focus();
+      const pos = mentionStart + insertion.length;
+      textarea.setSelectionRange(pos, pos);
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -321,10 +382,52 @@ Escribe en **Markdown**. @menciones y listas.
 
 Arrastra imágenes para insertarlas.`}
                 value={content}
-                onChange={(e) => onContentChange(e.target.value)}
+                onChange={(e) => {
+                  onContentChange(e.target.value);
+                  requestAnimationFrame(updateMentionStateFromTextarea);
+                }}
+                onKeyUp={updateMentionStateFromTextarea}
+                onClick={updateMentionStateFromTextarea}
+                onBlur={() => {
+                  // Small delay so click on suggestion works.
+                  setTimeout(() => setMentionOpen(false), 120);
+                }}
                 className="field-sizing-fixed h-full min-h-[320px] flex-1 resize-none border-0 bg-transparent px-3 py-3 font-mono text-sm leading-relaxed focus-visible:ring-0 lg:min-h-0"
                 spellCheck={false}
               />
+              {mentionOpen && filteredMentionUsers.length > 0 ? (
+                <div className="absolute right-3 top-3 z-20 w-72 overflow-hidden rounded-md border border-border/70 bg-popover shadow-lg">
+                  <div className="border-b border-border/60 px-2 py-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
+                    Mencionar usuario
+                  </div>
+                  <ul className="max-h-56 overflow-y-auto py-1">
+                    {filteredMentionUsers.map((user) => (
+                      <li key={user.id}>
+                        <button
+                          type="button"
+                          className="flex w-full items-start gap-2 px-2 py-1.5 text-left hover:bg-muted/60"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            insertMention(user.mention);
+                          }}
+                        >
+                          <span className="mt-0.5 rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-primary">
+                            @{user.mention}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm text-foreground">
+                              {user.name}
+                            </span>
+                            <span className="block truncate text-xs text-muted-foreground">
+                              {user.email}
+                            </span>
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               <div
                 className="pointer-events-none absolute inset-y-0 left-0 w-0.5 bg-primary/50"
                 aria-hidden
