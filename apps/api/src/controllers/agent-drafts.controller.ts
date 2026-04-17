@@ -31,7 +31,10 @@ import {
   firestoreFailureHint,
   isFirebaseConfigError,
 } from "@/utils/firestore/errors";
-import { isOperationsAdmin, isOperationsCommercial } from "@/utils/operations-access";
+import {
+  isOperationsAdmin,
+  isOperationsCommercial,
+} from "@/utils/operations-access";
 import {
   serializeAgentConfigurationRootForClient,
   serializeValue,
@@ -45,17 +48,28 @@ const PENDING_TASKS = "pending_tasks";
 const DRAFT_PROPERTY_DOC_IDS = new Set(["personality", "business"]);
 const USERS_BUILDERS = "usersBuilders";
 
-const COUNTRY_CODE_MAPPING: Record<string, { country: string; lada: string; timezone: string }> = {
+const COUNTRY_CODE_MAPPING: Record<
+  string,
+  { country: string; lada: string; timezone: string }
+> = {
   "1": { country: "USA", lada: "1", timezone: "America/New_York" },
   "52": { country: "Mexico", lada: "52", timezone: "America/Mexico_City" },
   "521": { country: "Mexico", lada: "521", timezone: "America/Mexico_City" },
-  "54": { country: "Argentina", lada: "54", timezone: "America/Argentina/Buenos_Aires" },
+  "54": {
+    country: "Argentina",
+    lada: "54",
+    timezone: "America/Argentina/Buenos_Aires",
+  },
   "55": { country: "Brazil", lada: "55", timezone: "America/Sao_Paulo" },
   "51": { country: "Peru", lada: "51", timezone: "America/Lima" },
   "57": { country: "Colombia", lada: "57", timezone: "America/Bogota" },
   "593": { country: "Ecuador", lada: "593", timezone: "America/Guayaquil" },
   "502": { country: "Guatemala", lada: "502", timezone: "America/Guatemala" },
-  "503": { country: "El Salvador", lada: "503", timezone: "America/El_Salvador" },
+  "503": {
+    country: "El Salvador",
+    lada: "503",
+    timezone: "America/El_Salvador",
+  },
   "504": { country: "Honduras", lada: "504", timezone: "America/Tegucigalpa" },
   "505": { country: "Nicaragua", lada: "505", timezone: "America/Managua" },
   "506": { country: "Costa Rica", lada: "506", timezone: "America/Costa_Rica" },
@@ -64,9 +78,11 @@ const COUNTRY_CODE_MAPPING: Record<string, { country: string; lada: string; time
   "58": { country: "Venezuela", lada: "58", timezone: "America/Caracas" },
 };
 
-function detectAreaCodeFromPhoneNumber(
-  phoneNumber: string,
-): { country: string; lada: string; timezone: string } {
+function detectAreaCodeFromPhoneNumber(phoneNumber: string): {
+  country: string;
+  lada: string;
+  timezone: string;
+} {
   const cleanedNumber = phoneNumber.replace(/\D/g, "");
 
   if (!cleanedNumber || cleanedNumber.length === 0) {
@@ -111,9 +127,13 @@ function normalizeDraftPipelines(raw: unknown): DraftPipeline[] {
   if (!Array.isArray(raw)) return [];
   return raw
     .map((item, idx) => {
-      if (item == null || typeof item !== "object" || Array.isArray(item)) return null;
+      if (item == null || typeof item !== "object" || Array.isArray(item))
+        return null;
       const p = item as Record<string, unknown>;
-      const pipelineIdRaw = typeof p.id === "string" && p.id.trim() ? p.id.trim() : `pipeline_${idx + 1}`;
+      const pipelineIdRaw =
+        typeof p.id === "string" && p.id.trim()
+          ? p.id.trim()
+          : `pipeline_${idx + 1}`;
       const stagesRaw = Array.isArray(p.stages) ? p.stages : [];
       const stages: DraftStage[] = stagesRaw
         .map((stageItem, stageIdx) => {
@@ -154,8 +174,7 @@ function normalizeDraftPipelines(raw: unknown): DraftPipeline[] {
               typeof s.icon === "string" && s.icon.trim().length > 0
                 ? s.icon.trim()
                 : "📥",
-            description:
-              typeof s.description === "string" ? s.description : "",
+            description: typeof s.description === "string" ? s.description : "",
             isClosedWon: s.isClosedWon === true,
             isClosedLost: s.isClosedLost === true,
             isDefault: s.isDefault === true || stageIdx === 0,
@@ -183,11 +202,14 @@ async function provisionAgentAfterComplete(
 ): Promise<void> {
   const db = draftRef.firestore;
   const ownerUserId =
-    typeof draftData.creator_user_id === "string" ? draftData.creator_user_id : "";
+    typeof draftData.creator_user_id === "string"
+      ? draftData.creator_user_id
+      : "";
   const ownerEmail =
     typeof draftData.creator_email === "string" ? draftData.creator_email : "";
   const ownerName =
-    typeof draftData.owner_name === "string" && draftData.owner_name.trim().length > 0
+    typeof draftData.owner_name === "string" &&
+    draftData.owner_name.trim().length > 0
       ? draftData.owner_name.trim()
       : ownerEmail;
   const ownerPhone =
@@ -310,7 +332,9 @@ async function provisionAgentAfterComplete(
 
   const batch = db.batch();
   for (const pipeline of pipelinesToWrite) {
-    const pipelineDocRef = draftRef.collection("pipelines").doc(pipeline.id || "default");
+    const pipelineDocRef = draftRef
+      .collection("pipelines")
+      .doc(pipeline.id || "default");
     batch.set(
       pipelineDocRef,
       {
@@ -385,7 +409,10 @@ async function provisionAgentAfterComplete(
     await db
       .collection(USERS_BUILDERS)
       .doc(ownerPhone)
-      .set({ assignedModules: moduleAccess, updatedAt: serverTimestampField() }, { merge: true });
+      .set(
+        { assignedModules: moduleAccess, updatedAt: serverTimestampField() },
+        { merge: true },
+      );
   }
 
   logger.info("[agents/drafts] agent_created", {
@@ -518,8 +545,7 @@ function canAccessDraft(
   if (isOperationsAdmin(authCtx.userRole)) return true;
   if (isOperationsCommercial(authCtx.userRole)) return true;
   const hasLegacy =
-    draftData.creator_email == null &&
-    draftData.creator_user_id == null;
+    draftData.creator_email == null && draftData.creator_user_id == null;
   if (hasLegacy) return false;
   const email = authCtx.userEmail?.toLowerCase().trim();
   const uid = authCtx.userId;
@@ -638,7 +664,9 @@ export async function postAgentDraft(
         createdAt: ts,
         updatedAt: ts,
       });
-      logger.info(`[agents/drafts] Created usersBuilders document for phone: ${userPhone}`);
+      logger.info(
+        `[agents/drafts] Created usersBuilders document for phone: ${userPhone}`,
+      );
     }
 
     const draftPayload: Record<string, unknown> = {
@@ -670,17 +698,24 @@ export async function postAgentDraft(
       name: growerName,
     });
     batch.set(draftRef.collection("testing").doc("data"), {
-      _createdAt: ts,
+      createdAt: ts,
     });
-    batch.set(draftRef.collection("testing").doc("data").collection("collaborators").doc(creatorEmail), {
-      email: creatorEmail,
-      name: growerName,
-      role: "Administrador",
-      usersBuildersId: userId,
-      usersBuildersName: growerName,
-      areaCode: areaCode,
-      phoneNumber: userPhone,
-    });
+    batch.set(
+      draftRef
+        .collection("testing")
+        .doc("data")
+        .collection("collaborators")
+        .doc(creatorEmail),
+      {
+        email: creatorEmail,
+        name: growerName,
+        role: "Administrador",
+        usersBuildersId: userId,
+        usersBuildersName: growerName,
+        areaCode: areaCode,
+        phoneNumber: userPhone,
+      },
+    );
     await batch.commit();
 
     return c.json({
@@ -736,7 +771,9 @@ export async function patchAgentDraft(
 
   const parsed = patchDraftBodySchema.safeParse(raw);
   if (!parsed.success) {
-    const msg = parsed.error.issues.map((i) => i.path.join(".") + ": " + i.message).join("; ");
+    const msg = parsed.error.issues
+      .map((i) => i.path.join(".") + ": " + i.message)
+      .join("; ");
     return ApiErrors.validation(c, msg);
   }
 
@@ -761,7 +798,9 @@ export async function patchAgentDraft(
         updated_at: ts,
       });
 
-      const personalityRef = draftRef.collection("properties").doc("personality");
+      const personalityRef = draftRef
+        .collection("properties")
+        .doc("personality");
       await personalityRef.set({
         agentName: body.agent_name,
         agentPersonality: body.agent_personality,
@@ -838,7 +877,10 @@ export async function patchAgentDraft(
       const businessRef = draftRef.collection("properties").doc("business");
       await businessRef.set(businessData);
 
-      const agentProp = await draftRef.collection("properties").doc("agent").get();
+      const agentProp = await draftRef
+        .collection("properties")
+        .doc("agent")
+        .get();
       if (!agentProp.exists) {
         await writeDefaultAgentProperties(draftRef);
         await writeDefaultTestingProperties(draftRef);
@@ -914,7 +956,10 @@ export async function patchAgentDraft(
     }
 
     void runSystemPromptGenerationJob(draftId).catch((e) => {
-      logger.error("[agents/drafts] system prompt generation job", formatError(e));
+      logger.error(
+        "[agents/drafts] system prompt generation job",
+        formatError(e),
+      );
     });
 
     return c.json({ id: draftId, creation_step: "complete" });
@@ -962,7 +1007,9 @@ export async function postDraftSystemPromptRegenerate(
     const auth = await getAuthorizedDraftRef(authCtx, draftId);
     if (!auth.ok) {
       return c.json(
-        { error: auth.code === 404 ? "Borrador no encontrado" : "No autorizado" },
+        {
+          error: auth.code === 404 ? "Borrador no encontrado" : "No autorizado",
+        },
         auth.code,
       );
     }
@@ -988,12 +1035,19 @@ export async function postDraftSystemPromptRegenerate(
     });
     return c.json({ ok: true });
   } catch (error) {
-    const r = handleFirestoreError(c, error, "[agents/drafts system-prompt POST]");
+    const r = handleFirestoreError(
+      c,
+      error,
+      "[agents/drafts system-prompt POST]",
+    );
     return r ?? c.json({ error: "No se pudo reintentar la generación." }, 500);
   }
 }
 
-export async function getToolsCatalog(c: Context, _authCtx: AgentsInfoAuthContext) {
+export async function getToolsCatalog(
+  c: Context,
+  _authCtx: AgentsInfoAuthContext,
+) {
   try {
     const db = getFirestore();
     const snap = await db.collection(TOOLS_CATALOG).get();
@@ -1005,10 +1059,8 @@ export async function getToolsCatalog(c: Context, _authCtx: AgentsInfoAuthContex
         return {
           id: doc.id,
           name: typeof d.name === "string" ? d.name : "",
-          displayName:
-            typeof d.displayName === "string" ? d.displayName : "",
-          description:
-            typeof d.description === "string" ? d.description : "",
+          displayName: typeof d.displayName === "string" ? d.displayName : "",
+          description: typeof d.description === "string" ? d.description : "",
           path: typeof d.path === "string" ? d.path : "",
           type: typeof d.type === "string" ? d.type : "default",
           category: typeof d.category === "string" ? d.category : "",
@@ -1027,7 +1079,9 @@ export async function getToolsCatalog(c: Context, _authCtx: AgentsInfoAuthContex
           crmConfig: d.crmConfig,
         };
       })
-      .filter((t): t is NonNullable<typeof t> => t !== null && t.name.length > 0);
+      .filter(
+        (t): t is NonNullable<typeof t> => t !== null && t.name.length > 0,
+      );
 
     tools.sort((a, b) =>
       (a.displayName || a.name).localeCompare(b.displayName || b.name, "es"),
@@ -1078,7 +1132,11 @@ async function getAuthorizedDraftRef(
   authCtx: AgentsInfoAuthContext,
   draftId: string,
 ): Promise<
-  | { ok: true; draftRef: DocumentReference; draftData: Record<string, unknown> }
+  | {
+      ok: true;
+      draftRef: DocumentReference;
+      draftData: Record<string, unknown>;
+    }
   | { ok: false; code: 403 | 404 }
 > {
   const db = getFirestore();
@@ -1103,7 +1161,9 @@ export async function getDraftPendingTasks(
     const auth = await getAuthorizedDraftRef(authCtx, draftId);
     if (!auth.ok) {
       return c.json(
-        { error: auth.code === 404 ? "Borrador no encontrado" : "No autorizado" },
+        {
+          error: auth.code === 404 ? "Borrador no encontrado" : "No autorizado",
+        },
         auth.code,
       );
     }
@@ -1144,7 +1204,9 @@ export async function postDraftPendingTask(
     const auth = await getAuthorizedDraftRef(authCtx, draftId);
     if (!auth.ok) {
       return c.json(
-        { error: auth.code === 404 ? "Borrador no encontrado" : "No autorizado" },
+        {
+          error: auth.code === 404 ? "Borrador no encontrado" : "No autorizado",
+        },
         auth.code,
       );
     }
@@ -1200,17 +1262,26 @@ export async function patchDraftPendingTask(
       }
       return ApiErrors.forbidden(c, "No autorizado");
     }
-    const taskSnap = await auth.draftRef.collection(PENDING_TASKS).doc(taskId).get();
+    const taskSnap = await auth.draftRef
+      .collection(PENDING_TASKS)
+      .doc(taskId)
+      .get();
     if (!taskSnap.exists) {
       return ApiErrors.notFound(c, "Tarea no encontrada");
     }
-    await auth.draftRef.collection(PENDING_TASKS).doc(taskId).update({
-      ...(parsed.data.status && { status: parsed.data.status }),
-      ...(parsed.data.title && { title: parsed.data.title }),
-      ...(parsed.data.context && { context: parsed.data.context }),
-      updated_at: serverTimestampField(),
-    });
-    const updated = await auth.draftRef.collection(PENDING_TASKS).doc(taskId).get();
+    await auth.draftRef
+      .collection(PENDING_TASKS)
+      .doc(taskId)
+      .update({
+        ...(parsed.data.status && { status: parsed.data.status }),
+        ...(parsed.data.title && { title: parsed.data.title }),
+        ...(parsed.data.context && { context: parsed.data.context }),
+        updated_at: serverTimestampField(),
+      });
+    const updated = await auth.draftRef
+      .collection(PENDING_TASKS)
+      .doc(taskId)
+      .get();
     return c.json({
       task: serializePendingTaskForClient(
         taskId,
@@ -1218,7 +1289,11 @@ export async function patchDraftPendingTask(
       ),
     });
   } catch (error) {
-    const r = handleFirestoreError(c, error, "[agents/drafts/:id/tasks/:taskId PATCH]");
+    const r = handleFirestoreError(
+      c,
+      error,
+      "[agents/drafts/:id/tasks/:taskId PATCH]",
+    );
     return r ?? ApiErrors.internal(c, "Error al actualizar tarea pendiente.");
   }
 }
@@ -1287,7 +1362,9 @@ export async function postDraftPropertyItem(
     const auth = await getAuthorizedDraftRef(authCtx, draftId);
     if (!auth.ok) {
       return c.json(
-        { error: auth.code === 404 ? "Borrador no encontrado" : "No autorizado" },
+        {
+          error: auth.code === 404 ? "Borrador no encontrado" : "No autorizado",
+        },
         auth.code,
       );
     }
@@ -1345,7 +1422,9 @@ export async function patchDraftPropertyItem(
     const auth = await getAuthorizedDraftRef(authCtx, draftId);
     if (!auth.ok) {
       return c.json(
-        { error: auth.code === 404 ? "Borrador no encontrado" : "No autorizado" },
+        {
+          error: auth.code === 404 ? "Borrador no encontrado" : "No autorizado",
+        },
         auth.code,
       );
     }
@@ -1373,7 +1452,9 @@ export async function patchDraftPropertyItem(
       error,
       "[agents/drafts/:id/properties/:documentId/items PATCH]",
     );
-    return r ?? c.json({ error: "Error al actualizar item de properties." }, 500);
+    return (
+      r ?? c.json({ error: "Error al actualizar item de properties." }, 500)
+    );
   }
 }
 
@@ -1428,7 +1509,10 @@ export async function mergeBuilderTechnicalPropertyPatchesForChat(
   draftId: string,
   rawPatches: Array<{ documentId: string; fieldKey: string; value: unknown }>,
 ): Promise<
-  | { ok: true; applied: Array<{ documentId: string; fieldKey: string; value: unknown }> }
+  | {
+      ok: true;
+      applied: Array<{ documentId: string; fieldKey: string; value: unknown }>;
+    }
   | { ok: false; status: number; error: string }
 > {
   if (rawPatches.length === 0) return { ok: true, applied: [] };
@@ -1437,19 +1521,24 @@ export async function mergeBuilderTechnicalPropertyPatchesForChat(
     return {
       ok: false,
       status: auth.code,
-      error:
-        auth.code === 404 ? "Borrador no encontrado" : "No autorizado",
+      error: auth.code === 404 ? "Borrador no encontrado" : "No autorizado",
     };
   }
 
-  const agentProp = await auth.draftRef.collection("properties").doc("agent").get();
+  const agentProp = await auth.draftRef
+    .collection("properties")
+    .doc("agent")
+    .get();
   if (!agentProp.exists) {
     await writeDefaultAgentProperties(auth.draftRef);
   }
 
   const byDoc = new Map<string, Record<string, unknown>>();
-  const applied: Array<{ documentId: string; fieldKey: string; value: unknown }> =
-    [];
+  const applied: Array<{
+    documentId: string;
+    fieldKey: string;
+    value: unknown;
+  }> = [];
 
   for (const p of rawPatches) {
     const entry = getBuilderAllowlistEntry(p.documentId, p.fieldKey);
@@ -1468,7 +1557,11 @@ export async function mergeBuilderTechnicalPropertyPatchesForChat(
     const prev = byDoc.get(docId) ?? {};
     prev[entry.fieldKey] = norm.value;
     byDoc.set(docId, prev);
-    applied.push({ documentId: docId, fieldKey: entry.fieldKey, value: norm.value });
+    applied.push({
+      documentId: docId,
+      fieldKey: entry.fieldKey,
+      value: norm.value,
+    });
   }
 
   const batch = auth.draftRef.firestore.batch();
@@ -1494,13 +1587,18 @@ export async function getDraftTechnicalPropertiesBundle(
     const auth = await getAuthorizedDraftRef(authCtx, draftId);
     if (!auth.ok) {
       return c.json(
-        { error: auth.code === 404 ? "Borrador no encontrado" : "No autorizado" },
+        {
+          error: auth.code === 404 ? "Borrador no encontrado" : "No autorizado",
+        },
         auth.code,
       );
     }
     const out: Record<string, Record<string, unknown>> = {};
     for (const docId of DRAFT_TECHNICAL_PROPERTY_DOC_IDS) {
-      const snap = await auth.draftRef.collection("properties").doc(docId).get();
+      const snap = await auth.draftRef
+        .collection("properties")
+        .doc(docId)
+        .get();
       out[docId] = snap.exists
         ? { ...((snap.data() as Record<string, unknown>) ?? {}) }
         : {};
@@ -1512,7 +1610,10 @@ export async function getDraftTechnicalPropertiesBundle(
       error,
       "[agents/drafts/:id/technical-properties GET]",
     );
-    return r ?? c.json({ error: "Error al leer propiedades técnicas del borrador." }, 500);
+    return (
+      r ??
+      c.json({ error: "Error al leer propiedades técnicas del borrador." }, 500)
+    );
   }
 }
 
@@ -1535,8 +1636,11 @@ export async function patchDraftTechnicalPropertyDocument(
     return ApiErrors.validation(c, "El cuerpo debe ser un objeto");
   }
   const bodyObj = body as Record<string, unknown>;
-  const patches: Array<{ documentId: string; fieldKey: string; value: unknown }> =
-    [];
+  const patches: Array<{
+    documentId: string;
+    fieldKey: string;
+    value: unknown;
+  }> = [];
   for (const [fieldKey, value] of Object.entries(bodyObj)) {
     if (!getBuilderAllowlistEntry(documentId, fieldKey)) continue;
     patches.push({ documentId, fieldKey, value });
@@ -1552,7 +1656,16 @@ export async function patchDraftTechnicalPropertyDocument(
   );
   if (!merged.ok) {
     const code = merged.status as 400 | 403 | 404;
-    return errorResponse(c, merged.error, code === 404 ? "NOT_FOUND" : code === 403 ? "FORBIDDEN" : "VALIDATION_ERROR", code);
+    return errorResponse(
+      c,
+      merged.error,
+      code === 404
+        ? "NOT_FOUND"
+        : code === 403
+          ? "FORBIDDEN"
+          : "VALIDATION_ERROR",
+      code,
+    );
   }
 
   return c.json({ documentId, success: true, applied: merged.applied });
@@ -1578,7 +1691,10 @@ async function replaceDraftTools(
   selectedIds: string[],
 ): Promise<void> {
   const toolsCol = draftRef.collection("tools");
-  const testingToolsCol = draftRef.collection("testing").doc("data").collection("tools");
+  const testingToolsCol = draftRef
+    .collection("testing")
+    .doc("data")
+    .collection("tools");
   const existing = await toolsCol.get();
   const db = draftRef.firestore;
   let batch = db.batch();
@@ -1622,7 +1738,9 @@ async function replaceDraftTools(
   await flush();
 }
 
-function stripFirestoreSentinels(obj: Record<string, unknown>): Record<string, unknown> {
+function stripFirestoreSentinels(
+  obj: Record<string, unknown>,
+): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(obj)) {
     if (v == null) continue;
@@ -1637,4 +1755,3 @@ function stripFirestoreSentinels(obj: Record<string, unknown>): Record<string, u
   }
   return out;
 }
-

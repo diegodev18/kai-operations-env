@@ -38,7 +38,7 @@ function handleFirestoreError(c: Context, error: unknown, logPrefix: string) {
   return c.json({ error: "Error al acceder a Firestore." }, 500);
 }
 
-const TESTING_PATCH_SKIP_KEYS = new Set(["_createdAt", "_updatedAt"]);
+const TESTING_PATCH_SKIP_KEYS = new Set(["createdAt", "updatedAt"]);
 
 function isPlainRecord(v: unknown): v is Record<string, unknown> {
   return (
@@ -52,7 +52,9 @@ function isPlainRecord(v: unknown): v is Record<string, unknown> {
 /**
  * Rutas tipo `isMultiMessageEnable` o `mcp_configuration.model` a partir del JSON del PATCH (merge).
  */
-function collectTestingPropertyPatchPaths(body: Record<string, unknown>): string[] {
+function collectTestingPropertyPatchPaths(
+  body: Record<string, unknown>,
+): string[] {
   const out: string[] = [];
 
   function walk(node: unknown, prefix: string): void {
@@ -68,7 +70,9 @@ function collectTestingPropertyPatchPaths(body: Record<string, unknown>): string
       if (prefix) out.push(prefix);
       return;
     }
-    const entries = Object.entries(node).filter(([k]) => !TESTING_PATCH_SKIP_KEYS.has(k));
+    const entries = Object.entries(node).filter(
+      ([k]) => !TESTING_PATCH_SKIP_KEYS.has(k),
+    );
     if (entries.length === 0) {
       if (prefix) out.push(prefix);
       return;
@@ -121,7 +125,9 @@ function mergeWithDefaults<T extends PropertyDocId>(
       ...defaults,
       ...data,
       model,
-      temperature: Number.isFinite(temperature) ? temperature : defAi.temperature,
+      temperature: Number.isFinite(temperature)
+        ? temperature
+        : defAi.temperature,
       thinking,
     } as (typeof PROPERTY_DEFAULTS)[T];
   }
@@ -152,7 +158,9 @@ function mergeWithDefaults<T extends PropertyDocId>(
             : defPrompt.auth.unauth,
       },
       model,
-      temperature: Number.isFinite(temperature) ? temperature : defPrompt.temperature,
+      temperature: Number.isFinite(temperature)
+        ? temperature
+        : defPrompt.temperature,
     } as (typeof PROPERTY_DEFAULTS)[T];
   }
   return { ...defaults, ...data } as (typeof PROPERTY_DEFAULTS)[T];
@@ -235,7 +243,10 @@ export async function updateTestingPropertyDocument(
     const testingDataRef = agentRef.collection("testing").doc("data");
     const testingDataSnap = await testingDataRef.get();
     if (!testingDataSnap.exists) {
-      await testingDataRef.set({ _createdAt: new Date().toISOString() }, { merge: true });
+      await testingDataRef.set(
+        { createdAt: new Date().toISOString() },
+        { merge: true },
+      );
     }
 
     const docRef = testingDataRef.collection("properties").doc(documentId);
@@ -273,6 +284,8 @@ export async function updateTestingPropertyDocument(
     return c.json({ documentId, success: true });
   } catch (error) {
     const r = handleFirestoreError(c, error, "[testing properties PATCH]");
-    return r ?? c.json({ error: "Error al guardar propiedades de testing" }, 500);
+    return (
+      r ?? c.json({ error: "Error al guardar propiedades de testing" }, 500)
+    );
   }
 }
