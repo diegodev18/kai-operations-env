@@ -64,6 +64,20 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] = 
 ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.4.16": {
+    date: "2026-04-16",
+    description:
+      "API de agentes: promoción correcta de tools a producción y validación de nombre/path",
+    changes: {
+      fixed: [
+        "Al subir tools desde testing a producción (`POST .../promote-to-production`), el campo sintético `__exists` ya no deja en producción un documento vacío: si se promueve la alta de una tool, se copia el documento completo desde `testing/data/tools` y se excluyen claves internas (`_*`, `__exists`). Si la tool se eliminó solo en testing, el documento correspondiente se borra en producción.",
+      ],
+      added: [
+        "En el diff de testing (`GET .../testing-diff`), las tools nuevas en testing incluyen filas por cada campo además de `__exists`, para revisar nombre, descripción, `path`, etc. antes de promover.",
+        "Validación al crear o actualizar tools: se rechaza `name` o `path` que parezcan rutas del repositorio (p. ej. `@`, `KAI-OPERATIONS-ENV`, segmentos tipo `/apps/web/`, extensiones `.tsx`/`.ts` en rutas).",
+      ],
+    },
+  },
   "2.4.15": {
     date: "2026-04-16",
     description:
