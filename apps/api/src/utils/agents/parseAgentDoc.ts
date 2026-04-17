@@ -1,5 +1,8 @@
 import type { QueryDocumentSnapshot } from "firebase-admin/firestore";
 
+import type { FirestoreDataMode } from "@/constants/firestore-data-mode";
+import { normalizeFirestoreDataMode } from "@/constants/firestore-data-mode";
+
 export type ParsedAgentDoc = {
   id: string;
   /** Igual que `businessName` (compatibilidad con clientes que usan `name`). */
@@ -15,6 +18,8 @@ export type ParsedAgentDoc = {
   /** `mcp_configuration.system_prompt_generation_status` cuando existe. */
   systemPromptGenerationStatus?: string;
   systemPromptGenerationError?: string | null;
+  /** Rutas `testing/data` vs producción en MCP (default `auto`). */
+  firestoreDataMode: FirestoreDataMode;
 };
 
 /**
@@ -66,6 +71,9 @@ export function parseAgentDocFromData(
       typeof data.agent_name === "string" ? data.agent_name : "";
     const version =
       typeof data.version === "string" ? data.version : undefined;
+    const firestoreDataMode = normalizeFirestoreDataMode(
+      data.firestore_data_mode,
+    );
     return {
       id,
       name: businessName,
@@ -73,6 +81,7 @@ export function parseAgentDocFromData(
       businessName,
       owner: typeof data.owner_name === "string" ? data.owner_name : "",
       prompt,
+      firestoreDataMode,
       ...(version != null ? { version } : {}),
       ...(systemPromptGenerationStatus != null
         ? { systemPromptGenerationStatus }

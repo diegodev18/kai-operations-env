@@ -29,6 +29,10 @@ import {
 } from "@/utils/firestore/errors";
 import { isOperationsAdmin, isOperationsCommercial } from "@/utils/operations-access";
 import {
+  FIRESTORE_DATA_MODES,
+  isFirestoreDataMode,
+} from "@/constants/firestore-data-mode";
+import {
   serializeAgentConfigurationRootForClient,
   serializeValue,
 } from "@/utils/agents/serializeAgentRootForClient";
@@ -786,12 +790,22 @@ export async function patchAgent(
   }
 
   const bodyObj = body as Record<string, unknown>;
-  const allowedFields = ["version"] as const;
   const updateData: Record<string, unknown> = {};
-  for (const field of allowedFields) {
-    if (field in bodyObj) {
-      updateData[field] = bodyObj[field];
+
+  if ("version" in bodyObj) {
+    updateData.version = bodyObj.version;
+  }
+
+  const rawMode =
+    bodyObj.firestore_data_mode ?? bodyObj.firestoreDataMode;
+  if (rawMode !== undefined) {
+    if (!isFirestoreDataMode(rawMode)) {
+      return ApiErrors.validation(
+        c,
+        `firestore_data_mode debe ser uno de: ${FIRESTORE_DATA_MODES.join(", ")}`,
+      );
     }
+    updateData.firestore_data_mode = rawMode;
   }
 
   if (Object.keys(updateData).length === 0) {

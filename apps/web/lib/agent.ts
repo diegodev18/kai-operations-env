@@ -55,6 +55,8 @@ export interface Agent {
   primarySource?: "commercial" | "production";
   /** Versión del agente. */
   version?: string;
+  /** Rutas de datos MCP: automático, siempre testing/data o siempre producción. */
+  firestoreDataMode?: "auto" | "testing" | "production";
   /** El agente es favorito del usuario actual (desde el backend). */
   isFavorite?: boolean;
   /** Estado del agente en Operations. */

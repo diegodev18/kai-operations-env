@@ -45,6 +45,8 @@ export interface LightAgent {
   waitTime?: number;
   /** Versión del agente. */
   version?: string;
+  /** Rutas MCP: `testing/data` vs producción (`firestore_data_mode` en raíz). */
+  firestoreDataMode: "auto" | "testing" | "production";
   /** Datos de cobranza del agente. */
   billing?: AgentBilling;
   /** El agente es favorito del usuario actual. */
