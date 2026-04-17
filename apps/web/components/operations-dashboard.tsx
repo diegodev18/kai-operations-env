@@ -110,6 +110,7 @@ type StatusFilter = "all" | AgentOperationalStatus;
 export function OperationsDashboard(props: {
   userName: string | null | undefined;
   userEmail: string | null | undefined;
+  userImage?: string | null | undefined;
   onSignOut: () => void;
 }) {
   const router = useRouter();
@@ -658,6 +659,7 @@ export function OperationsDashboard(props: {
           <UserMenu
             userName={props.userName}
             userEmail={props.userEmail}
+            userImage={props.userImage}
             onSignOut={props.onSignOut}
           />
         </header>

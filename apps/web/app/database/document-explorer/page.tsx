@@ -193,6 +193,7 @@ export default function ExploradorDocumentosPage() {
         <UserMenu
           userName={session?.user?.name}
           userEmail={session?.user?.email}
+          userImage={(session?.user as { image?: string | null })?.image}
           onSignOut={() => void signOut()}
         />
       </header>
