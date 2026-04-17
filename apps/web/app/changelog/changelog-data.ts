@@ -64,6 +64,21 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] = 
 ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.4.15": {
+    date: "2026-04-16",
+    description:
+      "Atlas: página de perfil de usuario (nombre, rol, foto vía GitHub)",
+    changes: {
+      added: [
+        "Ruta `/profile` con `OperationsShell` y migas de navegación (`Operaciones` → `Perfil`).",
+        "Formulario para editar el nombre y el usuario de GitHub; la foto de perfil se guarda como `https://github.com/{login}.png` en el campo `image` de Better Auth (sin API ni Storage adicional).",
+        "Vista previa del avatar con validación básica del login y bloqueo de guardado si la imagen no carga.",
+        "Visualización del rol en solo lectura (`admin` / `member` con etiquetas en español) mediante `useUserRole`.",
+        "Utilidades en `lib/github-avatar.ts`: construcción de URL, parseo desde `user.image` y validación de login.",
+        "En el menú de usuario (`UserMenu`): enlace «Perfil», foto circular cuando hay `session.user.image` y fallback a iniciales si la URL falla; prop `userImage` propagada en dashboard, shell de operaciones, layout de agentes y páginas de database.",
+      ],
+    },
+  },
   "2.4.14": {
     date: "2026-04-16",
     description:
