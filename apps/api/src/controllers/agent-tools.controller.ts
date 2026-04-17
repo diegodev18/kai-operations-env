@@ -13,6 +13,18 @@ import {
 
 const TOOL_TYPES = ["custom", "default", "preset"] as const;
 
+/** Reject values that look like pasted IDE/repo paths instead of MCP tool identifiers. */
+function looksLikeAccidentalRepoPath(value: string): boolean {
+  const s = value.trim();
+  if (!s) return false;
+  if (s.includes("@")) return true;
+  if (/\bKAI-OPERATIONS-ENV\b/i.test(s)) return true;
+  if (s.includes("/apps/web/") || s.includes("/components/")) return true;
+  if (/\.(tsx|jsx|cts|mts)$/i.test(s)) return true;
+  if (/\.ts$/i.test(s) && s.includes("/")) return true;
+  return false;
+}
+
 function isFirebaseErr(error: unknown): boolean {
   return isFirebaseConfigError(error);
 }
@@ -224,6 +236,19 @@ export async function createAgentTool(
     pathValue = name.replace(/_/g, "/");
   }
 
+  if (looksLikeAccidentalRepoPath(name)) {
+    return ApiErrors.validation(
+      c,
+      "El nombre no debe ser una ruta de archivo del repositorio; usa el identificador de la tool (p. ej. kai_database_register_new_client).",
+    );
+  }
+  if (pathValue && looksLikeAccidentalRepoPath(pathValue)) {
+    return ApiErrors.validation(
+      c,
+      "path debe ser la ruta MCP del módulo (p. ej. kai/categoria/nombre_tool), no una ruta de archivo local.",
+    );
+  }
+
   try {
     const { db: database, hasTestingData, inProduction } =
       await resolveAgentWriteDatabase(agentId);
@@ -354,6 +379,23 @@ export async function updateAgentTool(
 
   if (Object.keys(updates).length === 0) {
     return ApiErrors.validation(c, "No hay campos válidos para actualizar");
+  }
+
+  if (typeof updates.name === "string" && looksLikeAccidentalRepoPath(updates.name)) {
+    return ApiErrors.validation(
+      c,
+      "El nombre no debe ser una ruta de archivo del repositorio; usa el identificador de la tool (p. ej. kai_database_register_new_client).",
+    );
+  }
+  if (
+    typeof updates.path === "string" &&
+    updates.path &&
+    looksLikeAccidentalRepoPath(updates.path)
+  ) {
+    return ApiErrors.validation(
+      c,
+      "path debe ser la ruta MCP del módulo (p. ej. kai/categoria/nombre_tool), no una ruta de archivo local.",
+    );
   }
 
   updates.updatedAt = FieldValue.serverTimestamp();
