@@ -9,7 +9,8 @@ import { nanoid } from "nanoid";
 
 const blogRouter = new Hono();
 
-const COLLECTION = "backOffice/blog/posts";
+const LESSONS_COLLECTION = "backOffice/blog/lessons";
+const ACTUALITY_COLLECTION = "backOffice/blog/actuality";
 const STORAGE_BUCKET = "kai-project-26879.appspot.com";
 
 interface BlogPost {
@@ -26,6 +27,44 @@ interface BlogPost {
   type?: string;
   createdAt: number;
   updatedAt: number;
+}
+
+type PostType = "lessons" | "actuality";
+
+function normalizePostType(value: string | undefined): PostType {
+  return value === "actuality" ? "actuality" : "lessons";
+}
+
+function collectionForType(type: PostType): string {
+  return type === "actuality" ? ACTUALITY_COLLECTION : LESSONS_COLLECTION;
+}
+
+async function findPostDocById(db: FirebaseFirestore.Firestore, id: string) {
+  const lessonsRef = db.collection(LESSONS_COLLECTION).doc(id);
+  const actualityRef = db.collection(ACTUALITY_COLLECTION).doc(id);
+
+  const [lessonsDoc, actualityDoc] = await Promise.all([
+    lessonsRef.get(),
+    actualityRef.get(),
+  ]);
+
+  if (lessonsDoc.exists) {
+    return {
+      doc: lessonsDoc,
+      ref: lessonsRef,
+      type: "lessons" as const,
+      collection: LESSONS_COLLECTION,
+    };
+  }
+  if (actualityDoc.exists) {
+    return {
+      doc: actualityDoc,
+      ref: actualityRef,
+      type: "actuality" as const,
+      collection: ACTUALITY_COLLECTION,
+    };
+  }
+  return null;
 }
 
 function toTimestamp(value: unknown): number {
@@ -73,23 +112,15 @@ blogRouter.get("/", async (c) => {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
-  const type = c.req.query("type") ?? "lessons";
+  const type = normalizePostType(c.req.query("type"));
+  const includeHidden = c.req.query("includeHidden") === "true";
+  const shouldIncludeHidden = includeHidden && user.role === "admin";
   const db = getFirestore();
 
-  let query = db
-    .collection(COLLECTION)
-    .where("isHidden", "==", false)
+  const query = db
+    .collection(collectionForType(type))
     .orderBy("createdAt", "desc")
-    .limit(50);
-
-  if (type === "actuality") {
-    query = db
-      .collection(COLLECTION)
-      .where("type", "==", "actuality")
-      .where("isHidden", "==", false)
-      .orderBy("createdAt", "desc")
-      .limit(50);
-  }
+    .limit(100);
 
   let snapshot;
   try {
@@ -106,24 +137,27 @@ blogRouter.get("/", async (c) => {
     );
   }
 
-  const posts = snapshot.docs.map((doc) => {
-    const data = doc.data() as any;
-    return {
-      id: doc.id,
-      title: data.title,
-      content: data.content,
-      authorId: data.authorId,
-      authorName: data.authorName,
-      authorMention: data.authorMention,
-      tags: data.tags ?? [],
-      images: data.images ?? [],
-      mentions: data.mentions ?? [],
-      isHidden: data.isHidden,
-      type: data.type ?? "lessons",
-      createdAt: toTimestamp(data.createdAt),
-      updatedAt: toTimestamp(data.updatedAt),
-    };
-  });
+  const posts = snapshot.docs
+    .map((doc) => {
+      const data = doc.data() as any;
+      return {
+        id: doc.id,
+        title: data.title,
+        content: data.content,
+        authorId: data.authorId,
+        authorName: data.authorName,
+        authorMention: data.authorMention,
+        tags: data.tags ?? [],
+        images: data.images ?? [],
+        mentions: data.mentions ?? [],
+        isHidden: Boolean(data.isHidden),
+        type: normalizePostType(data.type),
+        createdAt: toTimestamp(data.createdAt),
+        updatedAt: toTimestamp(data.updatedAt),
+      };
+    })
+    .filter((post) => shouldIncludeHidden || !post.isHidden)
+    .slice(0, 50);
 
   return c.json({ posts });
 });
@@ -135,7 +169,9 @@ blogRouter.get("/search", async (c) => {
   }
 
   const q = c.req.query("q")?.toLowerCase() ?? "";
-  const type = c.req.query("type") ?? "lessons";
+  const type = normalizePostType(c.req.query("type"));
+  const includeHidden = c.req.query("includeHidden") === "true";
+  const shouldIncludeHidden = includeHidden && user.role === "admin";
   if (!q) {
     return c.json({ posts: [] });
   }
@@ -143,10 +179,10 @@ blogRouter.get("/search", async (c) => {
   const db = getFirestore();
   let snapshot;
   try {
-    snapshot = await db
-      .collection(COLLECTION)
-      .where("isHidden", "==", false)
-      .get();
+    const baseQuery = db.collection(collectionForType(type));
+    snapshot = shouldIncludeHidden
+      ? await baseQuery.get()
+      : await baseQuery.where("isHidden", "==", false).get();
   } catch (error: any) {
     console.error("Error searching blog posts:", error);
     return c.json(
@@ -162,9 +198,6 @@ blogRouter.get("/search", async (c) => {
   const posts: BlogPost[] = [];
   for (const doc of snapshot.docs) {
     const data = doc.data() as any;
-
-    if (type === "actuality" && data.type !== "actuality") continue;
-    if (type === "lessons" && data.type === "actuality") continue;
 
     const titleMatch = data.title?.toLowerCase().includes(q);
     const contentMatch = data.content?.toLowerCase().includes(q);
@@ -187,6 +220,7 @@ blogRouter.get("/search", async (c) => {
         images: data.images ?? [],
         mentions: data.mentions ?? [],
         isHidden: data.isHidden,
+        type,
         createdAt: toTimestamp(data.createdAt),
         updatedAt: toTimestamp(data.updatedAt),
       });
@@ -205,12 +239,13 @@ blogRouter.get("/:id", async (c) => {
 
   const id = c.req.param("id");
   const db = getFirestore();
-  const doc = await db.collection(COLLECTION).doc(id).get();
+  const found = await findPostDocById(db, id);
 
-  if (!doc.exists) {
+  if (!found) {
     return c.json({ error: "Post no encontrado" }, 404);
   }
 
+  const doc = found.doc;
   const data = doc.data() as BlogPost;
   if (data.isHidden && user.role !== "admin") {
     return c.json({ error: "Post no encontrado" }, 404);
@@ -228,7 +263,7 @@ blogRouter.get("/:id", async (c) => {
       images: data.images ?? [],
       mentions: data.mentions ?? [],
       isHidden: data.isHidden,
-      type: data.type ?? "lessons",
+      type: found.type,
       createdAt: toTimestamp(data.createdAt),
       updatedAt: toTimestamp(data.updatedAt),
     },
@@ -262,7 +297,7 @@ blogRouter.post("/", async (c) => {
   const images = Array.isArray(body.images)
     ? body.images.filter((i): i is string => typeof i === "string")
     : [];
-  const type = body.type ?? "lessons";
+  const type = normalizePostType(body.type);
 
   if (!title) {
     return c.json({ error: "El título es obligatorio" }, 400);
@@ -272,7 +307,7 @@ blogRouter.post("/", async (c) => {
   const authorMention = user.email.split("@")[0];
 
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION).doc();
+  const docRef = db.collection(collectionForType(type)).doc();
   const now = Timestamp.now();
 
   await docRef.set({
@@ -304,6 +339,7 @@ blogRouter.post("/", async (c) => {
         images,
         mentions,
         isHidden: false,
+        type,
         createdAt: now.toMillis(),
         updatedAt: now.toMillis(),
       },
@@ -320,13 +356,14 @@ blogRouter.put("/:id", async (c) => {
 
   const id = c.req.param("id");
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION).doc(id);
-  const doc = await docRef.get();
+  const found = await findPostDocById(db, id);
 
-  if (!doc.exists) {
+  if (!found) {
     return c.json({ error: "Post no encontrado" }, 404);
   }
 
+  const docRef = found.ref;
+  const doc = found.doc;
   const data = doc.data() as BlogPost;
   if (data.authorId !== user.id && user.role !== "admin") {
     return c.json({ error: "No autorizado para editar este post" }, 403);
@@ -381,6 +418,7 @@ blogRouter.put("/:id", async (c) => {
       images,
       mentions,
       isHidden: data.isHidden,
+      type: found.type,
       createdAt: toTimestamp(data.createdAt),
       updatedAt: now.toMillis(),
     },
@@ -395,13 +433,14 @@ blogRouter.delete("/:id", async (c) => {
 
   const id = c.req.param("id");
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION).doc(id);
-  const doc = await docRef.get();
+  const found = await findPostDocById(db, id);
 
-  if (!doc.exists) {
+  if (!found) {
     return c.json({ error: "Post no encontrado" }, 404);
   }
 
+  const docRef = found.ref;
+  const doc = found.doc;
   const data = doc.data() as BlogPost;
   if (data.authorId !== user.id && user.role !== "admin") {
     return c.json({ error: "No autorizado para eliminar este post" }, 403);
@@ -423,13 +462,13 @@ blogRouter.patch("/:id/hide", async (c) => {
 
   const id = c.req.param("id");
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION).doc(id);
-  const doc = await docRef.get();
+  const found = await findPostDocById(db, id);
 
-  if (!doc.exists) {
+  if (!found) {
     return c.json({ error: "Post no encontrado" }, 404);
   }
 
+  const docRef = found.ref;
   let body: { hidden?: boolean };
   try {
     body = await c.req.json();

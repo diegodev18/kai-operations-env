@@ -108,6 +108,19 @@ const promoteBodySchema = z.object({
   confirmation_agent_name: z.string().trim().min(1),
 });
 
+/** Strip internal / synthetic keys before copying a testing tool doc to production. */
+function sanitizeToolDocForProduction(
+  data: Record<string, unknown>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (k.startsWith("_")) continue;
+    if (k === "__exists") continue;
+    out[k] = v;
+  }
+  return out;
+}
+
 export async function postPromoteToProduction(
   c: Context,
   authCtx: AgentsInfoAuthContext,
@@ -154,6 +167,29 @@ export async function postPromoteToProduction(
       );
     }
 
+    const testingToolsRef = agentRef.collection("testing").doc("data").collection("tools");
+
+    const toolFields = parsed.data.fields.filter((f) => f.collection === "tools");
+    for (const field of toolFields) {
+      if (field.fieldKey !== "__exists") continue;
+      const prodToolRef = agentRef.collection("tools").doc(field.documentId);
+      if (field.value === true) {
+        const testingSnap = await testingToolsRef.doc(field.documentId).get();
+        if (!testingSnap.exists) {
+          return c.json(
+            {
+              error: `Tool de testing no encontrada (id: ${field.documentId}).`,
+            },
+            404,
+          );
+        }
+        const raw = testingSnap.data() as Record<string, unknown>;
+        await prodToolRef.set(sanitizeToolDocForProduction(raw));
+      } else {
+        await prodToolRef.delete();
+      }
+    }
+
     for (const field of parsed.data.fields) {
       if (field.collection === "properties") {
         const prodDocRef = agentRef.collection("properties").doc(field.documentId);
@@ -169,6 +205,7 @@ export async function postPromoteToProduction(
           });
         }
       } else if (field.collection === "tools") {
+        if (field.fieldKey === "__exists") continue;
         const prodToolRef = agentRef.collection("tools").doc(field.documentId);
         await prodToolRef.set({ [field.fieldKey]: field.value }, { merge: true });
       } else if (field.collection === "collaborators") {
@@ -327,6 +364,18 @@ export async function getTestingDiff(
           testingValue: true,
           productionValue: false,
         });
+        for (const key of Object.keys(testingData)) {
+          if (key.startsWith("_")) continue;
+          const tVal = testingData[key];
+          const tNorm = normalize(tVal);
+          diff.push({
+            collection: "tools",
+            documentId: toolId,
+            fieldKey: key,
+            testingValue: tNorm,
+            productionValue: null,
+          });
+        }
       } else if (!toolExistsInTesting && toolExistsInProd) {
         // Tool removed in testing
         diff.push({

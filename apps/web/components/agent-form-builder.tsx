@@ -805,54 +805,60 @@ function parseFlowSelectValue(value: string, options: string[]) {
   const i = value.indexOf(FLOW_SELECT_OTRO);
   if (i >= 0) {
     const main = value.slice(0, i).trim();
-    const rest = value.slice(i + FLOW_SELECT_OTRO.length).trim();
+    const rest = value.slice(i + FLOW_SELECT_OTRO.length);
     if (options.includes(main)) return { main, other: rest };
-    return { main: "", other: value.trim() };
+    return { main: "", other: value };
   }
   const t = value.trim();
   if (options.includes(t)) return { main: t, other: "" };
-  return { main: "", other: t };
+  return { main: "", other: value };
 }
 
 function composeFlowSelect(main: string, other: string) {
-  const o = other.trim();
-  if (!main && !o) return "";
-  if (main && o) return `${main}${FLOW_SELECT_OTRO}${o}`;
+  const hasOther = other.trim().length > 0;
+  if (!main && !hasOther) return "";
+  if (main && hasOther) return `${main}${FLOW_SELECT_OTRO}${other}`;
   if (main) return main;
-  return o;
+  return other;
 }
 
 function parseFlowSuggestionsMulti(value: string, suggestions: string[]) {
   const idx = value.indexOf(FLOW_SUGGEST_EXTRA_SEP);
-  const head = (idx < 0 ? value : value.slice(0, idx)).trim();
-  const extra = idx < 0 ? "" : value.slice(idx + FLOW_SUGGEST_EXTRA_SEP.length).trim();
-  const tokens = head ? head.split(";").map((s) => s.trim()).filter(Boolean) : [];
+  const headRaw = idx < 0 ? value : value.slice(0, idx);
+  const extraRaw = idx < 0 ? "" : value.slice(idx + FLOW_SUGGEST_EXTRA_SEP.length);
+  const tokens = headRaw
+    ? headRaw.split(";").map((s) => s.trim()).filter(Boolean)
+    : [];
   const picked = tokens.filter((t) => suggestions.includes(t));
-  const stray = tokens.filter((t) => !suggestions.includes(t));
-  const mergedExtra = [stray.join("; "), extra].filter(Boolean).join("; ").trim();
-  return { picked: new Set(picked), extra: mergedExtra };
+  if (picked.length === 0 && idx < 0) {
+    return { picked: new Set<string>(), extra: value };
+  }
+  const stray = tokens.filter((t) => !suggestions.includes(t)).join("; ");
+  if (!stray) return { picked: new Set(picked), extra: extraRaw };
+  if (!extraRaw.trim()) return { picked: new Set(picked), extra: stray };
+  return { picked: new Set(picked), extra: `${stray}; ${extraRaw}` };
 }
 
 function composeFlowSuggestionsMulti(picked: Set<string>, extra: string) {
   const chips = [...picked].join("; ");
-  const e = extra.trim();
-  if (chips && e) return `${chips}${FLOW_SUGGEST_EXTRA_SEP}${e}`;
+  const hasExtra = extra.trim().length > 0;
+  if (chips && hasExtra) return `${chips}${FLOW_SUGGEST_EXTRA_SEP}${extra}`;
   if (chips) return chips;
-  return e;
+  return extra;
 }
 
 function parseFlowSuggestionsSingle(value: string, suggestions: string[]) {
   const idx = value.indexOf(FLOW_SUGGEST_EXTRA_SEP);
   const head = (idx < 0 ? value : value.slice(0, idx)).trim();
-  const extra = idx < 0 ? "" : value.slice(idx + FLOW_SUGGEST_EXTRA_SEP.length).trim();
+  const extra = idx < 0 ? "" : value.slice(idx + FLOW_SUGGEST_EXTRA_SEP.length);
   if (suggestions.includes(head)) return { picked: head, extra };
-  return { picked: "", extra: value.trim() };
+  return { picked: "", extra: value };
 }
 
 function composeFlowSuggestionsSingle(picked: string, extra: string) {
-  const e = extra.trim();
-  if (picked && e) return `${picked}${FLOW_SUGGEST_EXTRA_SEP}${e}`;
-  return picked || e;
+  const hasExtra = extra.trim().length > 0;
+  if (picked && hasExtra) return `${picked}${FLOW_SUGGEST_EXTRA_SEP}${extra}`;
+  return picked || extra;
 }
 
 function FlowSelectChips({
@@ -2715,8 +2721,29 @@ export function AgentFormBuilder() {
 
       await patchAgentDraft(draftId, { step: "complete" });
 
-      toast.success("¡Agente creado exitosamente!");
-      window.location.href = `/agents/${encodeURIComponent(draftId)}/prompt-design`;
+      const promptDesignUrl = `/agents/${encodeURIComponent(draftId)}/prompt-design`;
+      let didNavigate = false;
+      let redirectTimeout: ReturnType<typeof setTimeout> | null = null;
+      const goToPromptDesign = () => {
+        if (didNavigate) return;
+        didNavigate = true;
+        if (redirectTimeout) {
+          clearTimeout(redirectTimeout);
+          redirectTimeout = null;
+        }
+        window.location.href = promptDesignUrl;
+      };
+
+      toast.success("¡Agente creado exitosamente! Ahora diseña tu prompt.", {
+        duration: 3500,
+        action: {
+          label: "Ir a diseñar prompt",
+          onClick: goToPromptDesign,
+        },
+      });
+
+      // Mantiene el flujo automático para continuar con la configuración inicial.
+      redirectTimeout = setTimeout(goToPromptDesign, 1600);
     } catch (error) {
       toast.error("Error al crear el agente");
       console.error(error);

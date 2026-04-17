@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Building2Icon, LogOutIcon } from "lucide-react";
+import { useState } from "react";
+import { Building2Icon, LogOutIcon, UserCircleIcon } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,19 +30,36 @@ function initialsFromUser(
 export function UserMenu(props: {
   userName: string | null | undefined;
   userEmail: string | null | undefined;
+  /** URL de imagen de perfil (p. ej. avatar de GitHub). */
+  userImage?: string | null | undefined;
   onSignOut: () => void;
 }) {
   const avatarLabel = initialsFromUser(props.userName, props.userEmail);
+  /** URL que falló al cargar; al cambiar `userImage` se reintenta si es otra URL. */
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
+  const trimmedImage = props.userImage?.trim() ?? "";
+  const showPhoto =
+    trimmedImage.length > 0 && failedImageUrl !== trimmedImage;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-xs font-medium text-foreground outline-none transition-colors hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-muted text-xs font-medium text-foreground outline-none transition-colors hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           aria-label="Menú de usuario"
         >
-          {avatarLabel}
+          {showPhoto ? (
+            // eslint-disable-next-line @next/next/no-img-element -- URL externa de perfil
+            <img
+              src={trimmedImage}
+              alt=""
+              className="size-full object-cover"
+              onError={() => setFailedImageUrl(trimmedImage)}
+            />
+          ) : (
+            avatarLabel
+          )}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-48">
@@ -62,6 +80,15 @@ export function UserMenu(props: {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link
+            href="/profile"
+            className="flex cursor-pointer items-center gap-2"
+          >
+            <UserCircleIcon className="size-4" />
+            Perfil
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link
             href="/organization"

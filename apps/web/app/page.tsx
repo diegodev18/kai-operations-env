@@ -25,6 +25,7 @@ export default function Home() {
       <OperationsDashboard
         userName={session.user.name}
         userEmail={session.user.email}
+        userImage={(session.user as { image?: string | null }).image}
         onSignOut={() => {
           void signOut();
         }}
