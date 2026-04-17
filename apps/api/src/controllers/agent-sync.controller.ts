@@ -73,7 +73,10 @@ export async function postSyncFromProduction(
       prodGrowersRef.get(),
     ]);
 
-    await testingDataRef.set({ _syncedAt: new Date().toISOString() }, { merge: true });
+    await testingDataRef.set(
+      { syncedAt: new Date().toISOString() },
+      { merge: true },
+    );
 
     for (const doc of propsSnap.docs) {
       await testingPropertiesRef.doc(doc.id).set(doc.data(), { merge: true });
@@ -88,23 +91,31 @@ export async function postSyncFromProduction(
         email: doc.data()?.email,
         name: doc.data()?.name,
       };
-      await testingCollaboratorsRef.doc(doc.id).set(collaboratorData, { merge: true });
+      await testingCollaboratorsRef
+        .doc(doc.id)
+        .set(collaboratorData, { merge: true });
     }
 
     return c.json({ ok: true });
   } catch (error) {
     const r = handleError(c, error, "[agents sync-from-production]");
-    return r ?? c.json({ error: "No se pudo sincronizar desde producción." }, 500);
+    return (
+      r ?? c.json({ error: "No se pudo sincronizar desde producción." }, 500)
+    );
   }
 }
 
 const promoteBodySchema = z.object({
-  fields: z.array(z.object({
-    collection: z.string(),
-    documentId: z.string(),
-    fieldKey: z.string(),
-    value: z.any(),
-  })).min(1),
+  fields: z
+    .array(
+      z.object({
+        collection: z.string(),
+        documentId: z.string(),
+        fieldKey: z.string(),
+        value: z.any(),
+      }),
+    )
+    .min(1),
   confirmation_agent_name: z.string().trim().min(1),
 });
 
@@ -147,10 +158,7 @@ export async function postPromoteToProduction(
     const agentRef = db.collection("agent_configurations").doc(agentId);
     const snap = await agentRef.get();
     if (!snap.exists) {
-      return c.json(
-        { error: "El agente no existe en producción" },
-        404,
-      );
+      return c.json({ error: "El agente no existe en producción" }, 404);
     }
     const normalizedInput = parsed.data.confirmation_agent_name
       .trim()
@@ -167,9 +175,14 @@ export async function postPromoteToProduction(
       );
     }
 
-    const testingToolsRef = agentRef.collection("testing").doc("data").collection("tools");
+    const testingToolsRef = agentRef
+      .collection("testing")
+      .doc("data")
+      .collection("tools");
 
-    const toolFields = parsed.data.fields.filter((f) => f.collection === "tools");
+    const toolFields = parsed.data.fields.filter(
+      (f) => f.collection === "tools",
+    );
     for (const field of toolFields) {
       if (field.fieldKey !== "__exists") continue;
       const prodToolRef = agentRef.collection("tools").doc(field.documentId);
@@ -192,8 +205,13 @@ export async function postPromoteToProduction(
 
     for (const field of parsed.data.fields) {
       if (field.collection === "properties") {
-        const prodDocRef = agentRef.collection("properties").doc(field.documentId);
-        await prodDocRef.set({ [field.fieldKey]: field.value }, { merge: true });
+        const prodDocRef = agentRef
+          .collection("properties")
+          .doc(field.documentId);
+        await prodDocRef.set(
+          { [field.fieldKey]: field.value },
+          { merge: true },
+        );
 
         if (
           field.documentId === "prompt" &&
@@ -207,10 +225,18 @@ export async function postPromoteToProduction(
       } else if (field.collection === "tools") {
         if (field.fieldKey === "__exists") continue;
         const prodToolRef = agentRef.collection("tools").doc(field.documentId);
-        await prodToolRef.set({ [field.fieldKey]: field.value }, { merge: true });
+        await prodToolRef.set(
+          { [field.fieldKey]: field.value },
+          { merge: true },
+        );
       } else if (field.collection === "collaborators") {
-        const prodGrowerRef = agentRef.collection("growers").doc(field.documentId);
-        await prodGrowerRef.set({ [field.fieldKey]: field.value }, { merge: true });
+        const prodGrowerRef = agentRef
+          .collection("growers")
+          .doc(field.documentId);
+        await prodGrowerRef.set(
+          { [field.fieldKey]: field.value },
+          { merge: true },
+        );
       }
     }
 
@@ -264,12 +290,13 @@ export async function getTestingDiff(
       return c.json({ error: "No hay datos de testing" }, 404);
     }
 
-    const [prodPropsSnap, testingPropsSnap, prodToolsSnap, testingToolsSnap] = await Promise.all([
-      agentRef.collection("properties").get(),
-      testingDataRef.collection("properties").get(),
-      agentRef.collection("tools").get(),
-      testingDataRef.collection("tools").get(),
-    ]);
+    const [prodPropsSnap, testingPropsSnap, prodToolsSnap, testingToolsSnap] =
+      await Promise.all([
+        agentRef.collection("properties").get(),
+        testingDataRef.collection("properties").get(),
+        agentRef.collection("tools").get(),
+        testingDataRef.collection("tools").get(),
+      ]);
 
     const diff: Array<{
       collection: string;
@@ -293,9 +320,11 @@ export async function getTestingDiff(
       if (obj === null || typeof obj !== "object") return obj;
       if (Array.isArray(obj)) return obj.map(sortKeysRecursively);
       const sorted: Record<string, any> = {};
-      Object.keys(obj).sort().forEach((key) => {
-        sorted[key] = sortKeysRecursively(obj[key]);
-      });
+      Object.keys(obj)
+        .sort()
+        .forEach((key) => {
+          sorted[key] = sortKeysRecursively(obj[key]);
+        });
       return sorted;
     };
 
@@ -348,7 +377,8 @@ export async function getTestingDiff(
       const testingTool = testingToolsSnap.docs.find((d) => d.id === toolId);
       const prodTool = prodToolsSnap.docs.find((d) => d.id === toolId);
 
-      const testingData = (testingTool?.data() as Record<string, unknown>) || {};
+      const testingData =
+        (testingTool?.data() as Record<string, unknown>) || {};
       const prodData = (prodTool?.data() as Record<string, unknown>) || {};
 
       // Check if tool exists in both
