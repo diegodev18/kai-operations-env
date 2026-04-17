@@ -125,26 +125,59 @@ function fieldsToDoc(fields: DocField[]): Record<string, unknown> {
   return doc;
 }
 
+/**
+ * NestedDialog saves `{ _array: nestedFields.map((f) => f.value) }` (plain values).
+ * Older code wrongly assumed each element was `{ value, type, key }` and used `.value` only,
+ * which turned objects into `undefined` and threw on `null`.
+ */
+function isDocFieldRow(item: unknown): item is DocField {
+  if (item === null || typeof item !== "object" || Array.isArray(item)) return false;
+  const o = item as Record<string, unknown>;
+  if (!("value" in o) || typeof o.type !== "string") return false;
+  return ["string", "number", "boolean", "null", "object", "array"].includes(o.type);
+}
+
+function coerceNestedArrayFromSavePayload(data: Record<string, unknown>): unknown[] {
+  const raw = data._array;
+  if (!Array.isArray(raw)) return [];
+  return raw.map((item) => (isDocFieldRow(item) ? item.value : item));
+}
+
+function normalizeArrayRowKeys(rows: DocField[]): DocField[] {
+  return rows.map((f, i) => ({ ...f, key: String(i) }));
+}
+
 function FieldEditor({
   fields,
   onChange,
   onEditNested,
+  mode = "object",
 }: {
   fields: DocField[];
   onChange: (fields: DocField[]) => void;
   onEditNested: (key: string, value: unknown) => void;
+  /** En `array`, la primera columna es el índice (solo lectura); solo los objetos usan claves con nombre. */
+  mode?: "object" | "array";
 }) {
+  const isArrayMode = mode === "array";
+
   const addField = () => {
+    if (isArrayMode) {
+      const next = [...fields, { key: "", value: "", type: "string" as const }];
+      onChange(normalizeArrayRowKeys(next));
+      return;
+    }
     onChange([...fields, { key: "", value: "", type: "string" }]);
   };
 
   const removeField = (index: number) => {
-    onChange(fields.filter((_, i) => i !== index));
+    const next = fields.filter((_, i) => i !== index);
+    onChange(isArrayMode ? normalizeArrayRowKeys(next) : next);
   };
 
   const updateField = (index: number, updated: DocField) => {
     const newFields = [...fields];
-    newFields[index] = updated;
+    newFields[index] = isArrayMode ? { ...updated, key: String(index) } : updated;
     onChange(newFields);
   };
 
@@ -159,12 +192,21 @@ function FieldEditor({
     <div className="space-y-2">
       {fields.map((field, index) => (
         <div key={index} className="flex gap-2 items-start">
-          <Input
-            value={field.key}
-            onChange={(e) => updateField(index, { ...field, key: e.target.value })}
-            placeholder="Campo"
-            className="w-40"
-          />
+          {isArrayMode ? (
+            <div
+              className="flex w-10 shrink-0 items-center justify-center rounded-md border bg-muted/50 px-1 py-2 text-sm font-mono text-muted-foreground"
+              title="Índice del array"
+            >
+              {index}
+            </div>
+          ) : (
+            <Input
+              value={field.key}
+              onChange={(e) => updateField(index, { ...field, key: e.target.value })}
+              placeholder="Campo"
+              className="w-40"
+            />
+          )}
           <Select
             value={field.type}
             onValueChange={(type: DocField["type"]) => {
@@ -227,7 +269,11 @@ function FieldEditor({
                 disabled
                 className="flex-1 bg-muted"
               />
-              <Button variant="outline" size="icon" onClick={() => onEditNested(field.key, field.value)}>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => onEditNested(isArrayMode ? String(index) : field.key, field.value)}
+              >
                 <PencilIcon className="size-4" />
               </Button>
             </div>
@@ -239,7 +285,7 @@ function FieldEditor({
       ))}
       <Button variant="outline" size="sm" onClick={addField}>
         <PlusIcon className="size-4 mr-1" />
-        Agregar campo
+        {isArrayMode ? "Agregar elemento" : "Agregar campo"}
       </Button>
     </div>
   );
@@ -309,10 +355,11 @@ function NestedDialog({
           <DialogTitle>{isArray ? "Editar array" : "Editar objeto"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-          <FieldEditor 
-            fields={nestedFields} 
+          <FieldEditor
+            fields={nestedFields}
             onChange={setNestedFields}
             onEditNested={handleEditNested}
+            mode={isArray ? "array" : "object"}
           />
         </div>
         <DialogFooter>
@@ -328,7 +375,7 @@ function NestedDialog({
               const isArrayEdit = "_array" in data;
               let newValue: unknown;
               if (isArrayEdit) {
-                newValue = (data._array as DocField[]).map(item => item.value);
+                newValue = coerceNestedArrayFromSavePayload(data);
               } else {
                 newValue = data;
               }
@@ -854,8 +901,7 @@ export default function TestingDataPage() {
     let newValue: unknown;
     
     if (isArrayEdit) {
-      const arrData = data._array as { key: string; value: unknown; type: string }[];
-      newValue = arrData.map((item) => item.value);
+      newValue = coerceNestedArrayFromSavePayload(data);
     } else {
       newValue = data;
     }

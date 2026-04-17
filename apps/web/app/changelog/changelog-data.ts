@@ -56,14 +56,29 @@ export interface ChangelogEntry {
   };
 }
 
-export const PROJECTS: { id: ProjectId; name: string; description: string }[] = [
-  { id: "atlas", name: "Atlas", description: "BackOffice - Sistema de gestión operativa" },
-  { id: "panel", name: "Panel Web", description: "Panel Web / CRM de kAI" },
-  { id: "agents", name: "kAI Agents", description: "Core de agentes IA" },
-  { id: "tools", name: "Tools MCP", description: "Herramientas MCP" },
-];
+export const PROJECTS: { id: ProjectId; name: string; description: string }[] =
+  [
+    {
+      id: "atlas",
+      name: "Atlas",
+      description: "BackOffice - Sistema de gestión operativa",
+    },
+    { id: "panel", name: "Panel Web", description: "Panel Web / CRM de kAI" },
+    { id: "agents", name: "kAI Agents", description: "Core de agentes IA" },
+    { id: "tools", name: "Tools MCP", description: "Herramientas MCP" },
+  ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.4.17": {
+    date: "2026-04-16",
+    description:
+      "Atlas: guardado correcto de arrays anidados en Testing (p. ej. properties/sheet y sheetsList)",
+    changes: {
+      fixed: [
+        "En la vista Testing del agente (`/agents/:id/testing-data`), al guardar un campo tipo array desde «Editar array», el payload `{ _array: [...] }` ya contiene valores planos; el código asumía erróneamente filas `{ value, type }` y aplicaba `.value` a cada elemento, lo que vaciaba objetos (p. ej. `{ sheetId, url }`) y fallaba con `null`. Se normaliza con `coerceNestedArrayFromSavePayload` (compatibilidad opcional con filas tipo DocField).",
+      ],
+    },
+  },
   "2.4.16": {
     date: "2026-04-16",
     description:
@@ -350,9 +365,7 @@ export const changelogData: Record<string, ChangelogEntry> = {
         "En el detalle del agente (`/agents/[agentId]/*`), el tag de estado superior muestra `Archivado` cuando aplica.",
         "UI de acciones refinada: botones de archivar/desarchivar ahora son solo íconos con tooltip (sin texto en botón).",
       ],
-      removed: [
-        "Encabezado visual `Activos (N)` en la tabla de Operations.",
-      ],
+      removed: ["Encabezado visual `Activos (N)` en la tabla de Operations."],
     },
   },
   "2.4.0": {
@@ -393,8 +406,7 @@ export const changelogData: Record<string, ChangelogEntry> = {
   },
   "2.3.8": {
     date: "2026-04-14",
-    description:
-      "Agente: header sin badges de entorno (Testing / Producción)",
+    description: "Agente: header sin badges de entorno (Testing / Producción)",
     changes: {
       removed: [
         "En el layout de detalle de agente (`/agents/[agentId]/*`), se quitaron del encabezado los badges «Testing (comercial)» y «Producción (kai)» y el estado y listener que solo servían para mostrarlos.",
@@ -457,7 +469,8 @@ export const changelogData: Record<string, ChangelogEntry> = {
   },
   "2.3.3": {
     date: "2026-04-14",
-    description: "Changelogs Firebase (Panel, Agents, Tools): proxy, permisos, UX y versión semver",
+    description:
+      "Changelogs Firebase (Panel, Agents, Tools): proxy, permisos, UX y versión semver",
     changes: {
       added: [
         "Rewrite en Next de /api/changelogs hacia la API Bun (lista, alta, subida de adjuntos dejan de responder 404).",
@@ -489,7 +502,8 @@ export const changelogData: Record<string, ChangelogEntry> = {
   },
   "2.3.1": {
     date: "2026-04-14",
-    description: "Constructor de agentes: persistencia completa y aprovisionamiento al crear",
+    description:
+      "Constructor de agentes: persistencia completa y aprovisionamiento al crear",
     changes: {
       added: [
         "Al crear borrador de agente se guardan status pending_tools_selection, owner_user_id y owner_phone",
@@ -515,9 +529,9 @@ export const changelogData: Record<string, ChangelogEntry> = {
         "Formularios en dialog con todos los campos: fechas, versión, autor, colaboradores, descripción, cambios, etiquetas, URL de ticket, adjuntos, estado, notas internas",
         "Autocompletado de colaboradores desde usuarios de la organización",
         "Soporte para adjuntos: imágenes, videos y PDFs en Firebase Storage",
-        "API routes para operaciones CRUD"],
-      changed: [
-        "Changelog principal ahora muestra selector de proyectos"],
+        "API routes para operaciones CRUD",
+      ],
+      changed: ["Changelog principal ahora muestra selector de proyectos"],
     },
   },
   "2.2.5": {
@@ -614,7 +628,8 @@ export const changelogData: Record<string, ChangelogEntry> = {
   },
   "2.0.14": {
     date: "2026-04-10",
-    description: "Botón de sincronización de toolsCatalog a documento de la tool del agente",
+    description:
+      "Botón de sincronización de toolsCatalog a documento de la tool del agente",
     changes: {
       added: [
         "Botón de sincronización en dialog de editar tool para traer valores desde toolsCatalog",
@@ -665,9 +680,7 @@ export const changelogData: Record<string, ChangelogEntry> = {
         "Paralelización de queries de testing en Firestore",
         "CHUNK_SIZE reducido de 50 a 25",
       ],
-      fixed: [
-        "Búsqueda ahora busca solo en business_name",
-      ],
+      fixed: ["Búsqueda ahora busca solo en business_name"],
     },
   },
   "2.0.9": {
@@ -687,7 +700,8 @@ export const changelogData: Record<string, ChangelogEntry> = {
   },
   "2.0.8": {
     date: "2026-04-10",
-    description: "Soporte para configuración de pipelines en el constructor de agentes",
+    description:
+      "Soporte para configuración de pipelines en el constructor de agentes",
     changes: {
       added: [
         "Nueva sección 'Pipelines' en el constructor de agentes",
@@ -730,7 +744,8 @@ export const changelogData: Record<string, ChangelogEntry> = {
   },
   "2.0.5": {
     date: "2026-04-08",
-    description: "Funcionalidad de testing para herramientas y configuración de agentes",
+    description:
+      "Funcionalidad de testing para herramientas y configuración de agentes",
     changes: {
       added: [
         "Colecciones testing/data/collaborators, testing/data/properties y testing/data/tools se crean por defecto al crear un agente",
@@ -797,7 +812,8 @@ export const changelogData: Record<string, ChangelogEntry> = {
   },
   "2.0.0": {
     date: "2025-04-07",
-    description: "Major release with agent builder, testing simulator, and improved organization management.",
+    description:
+      "Major release with agent builder, testing simulator, and improved organization management.",
     changes: {
       added: [
         "Agent Builder - Create and configure AI agents with custom prompts, tools, and behavior",
@@ -813,9 +829,7 @@ export const changelogData: Record<string, ChangelogEntry> = {
         "Completely redesigned the agent interface",
         "Improved navigation and user experience",
       ],
-      fixed: [
-        "Various bug fixes and performance improvements",
-      ],
+      fixed: ["Various bug fixes and performance improvements"],
       improved: [
         "Better error handling and feedback",
         "Enhanced security and authentication",
@@ -838,7 +852,10 @@ export function getVersion(version: string): ChangelogEntry | undefined {
   return changelogData[version];
 }
 
-export function getAtlasVersions(): { version: string; entry: ChangelogEntry }[] {
+export function getAtlasVersions(): {
+  version: string;
+  entry: ChangelogEntry;
+}[] {
   return getAllVersions().map((v) => ({ version: v, entry: changelogData[v] }));
 }
 
@@ -853,7 +870,8 @@ export function canEditChangelogEntry(
 ): boolean {
   if (!sessionUser) return false;
   const uid = sessionUser.id?.trim();
-  if (uid && entry.createdByUserId && uid === entry.createdByUserId) return true;
+  if (uid && entry.createdByUserId && uid === entry.createdByUserId)
+    return true;
   const e = sessionUser.email?.trim().toLowerCase();
   const a = entry.author?.email?.trim().toLowerCase();
   if (e && a && e === a) return true;
