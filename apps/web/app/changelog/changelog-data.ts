@@ -69,6 +69,17 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] =
   ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.4.18": {
+    date: "2026-04-18",
+    description:
+      "Atlas: diseño de prompt alineado con producción tras promover y recarga estable",
+    changes: {
+      fixed: [
+        "En `/agents/:id/prompt-design`, al subir el prompt a producción solo se actualizaba Firestore de producción y el MCP, mientras la recarga seguía leyendo el documento de testing: si el editor y testing no coincidían, tras F5 reaparecía una versión antigua. Tras un promote exitoso se sincroniza también `testing/data/properties/prompt` (base y auth cuando aplica).",
+        "La hidratación del editor esperaba a que termine la carga de propiedades de testing cuando el agente está en comercial, y ya no usa `||` entre cadenas (una base vacía legítima no cae al fallback del MCP). El hook `useTestingProperties` arranca en carga si hay `agentId`. Tras guardar o promover se refrescan los datos de testing.",
+      ],
+    },
+  },
   "2.4.17": {
     date: "2026-04-16",
     description:

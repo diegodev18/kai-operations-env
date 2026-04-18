@@ -9,12 +9,14 @@ const BASE = "/api/agents";
 
 export function useTestingProperties(agentId: string | null) {
   const [data, setData] = useState<AgentPropertiesResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  /** Evita un frame con `false` antes del primer fetch cuando hay `agentId`. */
+  const [isLoading, setIsLoading] = useState(() => Boolean(agentId));
   const [didAutoSync, setDidAutoSync] = useState(false);
 
   const fetchProperties = useCallback(async (autoSync = true) => {
     if (!agentId) {
       setData(null);
+      setIsLoading(false);
       return;
     }
     setIsLoading(true);

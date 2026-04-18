@@ -195,7 +195,11 @@ export function AgentPromptDesigner({
   const [loadingAgent, setLoadingAgent] = useState(true);
   const { data: propertiesData, isLoading: propertiesLoading } =
     useAgentProperties(agentId);
-  const { data: testingPropertiesData } = useTestingProperties(agentId);
+  const {
+    data: testingPropertiesData,
+    isLoading: testingPropertiesLoading,
+    refetch: refetchTestingProperties,
+  } = useTestingProperties(agentId);
   const { tools: agentTools } = useAgentTools(agentId);
   const {
     data: productionPrompt,
@@ -333,16 +337,32 @@ export function AgentPromptDesigner({
   useEffect(() => {
     if (!agent) return;
     if (propertiesLoading) return;
-    const baseFromTesting = testingPropertiesData?.prompt?.base ?? "";
-    const baseFromProperties = propertiesData?.prompt?.base ?? "";
-    const fallbackFromMcp = agent.prompt ?? "";
-    const promptValue = baseFromTesting || baseFromProperties || fallbackFromMcp;
+    if (agent.inCommercial && testingPropertiesLoading) return;
+
+    let promptValue: string;
+    if (testingPropertiesData != null) {
+      const b = testingPropertiesData.prompt?.base;
+      promptValue = typeof b === "string" ? b : "";
+    } else if (propertiesData != null) {
+      const b = propertiesData.prompt?.base;
+      promptValue = typeof b === "string" ? b : "";
+    } else {
+      promptValue = typeof agent.prompt === "string" ? agent.prompt : "";
+    }
+
     queueMicrotask(() => {
       setSavedPrompt(promptValue);
       setEditingPrompt(promptValue);
       reset();
     });
-  }, [agent, testingPropertiesData, propertiesData, propertiesLoading, reset]);
+  }, [
+    agent,
+    testingPropertiesData,
+    propertiesData,
+    propertiesLoading,
+    testingPropertiesLoading,
+    reset,
+  ]);
 
   useEffect(() => {
     if (!isAuthEnabled || !effectiveProperties?.prompt) return;
@@ -437,7 +457,10 @@ export function AgentPromptDesigner({
       }
     }
     setIsSaving(false);
-    if (ok) setDiffViewRequested(false);
+    if (ok) {
+      setDiffViewRequested(false);
+      void refetchTestingProperties();
+    }
   };
 
   const savedTestingDiffersFromProduction = useMemo(() => {
@@ -494,7 +517,38 @@ export function AgentPromptDesigner({
 
       const ok = await promotePromptApi(agentId, payload);
       if (ok) {
-        toast.success("Prompt subido a producción 🚀");
+        const syncBody: Record<string, unknown> = { base: payload.prompt };
+        if (payload.auth != null) {
+          syncBody.auth = payload.auth;
+          const ep = effectiveProperties?.prompt;
+          if (ep) {
+            syncBody.isMultiFunctionCallingEnable =
+              ep.isMultiFunctionCallingEnable;
+            syncBody.model = ep.model ?? "gemini-2.5-flash";
+            syncBody.temperature =
+              ep.temperature !== undefined && ep.temperature !== null
+                ? Number(ep.temperature)
+                : 0.4;
+          }
+        }
+        const synced = await updateTestingPropertyDocument(
+          agentId,
+          "prompt",
+          syncBody,
+        );
+        if (!synced) {
+          toast.error(
+            "Producción actualizada, pero no se pudo sincronizar el borrador en testing. Guarda de nuevo el prompt.",
+          );
+        } else {
+          setSavedPrompt(editingPrompt);
+          if (isAuthEnabled) {
+            setSavedAuthPrompt(editingAuthPrompt);
+            setSavedUnauthPrompt(editingUnauthPrompt);
+          }
+          void refetchTestingProperties();
+          toast.success("Prompt subido a producción 🚀");
+        }
         setIsPromoteDialogOpen(false);
         await refetchProductionPrompt();
       }
