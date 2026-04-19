@@ -799,6 +799,12 @@ export async function patchAgent(
   const rawMode =
     bodyObj.firestore_data_mode ?? bodyObj.firestoreDataMode;
   if (rawMode !== undefined) {
+    if (!isOperationsAdmin(authCtx.userRole)) {
+      return ApiErrors.forbidden(
+        c,
+        "Solo administradores pueden cambiar el modo de datos MCP (firestore_data_mode).",
+      );
+    }
     if (!isFirestoreDataMode(rawMode)) {
       return ApiErrors.validation(
         c,

@@ -80,6 +80,7 @@ export const changelogData: Record<string, ChangelogEntry> = {
       ],
       changed: [
         "`fetchAgentById` siempre devuelve `firestoreDataMode` (por defecto `auto`) para hidratar el selector sin valores vacíos.",
+        "El selector de modo MCP en el editor solo lo ven usuarios con rol admin; `PATCH /api/agents/:id` rechaza cambios de `firestore_data_mode` si el rol no es administrador.",
       ],
     },
   },

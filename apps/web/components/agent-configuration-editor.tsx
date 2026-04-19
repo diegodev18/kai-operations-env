@@ -1002,62 +1002,64 @@ export function AgentConfigurationEditor({
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
-                    <div className="space-y-1">
-                      <Label htmlFor="agent-firestore-data-mode">
-                        Datos MCP (producción vs prueba)
-                      </Label>
-                      <p className="text-xs text-muted-foreground font-normal">
-                        Define si MCP-KAI-AGENTS y tools MCP leen{" "}
-                        <code className="rounded bg-muted px-1">properties</code> /{" "}
-                        <code className="rounded bg-muted px-1">tools</code> de
-                        producción o de{" "}
-                        <code className="rounded bg-muted px-1">testing/data</code>.
-                      </p>
-                    </div>
-                    <Select
-                      value={firestoreDataMode}
-                      onValueChange={(v) => {
-                        void handleFirestoreDataModeChange(
-                          v as "auto" | "testing" | "production",
-                        );
-                      }}
-                      disabled={savingFirestoreDataMode}
-                    >
-                      <SelectTrigger
-                        id="agent-firestore-data-mode"
-                        className="w-full"
+                  {isAdmin && (
+                    <div className="space-y-2">
+                      <div className="space-y-1">
+                        <Label htmlFor="agent-firestore-data-mode">
+                          Datos MCP (producción vs prueba)
+                        </Label>
+                        <p className="text-xs text-muted-foreground font-normal">
+                          Define si MCP-KAI-AGENTS y tools MCP leen{" "}
+                          <code className="rounded bg-muted px-1">properties</code> /{" "}
+                          <code className="rounded bg-muted px-1">tools</code> de
+                          producción o de{" "}
+                          <code className="rounded bg-muted px-1">testing/data</code>.
+                        </p>
+                      </div>
+                      <Select
+                        value={firestoreDataMode}
+                        onValueChange={(v) => {
+                          void handleFirestoreDataModeChange(
+                            v as "auto" | "testing" | "production",
+                          );
+                        }}
+                        disabled={savingFirestoreDataMode}
                       >
-                        <SelectValue placeholder="Modo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="auto">
-                          <div className="flex flex-col gap-0.5">
-                            <span>Automático (número de negocio de prueba)</span>
-                            <span className="text-xs text-muted-foreground font-normal">
-                              Solo números en lista de prueba usan datos de testing.
-                            </span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="testing">
-                          <div className="flex flex-col gap-0.5">
-                            <span>Siempre datos de prueba</span>
-                            <span className="text-xs text-muted-foreground font-normal">
-                              Siempre rutas bajo testing/data.
-                            </span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="production">
-                          <div className="flex flex-col gap-0.5">
-                            <span>Siempre producción</span>
-                            <span className="text-xs text-muted-foreground font-normal">
-                              Nunca testing/data, aunque el número sea de prueba.
-                            </span>
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                        <SelectTrigger
+                          id="agent-firestore-data-mode"
+                          className="w-full"
+                        >
+                          <SelectValue placeholder="Modo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="auto">
+                            <div className="flex flex-col gap-0.5">
+                              <span>Automático (número de negocio de prueba)</span>
+                              <span className="text-xs text-muted-foreground font-normal">
+                                Solo números en lista de prueba usan datos de testing.
+                              </span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="testing">
+                            <div className="flex flex-col gap-0.5">
+                              <span>Siempre datos de prueba</span>
+                              <span className="text-xs text-muted-foreground font-normal">
+                                Siempre rutas bajo testing/data.
+                              </span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="production">
+                            <div className="flex flex-col gap-0.5">
+                              <span>Siempre producción</span>
+                              <span className="text-xs text-muted-foreground font-normal">
+                                Nunca testing/data, aunque el número sea de prueba.
+                              </span>
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                     </>
                   )}
                 </div>
