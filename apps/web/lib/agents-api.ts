@@ -854,13 +854,13 @@ export async function fetchAgentById(agentId: string): Promise<Agent | null> {
     const j = (await res.json()) as Record<string, unknown>;
     const firestoreDataModeRaw =
       j.firestoreDataMode ?? j.firestore_data_mode;
-    const firestoreDataMode =
+    const firestoreDataMode: "auto" | "testing" | "production" =
       firestoreDataModeRaw === "testing" ||
       firestoreDataModeRaw === "production"
         ? firestoreDataModeRaw
         : firestoreDataModeRaw === "auto"
           ? "auto"
-          : undefined;
+          : "auto";
     return {
       ...j,
       id: typeof j.id === "string" ? j.id : agentId,
@@ -868,7 +868,7 @@ export async function fetchAgentById(agentId: string): Promise<Agent | null> {
       inCommercial: Boolean(j.in_commercial ?? j.inCommercial),
       inProduction: Boolean(j.in_production ?? j.inProduction),
       status: normalizeAgentStatus(j.status),
-      ...(firestoreDataMode != null ? { firestoreDataMode } : {}),
+      firestoreDataMode,
       primarySource:
         (j.primary_source ?? j.primarySource) === "production"
           ? "production"
