@@ -405,14 +405,47 @@ async function provisionAgentAfterComplete(
   });
   await batch.commit();
 
-  if (ownerPhone) {
-    await db
+  if (ownerPhone.trim().length > 0) {
+    const usersBuildersSnap = await db
       .collection(USERS_BUILDERS)
-      .doc(ownerPhone)
-      .set(
-        { assignedModules: moduleAccess, updatedAt: serverTimestampField() },
+      .where("phoneNumber", "==", ownerPhone)
+      .limit(1)
+      .get();
+
+    if (usersBuildersSnap.empty) {
+      logger.warn(
+        "[agents/drafts] provisionAgentAfterComplete: no usersBuilders doc for phoneNumber; skipping assignedModules and agentDrafts",
+        { agentId: draftRef.id, ownerPhone },
+      );
+    } else {
+      const userBuilderRef = usersBuildersSnap.docs[0]!.ref;
+      const ts = serverTimestampField();
+      await userBuilderRef.set(
+        { assignedModules: moduleAccess, updatedAt: ts },
         { merge: true },
       );
+
+      const businessName =
+        typeof draftData.business_name === "string"
+          ? draftData.business_name.trim()
+          : "";
+      const industry =
+        typeof draftData.industry === "string" ? draftData.industry.trim() : "";
+
+      await userBuilderRef
+        .collection("agentDrafts")
+        .doc(draftRef.id)
+        .set(
+          {
+            config_id: draftRef.id,
+            business_name: businessName,
+            industry,
+            status: "ready_for_deployment",
+            created_at: ts,
+          },
+          { merge: true },
+        );
+    }
   }
 
   logger.info("[agents/drafts] agent_created", {
