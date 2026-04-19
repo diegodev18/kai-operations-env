@@ -102,11 +102,19 @@ export const changelogData: Record<string, ChangelogEntry> = {
   "2.4.18": {
     date: "2026-04-18",
     description:
-      "Atlas: diseño de prompt alineado con producción tras promover y recarga estable",
+      "Atlas: diseño de prompt — bug de recarga (versión antigua), alinear testing con producción al promover",
     changes: {
       fixed: [
-        "En `/agents/:id/prompt-design`, al subir el prompt a producción solo se actualizaba Firestore de producción y el MCP, mientras la recarga seguía leyendo el documento de testing: si el editor y testing no coincidían, tras F5 reaparecía una versión antigua. Tras un promote exitoso se sincroniza también `testing/data/properties/prompt` (base y auth cuando aplica).",
-        "La hidratación del editor esperaba a que termine la carga de propiedades de testing cuando el agente está en comercial, y ya no usa `||` entre cadenas (una base vacía legítima no cae al fallback del MCP). El hook `useTestingProperties` arranca en carga si hay `agentId`. Tras guardar o promover se refrescan los datos de testing.",
+        "En `/agents/:id/prompt-design` (`AgentPromptDesigner`), «Subir a producción» llamaba a `POST .../promote-prompt-to-production`, que solo escribe `agent_configurations/{id}/properties/prompt` y `mcp_configuration.system_prompt` en producción. La pantalla y `GET .../properties` (con agente en comercial) leen el prompt desde `testing/data/properties`: si el texto promovido no estaba guardado en testing o había desfase, tras recargar volvía la primera versión u otra copia vieja.",
+        "Condición de carrera en la hidratación: el efecto que inicializa `savedPrompt` / `editingPrompt` solo esperaba `propertiesLoading` y usaba `baseTesting || baseProperties || agent.prompt`, de modo que una cadena vacía o datos aún no cargados podían forzar el fallback al MCP antes de tiempo.",
+      ],
+      changed: [
+        "`executePromote`: tras un promote exitoso, `PATCH .../testing/properties/prompt` con el mismo `base` (y `auth` + `model` / `temperature` / `isMultiFunctionCallingEnable` cuando el payload incluye variantes auth), vía `updateTestingPropertyDocument`, para que testing coincida con lo desplegado.",
+        "Toasts: mensaje de éxito solo si la sincronización con testing responde bien; si falla el PATCH tras haber promovido, aviso de error pidiendo guardar de nuevo (producción ya quedó actualizada).",
+        "Tras sync correcto: actualización de `savedPrompt` (y prompts auth/unauth si aplica), `refetchTestingProperties` y `refetchProductionPrompt` como antes.",
+        "Hidratación del prompt: si `agent.inCommercial`, no aplicar el efecto hasta `!testingPropertiesLoading`; orden de fuentes explícito — datos de `useTestingProperties` si existen, si no `useAgentProperties`, si no `agent.prompt` — sin encadenar con `||` sobre strings.",
+        "`hooks/agent-testing-properties.ts`: `isLoading` inicial `true` cuando hay `agentId` (evita un frame en falso «no cargando»); al limpiar `agentId`, `setIsLoading(false)`.",
+        "`handleSave`: tras guardado exitoso, `refetchTestingProperties` para alinear el hook con Firestore sin depender de F5.",
       ],
     },
   },
