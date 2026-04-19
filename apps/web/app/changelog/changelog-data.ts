@@ -69,6 +69,21 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] =
   ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.4.19": {
+    date: "2026-04-18",
+    description:
+      "Database Duplicate/clone: Firestore por ambiente, duplicar documento recursivo y respuestas estables",
+    changes: {
+      fixed: [
+        "En la API, duplicar/clonar y el resto de rutas bajo `/api/database` que distinguen testing vs production llamaban siempre al mismo Firestore (credenciales de producción). El destino se comprobaba en el mismo proyecto que el origen, lo que generaba el error «El documento ya existe en destino» aunque en testing no existiera. Se añade `getFirestoreForEnvironment` y credenciales opcionales de testing (`FIREBASE_SERVICE_ACCOUNT_JSON_TESTING` o `apps/api/src/tokens/firebase.testing.json`).",
+        "Clonaciones recursivas muy grandes podían devolver HTML de error interno en lugar de JSON (respuesta demasiado pesada o fallos al serializar). El log de éxito limita las entradas devueltas (`log.documentos`) y expone `logDocumentosTotal` cuando hay truncado; al escribir se eliminan `undefined` y se reescriben `DocumentReference` al Firestore de destino para copias entre proyectos.",
+        "En Duplicate / clone (`/database/duplicate-clone`), la respuesta se interpreta con `text` + `JSON.parse` seguro: si el servidor devuelve HTML (p. ej. 500), se muestra un mensaje claro en lugar de «Unexpected token…».",
+      ],
+      added: [
+        "Operación «Duplicar documento» con checkbox «Incluir subcolecciones (clonación recursiva)», preview de subcolecciones y exclusiones (mismo patrón que duplicar colección y clonar recursivo). Documentado en `.env.example` el JSON de servicio para el proyecto Firebase de testing.",
+      ],
+    },
+  },
   "2.4.18": {
     date: "2026-04-18",
     description:

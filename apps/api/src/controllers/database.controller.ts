@@ -20,6 +20,8 @@ async function requireAdmin(c: Context) {
 const PREVIEW_LIMIT = 10;
 const MAX_DOCUMENTS_PER_REQUEST = 100;
 const MAX_DUPLICAR_COLECCION = 500;
+/** Evita respuestas JSON enormes (p. ej. miles de rutas) que rompen el proxy o el cliente. */
+const MAX_LOG_DOCUMENTOS_EN_RESPUESTA = 400;
 
 interface ActualizarDocumentoBody {
   datosActualizados: Record<string, unknown>;
@@ -194,10 +196,12 @@ export async function clonarRecursivo(c: Context) {
     return c.json({ error: message, success: false }, 500);
   }
 
+  const { extra, log: logResp } = trimDuplicacionLogParaRespuesta(log);
   return c.json({
-    log,
+    log: logResp,
     mensaje: `Clonación recursiva completada: ${String(log.resumen.exitosos)} exitosos, ${String(log.resumen.fallidos)} fallidos, ${String(log.resumen.omitidos)} omitidos`,
     success: true,
+    ...extra,
   });
 }
 
@@ -278,7 +282,8 @@ export async function duplicarColeccion(c: Context) {
       }
 
       try {
-        await docRefDestino.set(docData);
+        const prepared = prepareDocumentDataForWrite(docData as Record<string, unknown>, docRefDestino.firestore);
+        await docRefDestino.set(prepared);
         if (!docData.id) {
           try {
             await docRefDestino.update({ id: docId });
@@ -297,10 +302,12 @@ export async function duplicarColeccion(c: Context) {
     }
 
     log.resumen.total = snapshot.size;
+    const { extra, log: logResp } = trimDuplicacionLogParaRespuesta(log);
     return c.json({
-      log,
+      log: logResp,
       mensaje: `Duplicación completada: ${String(log.resumen.exitosos)} exitosos, ${String(log.resumen.fallidos)} fallidos, ${String(log.resumen.omitidos)} omitidos`,
       success: true,
+      ...extra,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -367,24 +374,38 @@ export async function duplicarDocumento(c: Context) {
       return c.json({ error: "El documento ya existe en destino y sobrescribir=false", log, success: false }, 400);
     }
 
-    await docRefDestino.set(docData);
-    const docId = rutaD.split("/").pop() ?? docRefDestino.id;
-    if (!docData.id) {
-      try {
-        await docRefDestino.update({ id: docId });
-      } catch {
-        // ignore
+    const recursivo = opciones?.recursivo ?? false;
+    if (recursivo) {
+      await copiarDocumentoRecursivo(docRefOrigen, docRefDestino, log, {
+        excluirColecciones: opciones?.excluirColecciones ?? [],
+        sobrescribir: opciones?.sobrescribir ?? false,
+      });
+      log.resumen.total = log.resumen.exitosos + log.resumen.fallidos + log.resumen.omitidos;
+    } else {
+      const prepared = prepareDocumentDataForWrite(docData as Record<string, unknown>, docRefDestino.firestore);
+      await docRefDestino.set(prepared);
+      const docId = rutaD.split("/").pop() ?? docRefDestino.id;
+      if (!docData.id) {
+        try {
+          await docRefDestino.update({ id: docId });
+        } catch {
+          // ignore
+        }
       }
+
+      log.resumen.total = 1;
+      log.resumen.exitosos = 1;
+      log.documentos.push({ estado: "exitoso", id: docRefDestino.path });
     }
 
-    log.resumen.total = 1;
-    log.resumen.exitosos = 1;
-    log.documentos.push({ estado: "exitoso", id: docRefDestino.path });
-
+    const { extra, log: logResp } = trimDuplicacionLogParaRespuesta(log);
     return c.json({
-      log,
-      mensaje: `Documento duplicado exitosamente${docDestinoSnap.exists ? " (sobrescrito)" : ""}`,
+      log: logResp,
+      mensaje: recursivo
+        ? `Duplicación de documento (recursiva) completada: ${String(log.resumen.exitosos)} exitosos, ${String(log.resumen.fallidos)} fallidos, ${String(log.resumen.omitidos)} omitidos`
+        : `Documento duplicado exitosamente${docDestinoSnap.exists ? " (sobrescrito)" : ""}`,
       success: true,
+      ...extra,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -720,6 +741,94 @@ function buildPayload(documento: unknown): Record<string, unknown> {
   return restored !== null && typeof restored === "object" && !Array.isArray(restored) ? (restored as Record<string, unknown>) : payload;
 }
 
+function trimDuplicacionLogParaRespuesta(log: DuplicacionLog): {
+  extra: { logDocumentosTotal?: number };
+  log: DuplicacionLog;
+} {
+  const n = log.documentos.length;
+  if (n <= MAX_LOG_DOCUMENTOS_EN_RESPUESTA) {
+    return { log, extra: {} };
+  }
+  return {
+    extra: { logDocumentosTotal: n },
+    log: { ...log, documentos: log.documentos.slice(0, MAX_LOG_DOCUMENTOS_EN_RESPUESTA) },
+  };
+}
+
+/** Firestore rechaza `undefined` en profundidad; las refs deben pertenecer al Firestore de destino al clonar entre proyectos. */
+function prepareDocumentDataForWrite(
+  docData: Record<string, unknown>,
+  targetDb: Firestore.Firestore,
+): Record<string, unknown> {
+  const stripped = stripUndefinedDeep(docData) as Record<string, unknown>;
+  return rewriteDocumentReferencesForTargetDb(stripped, targetDb) as Record<string, unknown>;
+}
+
+function stripUndefinedDeep(value: unknown): unknown {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value === null || typeof value !== "object") {
+    return value;
+  }
+  if (value instanceof admin.firestore.DocumentReference) {
+    return value;
+  }
+  if (value instanceof admin.firestore.Timestamp) {
+    return value;
+  }
+  if (value instanceof admin.firestore.GeoPoint) {
+    return value;
+  }
+  if (value instanceof admin.firestore.FieldValue) {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map(stripUndefinedDeep).filter((v) => v !== undefined);
+  }
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (v === undefined) {
+      continue;
+    }
+    const s = stripUndefinedDeep(v);
+    if (s !== undefined) {
+      out[k] = s;
+    }
+  }
+  return out;
+}
+
+function rewriteDocumentReferencesForTargetDb(value: unknown, targetDb: Firestore.Firestore): unknown {
+  if (value instanceof admin.firestore.DocumentReference) {
+    try {
+      return targetDb.doc(value.path);
+    } catch {
+      return value;
+    }
+  }
+  if (value === null || typeof value !== "object") {
+    return value;
+  }
+  if (value instanceof admin.firestore.Timestamp) {
+    return value;
+  }
+  if (value instanceof admin.firestore.GeoPoint) {
+    return value;
+  }
+  if (value instanceof admin.firestore.FieldValue) {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => rewriteDocumentReferencesForTargetDb(item, targetDb));
+  }
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    out[k] = rewriteDocumentReferencesForTargetDb(v, targetDb);
+  }
+  return out;
+}
+
 async function copiarDocumentoRecursivo(
   docRefOrigen: Firestore.DocumentReference,
   docRefDestino: Firestore.DocumentReference,
@@ -742,7 +851,8 @@ async function copiarDocumentoRecursivo(
       }
     }
 
-    await docRefDestino.set(docData);
+    const prepared = prepareDocumentDataForWrite(docData as Record<string, unknown>, docRefDestino.firestore);
+    await docRefDestino.set(prepared);
     const docId = docRefDestino.id;
     if (!docData.id) {
       try {

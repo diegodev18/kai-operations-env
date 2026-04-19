@@ -51,7 +51,13 @@ export default function DuplicarClonarPage() {
   const [nuevaExcluida, setNuevaExcluida] = useState("");
   const [previewSubLoading, setPreviewSubLoading] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [resultado, setResultado] = useState<{ success: boolean; mensaje?: string; log?: DuplicacionLog; error?: string } | null>(null);
+  const [resultado, setResultado] = useState<{
+    error?: string;
+    log?: DuplicacionLog;
+    logDocumentosTotal?: number;
+    mensaje?: string;
+    success: boolean;
+  } | null>(null);
 
   const envOptions = allowedEnvironments.length > 0 ? allowedEnvironments : (["testing", "production"] as Environment[]);
 
@@ -131,6 +137,12 @@ export default function DuplicarClonarPage() {
         const excluir = subcolecciones.map((c) => c.id).filter((id) => !subcoleccionesIncluidas.has(id));
         (body.opciones as Record<string, unknown>).excluirColecciones = [...excluir, ...manualExcluidas];
       }
+    } else if (operacion === "duplicar-documento") {
+      (body.opciones as Record<string, unknown>).recursivo = recursivo;
+      if (recursivo) {
+        const excluir = subcolecciones.map((c) => c.id).filter((id) => !subcoleccionesIncluidas.has(id));
+        (body.opciones as Record<string, unknown>).excluirColecciones = [...excluir, ...manualExcluidas];
+      }
     } else if (operacion === "clonar-recursivo") {
       const excluir = subcolecciones.map((c) => c.id).filter((id) => !subcoleccionesIncluidas.has(id));
       (body.opciones as Record<string, unknown>).excluirColecciones = [...excluir, ...manualExcluidas];
@@ -143,13 +155,31 @@ export default function DuplicarClonarPage() {
 
     try {
       const res = await fetch(endpoint, { credentials: "include", headers: { "Content-Type": "application/json" }, method: "POST", body: JSON.stringify(body) });
-      const data = await res.json();
+      const text = await res.text();
+      let data: { error?: string; log?: DuplicacionLog; logDocumentosTotal?: number; mensaje?: string; success?: boolean };
+      try {
+        data = text ? (JSON.parse(text) as typeof data) : {};
+      } catch {
+        const preview = text.replace(/\s+/g, " ").trim().slice(0, 280);
+        const looksHtml = preview.startsWith("<") || preview.toLowerCase().includes("<!doctype");
+        const errMsg = looksHtml
+          ? `Error HTTP ${String(res.status)}: el servidor devolvió HTML (p. ej. error interno o tiempo de espera agotado), no JSON. Si la operación fue muy grande, prueba excluir más subcolecciones o revisa los logs de la API.`
+          : preview || `Error HTTP ${String(res.status)} (respuesta no JSON)`;
+        setResultado({ error: errMsg, success: false });
+        toast.error(res.status >= 500 ? `Error del servidor (${String(res.status)})` : "Respuesta no válida");
+        return;
+      }
       if (!res.ok) {
         setResultado({ error: data.error ?? "Error en la operación", success: false });
         toast.error(data.error ?? "Error");
         return;
       }
-      setResultado({ log: data.log, mensaje: data.mensaje, success: true });
+      setResultado({
+        log: data.log,
+        logDocumentosTotal: typeof data.logDocumentosTotal === "number" ? data.logDocumentosTotal : undefined,
+        mensaje: data.mensaje,
+        success: true,
+      });
       toast.success(data.mensaje ?? "Operación completada");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Error de conexión";
@@ -161,7 +191,10 @@ export default function DuplicarClonarPage() {
   }, [operacion, proyectoOrigen, proyectoDestino, rutaOrigen, rutaDestino, sobrescribir, recursivo, subcolecciones, subcoleccionesIncluidas, manualExcluidas]);
 
   const isClonarRecursivo = operacion === "clonar-recursivo";
-  const showSubcolecciones = isClonarRecursivo || (operacion === "duplicar-coleccion" && recursivo);
+  const showSubcolecciones =
+    isClonarRecursivo ||
+    (operacion === "duplicar-coleccion" && recursivo) ||
+    (operacion === "duplicar-documento" && recursivo);
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -300,10 +333,14 @@ export default function DuplicarClonarPage() {
             <Label htmlFor="sobrescribir" className="font-normal cursor-pointer">Sobrescribir si ya existe en destino</Label>
           </div>
 
-          {operacion === "duplicar-coleccion" && (
+          {(operacion === "duplicar-coleccion" || operacion === "duplicar-documento") && (
             <div className="flex items-center gap-2">
               <input id="recursivo" type="checkbox" className={cn("size-4 rounded border border-input accent-primary cursor-pointer")} checked={recursivo} onChange={(e) => setRecursivo(e.target.checked)} />
-              <Label htmlFor="recursivo" className="font-normal cursor-pointer">Duplicar recursivamente (incluir subcolecciones)</Label>
+              <Label htmlFor="recursivo" className="font-normal cursor-pointer">
+                {operacion === "duplicar-documento"
+                  ? "Incluir subcolecciones (clonación recursiva)"
+                  : "Duplicar recursivamente (incluir subcolecciones)"}
+              </Label>
             </div>
           )}
 
@@ -357,9 +394,14 @@ export default function DuplicarClonarPage() {
             {resultado.mensaje && <CardDescription>{resultado.mensaje}</CardDescription>}
             {resultado.error && <p className="text-sm text-destructive">{resultado.error}</p>}
           </CardHeader>
-          {resultado.log && (
+            {resultado.log && (
             <CardContent>
               <div className="rounded-md border p-3 text-sm space-y-2">
+                {resultado.logDocumentosTotal != null && resultado.logDocumentosTotal > resultado.log.documentos.length && (
+                  <p className="text-muted-foreground">
+                    El log en pantalla muestra {resultado.log.documentos.length} entradas; la operación registró {resultado.logDocumentosTotal} rutas en total.
+                  </p>
+                )}
                 <p>Exitosos: {resultado.log.resumen.exitosos}, Fallidos: {resultado.log.resumen.fallidos}, Omitidos: {resultado.log.resumen.omitidos}</p>
                 {resultado.log.documentos.length > 0 && (
                   <ul className="space-y-1 max-h-[200px] overflow-auto">
