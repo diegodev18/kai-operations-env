@@ -12,8 +12,11 @@ import {
 import { FIREBASE_APP_NAME } from "@/config";
 
 const TOKEN_FILE_PRODUCTION = "firebase.production.json";
+const TOKEN_FILE_TESTING = "firebase.testing.json";
 
 export { FieldValue, Timestamp };
+
+export type FirestoreEnvironment = "production" | "testing";
 
 function getTokensDir(): string {
   return typeof import.meta.dir !== "undefined"
@@ -43,7 +46,28 @@ function loadServiceAccountProduction(): admin.ServiceAccount | null {
   }
 }
 
+function loadServiceAccountTesting(): admin.ServiceAccount | null {
+  const envJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON_TESTING;
+  if (envJson) {
+    try {
+      return JSON.parse(envJson) as admin.ServiceAccount;
+    } catch {
+      return null;
+    }
+  }
+
+  const filePath = join(getTokensDir(), TOKEN_FILE_TESTING);
+  try {
+    const raw = readFileSync(filePath, "utf-8");
+    if (!raw.trim()) return null;
+    return JSON.parse(raw) as admin.ServiceAccount;
+  } catch {
+    return null;
+  }
+}
+
 let firestoreInstance: Firestore | null = null;
+let firestoreTestingInstance: Firestore | null = null;
 
 /** Bun + gRPC de Firestore suele fallar; REST evita @grpc/grpc-js. Desactiva con FIRESTORE_PREFER_REST=0. */
 function shouldPreferFirestoreRest(): boolean {
@@ -78,4 +102,37 @@ export function getFirestore(): Firestore {
     ? initializeFirestore(firebaseApp, { preferRest: true })
     : firebaseApp.firestore();
   return firestoreInstance;
+}
+
+/**
+ * Firestore según ambiente de datos (producción vs proyecto Firebase de testing).
+ * Duplicar/clonar entre ambientes requiere credenciales de testing (`FIREBASE_SERVICE_ACCOUNT_JSON_TESTING` o `src/tokens/firebase.testing.json`).
+ */
+export function getFirestoreForEnvironment(env: FirestoreEnvironment): Firestore {
+  if (env === "production") {
+    return getFirestore();
+  }
+
+  if (firestoreTestingInstance) {
+    return firestoreTestingInstance;
+  }
+
+  const serviceAccount = loadServiceAccountTesting();
+  if (!serviceAccount) {
+    const msg =
+      "Credenciales Firebase (testing) no encontradas. Define FIREBASE_SERVICE_ACCOUNT_JSON_TESTING o coloca el JSON de cuenta de servicio en src/tokens/firebase.testing.json para operar contra el ambiente testing.";
+    console.error(`[firestore] ${msg}`);
+    throw new Error(msg);
+  }
+
+  const testingAppName = `${FIREBASE_APP_NAME}-firestore-testing`;
+  if (!admin.apps.some((app) => app?.name === testingAppName)) {
+    admin.initializeApp({ credential: admin.credential.cert(serviceAccount) }, testingAppName);
+  }
+
+  const firebaseApp = admin.app(testingAppName);
+  firestoreTestingInstance = shouldPreferFirestoreRest()
+    ? initializeFirestore(firebaseApp, { preferRest: true })
+    : firebaseApp.firestore();
+  return firestoreTestingInstance;
 }

@@ -4,7 +4,7 @@ import type { Context } from "hono";
 import admin from "firebase-admin";
 
 import { auth } from "@/lib/auth";
-import { getFirestore } from "@/lib/firestore";
+import { getFirestoreForEnvironment } from "@/lib/firestore";
 import logger, { formatError } from "@/lib/logger";
 import { isOperationsAdmin } from "@/utils/operations-access";
 import { resolveSessionUserRole } from "@/utils/sessionUser";
@@ -106,7 +106,7 @@ export async function actualizarDocumento(c: Context) {
   };
 
   try {
-    const db = getFirestore();
+    const db = getFirestoreForEnvironment(env);
     const docRef = getDocumentRef(db, ruta);
     const docSnap = await docRef.get();
     if (!docSnap.exists) {
@@ -179,8 +179,8 @@ export async function clonarRecursivo(c: Context) {
   const log = createDuplicacionLog("clonacion_recursiva", proyectoOrigen, proyectoDestino, rutaO, rutaD);
 
   try {
-    const dbOrigen = getFirestore();
-    const dbDestino = getFirestore();
+    const dbOrigen = getFirestoreForEnvironment(proyectoOrigen);
+    const dbDestino = getFirestoreForEnvironment(proyectoDestino);
     const docRefOrigen = getDocumentRef(dbOrigen, rutaO);
     const docRefDestino = getDocumentRef(dbDestino, rutaD);
 
@@ -239,8 +239,8 @@ export async function duplicarColeccion(c: Context) {
   const log = createDuplicacionLog("duplicacion_coleccion", proyectoOrigen, proyectoDestino, rutaO, rutaD);
 
   try {
-    const dbOrigen = getFirestore();
-    const dbDestino = getFirestore();
+    const dbOrigen = getFirestoreForEnvironment(proyectoOrigen);
+    const dbDestino = getFirestoreForEnvironment(proyectoDestino);
     const colRefOrigen = getCollectionRef(dbOrigen, rutaO);
     const snapshot = await colRefOrigen.get();
 
@@ -347,8 +347,8 @@ export async function duplicarDocumento(c: Context) {
   const log = createDuplicacionLog("duplicacion_documento", proyectoOrigen, proyectoDestino, rutaO, rutaD);
 
   try {
-    const dbOrigen = getFirestore();
-    const dbDestino = getFirestore();
+    const dbOrigen = getFirestoreForEnvironment(proyectoOrigen);
+    const dbDestino = getFirestoreForEnvironment(proyectoDestino);
     const docRefOrigen = getDocumentRef(dbOrigen, rutaO);
     const docRefDestino = getDocumentRef(dbDestino, rutaD);
     const docSnap = await docRefOrigen.get();
@@ -413,7 +413,7 @@ export async function getDocument(c: Context) {
   }
 
   try {
-    const db = getFirestore();
+    const db = getFirestoreForEnvironment(env);
     const docRef = getDocumentRef(db, rutaDocumento);
     const docSnap = await docRef.get();
     if (!docSnap.exists) {
@@ -482,7 +482,7 @@ export async function getDocumentos(c: Context) {
     }
 
     try {
-      const db = getFirestore();
+      const db = getFirestoreForEnvironment(env);
       const docRef = getDocumentRef(db, ruta);
       const docSnap = await docRef.get();
       if (!docSnap.exists) {
@@ -522,7 +522,7 @@ export async function listSubcollections(c: Context) {
   }
 
   try {
-    const db = getFirestore();
+    const db = getFirestoreForEnvironment(env);
     const docRef = getDocumentRef(db, rutaDocumento);
     const collections = await docRef.listCollections();
     return c.json({ subcolecciones: collections.map((col) => ({ id: col.id })), success: true });
@@ -547,7 +547,7 @@ export async function previewCollection(c: Context) {
   }
 
   try {
-    const db = getFirestore();
+    const db = getFirestoreForEnvironment(env);
     const collectionRef = getCollectionRef(db, rutaColeccion);
     const snapshot = await collectionRef.limit(PREVIEW_LIMIT).get();
 
@@ -603,7 +603,7 @@ export async function subirDocumentos(c: Context) {
     const resultados: ResultadosSubida = { documentos: [], errores: [], exitosos: 0, fallidos: 0, omitidos: 0 };
 
     try {
-      const db = getFirestore();
+      const db = getFirestoreForEnvironment(env);
       if (isDocumentPath) {
         const docRef = getDocumentRef(db, path);
         const existente = await docRef.get();
@@ -647,7 +647,7 @@ export async function subirDocumentos(c: Context) {
     return c.json({ error: `Máximo ${String(MAX_DOCUMENTS_PER_REQUEST)} documentos por petición. Usa lotes en el cliente.` }, 400);
   }
 
-  const db = getFirestore();
+  const db = getFirestoreForEnvironment(env);
   let collectionRef: Firestore.CollectionReference;
   try {
     collectionRef = getCollectionRef(db, path);
