@@ -69,6 +69,20 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] =
   ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.4.20": {
+    date: "2026-04-18",
+    description:
+      "Atlas: modo de datos MCP (`firestore_data_mode`) en raíz del agente y control en configuración",
+    changes: {
+      added: [
+        "Campo raíz `firestore_data_mode` (`auto` | `testing` | `production`) documentado en contrato de agente; validación en `PATCH /api/agents/:id` junto con `version`; constantes `firestore-data-mode` y exposición en `parseAgentDoc` / detalle del agente.",
+        "En el editor de configuración del agente, selector «Datos MCP (producción vs prueba)» que guarda vía `patchAgent` y describe el comportamiento respecto a `testing/data` vs colecciones de producción en MCP-KAI-AGENTS y Tools MCP.",
+      ],
+      changed: [
+        "`fetchAgentById` siempre devuelve `firestoreDataMode` (por defecto `auto`) para hidratar el selector sin valores vacíos.",
+      ],
+    },
+  },
   "2.4.19": {
     date: "2026-04-18",
     description:
