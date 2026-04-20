@@ -69,6 +69,21 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] =
   ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.4.22": {
+    date: "2026-04-20",
+    description:
+      "Atlas: diseño de prompt — conmutador Markdown/Raw y toggle en cabecera de cada bloque",
+    changes: {
+      added: [
+        "Conmutador Markdown / Raw: vista visual (TipTap) o texto plano monoespaciado (`Textarea`) sobre el mismo string markdown; al volver a visual se remonta el editor para hidratar el contenido.",
+        "Componente UI `Switch` (`@radix-ui/react-switch`) y `PromptMarkdownViewToggle` exportado desde `prompt-markdown-editor` para reutilizar el mismo control compacto.",
+        "Props `rawView` y `markdownPaneRemountKey` en `PromptMarkdownEditor` para modo controlado desde el padre sin barra interna.",
+      ],
+      changed: [
+        "En `AgentPromptDesigner`, el toggle Markdown/Raw pasa a la misma fila que «Base Prompt», «Unauth (Public)» y «Auth (Verified)» (solo cuando se muestra el editor, no en diff ni sugerencia), liberando la franja superior del área de edición.",
+      ],
+    },
+  },
   "2.4.21": {
     date: "2026-04-20",
     description:
