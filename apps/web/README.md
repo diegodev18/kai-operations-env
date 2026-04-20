@@ -40,6 +40,7 @@ bun run test:e2e:form
 | `FORM_BUILDER_STOP_AT` | `before-review` (por defecto): avanza hasta el paso **Revisión** y no pulsa “Crear agente”. |
 | `FORM_BUILDER_NO_PAUSE_END=1` | No llama a `page.pause()` al final (por ejemplo para que el test termine solo en local). |
 | `FORM_BUILDER_PAUSE_BEFORE_NEXT=1` | Antes de cada clic en **Siguiente**, abre el inspector de Playwright; revisa la pantalla y pulsa **Resume** para que el test continúe (no aplica en CI). |
+| `FORM_BUILDER_TOOL_MANUAL=1` | Tras **Herramientas**, en lugar de **No, continuar** en el modal, entra a **Manual de herramientas**, espera a que termine la generación con IA si aplica, activa vista **Raw**, escribe un markdown mínimo y avanza a **Pipelines**. Sin esta variable el test pulsa **No, continuar** (ruta rápida por defecto / CI). |
 | `CI` | Si está definido, el navegador va en **headless**. |
 
 ### Comandos
