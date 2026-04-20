@@ -31,6 +31,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ParameterSchemaEditor } from "@/components/parameter-schema-editor";
+import { parametersSchemaForApi } from "@/utils/parameter-schema-editor";
 import { ToolsCatalogSearchList } from "@/components/tools-catalog-search-list";
 import { PromoteDiffDialog } from "@/components/promote-diff-dialog";
 import { SyncFromCatalogDialog } from "@/components/sync-from-catalog-dialog";
@@ -489,7 +490,8 @@ function AddToolDialog({
         description: description.trim(),
         type,
       };
-      if (parameters && Object.keys(parameters).length > 0) body.parameters = parameters;
+      const paramsForApi = parametersSchemaForApi(parameters);
+      if (paramsForApi) body.parameters = paramsForApi;
       if (displayName.trim()) body.displayName = displayName.trim();
       if (path.trim()) body.path = path.trim();
       const created = await createAgentTool(agentId, body);
@@ -779,7 +781,7 @@ function EditToolDialog({
           name: name.trim(),
           description: description.trim(),
           type,
-          parameters: parameters && Object.keys(parameters).length > 0 ? parameters : null,
+          parameters: parametersSchemaForApi(parameters) ?? null,
           displayName: displayName.trim() || null,
           path: path.trim() || null,
         },

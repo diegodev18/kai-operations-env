@@ -8,6 +8,9 @@ import type {
 } from "@/types/parameter-schema";
 import { SCHEMA_TYPES } from "@/types/parameter-schema";
 
+/** Filas sin nombre aún: se serializan con esta prefijo para que el estado round-tripe al padre. */
+export const DRAFT_PROPERTY_KEY_PREFIX = "__draft_";
+
 function normalizeType(t: unknown): SchemaType {
   if (typeof t !== "string") return "string";
   const lower = t.toLowerCase();
@@ -41,6 +44,9 @@ function parseProperty(
   requiredSet: Set<string>,
   idPrefix: string,
 ): EditorProperty {
+  const isDraftKey = key.startsWith(DRAFT_PROPERTY_KEY_PREFIX);
+  const displayName = isDraftKey ? "" : key;
+  const draftId = isDraftKey ? key.slice(DRAFT_PROPERTY_KEY_PREFIX.length) : "";
   const type = normalizeType(
     prop.type ?? (prop.properties ? "object" : "string"),
   );
@@ -51,11 +57,12 @@ function parseProperty(
     ? (prop.enum.filter((e): e is string => typeof e === "string") as string[])
     : undefined;
   const format = typeof prop.format === "string" ? prop.format : undefined;
-  const id = idPrefix ? `${idPrefix}.${key}` : key;
+  const id =
+    isDraftKey && draftId ? draftId : idPrefix ? `${idPrefix}.${key}` : key;
 
   const base: EditorProperty = {
     id,
-    name: key,
+    name: displayName,
     type,
     description,
     required,
@@ -155,7 +162,12 @@ function buildPropertySchema(prop: EditorProperty): Record<string, unknown> {
       .map((p) => p.name.trim());
     const properties: Record<string, unknown> = {};
     for (const p of innerProps) {
-      if (p.name.trim()) properties[p.name.trim()] = buildPropertySchema(p);
+      const k = p.name.trim();
+      if (!k) {
+        properties[`${DRAFT_PROPERTY_KEY_PREFIX}${p.id}`] = buildPropertySchema(p);
+        continue;
+      }
+      properties[k] = buildPropertySchema(p);
     }
     out.properties = properties;
     if (innerRequired.length) out.required = innerRequired;
@@ -170,7 +182,12 @@ function buildPropertySchema(prop: EditorProperty): Record<string, unknown> {
         .map((p) => p.name.trim());
       const properties: Record<string, unknown> = {};
       for (const p of innerProps) {
-        if (p.name.trim()) properties[p.name.trim()] = buildPropertySchema(p);
+        const k = p.name.trim();
+        if (!k) {
+          properties[`${DRAFT_PROPERTY_KEY_PREFIX}${p.id}`] = buildPropertySchema(p);
+          continue;
+        }
+        properties[k] = buildPropertySchema(p);
       }
       out.items = {
         type: "OBJECT",
@@ -189,7 +206,10 @@ export function editorStateToSchema(state: EditorState): Record<string, unknown>
   const properties: Record<string, unknown> = {};
   for (const prop of state.properties) {
     const key = prop.name.trim();
-    if (!key) continue;
+    if (!key) {
+      properties[`${DRAFT_PROPERTY_KEY_PREFIX}${prop.id}`] = buildPropertySchema(prop);
+      continue;
+    }
     properties[key] = buildPropertySchema(prop);
   }
   const required = state.required.filter((r) => r.trim());
@@ -198,4 +218,47 @@ export function editorStateToSchema(state: EditorState): Record<string, unknown>
     properties,
     required,
   };
+}
+
+function stripPropertiesMap(props: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(props)) {
+    if (k.startsWith(DRAFT_PROPERTY_KEY_PREFIX)) continue;
+    out[k] =
+      v && typeof v === "object" && !Array.isArray(v)
+        ? stripNestedPropertySchema(v as Record<string, unknown>)
+        : v;
+  }
+  return out;
+}
+
+function stripNestedPropertySchema(node: Record<string, unknown>): Record<string, unknown> {
+  const next = { ...node };
+  if (next.properties && typeof next.properties === "object" && !Array.isArray(next.properties)) {
+    next.properties = stripPropertiesMap(next.properties as Record<string, unknown>);
+  }
+  if (next.items && typeof next.items === "object" && !Array.isArray(next.items)) {
+    next.items = stripNestedPropertySchema(next.items as Record<string, unknown>);
+  }
+  return next;
+}
+
+/** Quita parámetros de borrador antes de persistir en API (no deben existir en producción). */
+export function stripDraftPropertyKeysFromSchema(
+  schema: Record<string, unknown> | null | undefined,
+): Record<string, unknown> | null {
+  if (!schema || typeof schema !== "object") return null;
+  return stripNestedPropertySchema(schema);
+}
+
+/** Schema listo para la API: sin claves `__draft_*`. `undefined` si no queda ninguna propiedad. */
+export function parametersSchemaForApi(
+  schema: Record<string, unknown>,
+): Record<string, unknown> | undefined {
+  const next = stripDraftPropertyKeysFromSchema(schema);
+  if (!next) return undefined;
+  const props = next.properties;
+  if (!props || typeof props !== "object" || Array.isArray(props)) return undefined;
+  if (Object.keys(props as Record<string, unknown>).length === 0) return undefined;
+  return next;
 }
