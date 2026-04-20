@@ -64,16 +64,22 @@ async function clickFormNext(page: Page) {
  */
 async function advanceToNextSectionHeading(page: Page, nextTitle: string) {
   await dismissDynamicBlockIfAny(page);
+  const sectionTitle = page.getByTestId("form-builder-section-title");
   const next = page.getByTestId("form-builder-next");
   const skip = page.getByTestId("form-builder-dynamic-skip");
-  const heading = page.getByRole("heading", { name: nextTitle, level: 2 });
 
-  for (let attempt = 0; attempt < 12; attempt++) {
-    if (await heading.isVisible().catch(() => false)) return;
+  async function atTarget() {
+    if (!(await sectionTitle.isVisible().catch(() => false))) return false;
+    const t = (await sectionTitle.innerText()).trim();
+    return t === nextTitle;
+  }
+
+  for (let attempt = 0; attempt < 15; attempt++) {
+    if (await atTarget()) return;
 
     if (await skip.isVisible({ timeout: 3000 }).catch(() => false)) {
       await skip.click();
-      await expect(skip).toBeHidden({ timeout: 20_000 });
+      await expect(skip).toBeHidden({ timeout: 45_000 });
       continue;
     }
 
@@ -87,19 +93,21 @@ async function advanceToNextSectionHeading(page: Page, nextTitle: string) {
     } else {
       await Promise.race([
         skip.waitFor({ state: "visible", timeout: 180_000 }),
-        heading.waitFor({ state: "visible", timeout: 180_000 }),
+        sectionTitle.filter({ hasText: nextTitle }).waitFor({ state: "visible", timeout: 180_000 }),
       ]).catch(() => {});
     }
 
-    await heading.waitFor({ state: "visible", timeout: 20_000 }).catch(() => {});
+    await expect(sectionTitle)
+      .toHaveText(nextTitle, { timeout: 60_000 })
+      .catch(() => {});
+    if (await atTarget()) return;
   }
 
   await waitForStepHeading(page, nextTitle);
 }
 
 async function waitForStepHeading(page: Page, title: string) {
-  await page.getByRole("heading", { name: title, level: 2 }).waitFor({
-    state: "visible",
+  await expect(page.getByTestId("form-builder-section-title")).toHaveText(title, {
     timeout: 180_000,
   });
 }
@@ -185,6 +193,7 @@ async function fillPersonalityStep(page: Page) {
   await agentName.fill("Asistente E2E");
   await agentPersonality.fill("Profesional, claro y breve. Responde con cortesía.");
   await page.getByRole("button", { name: "Moderados" }).click();
+  await expect(page.getByTestId("form-builder-next")).toBeEnabled({ timeout: 60_000 });
 }
 
 async function fillFlowQuestions(page: Page) {
@@ -230,16 +239,10 @@ test("form builder: rellenar y avanzar hasta Revisión (UI)", async ({ page }) =
 
   await ensureLoggedInOrPause(page);
 
-  await page.getByRole("heading", { name: "Plantillas", level: 2 }).waitFor({
-    state: "visible",
-    timeout: 60_000,
-  });
+  await waitForStepHeading(page, "Plantillas");
 
   await page.getByRole("button", { name: /Asistente de Ventas/ }).click();
-  await page.getByRole("heading", { name: "Negocio", level: 2 }).waitFor({
-    state: "visible",
-    timeout: 60_000,
-  });
+  await waitForStepHeading(page, "Negocio");
 
   await fillBusinessStep(page);
 

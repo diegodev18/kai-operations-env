@@ -2873,7 +2873,13 @@ export function AgentFormBuilder() {
       <div className="flex-1 overflow-y-auto p-6">
         <div className="mx-auto max-w-2xl pb-4">
           <div className="mb-6">
-            <h2 className="text-xl font-semibold">{sections[currentIndex]?.title}</h2>
+            <h2
+              className="text-xl font-semibold"
+              data-testid="form-builder-section-title"
+              data-section={currentSection}
+            >
+              {sections[currentIndex]?.title}
+            </h2>
             <p className="text-sm text-muted-foreground">
               {sections[currentIndex]?.description}
             </p>
