@@ -1340,6 +1340,46 @@ export interface DynamicQuestion {
   aiReason?: string;
 }
 
+/**
+ * Obtiene un substring que debería ser un array JSON válido.
+ * Evita el regex ambicioso /\\[[\\s\\S]*\\]/ (cruza markdown y varios bloques).
+ */
+function extractFirstJsonArrayString(text: string): string | null {
+  if (!text || typeof text !== "string") return null;
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced?.[1]) {
+    const inner = fenced[1].trim();
+    if (inner.startsWith("[")) return inner;
+  }
+  const start = text.indexOf("[");
+  if (start < 0) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (inString) {
+      if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+    if (ch === "[") depth++;
+    else if (ch === "]") {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
 export async function analyzeAgentWithAI(
   currentSection: string,
   draftData: Record<string, unknown>
@@ -1420,23 +1460,35 @@ Si no necesitas más preguntas, retorna un array vacío: []
       return null;
     }
 
+    const assistantText = String(data.assistantMessage);
+    const jsonStr = extractFirstJsonArrayString(assistantText);
+    if (!jsonStr) {
+      return null;
+    }
+
     try {
-      const jsonMatch = data.assistantMessage.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>[];
-        return parsed
-          .filter((q) => q && q.field && q.label)
-          .map((q) => {
-            const sec = String(q.section ?? "");
-            const section =
-              sec === "basics" ? "business" : sec === "personality" ? "personality" : "business";
-            return { ...q, section } as DynamicQuestion;
-          });
+      const parsed = JSON.parse(jsonStr) as unknown;
+      if (!Array.isArray(parsed)) {
+        console.error("analyzeAgentWithAI: JSON no es un array", typeof parsed);
+        return null;
       }
+      return parsed
+        .filter((q) => q && typeof q === "object" && "field" in q && "label" in q)
+        .map((q) => {
+          const row = q as Record<string, unknown>;
+          const sec = String(row.section ?? "");
+          const section =
+            sec === "basics" ? "business" : sec === "personality" ? "personality" : "business";
+          return { ...row, section } as DynamicQuestion;
+        });
     } catch (parseError) {
       console.error("Failed to parse AI response:", parseError);
+      console.error(
+        "analyzeAgentWithAI: fragmento (primeros 400 chars):",
+        jsonStr.slice(0, 400),
+      );
     }
-    
+
     return null;
   } catch (error) {
     console.error("Error calling AI analysis:", error);
