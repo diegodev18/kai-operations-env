@@ -223,6 +223,9 @@ export function AgentPromptDesigner({
   const [rawViewBasePrompt, setRawViewBasePrompt] = useState(false);
   const [rawViewUnauthPrompt, setRawViewUnauthPrompt] = useState(false);
   const [rawViewAuthPrompt, setRawViewAuthPrompt] = useState(false);
+  const [baseMarkdownRemount, setBaseMarkdownRemount] = useState(0);
+  const [unauthMarkdownRemount, setUnauthMarkdownRemount] = useState(0);
+  const [authMarkdownRemount, setAuthMarkdownRemount] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [pendingImages, setPendingImages] = useState<ChatMessageImage[]>([]);
@@ -859,7 +862,10 @@ export function AgentPromptDesigner({
               {showMarkdownEditorBase ? (
                 <PromptMarkdownViewToggle
                   rawView={rawViewBasePrompt}
-                  onRawViewChange={setRawViewBasePrompt}
+                  onRawViewChange={(raw) => {
+                    setRawViewBasePrompt(raw);
+                    if (!raw) setBaseMarkdownRemount((n) => n + 1);
+                  }}
                   disabled={promptAndChatLocked}
                 />
               ) : null}
@@ -901,6 +907,7 @@ export function AgentPromptDesigner({
                   className="h-full w-full text-sm"
                   placeholder="Escribe el prompt del agente…"
                   rawView={rawViewBasePrompt}
+                  markdownPaneRemountKey={baseMarkdownRemount}
                 />
               )}
             </div>
@@ -915,7 +922,10 @@ export function AgentPromptDesigner({
                   {showMarkdownEditorUnauth ? (
                     <PromptMarkdownViewToggle
                       rawView={rawViewUnauthPrompt}
-                      onRawViewChange={setRawViewUnauthPrompt}
+                      onRawViewChange={(raw) => {
+                        setRawViewUnauthPrompt(raw);
+                        if (!raw) setUnauthMarkdownRemount((n) => n + 1);
+                      }}
                       disabled={promptAndChatLocked}
                     />
                   ) : null}
@@ -940,6 +950,7 @@ export function AgentPromptDesigner({
                       disabled={promptAndChatLocked}
                       placeholder="Prompt para usuarios no autenticados…"
                       rawView={rawViewUnauthPrompt}
+                      markdownPaneRemountKey={unauthMarkdownRemount}
                     />
                   )}
                 </div>
@@ -952,7 +963,10 @@ export function AgentPromptDesigner({
                   {showMarkdownEditorAuth ? (
                     <PromptMarkdownViewToggle
                       rawView={rawViewAuthPrompt}
-                      onRawViewChange={setRawViewAuthPrompt}
+                      onRawViewChange={(raw) => {
+                        setRawViewAuthPrompt(raw);
+                        if (!raw) setAuthMarkdownRemount((n) => n + 1);
+                      }}
                       disabled={promptAndChatLocked}
                     />
                   ) : null}
@@ -977,6 +991,7 @@ export function AgentPromptDesigner({
                       disabled={promptAndChatLocked}
                       placeholder="Prompt para usuarios autenticados…"
                       rawView={rawViewAuthPrompt}
+                      markdownPaneRemountKey={authMarkdownRemount}
                     />
                   )}
                 </div>

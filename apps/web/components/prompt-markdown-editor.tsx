@@ -36,6 +36,10 @@ export type PromptMarkdownEditorProps = {
    * puede mostrarse dentro del editor (modo integrado).
    */
   rawView?: boolean;
+  /**
+   * Solo en modo controlado: incrementar cuando se pasa de raw a markdown para remontar TipTap.
+   */
+  markdownPaneRemountKey?: number;
 };
 
 export type PromptMarkdownViewToggleProps = {
@@ -336,27 +340,16 @@ export function PromptMarkdownEditor({
   placeholder = "",
   className,
   rawView: rawViewProp,
+  markdownPaneRemountKey = 0,
 }: PromptMarkdownEditorProps) {
   const rawViewControlled = rawViewProp !== undefined;
   const [internalRawView, setInternalRawView] = useState(false);
   const rawViewActive = rawViewControlled ? rawViewProp : internalRawView;
 
   const [richPaneKey, setRichPaneKey] = useState(0);
-  const controlledRichMountRef = useRef(0);
-  const prevControlledRaw = useRef<boolean | undefined>(undefined);
-
-  if (rawViewControlled) {
-    const prev = prevControlledRaw.current;
-    if (prev === true && rawViewProp === false) {
-      controlledRichMountRef.current += 1;
-    }
-    prevControlledRaw.current = rawViewProp;
-  } else {
-    prevControlledRaw.current = undefined;
-  }
 
   const richPaneReactKey = rawViewControlled
-    ? `md-controlled-${controlledRichMountRef.current}`
+    ? `md-controlled-${markdownPaneRemountKey}`
     : richPaneKey;
 
   const handleInternalRawToggle = (checked: boolean) => {
