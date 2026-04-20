@@ -10,6 +10,7 @@
     "test:e2e:install": "playwright install chromium",
     "test:e2e:auth": "playwright test e2e/auth-storage.spec.ts",
     "test:e2e:form": "playwright test e2e/agent-form-builder.smoke.spec.ts",
+    "test:e2e:form:step": "FORM_BUILDER_PAUSE_BEFORE_NEXT=1 playwright test e2e/agent-form-builder.smoke.spec.ts",
     "test:e2e:form:testing": "node scripts/run-form-builder-e2e.mjs --env=testing",
     "test:e2e:form:production": "node scripts/run-form-builder-e2e.mjs --env=production"
   },

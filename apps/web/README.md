@@ -39,6 +39,7 @@ bun run test:e2e:form
 | `FORM_BUILDER_PAUSE_LOGIN=1` | Si no hay sesión y aparece el login, abre la pausa de Playwright para que entres a mano (alternativa a `PLAYWRIGHT_STORAGE_STATE`). |
 | `FORM_BUILDER_STOP_AT` | `before-review` (por defecto): avanza hasta el paso **Revisión** y no pulsa “Crear agente”. |
 | `FORM_BUILDER_NO_PAUSE_END=1` | No llama a `page.pause()` al final (por ejemplo para que el test termine solo en local). |
+| `FORM_BUILDER_PAUSE_BEFORE_NEXT=1` | Antes de cada clic en **Siguiente**, abre el inspector de Playwright; revisa la pantalla y pulsa **Resume** para que el test continúe (no aplica en CI). |
 | `CI` | Si está definido, el navegador va en **headless**. |
 
 ### Comandos
@@ -59,6 +60,9 @@ FORM_BUILDER_PAUSE_LOGIN=1 bun run test:e2e:form
 
 # Con e2e/auth.json generado por test:e2e:auth (carga automática)
 bun run test:e2e:form
+
+# Pausa antes de cada «Siguiente» (mismo efecto que FORM_BUILDER_PAUSE_BEFORE_NEXT=1)
+bun run test:e2e:form:step
 
 # Atajos con flag --env (wrapper)
 bun run test:e2e:form:testing

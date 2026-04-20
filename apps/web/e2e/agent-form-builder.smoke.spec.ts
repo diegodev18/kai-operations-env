@@ -7,6 +7,7 @@
  * - FORM_BUILDER_PAUSE_LOGIN=1 — si aparece login, page.pause() para entrar a mano (sin storage state)
  * - FORM_BUILDER_STOP_AT=before-review — solo avanza hasta el paso Revisión (sin crear agente)
  * - FORM_BUILDER_NO_PAUSE_END=1 — no llama a page.pause() al final (CI o cierre automático)
+ * - FORM_BUILDER_PAUSE_BEFORE_NEXT=1 — pausa en el inspector antes de cada clic en «Siguiente» (revisar y luego Resume)
  *
  * En local, al llegar a Revisión se hace page.pause() por defecto (salvo CI o NO_PAUSE_END).
  * El Inspector de Playwright es otra ventana: hay que pulsar «Resume» para que el test termine.
@@ -16,6 +17,19 @@
 import { expect, test, type Page } from "@playwright/test";
 
 const STOP_AT = process.env.FORM_BUILDER_STOP_AT ?? "before-review";
+
+function pauseBeforeSeguirEnabled() {
+  return process.env.FORM_BUILDER_PAUSE_BEFORE_NEXT === "1" && !process.env.CI;
+}
+
+/** Pausa en Playwright Inspector antes de pulsar Siguiente (revisar UI → Resume). */
+async function pauseBeforeSeguir(page: Page, context: string) {
+  if (!pauseBeforeSeguirEnabled()) return;
+  console.log(
+    `\n[agent-form-builder e2e] Pausa antes de «Siguiente» (${context}). Abre el Playwright Inspector y pulsa «Resume» cuando quieras que el test pulse Siguiente.\n`,
+  );
+  await page.pause();
+}
 
 test.describe.configure({ mode: "serial" });
 
@@ -40,6 +54,7 @@ async function clickFormNext(page: Page) {
   // Tras pulsar, Negocio/Personalidad pueden poner "Analizando…" en el mismo botón
   await expect(next).not.toContainText("Analizando", { timeout: 180_000 });
   await expect(next).toBeEnabled({ timeout: 180_000 });
+  await pauseBeforeSeguir(page, "paso explícito");
   await next.click();
 }
 
@@ -67,6 +82,7 @@ async function advanceToNextSectionHeading(page: Page, nextTitle: string) {
       if (!(await next.isVisible().catch(() => false))) continue;
       if (await skip.isVisible().catch(() => false)) continue;
       await expect(next).toBeEnabled({ timeout: 90_000 });
+      await pauseBeforeSeguir(page, `hacia «${nextTitle}» (intento ${attempt + 1})`);
       await next.click();
     } else {
       await Promise.race([
