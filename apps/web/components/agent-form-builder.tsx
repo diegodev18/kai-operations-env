@@ -18,11 +18,21 @@ import {
   PencilIcon,
   HomeIcon,
   ChevronDownIcon,
+  RefreshCwIcon,
+  RotateCcwIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AGENT_BUILDER_MANDATORY_TOOL_NAMES } from "@kai/shared";
 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -36,6 +46,7 @@ import {
   fetchToolsCatalog,
   analyzeAgentWithAI,
   recommendAgentTools,
+  generateAgentToolFlowsMarkdown,
   fetchAgentFlowQuestions,
   fetchSavedBuilderCompanies,
   postSavedBuilderCompany,
@@ -44,7 +55,12 @@ import {
   type DynamicQuestion,
   type BuilderCompanyPayload,
   type SavedBuilderCompany,
+  type ToolFlowsMarkdownPayload,
 } from "@/lib/agents-api";
+import {
+  PromptMarkdownEditor,
+  PromptMarkdownViewToggle,
+} from "@/components/prompt-markdown-editor";
 import {
   DEFAULT_FORM_STATE,
   FORM_SECTIONS,
@@ -229,6 +245,33 @@ function buildOperationalContextNarrative(state: FormBuilderState): string {
       return `${q.label}\nRespuesta: ${a || "(sin respuesta)"}`;
     })
     .join("\n\n---\n\n");
+}
+
+function buildToolFlowsMarkdownPayload(
+  state: FormBuilderState,
+): Omit<ToolFlowsMarkdownPayload, "mode" | "existingMarkdownEs"> {
+  return {
+    business_name: state.business_name,
+    owner_name: state.owner_name,
+    industry: state.industry,
+    custom_industry: state.custom_industry,
+    description: state.description,
+    target_audience: state.target_audience,
+    agent_description: state.agent_description,
+    escalation_rules: state.escalation_rules,
+    country: state.country,
+    business_timezone: state.business_timezone,
+    agent_name: state.agent_name,
+    agent_personality: state.agent_personality,
+    response_language: state.response_language,
+    business_hours: "",
+    require_auth: state.require_auth,
+    operational_context: buildOperationalContextNarrative(state),
+    tools_context_data_actions: "",
+    tools_context_commerce_reservations: "",
+    tools_context_integrations: "",
+    selectedToolIds: [...state.selected_tools],
+  };
 }
 
 function buildToolsRecommendContextHash(state: FormBuilderState): string {
@@ -2138,6 +2181,13 @@ export function AgentFormBuilder() {
   const [toolReasonById, setToolReasonById] = useState<Record<string, string>>({});
   const lastToolsSuccessHashRef = useRef<string | null>(null);
   const lastToolsRegenNonceRef = useRef(0);
+  const [isToolFlowDocStep, setIsToolFlowDocStep] = useState(false);
+  const [toolManualOfferOpen, setToolManualOfferOpen] = useState(false);
+  const [toolFlowsGenLoading, setToolFlowsGenLoading] = useState(false);
+  const [rawViewToolFlows, setRawViewToolFlows] = useState(false);
+  const [toolFlowsMarkdownRemount, setToolFlowsMarkdownRemount] = useState(0);
+  const [regenerateToolFlowsOpen, setRegenerateToolFlowsOpen] = useState(false);
+  const [updateToolFlowsOpen, setUpdateToolFlowsOpen] = useState(false);
   const [flowQuestionsLoading, setFlowQuestionsLoading] = useState(false);
   const [flowQuestionsError, setFlowQuestionsError] = useState<string | null>(null);
   const [flowQuestionsRegenNonce, setFlowQuestionsRegenNonce] = useState(0);
@@ -2435,10 +2485,60 @@ export function AgentFormBuilder() {
   ]);
   /* eslint-enable react-hooks/exhaustive-deps */
 
+  useEffect(() => {
+    if (currentSection !== "tools") {
+      setIsToolFlowDocStep(false);
+      setToolManualOfferOpen(false);
+    }
+  }, [currentSection]);
+
   const handleChange = useCallback((updates: Partial<FormBuilderState>) => {
     setState((prev) => ({ ...prev, ...updates }));
     setHasUnsavedChanges(true);
   }, []);
+
+  const runToolFlowsMarkdown = useCallback(
+    async (mode: "generate" | "update") => {
+      if (state.selected_tools.length === 0) {
+        toast.error("Selecciona al menos una herramienta.");
+        return;
+      }
+      if (mode === "update" && !state.toolFlowsMarkdownEs.trim()) {
+        toast.error(
+          "No hay manual para actualizar. Genera uno primero o usa Regenerar.",
+        );
+        return;
+      }
+      setToolFlowsGenLoading(true);
+      try {
+        const base = buildToolFlowsMarkdownPayload(state);
+        const res = await generateAgentToolFlowsMarkdown({
+          ...base,
+          mode,
+          ...(mode === "update"
+            ? { existingMarkdownEs: state.toolFlowsMarkdownEs }
+            : {}),
+        });
+        if (res.ok) {
+          setState((prev) => ({
+            ...prev,
+            toolFlowsMarkdownEs: res.markdown,
+          }));
+          setHasUnsavedChanges(true);
+          toast.success(
+            mode === "generate"
+              ? "Manual generado"
+              : "Manual actualizado según las herramientas",
+          );
+        } else {
+          toast.error(res.error);
+        }
+      } finally {
+        setToolFlowsGenLoading(false);
+      }
+    },
+    [state],
+  );
 
   const handleDynamicAnswerChange = useCallback((field: string, value: string) => {
     setDynamicAnswers((prev) => ({ ...prev, [field]: value }));
@@ -2553,6 +2653,11 @@ export function AgentFormBuilder() {
       return;
     }
 
+    if (currentSection === "tools" && !isToolFlowDocStep) {
+      setToolManualOfferOpen(true);
+      return;
+    }
+
     if (currentSection === "business" && canPersistBuilderCompany(state)) {
       const payload = formStateToBuilderCompanyPayload(state);
       const serialized = JSON.stringify(payload);
@@ -2590,13 +2695,18 @@ export function AgentFormBuilder() {
       }
       setIsAnalyzingAI(false);
     }
-    
+
     // No dynamic questions, advance normally
+    const exitingToolFlowDoc = currentSection === "tools" && isToolFlowDocStep;
     advanceToNextSection();
+    if (exitingToolFlowDoc) {
+      setIsToolFlowDocStep(false);
+    }
   }, [
     currentSection,
     canProceed,
     state,
+    isToolFlowDocStep,
     advanceToNextSection,
     saveBusinessProfileToFirestore,
   ]);
@@ -2622,12 +2732,16 @@ export function AgentFormBuilder() {
   }, [dynamicAnswers, advanceToNextSection]);
 
   const handlePrev = useCallback(() => {
+    if (isToolFlowDocStep) {
+      setIsToolFlowDocStep(false);
+      return;
+    }
     const sections = FORM_SECTIONS.map((s) => s.id);
     const currentIndex = sections.indexOf(currentSection);
     if (currentIndex > 0) {
       setCurrentSection(sections[currentIndex - 1]);
     }
-  }, [currentSection]);
+  }, [currentSection, isToolFlowDocStep]);
 
   const handleRegenerateTools = useCallback(() => {
     setToolsRegenerateNonce((n) => n + 1);
@@ -2701,6 +2815,7 @@ export function AgentFormBuilder() {
       await patchAgentDraft(draftId, {
         step: "tools",
         selected_tools: state.selected_tools,
+        toolFlowsMarkdownEs: state.toolFlowsMarkdownEs,
       });
 
       await patchAgentDraft(draftId, {
@@ -2792,6 +2907,64 @@ export function AgentFormBuilder() {
           />
         );
       case "tools":
+        if (isToolFlowDocStep) {
+          return (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Documenta en español cómo debe el agente usar cada herramienta. Este
+                contenido se integrará al generar el prompt del sistema (traducido a
+                inglés).
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={toolFlowsGenLoading}
+                  onClick={() => setRegenerateToolFlowsOpen(true)}
+                >
+                  <RotateCcwIcon className="mr-2 size-4" />
+                  Regenerar
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={toolFlowsGenLoading}
+                  onClick={() => setUpdateToolFlowsOpen(true)}
+                >
+                  <RefreshCwIcon className="mr-2 size-4" />
+                  Actualizar
+                </Button>
+              </div>
+              <div className="flex items-center justify-end border-b pb-2">
+                <PromptMarkdownViewToggle
+                  rawView={rawViewToolFlows}
+                  onRawViewChange={(raw) => {
+                    setRawViewToolFlows(raw);
+                    if (!raw) setToolFlowsMarkdownRemount((n) => n + 1);
+                  }}
+                  disabled={toolFlowsGenLoading}
+                />
+              </div>
+              <PromptMarkdownEditor
+                value={state.toolFlowsMarkdownEs}
+                onChange={(md) => handleChange({ toolFlowsMarkdownEs: md })}
+                disabled={toolFlowsGenLoading}
+                className="min-h-[320px] w-full text-sm"
+                placeholder="# Manual de herramientas — describe flujos por herramienta"
+                rawView={rawViewToolFlows}
+                markdownPaneRemountKey={toolFlowsMarkdownRemount}
+              />
+              {toolFlowsGenLoading ? (
+                <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2Icon className="size-4 animate-spin" />
+                  Generando con IA…
+                </p>
+              ) : null}
+            </div>
+          );
+        }
         return (
           <SectionTools
             {...sectionProps}
@@ -2818,9 +2991,104 @@ export function AgentFormBuilder() {
 
   const sections = FORM_SECTIONS;
   const currentIndex = sections.findIndex((s) => s.id === currentSection);
+  const stepTitle =
+    currentSection === "tools" && isToolFlowDocStep
+      ? "Manual de herramientas"
+      : (sections[currentIndex]?.title ?? "");
+  const stepDescription =
+    currentSection === "tools" && isToolFlowDocStep
+      ? "Markdown en español: cuándo y cómo usar cada herramienta. Regenerar o Actualizar piden confirmación."
+      : (sections[currentIndex]?.description ?? "");
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
+      <Dialog open={toolManualOfferOpen} onOpenChange={setToolManualOfferOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>¿Revisar manual de herramientas?</DialogTitle>
+            <DialogDescription>
+              Puedes generar y editar un documento en español con los flujos de uso de
+              las herramientas seleccionadas. Se usará al diseñar el prompt del agente
+              (traducido a inglés). Si prefieres omitir este paso, pulsa No.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setToolManualOfferOpen(false);
+                advanceToNextSection();
+              }}
+            >
+              No, continuar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setToolManualOfferOpen(false);
+                setIsToolFlowDocStep(true);
+                if (!state.toolFlowsMarkdownEs.trim()) {
+                  void runToolFlowsMarkdown("generate");
+                }
+              }}
+            >
+              Sí, revisar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={regenerateToolFlowsOpen}
+        onOpenChange={setRegenerateToolFlowsOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Regenerar el manual?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se generará de nuevo el markdown con IA. Si habías editado el texto a
+              mano, esos cambios se perderán al sustituir el contenido.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setRegenerateToolFlowsOpen(false);
+                void runToolFlowsMarkdown("generate");
+              }}
+            >
+              Regenerar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={updateToolFlowsOpen} onOpenChange={setUpdateToolFlowsOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Actualizar el manual?</AlertDialogTitle>
+            <AlertDialogDescription>
+              La IA ajustará el documento a la lista actual de herramientas y al
+              contexto del negocio, conservando lo que siga siendo válido cuando sea
+              posible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setUpdateToolFlowsOpen(false);
+                void runToolFlowsMarkdown("update");
+              }}
+            >
+              Actualizar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="shrink-0 flex items-center gap-2 border-b px-4 py-3">
         <AlertDialog>
           <AlertDialogTrigger asChild>
@@ -2870,13 +3138,11 @@ export function AgentFormBuilder() {
       <div className="flex-1 overflow-y-auto p-6">
         <div className="mx-auto max-w-2xl pb-4">
           <div className="mb-6">
-            <h2 className="text-xl font-semibold">{sections[currentIndex]?.title}</h2>
-            <p className="text-sm text-muted-foreground">
-              {sections[currentIndex]?.description}
-            </p>
+            <h2 className="text-xl font-semibold">{stepTitle}</h2>
+            <p className="text-sm text-muted-foreground">{stepDescription}</p>
           </div>
 
-          {isLoadingCatalog && currentSection === "tools" ? (
+          {isLoadingCatalog && currentSection === "tools" && !isToolFlowDocStep ? (
             <div className="flex items-center justify-center py-12">
               <Loader2Icon className="size-6 animate-spin text-muted-foreground" />
             </div>
@@ -2958,7 +3224,12 @@ export function AgentFormBuilder() {
               (currentSection === "flows" &&
                 (flowQuestionsLoading ||
                   (state.flow_questions.length === 0 && !flowQuestionsError))) ||
-              (currentSection === "tools" && toolsRecommendLoading)
+              (currentSection === "tools" &&
+                !isToolFlowDocStep &&
+                toolsRecommendLoading) ||
+              (currentSection === "tools" &&
+                isToolFlowDocStep &&
+                toolFlowsGenLoading)
             }
           >
             {isAnalyzingAI ? (

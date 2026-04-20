@@ -1162,6 +1162,12 @@ export type RecommendToolsPayload = {
   tools_context_integrations?: string;
 };
 
+export type ToolFlowsMarkdownPayload = RecommendToolsPayload & {
+  selectedToolIds: string[];
+  mode: "generate" | "update";
+  existingMarkdownEs?: string;
+};
+
 export type FlowQuestionsPayload = {
   business_name?: string;
   owner_name?: string;
@@ -1283,6 +1289,42 @@ export async function recommendAgentTools(
       ok: false,
       error:
         e instanceof Error ? e.message : "Error de red al recomendar herramientas",
+    };
+  }
+}
+
+export async function generateAgentToolFlowsMarkdown(
+  payload: ToolFlowsMarkdownPayload,
+): Promise<{ ok: true; markdown: string } | { ok: false; error: string }> {
+  try {
+    const res = await fetch("/api/agents/builder/tool-flows-markdown", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    });
+    const data = (await res.json()) as {
+      error?: string;
+      markdown?: string;
+      invalidIds?: string[];
+    };
+    if (!res.ok) {
+      return {
+        ok: false,
+        error: data.error ?? "No se pudo generar el manual de herramientas",
+      };
+    }
+    if (typeof data.markdown !== "string" || !data.markdown.trim()) {
+      return { ok: false, error: "Respuesta inválida del servidor" };
+    }
+    return { ok: true, markdown: data.markdown.trim() };
+  } catch (e) {
+    return {
+      ok: false,
+      error:
+        e instanceof Error
+          ? e.message
+          : "Error de red al generar el manual de herramientas",
     };
   }
 }
