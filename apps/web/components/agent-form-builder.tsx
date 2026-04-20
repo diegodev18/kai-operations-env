@@ -644,6 +644,7 @@ function SectionBusiness({
           type="text"
           value={state.owner_name}
           readOnly
+          data-testid="form-builder-owner-name"
           className="mt-1 flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm text-muted-foreground"
         />
       </div>
@@ -1436,6 +1437,7 @@ function SectionPersonality({ state, onChange }: SectionProps) {
           value={state.agent_name}
           onChange={(e) => onChange({ agent_name: e.target.value })}
           placeholder="Ej: Asistente de Tienda Moda"
+          data-testid="form-builder-agent-name"
           className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
         />
       </div>
@@ -1449,6 +1451,7 @@ function SectionPersonality({ state, onChange }: SectionProps) {
           onChange={(e) => onChange({ agent_personality: e.target.value })}
           placeholder="Describe cómo quieres que se comporte tu agente. Ej: Soy un asesor amigable y profesional que ayuda a los clientes a encontrar los productos perfectos..."
           rows={4}
+          data-testid="form-builder-agent-personality"
           className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
         />
       </div>
@@ -2870,7 +2873,13 @@ export function AgentFormBuilder() {
       <div className="flex-1 overflow-y-auto p-6">
         <div className="mx-auto max-w-2xl pb-4">
           <div className="mb-6">
-            <h2 className="text-xl font-semibold">{sections[currentIndex]?.title}</h2>
+            <h2
+              className="text-xl font-semibold"
+              data-testid="form-builder-section-title"
+              data-section={currentSection}
+            >
+              {sections[currentIndex]?.title}
+            </h2>
             <p className="text-sm text-muted-foreground">
               {sections[currentIndex]?.description}
             </p>
@@ -2926,7 +2935,13 @@ export function AgentFormBuilder() {
                     </div>
                   ))}
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={handleSkipDynamicQuestions}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      data-testid="form-builder-dynamic-skip"
+                      onClick={handleSkipDynamicQuestions}
+                    >
                       Omitir
                     </Button>
                     <Button size="sm" onClick={handleSubmitDynamicAnswers}>
@@ -2951,6 +2966,8 @@ export function AgentFormBuilder() {
             Anterior
           </Button>
           <Button
+            type="button"
+            data-testid="form-builder-next"
             onClick={handleNext}
             disabled={
               !canProceed(currentSection) ||
