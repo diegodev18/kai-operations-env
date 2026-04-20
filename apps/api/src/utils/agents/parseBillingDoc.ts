@@ -18,7 +18,7 @@ export type ParsedPaymentRecord = {
 export function parseBillingDoc(doc: DocumentSnapshot | null): AgentBilling {
   if (!doc || !doc.exists) {
     return {
-      domiciliated: false,
+      domiciliated: null,
       defaultPaymentAmount: undefined,
       lastPaymentDate: null,
       paymentDueDate: null,
@@ -27,7 +27,9 @@ export function parseBillingDoc(doc: DocumentSnapshot | null): AgentBilling {
   }
 
   const data = doc.data() ?? {};
-  const domiciliated = data.domiciliated === true;
+  const domRaw = data.domiciliated;
+  const domiciliated: boolean | null =
+    domRaw === true ? true : domRaw === false ? false : null;
   const defaultPaymentAmount =
     typeof data.defaultPaymentAmount === "number"
       ? data.defaultPaymentAmount
@@ -41,11 +43,11 @@ export function parseBillingDoc(doc: DocumentSnapshot | null): AgentBilling {
   const paymentDueDate =
     paymentDueDateRaw?.toDate?.()?.toISOString() ?? null;
 
-  // Alerta automática para no domiciliados con fecha vencida
+  // Alerta solo si explícitamente no domiciliado y fecha vencida
   const paymentDueDateObj = paymentDueDateRaw?.toDate?.();
   const now = new Date();
   const paymentAlert =
-    !domiciliated &&
+    domiciliated === false &&
     paymentDueDateObj instanceof Date &&
     !isNaN(paymentDueDateObj.getTime()) &&
     paymentDueDateObj < now;

@@ -336,8 +336,15 @@ async function paginateLightAgentsWithSearch(
         if (filters.status === "commercial" && !row.inCommercial) continue;
         if (filters.status === "testing" && row.inProduction) continue;
         if (filters.billingAlert === "true" && !row.billing?.paymentAlert) continue;
-        if (filters.domiciliated === "true" && !row.billing?.domiciliated) continue;
-        if (filters.domiciliated === "false" && row.billing?.domiciliated) continue;
+        if (filters.domiciliated === "true" && row.billing?.domiciliated !== true) {
+          continue;
+        }
+        if (filters.domiciliated === "false" && row.billing?.domiciliated !== false) {
+          continue;
+        }
+        if (filters.domiciliated === "unknown" && row.billing?.domiciliated != null) {
+          continue;
+        }
         if (filters.archivedOnly && row.status !== "archived") continue;
       }
 
@@ -580,8 +587,15 @@ export const getAgentsInfo = async (
       if (statusFilter === "commercial") filterFns.push((a) => a.inCommercial === true);
       if (statusFilter === "testing") filterFns.push((a) => !a.inProduction);
       if (billingAlertFilter === "true") filterFns.push((a) => a.billing?.paymentAlert === true);
-      if (domiciliatedFilter === "true") filterFns.push((a) => a.billing?.domiciliated === true);
-      if (domiciliatedFilter === "false") filterFns.push((a) => a.billing?.domiciliated === false);
+      if (domiciliatedFilter === "true") {
+        filterFns.push((a) => a.billing?.domiciliated === true);
+      }
+      if (domiciliatedFilter === "false") {
+        filterFns.push((a) => a.billing?.domiciliated === false);
+      }
+      if (domiciliatedFilter === "unknown") {
+        filterFns.push((a) => a.billing?.domiciliated == null);
+      }
       if (archivedOnly) filterFns.push((a) => a.status === "archived");
 
       let agents = agentsRows.filter((row): row is LightAgent => row != null);

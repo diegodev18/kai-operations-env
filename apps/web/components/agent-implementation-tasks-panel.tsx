@@ -18,7 +18,6 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardContent,
@@ -123,7 +122,7 @@ const TASK_TYPE_CONFIG: Record<
 };
 
 function paymentDomiciliationShouldComplete(billing: AgentBilling): boolean {
-  if (billing.domiciliated) return true;
+  if (billing.domiciliated === true) return true;
   return Boolean(billing.paymentDueDate);
 }
 
@@ -538,12 +537,12 @@ export function AgentImplementationTasksPanel({
   );
 
   const onBillingDomiciliatedChange = useCallback(
-    async (checked: boolean) => {
+    async (value: boolean | null) => {
       if (!isOperations) return;
       setBillingSaving(true);
       try {
         const r = await patchAgentBillingConfig(agentId, {
-          domiciliated: checked,
+          domiciliated: value,
         });
         if (!r.ok) {
           toast.error(r.error);
@@ -804,19 +803,36 @@ export function AgentImplementationTasksPanel({
                     ) : null}
                     {task.taskType === "payment-domiciliation" &&
                     isOperations ? (
-                      <label className="flex cursor-pointer flex-wrap items-center gap-2 text-xs text-foreground">
-                        <Checkbox
-                          checked={agentBilling?.domiciliated ?? false}
-                          disabled={billingLoading || billingSaving}
-                          onCheckedChange={(v) => {
-                            void onBillingDomiciliatedChange(v === true);
-                          }}
-                        />
-                        <span>
-                          Cliente domiciliado (mismo valor que en la Home de
-                          Operaciones)
+                      <div className="flex flex-col gap-1 text-xs text-foreground">
+                        <span className="text-muted-foreground">
+                          Domiciliación (misma que en Operaciones)
                         </span>
-                      </label>
+                        <select
+                          className="h-8 max-w-xs rounded-md border border-input bg-transparent px-2 text-xs"
+                          disabled={billingLoading || billingSaving}
+                          value={
+                            agentBilling?.domiciliated === true
+                              ? "true"
+                              : agentBilling?.domiciliated === false
+                                ? "false"
+                                : "null"
+                          }
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            const next: boolean | null =
+                              v === "true"
+                                ? true
+                                : v === "false"
+                                  ? false
+                                  : null;
+                            void onBillingDomiciliatedChange(next);
+                          }}
+                        >
+                          <option value="null">Sin información</option>
+                          <option value="true">Domiciliado</option>
+                          <option value="false">No domiciliado</option>
+                        </select>
+                      </div>
                     ) : null}
                     {task.taskType === "payment-domiciliation" &&
                     !isOperations ? (

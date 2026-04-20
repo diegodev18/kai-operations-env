@@ -17,6 +17,7 @@ import {
   DatabaseIcon,
   FlaskConicalIcon,
   FolderOpenIcon,
+  HelpCircleIcon,
   LayoutDashboardIcon,
   LayoutGridIcon,
   Loader2Icon,
@@ -144,7 +145,12 @@ export function OperationsDashboard(props: {
     null,
   );
 
-  type CobranzaFilter = "all" | "domiciliated" | "non-domiciliated" | "overdue";
+  type CobranzaFilter =
+    | "all"
+    | "domiciliated"
+    | "non-domiciliated"
+    | "unknown"
+    | "overdue";
   const [cobranzaFilter, setCobranzaFilter] = useState<CobranzaFilter>("all");
   const [lastPaymentFrom, setLastPaymentFrom] = useState("");
   const [lastPaymentTo, setLastPaymentTo] = useState("");
@@ -154,7 +160,9 @@ export function OperationsDashboard(props: {
   const [billingDialogAgent, setBillingDialogAgent] =
     useState<AgentWithOperations | null>(null);
   const [billingSaving, setBillingSaving] = useState(false);
-  const [billingDomiciliated, setBillingDomiciliated] = useState(false);
+  const [billingDomiciliated, setBillingDomiciliated] = useState<
+    boolean | null
+  >(null);
   const [billingDefaultAmount, setBillingDefaultAmount] = useState("");
   const [billingDueDate, setBillingDueDate] = useState("");
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -164,6 +172,8 @@ export function OperationsDashboard(props: {
   const [paymentReference, setPaymentReference] = useState("");
   const [paymentNotes, setPaymentNotes] = useState("");
   const [paymentSaving, setPaymentSaving] = useState(false);
+  const [paymentTargetAgent, setPaymentTargetAgent] =
+    useState<AgentWithOperations | null>(null);
   const [defaultModeDialogOpen, setDefaultModeDialogOpen] = useState(false);
   const [defaultBuilderMode, setDefaultBuilderMode] = useState<
     "form" | "conversational"
@@ -246,6 +256,8 @@ export function OperationsDashboard(props: {
           filters = { ...filters, domiciliated: "true" };
         } else if (cobranzaFilter === "non-domiciliated") {
           filters = { ...filters, domiciliated: "false" };
+        } else if (cobranzaFilter === "unknown") {
+          filters = { ...filters, domiciliated: "unknown" };
         } else if (cobranzaFilter === "overdue") {
           filters = { ...filters, billingAlert: "true" };
         }
@@ -545,10 +557,13 @@ export function OperationsDashboard(props: {
         list = list.filter((a) => a.billing.paymentAlert);
       }
       if (cobranzaFilter === "domiciliated") {
-        list = list.filter((a) => a.billing.domiciliated);
+        list = list.filter((a) => a.billing.domiciliated === true);
       }
       if (cobranzaFilter === "non-domiciliated") {
-        list = list.filter((a) => !a.billing.domiciliated);
+        list = list.filter((a) => a.billing.domiciliated === false);
+      }
+      if (cobranzaFilter === "unknown") {
+        list = list.filter((a) => a.billing.domiciliated === null);
       }
       if (cobranzaFilter === "overdue") {
         list = list.filter((a) => a.billing.paymentAlert);
@@ -946,6 +961,22 @@ export function OperationsDashboard(props: {
                     <Button
                       type="button"
                       variant={
+                        cobranzaFilter === "unknown" ? "secondary" : "ghost"
+                      }
+                      size="icon-sm"
+                      className="size-8"
+                      onClick={() => setCobranzaFilter("unknown")}
+                    >
+                      <HelpCircleIcon className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Sin información (domiciliación)</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant={
                         cobranzaFilter === "overdue" ? "secondary" : "ghost"
                       }
                       size="icon-sm"
@@ -1233,14 +1264,19 @@ export function OperationsDashboard(props: {
                           </td>
                           <td className="p-3">
                             <div className="flex items-center gap-2">
-                              {agent.billing.domiciliated ? (
+                              {agent.billing.domiciliated === true ? (
                                 <Badge variant="outline" className="gap-1">
                                   <Building2Icon className="size-3" />
                                   Domiciliado
                                 </Badge>
-                              ) : (
+                              ) : agent.billing.domiciliated === false ? (
                                 <Badge variant="secondary">
                                   No domiciliado
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="gap-1">
+                                  <HelpCircleIcon className="size-3" />
+                                  Sin información
                                 </Badge>
                               )}
                               {agent.billing.paymentAlert && (
@@ -1249,7 +1285,7 @@ export function OperationsDashboard(props: {
                                   Falta de pago
                                 </Badge>
                               )}
-                              {!agent.billing.domiciliated &&
+                              {agent.billing.domiciliated !== true &&
                                 agent.billing.lastPaymentDate && (
                                   <span className="text-xs text-muted-foreground">
                                     Último:{" "}
@@ -1394,7 +1430,7 @@ export function OperationsDashboard(props: {
                         {expandedAgentId === agent.id && (
                           <tr className="bg-muted/30">
                             <td colSpan={isAdmin ? 6 : 5} className="p-4">
-                              {agent.billing.domiciliated ? (
+                              {agent.billing.domiciliated === true ? (
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                   <Building2Icon className="size-4" />
                                   Los pagos domiciliados se renuevan
@@ -1415,6 +1451,7 @@ export function OperationsDashboard(props: {
                                     <Button
                                       size="sm"
                                       onClick={() => {
+                                        setPaymentTargetAgent(agent);
                                         setPaymentAmount(
                                           agent.billing.defaultPaymentAmount
                                             ? String(
@@ -1776,18 +1813,40 @@ export function OperationsDashboard(props: {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="billing-domiciliated"
-                checked={billingDomiciliated}
-                onCheckedChange={(v) => setBillingDomiciliated(v === true)}
-              />
-              <label
-                htmlFor="billing-domiciliated"
-                className="text-sm cursor-pointer"
-              >
-                Cliente domiciliado (pago automático mensual)
-              </label>
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Domiciliación</p>
+              <div className="flex flex-col gap-2 text-sm">
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="radio"
+                    name="billing-domiciliation"
+                    className="size-4 accent-primary"
+                    checked={billingDomiciliated === true}
+                    onChange={() => setBillingDomiciliated(true)}
+                  />
+                  Domiciliado (pago automático mensual)
+                </label>
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="radio"
+                    name="billing-domiciliation"
+                    className="size-4 accent-primary"
+                    checked={billingDomiciliated === false}
+                    onChange={() => setBillingDomiciliated(false)}
+                  />
+                  No domiciliado
+                </label>
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="radio"
+                    name="billing-domiciliation"
+                    className="size-4 accent-primary"
+                    checked={billingDomiciliated === null}
+                    onChange={() => setBillingDomiciliated(null)}
+                  />
+                  Sin información
+                </label>
+              </div>
             </div>
             <div>
               <label className="text-sm font-medium">Monto mensual</label>
@@ -1798,7 +1857,7 @@ export function OperationsDashboard(props: {
                 placeholder="p. ej. 1500"
               />
             </div>
-            {!billingDomiciliated && (
+            {billingDomiciliated !== true && (
               <div>
                 <label className="text-sm font-medium">
                   Fecha límite de pago
@@ -1818,7 +1877,7 @@ export function OperationsDashboard(props: {
                 ).toLocaleDateString("es-MX")}
               </p>
             )}
-            {billingDomiciliated && (
+            {billingDomiciliated === true && (
               <p className="text-xs text-muted-foreground bg-muted/50 rounded-md p-2">
                 Los pagos domiciliados se renuevan automáticamente cada mes. No
                 se requiere acción manual.
@@ -1870,7 +1929,10 @@ export function OperationsDashboard(props: {
       <Dialog
         open={paymentDialogOpen}
         onOpenChange={(open) => {
-          if (!open) setPaymentDialogOpen(false);
+          if (!open) {
+            setPaymentDialogOpen(false);
+            setPaymentTargetAgent(null);
+          }
         }}
       >
         <DialogContent showClose>
@@ -1879,7 +1941,7 @@ export function OperationsDashboard(props: {
             <DialogDescription>
               Agente:{" "}
               <span className="font-medium text-foreground">
-                {billingDialogAgent?.name}
+                {paymentTargetAgent?.name ?? "—"}
               </span>
             </DialogDescription>
           </DialogHeader>
@@ -1938,7 +2000,10 @@ export function OperationsDashboard(props: {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setPaymentDialogOpen(false)}
+              onClick={() => {
+                setPaymentDialogOpen(false);
+                setPaymentTargetAgent(null);
+              }}
             >
               Cancelar
             </Button>
@@ -1946,10 +2011,13 @@ export function OperationsDashboard(props: {
               type="button"
               disabled={paymentSaving || !paymentAmount || !paymentPeriod}
               onClick={async () => {
-                if (!billingDialogAgent) return;
+                if (!paymentTargetAgent) {
+                  toast.error("No se pudo identificar el agente.");
+                  return;
+                }
                 setPaymentSaving(true);
                 try {
-                  const r = await createPaymentRecord(billingDialogAgent.id, {
+                  const r = await createPaymentRecord(paymentTargetAgent.id, {
                     amount: Number(paymentAmount),
                     period: paymentPeriod,
                     paymentMethod,
@@ -1959,7 +2027,8 @@ export function OperationsDashboard(props: {
                   if (r.ok) {
                     toast.success("Pago registrado");
                     setPaymentDialogOpen(false);
-                    const res = await fetchAgentBilling(billingDialogAgent.id);
+                    setPaymentTargetAgent(null);
+                    const res = await fetchAgentBilling(paymentTargetAgent.id);
                     setExpandedPayments(res?.payments ?? []);
                     void fetchAgents();
                   } else {

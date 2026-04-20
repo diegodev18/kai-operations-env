@@ -1620,7 +1620,7 @@ export async function fetchAgentBilling(
 export async function patchAgentBillingConfig(
   agentId: string,
   body: {
-    domiciliated?: boolean;
+    domiciliated?: boolean | null;
     defaultPaymentAmount?: number;
     paymentDueDate?: string | null;
   },

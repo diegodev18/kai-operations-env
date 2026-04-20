@@ -6,7 +6,8 @@ export type AgentOperationalStatus =
   | "suspended";
 
 export type AgentBilling = {
-  domiciliated: boolean;
+  /** `true` / `false` explícitos; `null` = sin información en Firestore. */
+  domiciliated: boolean | null;
   defaultPaymentAmount?: number;
   lastPaymentDate?: string | null;
   paymentDueDate?: string | null;
@@ -69,7 +70,7 @@ export interface AgentWithOperations extends Agent {
 }
 
 export const DEFAULT_AGENT_BILLING: AgentBilling = {
-  domiciliated: false,
+  domiciliated: null,
   lastPaymentDate: null,
   paymentAlert: false,
 };

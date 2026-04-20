@@ -14,7 +14,7 @@ export type AgentsInfoAuthContext = {
 export type AgentDocument = QueryDocumentSnapshot;
 
 export interface AgentBilling {
-  domiciliated: boolean;
+  domiciliated: boolean | null;
   defaultPaymentAmount?: number;
   lastPaymentDate: string | null;
   paymentDueDate: string | null;
