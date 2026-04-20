@@ -69,6 +69,21 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] =
   ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.4.21": {
+    date: "2026-04-20",
+    description:
+      "Atlas: diseño de prompt — editor markdown enriquecido (estilo Notion) y barra flotante al seleccionar texto",
+    changes: {
+      added: [
+        "En `/agents/:id/prompt-design`, componente `PromptMarkdownEditor` con TipTap, `@tiptap/markdown` y `StarterKit`: el prompt base y los modulares (auth / unauth) se editan con formato visible (títulos, listas, negrita, etc.) manteniendo el guardado como texto markdown en testing.",
+        "Menú flotante tipo Notion al seleccionar texto (`BubbleMenu`): negrita, cursiva, tachado, código en línea, H2/H3, cita, listas ordenadas y con viñetas; anclado a `document.body` con posición fija para evitar recortes por `overflow` del panel.",
+        "Dependencias: `@tiptap/markdown`, `@tiptap/extension-placeholder`, `@tiptap/extension-bubble-menu`; bloque `@tiptap/*` alineado en 3.22.4.",
+      ],
+      fixed: [
+        "Bucle «Maximum update depth exceeded» en el menú flotante: `appendTo`, `shouldShow` y `options` del `BubbleMenu` deben ser referencias estables (constantes de módulo), porque TipTap re-despacha al cambiar su identidad y chocaba con `useEditorState`.",
+      ],
+    },
+  },
   "2.4.20": {
     date: "2026-04-18",
     description:

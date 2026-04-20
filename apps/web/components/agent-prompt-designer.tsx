@@ -79,6 +79,10 @@ import {
 } from "@/hooks/prompt-chat";
 import PromptDiffView from "@/components/prompt-diff-view";
 import {
+  PromptMarkdownEditor,
+  PromptMarkdownViewToggle,
+} from "@/components/prompt-markdown-editor";
+import {
   buildTextWithRevertedHunks,
   computeDiffLines,
 } from "@/utils/prompt-diff";
@@ -216,6 +220,9 @@ export function AgentPromptDesigner({
   const [savedUnauthPrompt, setSavedUnauthPrompt] = useState("");
   const [editingAuthPrompt, setEditingAuthPrompt] = useState("");
   const [editingUnauthPrompt, setEditingUnauthPrompt] = useState("");
+  const [rawViewBasePrompt, setRawViewBasePrompt] = useState(false);
+  const [rawViewUnauthPrompt, setRawViewUnauthPrompt] = useState(false);
+  const [rawViewAuthPrompt, setRawViewAuthPrompt] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [pendingImages, setPendingImages] = useState<ChatMessageImage[]>([]);
@@ -591,6 +598,36 @@ export function AgentPromptDesigner({
       ? suggestedPrompt ?? undefined
       : undefined);
 
+  const showMarkdownEditorBase = useMemo(
+    () =>
+      !(
+        showSuggestion &&
+        suggestedForBase != null &&
+        primaryTarget === "base"
+      ) && !(hasChanges && editorViewMode === "diff"),
+    [
+      showSuggestion,
+      suggestedForBase,
+      primaryTarget,
+      hasChanges,
+      editorViewMode,
+    ],
+  );
+
+  const showMarkdownEditorUnauth = useMemo(
+    () =>
+      !(showSuggestion && suggestedForUnauth != null) &&
+      !(hasChanges && editorViewMode === "diff"),
+    [showSuggestion, suggestedForUnauth, hasChanges, editorViewMode],
+  );
+
+  const showMarkdownEditorAuth = useMemo(
+    () =>
+      !(showSuggestion && suggestedForAuth != null) &&
+      !(hasChanges && editorViewMode === "diff"),
+    [showSuggestion, suggestedForAuth, hasChanges, editorViewMode],
+  );
+
   const handleApplySuggestion = () => {
     if (hasMulti && suggestedPrompts) {
       if (suggestedPrompts.base != null) setEditingPrompt(suggestedPrompts.base);
@@ -808,15 +845,24 @@ export function AgentPromptDesigner({
         <div className="flex-1 min-w-0 flex flex-col min-h-0">
           <div className="flex-1 min-h-0 flex flex-col p-3 gap-4 overflow-hidden bg-background">
           <div className="flex-[3] min-h-0 flex flex-col gap-2 overflow-hidden">
-            <div className="flex items-center gap-2">
-              <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Base Prompt
-              </Label>
-              {isAuthEnabled && (
-                <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">
-                  Modular
-                </span>
-              )}
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
+              <div className="flex min-w-0 items-center gap-2">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Base Prompt
+                </Label>
+                {isAuthEnabled && (
+                  <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">
+                    Modular
+                  </span>
+                )}
+              </div>
+              {showMarkdownEditorBase ? (
+                <PromptMarkdownViewToggle
+                  rawView={rawViewBasePrompt}
+                  onRawViewChange={setRawViewBasePrompt}
+                  disabled={promptAndChatLocked}
+                />
+              ) : null}
             </div>
             <div className="flex-1 min-h-0">
               {showSuggestion &&
@@ -848,12 +894,13 @@ export function AgentPromptDesigner({
                   onRevertHunk={(newText) => setEditingPrompt(newText)}
                 />
               ) : (
-                <Textarea
+                <PromptMarkdownEditor
                   value={editingPrompt}
-                  onChange={(e) => setEditingPrompt(e.target.value)}
+                  onChange={setEditingPrompt}
                   disabled={promptAndChatLocked}
-                  className="h-full w-full resize-none font-mono text-sm"
+                  className="h-full w-full text-sm"
                   placeholder="Escribe el prompt del agente…"
+                  rawView={rawViewBasePrompt}
                 />
               )}
             </div>
@@ -861,9 +908,18 @@ export function AgentPromptDesigner({
           {isAuthEnabled && (
             <div className="flex-[2] min-h-0 grid grid-cols-1 lg:grid-cols-2 gap-4 p-3 border-t bg-muted/5 overflow-hidden">
               <div className="flex flex-col gap-2 min-h-0">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Unauth (Public)
-                </Label>
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                  <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Unauth (Public)
+                  </Label>
+                  {showMarkdownEditorUnauth ? (
+                    <PromptMarkdownViewToggle
+                      rawView={rawViewUnauthPrompt}
+                      onRawViewChange={setRawViewUnauthPrompt}
+                      disabled={promptAndChatLocked}
+                    />
+                  ) : null}
+                </div>
                 <div className="flex-1 min-h-0">
                   {showSuggestion && suggestedForUnauth != null ? (
                     <PromptDiffView
@@ -877,20 +933,30 @@ export function AgentPromptDesigner({
                       onRevertHunk={(newText) => setEditingUnauthPrompt(newText)}
                     />
                   ) : (
-                    <Textarea
+                    <PromptMarkdownEditor
                       value={editingUnauthPrompt}
-                      onChange={(e) => setEditingUnauthPrompt(e.target.value)}
-                      className="h-full resize-none font-mono text-xs"
+                      onChange={setEditingUnauthPrompt}
+                      className="h-full text-xs [&_.ProseMirror]:text-xs"
                       disabled={promptAndChatLocked}
                       placeholder="Prompt para usuarios no autenticados…"
+                      rawView={rawViewUnauthPrompt}
                     />
                   )}
                 </div>
               </div>
               <div className="flex flex-col gap-2 min-h-0">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-primary/80">
-                  Auth (Verified)
-                </Label>
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                  <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-primary/80">
+                    Auth (Verified)
+                  </Label>
+                  {showMarkdownEditorAuth ? (
+                    <PromptMarkdownViewToggle
+                      rawView={rawViewAuthPrompt}
+                      onRawViewChange={setRawViewAuthPrompt}
+                      disabled={promptAndChatLocked}
+                    />
+                  ) : null}
+                </div>
                 <div className="flex-1 min-h-0">
                   {showSuggestion && suggestedForAuth != null ? (
                     <PromptDiffView
@@ -904,12 +970,13 @@ export function AgentPromptDesigner({
                       onRevertHunk={(newText) => setEditingAuthPrompt(newText)}
                     />
                   ) : (
-                    <Textarea
+                    <PromptMarkdownEditor
                       value={editingAuthPrompt}
-                      onChange={(e) => setEditingAuthPrompt(e.target.value)}
-                      className="h-full resize-none font-mono text-xs"
+                      onChange={setEditingAuthPrompt}
+                      className="h-full text-xs [&_.ProseMirror]:text-xs"
                       disabled={promptAndChatLocked}
                       placeholder="Prompt para usuarios autenticados…"
+                      rawView={rawViewAuthPrompt}
                     />
                   )}
                 </div>
