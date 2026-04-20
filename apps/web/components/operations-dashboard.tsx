@@ -306,6 +306,19 @@ export function OperationsDashboard(props: {
     }
   }, [fetchPage]);
 
+  /** Actualiza cobranza de un agente en la lista sin vaciar paginación ni recargar todo. */
+  const refreshAgentBillingInList = useCallback(async (agentId: string) => {
+    const res = await fetchAgentBilling(agentId);
+    if (!res?.billing) return;
+    setAgents((prev) =>
+      prev.map((a) =>
+        a.id === agentId
+          ? { ...a, billing: { ...a.billing, ...res.billing } }
+          : a,
+      ),
+    );
+  }, []);
+
   // Effect to load agents when URL q or debounced search changes (not on every render)
   useEffect(() => {
     // Skip initial load if there's a search query - debouncedSearch will trigger the fetch
@@ -1911,8 +1924,9 @@ export function OperationsDashboard(props: {
                   );
                   if (r.ok) {
                     toast.success("Configuración actualizada");
-                    void fetchAgents();
+                    const id = billingDialogAgent.id;
                     setBillingDialogAgent(null);
+                    await refreshAgentBillingInList(id);
                   } else {
                     toast.error(r.error);
                   }
@@ -2026,11 +2040,23 @@ export function OperationsDashboard(props: {
                   });
                   if (r.ok) {
                     toast.success("Pago registrado");
+                    const agentId = paymentTargetAgent.id;
                     setPaymentDialogOpen(false);
                     setPaymentTargetAgent(null);
-                    const res = await fetchAgentBilling(paymentTargetAgent.id);
+                    const res = await fetchAgentBilling(agentId);
                     setExpandedPayments(res?.payments ?? []);
-                    void fetchAgents();
+                    if (res?.billing) {
+                      setAgents((prev) =>
+                        prev.map((a) =>
+                          a.id === agentId
+                            ? {
+                                ...a,
+                                billing: { ...a.billing, ...res.billing },
+                              }
+                            : a,
+                        ),
+                      );
+                    }
                   } else {
                     toast.error(r.error);
                   }
