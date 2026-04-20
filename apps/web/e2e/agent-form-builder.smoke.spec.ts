@@ -162,10 +162,12 @@ async function fillBusinessStep(page: Page) {
 
 async function fillPersonalityStep(page: Page) {
   await waitForStepHeading(page, "Personalidad");
-  await page.getByPlaceholder("Ej: Asistente de Tienda Moda").fill("Asistente E2E");
-  await page
-    .getByPlaceholder(/Describe cómo quieres que se comporte/)
-    .fill("Profesional, claro y breve. Responde con cortesía.");
+  const agentName = page.getByTestId("form-builder-agent-name");
+  const agentPersonality = page.getByTestId("form-builder-agent-personality");
+  await expect(agentName).toBeVisible({ timeout: 60_000 });
+  await expect(agentPersonality).toBeVisible({ timeout: 60_000 });
+  await agentName.fill("Asistente E2E");
+  await agentPersonality.fill("Profesional, claro y breve. Responde con cortesía.");
   await page.getByRole("button", { name: "Moderados" }).click();
 }
 

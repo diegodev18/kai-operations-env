@@ -1437,6 +1437,7 @@ function SectionPersonality({ state, onChange }: SectionProps) {
           value={state.agent_name}
           onChange={(e) => onChange({ agent_name: e.target.value })}
           placeholder="Ej: Asistente de Tienda Moda"
+          data-testid="form-builder-agent-name"
           className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
         />
       </div>
@@ -1450,6 +1451,7 @@ function SectionPersonality({ state, onChange }: SectionProps) {
           onChange={(e) => onChange({ agent_personality: e.target.value })}
           placeholder="Describe cómo quieres que se comporte tu agente. Ej: Soy un asesor amigable y profesional que ayuda a los clientes a encontrar los productos perfectos..."
           rows={4}
+          data-testid="form-builder-agent-personality"
           className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
         />
       </div>
