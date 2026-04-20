@@ -3,7 +3,9 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
-import type { Editor } from "@tiptap/core";
+import { isTextSelection, type Editor } from "@tiptap/core";
+import type { EditorState } from "@tiptap/pm/state";
+import type { EditorView } from "@tiptap/pm/view";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Markdown } from "@tiptap/markdown";
@@ -102,18 +104,46 @@ const PROMPT_BUBBLE_MENU_OPTIONS = {
   shift: { padding: 8 },
 };
 
+/**
+ * Misma idea que el `shouldShow` por defecto de TipTap: si solo reemplazamos con `from !== to`,
+ * el menú puede mostrarse al montar (p. ej. selección no textual o sin foco). Hace falta
+ * `selection.empty`, `isTextSelection`, foco en el editor y texto real entre anclas.
+ */
 function promptBubbleMenuShouldShow({
-  editor: ed,
-  from,
-  to,
+  editor,
+  element,
+  view,
+  state,
 }: {
   editor: Editor;
+  element: HTMLElement;
+  view: EditorView;
+  state: EditorState;
+  oldState?: EditorState;
   from: number;
   to: number;
 }) {
-  if (!ed.isEditable) return false;
-  if (from === to) return false;
-  if (ed.isActive("codeBlock")) return false;
+  if (!editor.isEditable) return false;
+  if (editor.isActive("codeBlock")) return false;
+
+  const { selection, doc } = state;
+  if (!isTextSelection(selection)) return false;
+  if (selection.empty) return false;
+
+  const isChildOfMenu =
+    typeof document !== "undefined" &&
+    document.activeElement instanceof Node &&
+    element.contains(document.activeElement);
+  if (!view.hasFocus() && !isChildOfMenu) return false;
+
+  const { from: selFrom, to: selTo } = selection;
+  const isEmptyTextBlock =
+    !doc.textBetween(selFrom, selTo).length && isTextSelection(selection);
+  if (isEmptyTextBlock) return false;
+
+  const text = doc.textBetween(selFrom, selTo, "\ufffc", "\ufffc");
+  if (text.length === 0) return false;
+
   return true;
 }
 

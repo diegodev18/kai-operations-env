@@ -34,6 +34,22 @@ export function useProductionPrompt(agentId: string) {
   return { data, isLoading, refetch: fetchProductionPrompt };
 }
 
+/** Lectura puntual del prompt en producción (misma fuente que `GET .../production-prompt`). */
+export async function fetchProductionPromptSnapshot(
+  agentId: string,
+): Promise<ProductionPromptData | null> {
+  try {
+    const res = await fetch(
+      `/api/agents/${encodeURIComponent(agentId)}/production-prompt`,
+      { credentials: "include" },
+    );
+    if (!res.ok) return null;
+    return (await res.json()) as ProductionPromptData;
+  } catch {
+    return null;
+  }
+}
+
 export async function promotePromptToProduction(
   agentId: string,
   payload: { prompt: string; auth?: { auth: string; unauth: string } },

@@ -35,6 +35,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
+  ArrowDownToLineIcon,
   ArrowUpIcon,
   CheckIcon,
   FileTextIcon,
@@ -65,6 +66,7 @@ import {
 import { useAgentTools } from "@/hooks/agent-tools";
 import {
   useProductionPrompt,
+  fetchProductionPromptSnapshot,
   promotePromptToProduction as promotePromptApi,
 } from "@/hooks/agent-production-prompt";
 import {
@@ -261,6 +263,7 @@ export function AgentPromptDesigner({
   const [regenerateSystemPromptLoading, setRegenerateSystemPromptLoading] =
     useState(false);
   const [promoting, setPromoting] = useState(false);
+  const [pullingProductionBase, setPullingProductionBase] = useState(false);
 
   const { models: promptModels, isLoading: modelsLoading } = usePromptModels();
   const isAuthEnabled = propertiesData?.agent?.isAuthEnable === true;
@@ -484,9 +487,57 @@ export function AgentPromptDesigner({
     return baseDiffers;
   }, [savedPrompt, savedAuthPrompt, savedUnauthPrompt, productionPrompt, isAuthEnabled]);
 
+  /** El base guardado en pruebas ya es el mismo que en producción (solo base, no auth). */
+  const testingBaseMatchesProduction = useMemo(
+    () =>
+      productionPrompt != null &&
+      savedPrompt === productionPrompt.prompt,
+    [savedPrompt, productionPrompt],
+  );
+
   const [isPromoteDialogOpen, setIsPromoteDialogOpen] = useState(false);
   const [promoteIncludeAuth, setPromoteIncludeAuth] = useState(true);
   const [promoteIncludeUnauth, setPromoteIncludeUnauth] = useState(true);
+
+  const handlePullProductionBaseToTesting = async () => {
+    if (pullingProductionBase || promptAndChatLocked) return;
+    if (editingPrompt !== savedPrompt) {
+      const ok = window.confirm(
+        "Hay cambios sin guardar en el prompt principal. ¿Reemplazarlos por el texto que está en producción y guardarlo en pruebas?",
+      );
+      if (!ok) return;
+    }
+    setPullingProductionBase(true);
+    try {
+      const snap = await fetchProductionPromptSnapshot(agentId);
+      if (!snap) {
+        toast.error("No se pudo leer el prompt de producción.");
+        return;
+      }
+      const base = typeof snap.prompt === "string" ? snap.prompt : "";
+      if (base.trim().length === 0) {
+        toast.error("En producción el prompt principal está vacío.");
+        return;
+      }
+      if (savedPrompt === base && editingPrompt === base) {
+        toast.info("El prompt en pruebas ya es el mismo que en producción.");
+        return;
+      }
+      const patchOk = await updateTestingPropertyDocument(agentId, "prompt", {
+        base,
+      });
+      if (!patchOk) return;
+      setEditingPrompt(base);
+      setSavedPrompt(base);
+      setDiffViewRequested(false);
+      setBaseMarkdownRemount((n) => n + 1);
+      void refetchTestingProperties();
+      void refetchProductionPrompt();
+      toast.success("Listo: el texto de producción quedó guardado en pruebas.");
+    } finally {
+      setPullingProductionBase(false);
+    }
+  };
 
   const handlePromoteToProduction = async () => {
     if (!savedTestingDiffersFromProduction) return;
@@ -999,105 +1050,143 @@ export function AgentPromptDesigner({
             </div>
           )}
           </div>
-          <div className="flex justify-end gap-2 p-3 border-t">
-            {hasChanges && (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setDiffViewRequested((v) => !v)}
-                disabled={promptAndChatLocked}
-              >
-                {editorViewMode === "diff" ? "Editar" : "Ver cambios"}
-              </Button>
-            )}
-            {showSuggestion && (
-              <>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={clearSuggestion}
-                  disabled={promptAndChatLocked}
-                >
-                  <XIcon className="mr-1 h-3 w-3" />
-                  Descartar sugerencia
-                </Button>
-                <Button
-                  type="button"
-                  onClick={handleApplySuggestion}
-                  disabled={promptAndChatLocked}
-                >
-                  <CheckIcon className="mr-1 h-3 w-3" />
-                  Aplicar sugerencia
-                </Button>
-              </>
-            )}
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setEditingPrompt(savedPrompt);
-                setEditingAuthPrompt(savedAuthPrompt);
-                setEditingUnauthPrompt(savedUnauthPrompt);
-                clearSuggestion();
-                reset();
-              }}
-              disabled={(!hasChanges && !showSuggestion) || promptAndChatLocked}
-            >
-              Deshacer
-            </Button>
+          <div className="flex w-full flex-wrap items-center gap-2 p-3 border-t">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  onClick={handleSave}
-                  disabled={!hasChanges || isSaving || promptAndChatLocked}
-                >
-                  {isSaving ? (
-                    <Loader2Icon className="w-4 h-4 animate-spin mr-2" />
-                  ) : null}
-                  Guardar
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                Guarda los cambios en Testing para poder probarlos en &quot;Pruebas con kAI&quot;
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  onClick={handlePromoteToProduction}
+                  type="button"
+                  variant="outline"
+                  onClick={() => void handlePullProductionBaseToTesting()}
                   disabled={
-                    !savedTestingDiffersFromProduction ||
-                    promoting ||
+                    pullingProductionBase ||
                     promptAndChatLocked ||
-                    loadingProductionPrompt
+                    loadingProductionPrompt ||
+                    testingBaseMatchesProduction
                   }
                   className={
-                    !savedTestingDiffersFromProduction || loadingProductionPrompt
+                    testingBaseMatchesProduction || loadingProductionPrompt
                       ? "opacity-50"
                       : ""
                   }
-                  variant={
-                    savedTestingDiffersFromProduction && !loadingProductionPrompt
-                      ? "default"
-                      : "outline"
-                  }
                 >
-                  {promoting ? (
-                    <Loader2Icon className="w-4 h-4 animate-spin mr-2" />
+                  {pullingProductionBase ? (
+                    <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
-                    <RocketIcon className="w-4 h-4 mr-2" />
+                    <ArrowDownToLineIcon className="mr-2 h-4 w-4" />
                   )}
-                  Subir a producción
+                  Bajar cambios
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                {!hasChanges
-                  ? "Guarda primero los cambios en Testing para poder subir a producción. Esto los hará visibles para los usuarios."
-                  : !savedTestingDiffersFromProduction
-                    ? "Guarda los cambios para que difieran de producción y puedas subir. Esto los hará visibles para los usuarios."
-                    : "Sube los cambios guardados en Testing a producción. Esto los hará visibles para los usuarios."}
+                {promptAndChatLocked
+                  ? "No disponible mientras el editor esté bloqueado."
+                  : loadingProductionPrompt
+                    ? "Cargando el prompt de producción…"
+                    : testingBaseMatchesProduction
+                      ? "El prompt guardado en pruebas ya es el mismo que en producción."
+                      : "Copia el prompt principal de producción a pruebas (sustituye el guardado en Testing)."}
               </TooltipContent>
             </Tooltip>
+            <div className="ml-auto flex flex-wrap justify-end gap-2">
+              {hasChanges && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setDiffViewRequested((v) => !v)}
+                  disabled={promptAndChatLocked}
+                >
+                  {editorViewMode === "diff" ? "Editar" : "Ver cambios"}
+                </Button>
+              )}
+              {showSuggestion && (
+                <>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={clearSuggestion}
+                    disabled={promptAndChatLocked}
+                  >
+                    <XIcon className="mr-1 h-3 w-3" />
+                    Descartar sugerencia
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleApplySuggestion}
+                    disabled={promptAndChatLocked}
+                  >
+                    <CheckIcon className="mr-1 h-3 w-3" />
+                    Aplicar sugerencia
+                  </Button>
+                </>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setEditingPrompt(savedPrompt);
+                  setEditingAuthPrompt(savedAuthPrompt);
+                  setEditingUnauthPrompt(savedUnauthPrompt);
+                  clearSuggestion();
+                  reset();
+                }}
+                disabled={(!hasChanges && !showSuggestion) || promptAndChatLocked}
+              >
+                Deshacer
+              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={handleSave}
+                    disabled={!hasChanges || isSaving || promptAndChatLocked}
+                  >
+                    {isSaving ? (
+                      <Loader2Icon className="w-4 h-4 animate-spin mr-2" />
+                    ) : null}
+                    Guardar
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Guarda los cambios en Testing para poder probarlos en &quot;Pruebas con kAI&quot;
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={handlePromoteToProduction}
+                    disabled={
+                      !savedTestingDiffersFromProduction ||
+                      promoting ||
+                      promptAndChatLocked ||
+                      loadingProductionPrompt
+                    }
+                    className={
+                      !savedTestingDiffersFromProduction || loadingProductionPrompt
+                        ? "opacity-50"
+                        : ""
+                    }
+                    variant={
+                      savedTestingDiffersFromProduction && !loadingProductionPrompt
+                        ? "default"
+                        : "outline"
+                    }
+                  >
+                    {promoting ? (
+                      <Loader2Icon className="w-4 h-4 animate-spin mr-2" />
+                    ) : (
+                      <RocketIcon className="w-4 h-4 mr-2" />
+                    )}
+                    Subir a producción
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {!hasChanges
+                    ? "Guarda primero los cambios en Testing para poder subir a producción. Esto los hará visibles para los usuarios."
+                    : !savedTestingDiffersFromProduction
+                      ? "Guarda los cambios para que difieran de producción y puedas subir. Esto los hará visibles para los usuarios."
+                      : "Sube los cambios guardados en Testing a producción. Esto los hará visibles para los usuarios."}
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </div>
         </div>
 
