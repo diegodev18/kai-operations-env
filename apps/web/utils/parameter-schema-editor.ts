@@ -57,8 +57,7 @@ function parseProperty(
     ? (prop.enum.filter((e): e is string => typeof e === "string") as string[])
     : undefined;
   const format = typeof prop.format === "string" ? prop.format : undefined;
-  const id =
-    isDraftKey && draftId ? draftId : idPrefix ? `${idPrefix}.${key}` : key;
+  const id = isDraftKey && draftId ? draftId : idPrefix || key;
 
   const base: EditorProperty = {
     id,
@@ -81,7 +80,7 @@ function parseProperty(
               k,
               (v as Record<string, unknown>) ?? {},
               innerReqSet,
-              `${id}.${i}-${k}`,
+              `${id}.${i}`,
             ),
           )
         : [];
@@ -107,7 +106,7 @@ function parseProperty(
                   k,
                   (v as Record<string, unknown>) ?? {},
                   innerReqSet,
-                  `${id}.items.${i}-${k}`,
+                  `${id}.items.${i}`,
                 ),
               )
             : [];
@@ -140,7 +139,7 @@ export function schemaToEditorState(
             k,
             (v as Record<string, unknown>) ?? {},
             requiredSet,
-            `root.${i}-${k}`,
+            `root.${i}`,
           ),
         )
       : [];
