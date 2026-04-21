@@ -24,7 +24,17 @@ import {
 import { toast } from "sonner";
 import { AGENT_BUILDER_MANDATORY_TOOL_NAMES } from "@kai/shared";
 
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -75,7 +85,10 @@ import {
   STAGE_ICONS,
   STAGE_TYPES,
 } from "@/lib/form-builder-constants";
-import { PROPERTY_DESCRIPTIONS, PROPERTY_TITLES } from "@/lib/property-descriptions";
+import {
+  PROPERTY_DESCRIPTIONS,
+  PROPERTY_TITLES,
+} from "@/lib/property-descriptions";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/auth";
 
@@ -112,7 +125,8 @@ function formStateToBuilderCompanyPayload(
   if (ci) payload.customIndustry = ci;
   const tz = state.business_timezone.trim();
   if (tz) payload.businessTimezone = tz;
-  if (state.brandValues.length > 0) payload.brandValues = [...state.brandValues];
+  if (state.brandValues.length > 0)
+    payload.brandValues = [...state.brandValues];
   const pol = state.policies.trim();
   if (pol) payload.policies = pol;
   return payload;
@@ -171,7 +185,7 @@ function isFlowsStepComplete(state: FormBuilderState): boolean {
   if (state.flow_questions.length === 0) return false;
   return state.flow_questions.every((q) => {
     if (q.required === false) return true;
-    return !!(state.flow_answers[q.field]?.trim());
+    return !!state.flow_answers[q.field]?.trim();
   });
 }
 
@@ -270,10 +284,14 @@ function buildAdvancedProfileNarrative(state: FormBuilderState): string {
     parts.push(`Saludo típico:\n${state.greetingMessage.trim()}`);
   }
   if (state.brandValues.length) {
-    parts.push(`Valores de marca: ${state.brandValues.filter(Boolean).join(", ")}`);
+    parts.push(
+      `Valores de marca: ${state.brandValues.filter(Boolean).join(", ")}`,
+    );
   }
   if (state.topicsToAvoid.length) {
-    parts.push(`Temas a evitar: ${state.topicsToAvoid.filter(Boolean).join(", ")}`);
+    parts.push(
+      `Temas a evitar: ${state.topicsToAvoid.filter(Boolean).join(", ")}`,
+    );
   }
   if (state.requiredPhrases.length) {
     parts.push(
@@ -303,7 +321,9 @@ function buildToolsSelectionNarrative(
     if (!reason) continue;
     const t = byId.get(id);
     const label =
-      (t?.displayName && t.displayName.trim()) || (t?.name && t.name.trim()) || id;
+      (t?.displayName && t.displayName.trim()) ||
+      (t?.name && t.name.trim()) ||
+      id;
     perTool.push(`### ${label} (id: \`${id}\`)\n${reason}`);
   }
   if (perTool.length) {
@@ -408,8 +428,7 @@ interface SectionProps {
   onEditingSavedCompanyIdChange?: (id: string | null) => void;
   /** POST o PATCH según `editingSavedCompanyId`. */
   saveBusinessProfileToFirestore?: () => Promise<
-    | { ok: true; mode: "created" | "updated" }
-    | { ok: false; error: string }
+    { ok: true; mode: "created" | "updated" } | { ok: false; error: string }
   >;
 }
 
@@ -462,13 +481,19 @@ function EscalationRulesInput({
           placeholder="Ej: Si pide hablar con un humano, ofrecer transferencia"
           className="flex h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
         />
-        <Button type="button" variant="secondary" className="shrink-0" onClick={addRule}>
+        <Button
+          type="button"
+          variant="secondary"
+          className="shrink-0"
+          onClick={addRule}
+        >
           Añadir
         </Button>
       </div>
       {items.length === 0 ? (
         <p className="text-xs text-muted-foreground">
-          Escribe una regla y pulsa Añadir o Enter. Puedes tener varias y quitar las que no apliquen.
+          Escribe una regla y pulsa Añadir o Enter. Puedes tener varias y quitar
+          las que no apliquen.
         </p>
       ) : (
         <ul className="space-y-2 rounded-md border border-input bg-muted/30 p-2">
@@ -477,7 +502,9 @@ function EscalationRulesInput({
               key={`${index}-${item.slice(0, 48)}`}
               className="flex items-start gap-2 rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
             >
-              <span className="mt-0.5 shrink-0 font-medium text-muted-foreground">{index + 1}.</span>
+              <span className="mt-0.5 shrink-0 font-medium text-muted-foreground">
+                {index + 1}.
+              </span>
               <span className="min-w-0 flex-1 break-words">{item}</span>
               <button
                 type="button"
@@ -533,11 +560,19 @@ function StringListInput({
               addItem();
             }
           }}
-          placeholder={value.length >= maxItems ? `Máximo ${maxItems} items` : placeholder}
+          placeholder={
+            value.length >= maxItems ? `Máximo ${maxItems} items` : placeholder
+          }
           disabled={value.length >= maxItems}
           className="flex h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
         />
-        <Button type="button" variant="secondary" className="shrink-0" onClick={addItem} disabled={value.length >= maxItems}>
+        <Button
+          type="button"
+          variant="secondary"
+          className="shrink-0"
+          onClick={addItem}
+          disabled={value.length >= maxItems}
+        >
           Añadir
         </Button>
       </div>
@@ -636,7 +671,9 @@ function SectionBusiness({
 
   const editingLabel = useMemo(() => {
     if (!editingSavedCompanyId) return null;
-    return savedCompanies.find((s) => s.id === editingSavedCompanyId)?.name ?? null;
+    return (
+      savedCompanies.find((s) => s.id === editingSavedCompanyId)?.name ?? null
+    );
   }, [editingSavedCompanyId, savedCompanies]);
 
   const handleSaveCompanyProfile = useCallback(async () => {
@@ -668,8 +705,8 @@ function SectionBusiness({
           </p>
         ) : null}
         <p className="text-xs text-muted-foreground">
-          Carga un perfil ya guardado o guarda el negocio actual. También se guarda automáticamente al
-          pulsar Siguiente si los datos cambiaron.
+          Carga un perfil ya guardado o guarda el negocio actual. También se
+          guarda automáticamente al pulsar Siguiente si los datos cambiaron.
         </p>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <DropdownMenu open={savedMenuOpen} onOpenChange={setSavedMenuOpen}>
@@ -724,7 +761,9 @@ function SectionBusiness({
                         className="w-full rounded-md px-2 py-2 text-left hover:bg-accent/50"
                         onClick={() => applySavedCompany(c)}
                       >
-                        <span className="block font-medium leading-tight">{c.name}</span>
+                        <span className="block font-medium leading-tight">
+                          {c.name}
+                        </span>
                         {desc ? (
                           <span className="mt-0.5 line-clamp-2 block text-xs text-muted-foreground">
                             {desc}
@@ -747,7 +786,9 @@ function SectionBusiness({
             {savingCompany ? (
               <Loader2Icon className="mr-2 size-4 animate-spin" />
             ) : null}
-            {editingSavedCompanyId ? "Actualizar empresa" : "Guardar empresa actual"}
+            {editingSavedCompanyId
+              ? "Actualizar empresa"
+              : "Guardar empresa actual"}
           </Button>
           {editingSavedCompanyId ? (
             <Button
@@ -864,8 +905,8 @@ function SectionBusiness({
           Reglas de escalamiento <span className="text-destructive">*</span>
         </label>
         <p className="mt-1 text-xs text-muted-foreground">
-          Añade una fila por situación (transferir a humano, temas sensibles, etc.). Se guardan como texto
-          separado por líneas.
+          Añade una fila por situación (transferir a humano, temas sensibles,
+          etc.). Se guardan como texto separado por líneas.
         </p>
         <EscalationRulesInput
           value={state.escalation_rules}
@@ -901,13 +942,31 @@ function SectionBusiness({
           className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
         >
           <option value="">Selecciona zona horaria</option>
-          {state.country === "MX" && <option value="America/Mexico_City">Ciudad de México (GMT-6)</option>}
-          {state.country === "CO" && <option value="America/Bogota">Bogotá (GMT-5)</option>}
-          {state.country === "AR" && <option value="America/Argentina/Buenos_Aires">Buenos Aires (GMT-3)</option>}
-          {state.country === "CL" && <option value="America/Santiago">Santiago (GMT-4)</option>}
-          {state.country === "PE" && <option value="America/Lima">Lima (GMT-5)</option>}
-          {state.country === "US" && <option value="America/New_York">Nueva York (GMT-5)</option>}
-          {state.country === "ES" && <option value="Europe/Madrid">Madrid (GMT+1)</option>}
+          {state.country === "MX" && (
+            <option value="America/Mexico_City">
+              Ciudad de México (GMT-6)
+            </option>
+          )}
+          {state.country === "CO" && (
+            <option value="America/Bogota">Bogotá (GMT-5)</option>
+          )}
+          {state.country === "AR" && (
+            <option value="America/Argentina/Buenos_Aires">
+              Buenos Aires (GMT-3)
+            </option>
+          )}
+          {state.country === "CL" && (
+            <option value="America/Santiago">Santiago (GMT-4)</option>
+          )}
+          {state.country === "PE" && (
+            <option value="America/Lima">Lima (GMT-5)</option>
+          )}
+          {state.country === "US" && (
+            <option value="America/New_York">Nueva York (GMT-5)</option>
+          )}
+          {state.country === "ES" && (
+            <option value="Europe/Madrid">Madrid (GMT+1)</option>
+          )}
         </select>
       </div>
 
@@ -965,9 +1024,13 @@ function composeFlowSelect(main: string, other: string) {
 function parseFlowSuggestionsMulti(value: string, suggestions: string[]) {
   const idx = value.indexOf(FLOW_SUGGEST_EXTRA_SEP);
   const headRaw = idx < 0 ? value : value.slice(0, idx);
-  const extraRaw = idx < 0 ? "" : value.slice(idx + FLOW_SUGGEST_EXTRA_SEP.length);
+  const extraRaw =
+    idx < 0 ? "" : value.slice(idx + FLOW_SUGGEST_EXTRA_SEP.length);
   const tokens = headRaw
-    ? headRaw.split(";").map((s) => s.trim()).filter(Boolean)
+    ? headRaw
+        .split(";")
+        .map((s) => s.trim())
+        .filter(Boolean)
     : [];
   const picked = tokens.filter((t) => suggestions.includes(t));
   if (picked.length === 0 && idx < 0) {
@@ -1016,7 +1079,8 @@ function FlowSelectChips({
   return (
     <div className="mt-1 space-y-3">
       <p className="text-xs text-muted-foreground">
-        Elige una opción (puedes pulsar un ejemplo). Opcional: detalle u otra respuesta abajo.
+        Elige una opción (puedes pulsar un ejemplo). Opcional: detalle u otra
+        respuesta abajo.
       </p>
       <div className="flex flex-wrap gap-2">
         {options.map((opt) => (
@@ -1039,7 +1103,9 @@ function FlowSelectChips({
         ))}
       </div>
       <div>
-        <label className="text-xs font-medium text-muted-foreground">Otro / aclarar</label>
+        <label className="text-xs font-medium text-muted-foreground">
+          Otro / aclarar
+        </label>
         <textarea
           value={other}
           onChange={(e) => onChange(composeFlowSelect(main, e.target.value))}
@@ -1079,7 +1145,8 @@ function FlowSuggestionsMulti({
   return (
     <div className="mt-1 space-y-3">
       <p className="text-xs text-muted-foreground">
-        Puedes elegir varias respuestas ejemplo. Añade detalle u otra información abajo.
+        Puedes elegir varias respuestas ejemplo. Añade detalle u otra
+        información abajo.
       </p>
       <div className="flex flex-wrap gap-2">
         {suggestions.map((s) => (
@@ -1101,7 +1168,9 @@ function FlowSuggestionsMulti({
       </div>
       <textarea
         value={extra}
-        onChange={(e) => onChange(composeFlowSuggestionsMulti(picked, e.target.value))}
+        onChange={(e) =>
+          onChange(composeFlowSuggestionsMulti(picked, e.target.value))
+        }
         disabled={disabled}
         rows={rows}
         placeholder="Otro contexto o detalle adicional…"
@@ -1140,7 +1209,9 @@ function FlowSuggestionsSingle({
             type="button"
             disabled={disabled}
             onClick={() =>
-              onChange(composeFlowSuggestionsSingle(picked === s ? "" : s, extra))
+              onChange(
+                composeFlowSuggestionsSingle(picked === s ? "" : s, extra),
+              )
             }
             className={cn(
               "rounded-full border px-3 py-1.5 text-left text-sm transition-colors",
@@ -1188,10 +1259,7 @@ function FlowQuestionField({
       />
     );
   }
-  if (
-    (q.type === "text" || q.type === "textarea") &&
-    q.suggestions?.length
-  ) {
+  if ((q.type === "text" || q.type === "textarea") && q.suggestions?.length) {
     const mode =
       q.suggestion_mode ?? (q.type === "textarea" ? "multi" : "single");
     const rows = q.type === "textarea" ? 3 : 2;
@@ -1272,8 +1340,8 @@ function SectionFlows({
     return (
       <div className="space-y-4 rounded-lg border border-amber-500/40 bg-amber-500/5 p-4">
         <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-          Para generar preguntas sobre cómo trabajará tu asistente, completa primero los pasos
-          anteriores.
+          Para generar preguntas sobre cómo trabajará tu asistente, completa
+          primero los pasos anteriores.
         </p>
         {firstCoreIncomplete ? (
           <Button
@@ -1304,7 +1372,12 @@ function SectionFlows({
         <div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive">
           {flowQuestionsError}
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={onRetryFlowQuestions}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onRetryFlowQuestions}
+        >
           Reintentar
         </Button>
       </div>
@@ -1314,8 +1387,9 @@ function SectionFlows({
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted-foreground">
-        Son unas preguntas cortas, en lenguaje sencillo, pensadas para tu tipo de negocio. Tus
-        respuestas ayudan a elegir las mejores funciones para el asistente.
+        Son unas preguntas cortas, en lenguaje sencillo, pensadas para tu tipo
+        de negocio. Tus respuestas ayudan a elegir las mejores funciones para el
+        asistente.
       </p>
 
       {state.flow_questions.map((q: AgentFlowQuestion) => (
@@ -1353,8 +1427,8 @@ function SectionFlows({
           )}
         </Button>
         <p className="w-full text-xs text-muted-foreground">
-          Si cambias de idea, puedes regenerar; se borrarán las respuestas actuales y obtendrás un
-          nuevo cuestionario.
+          Si cambias de idea, puedes regenerar; se borrarán las respuestas
+          actuales y obtendrás un nuevo cuestionario.
         </p>
       </div>
     </div>
@@ -1390,7 +1464,9 @@ function SectionTools({
   toolReasonById,
   operationalSummary,
 }: SectionToolsProps) {
-  const mandatoryToolNames = new Set<string>(AGENT_BUILDER_MANDATORY_TOOL_NAMES);
+  const mandatoryToolNames = new Set<string>(
+    AGENT_BUILDER_MANDATORY_TOOL_NAMES,
+  );
   const canRemove = (toolId: string) => {
     const tool = catalog.find((t) => t.id === toolId);
     const toolName = tool?.name || "";
@@ -1398,18 +1474,24 @@ function SectionTools({
   };
 
   const confirmRemoveTool = (toolId: string) => {
-    _onChange({ selected_tools: state.selected_tools.filter((id) => id !== toolId) });
+    _onChange({
+      selected_tools: state.selected_tools.filter((id) => id !== toolId),
+    });
   };
 
   if (!prerequisitesMet) {
     return (
       <div className="space-y-4 rounded-lg border border-amber-500/40 bg-amber-500/5 p-4">
         <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-          Para recomendar herramientas con IA, completa primero los pasos anteriores.
+          Para recomendar herramientas con IA, completa primero los pasos
+          anteriores.
         </p>
         <p className="text-sm text-muted-foreground">
           Faltan datos en:{" "}
-          {firstBlockedSection ? sectionTitle(firstBlockedSection) : "pasos previos"}.
+          {firstBlockedSection
+            ? sectionTitle(firstBlockedSection)
+            : "pasos previos"}
+          .
         </p>
         {firstBlockedSection ? (
           <Button
@@ -1428,13 +1510,16 @@ function SectionTools({
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted-foreground">
-        Usamos lo que contaste en <strong>Flujos</strong> más tu negocio y personalidad. Puedes
-        regenerar la lista si cambias algo en pasos anteriores.
+        Usamos lo que contaste en <strong>Flujos</strong> más tu negocio y
+        personalidad. Puedes regenerar la lista si cambias algo en pasos
+        anteriores.
       </p>
 
       {operationalSummary.trim() ? (
         <div className="rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground">
-          <p className="mb-1 font-medium text-foreground">Resumen de lo que nos contaste en Flujos</p>
+          <p className="mb-1 font-medium text-foreground">
+            Resumen de lo que nos contaste en Flujos
+          </p>
           <pre className="max-h-40 overflow-y-auto whitespace-pre-wrap font-sans">
             {operationalSummary}
           </pre>
@@ -1512,7 +1597,9 @@ function SectionTools({
                     {reason ? (
                       <p className="mt-1 text-muted-foreground">{reason}</p>
                     ) : tool?.description ? (
-                      <p className="mt-1 text-muted-foreground">{tool.description}</p>
+                      <p className="mt-1 text-muted-foreground">
+                        {tool.description}
+                      </p>
                     ) : null}
                   </div>
                   {canRemove(toolId) ? (
@@ -1528,14 +1615,21 @@ function SectionTools({
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>¿Eliminar herramienta?</AlertDialogTitle>
+                          <AlertDialogTitle>
+                            ¿Eliminar herramienta?
+                          </AlertDialogTitle>
                           <AlertDialogDescription>
-                            ¿Estás seguro de que quieres eliminar &quot;{tool?.displayName || tool?.name || toolId}&quot;?
+                            ¿Estás seguro de que quieres eliminar &quot;
+                            {tool?.displayName || tool?.name || toolId}&quot;?
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => confirmRemoveTool(toolId)}>Eliminar</AlertDialogAction>
+                          <AlertDialogAction
+                            onClick={() => confirmRemoveTool(toolId)}
+                          >
+                            Eliminar
+                          </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
@@ -1556,8 +1650,8 @@ function SectionTools({
         </div>
       ) : !recommendLoading ? (
         <p className="text-sm text-muted-foreground">
-          Aún no hay herramientas. Pulsa &quot;Regenerar recomendación&quot; o espera a que se
-          genere automáticamente.
+          Aún no hay herramientas. Pulsa &quot;Regenerar recomendación&quot; o
+          espera a que se genere automáticamente.
         </p>
       ) : null}
     </div>
@@ -1613,7 +1707,9 @@ function SectionPersonality({ state, onChange }: SectionProps) {
               key={trait.id}
               type="button"
               onClick={() => {
-                const newTraits = state.personality_traits.includes(trait.id as PersonalityTrait)
+                const newTraits = state.personality_traits.includes(
+                  trait.id as PersonalityTrait,
+                )
                   ? state.personality_traits.filter((t) => t !== trait.id)
                   : [...state.personality_traits, trait.id as PersonalityTrait];
                 onChange({ personality_traits: newTraits });
@@ -1622,7 +1718,7 @@ function SectionPersonality({ state, onChange }: SectionProps) {
                 "flex items-center gap-1 rounded-full border px-3 py-1 text-sm transition-colors",
                 state.personality_traits.includes(trait.id as PersonalityTrait)
                   ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-background hover:bg-muted"
+                  : "border-border bg-background hover:bg-muted",
               )}
             >
               <span>{trait.emoji}</span>
@@ -1661,10 +1757,14 @@ function SectionPersonality({ state, onChange }: SectionProps) {
                 "flex-1 rounded-lg border py-2 text-sm transition-colors",
                 state.use_emojis === pref
                   ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border hover:bg-muted"
+                  : "border-border hover:bg-muted",
               )}
             >
-              {pref === "never" ? "Nunca" : pref === "moderate" ? "Moderados" : "Siempre"}
+              {pref === "never"
+                ? "Nunca"
+                : pref === "moderate"
+                  ? "Moderados"
+                  : "Siempre"}
             </button>
           ))}
         </div>
@@ -1703,7 +1803,15 @@ function SectionPersonality({ state, onChange }: SectionProps) {
         </label>
         <select
           value={state.tone}
-          onChange={(e) => onChange({ tone: e.target.value as "formal" | "casual" | "professional" | "friendly" })}
+          onChange={(e) =>
+            onChange({
+              tone: e.target.value as
+                | "formal"
+                | "casual"
+                | "professional"
+                | "friendly",
+            })
+          }
           className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
         >
           <option value="friendly">Amigable</option>
@@ -1728,7 +1836,11 @@ function SectionPersonality({ state, onChange }: SectionProps) {
         <label className="text-sm font-medium">Longitud de respuestas</label>
         <select
           value={state.responseLength}
-          onChange={(e) => onChange({ responseLength: e.target.value as "short" | "medium" | "long" })}
+          onChange={(e) =>
+            onChange({
+              responseLength: e.target.value as "short" | "medium" | "long",
+            })
+          }
           className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
         >
           <option value="short">Cortas</option>
@@ -1759,11 +1871,21 @@ function SectionPersonality({ state, onChange }: SectionProps) {
         <label className="text-sm font-medium">Estilo conversacional</label>
         <select
           value={state.conversationStyle}
-          onChange={(e) => onChange({ conversationStyle: e.target.value as "interrogative" | "informative" })}
+          onChange={(e) =>
+            onChange({
+              conversationStyle: e.target.value as
+                | "interrogative"
+                | "informative",
+            })
+          }
           className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
         >
-          <option value="informative">Informativo (da respuestas directas)</option>
-          <option value="interrogative">Interrogativo (hace preguntas para entender mejor)</option>
+          <option value="informative">
+            Informativo (da respuestas directas)
+          </option>
+          <option value="interrogative">
+            Interrogativo (hace preguntas para entender mejor)
+          </option>
         </select>
       </div>
     </div>
@@ -1776,8 +1898,12 @@ function SectionAdvanced({ state, onChange }: SectionProps) {
       <div className="space-y-3">
         <p className="text-sm font-semibold">Modelo e IA</p>
         <div>
-          <label className="text-sm font-medium">{PROPERTY_TITLES.ai?.model}</label>
-          <p className="text-xs text-muted-foreground">{PROPERTY_DESCRIPTIONS.ai?.model}</p>
+          <label className="text-sm font-medium">
+            {PROPERTY_TITLES.ai?.model}
+          </label>
+          <p className="text-xs text-muted-foreground">
+            {PROPERTY_DESCRIPTIONS.ai?.model}
+          </p>
           <select
             value={state.ai_model}
             onChange={(e) => onChange({ ai_model: e.target.value })}
@@ -1791,8 +1917,12 @@ function SectionAdvanced({ state, onChange }: SectionProps) {
           </select>
         </div>
         <div>
-          <label className="text-sm font-medium">{PROPERTY_TITLES.ai?.temperature}</label>
-          <p className="text-xs text-muted-foreground">{PROPERTY_DESCRIPTIONS.ai?.temperature}</p>
+          <label className="text-sm font-medium">
+            {PROPERTY_TITLES.ai?.temperature}
+          </label>
+          <p className="text-xs text-muted-foreground">
+            {PROPERTY_DESCRIPTIONS.ai?.temperature}
+          </p>
           <input
             type="number"
             min={0}
@@ -1802,7 +1932,9 @@ function SectionAdvanced({ state, onChange }: SectionProps) {
             onChange={(e) => {
               const v = parseFloat(e.target.value);
               onChange({
-                ai_temperature: Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.05,
+                ai_temperature: Number.isFinite(v)
+                  ? Math.min(1, Math.max(0, v))
+                  : 0.05,
               });
             }}
             className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -1813,15 +1945,22 @@ function SectionAdvanced({ state, onChange }: SectionProps) {
       <div className="space-y-3">
         <p className="text-sm font-semibold">Respuesta y memoria</p>
         <div>
-          <label className="text-sm font-medium">{PROPERTY_TITLES.response?.waitTime}</label>
-          <p className="text-xs text-muted-foreground">{PROPERTY_DESCRIPTIONS.response?.waitTime}</p>
+          <label className="text-sm font-medium">
+            {PROPERTY_TITLES.response?.waitTime}
+          </label>
+          <p className="text-xs text-muted-foreground">
+            {PROPERTY_DESCRIPTIONS.response?.waitTime}
+          </p>
           <input
             type="number"
             min={0}
             value={state.response_wait_time}
             onChange={(e) =>
               onChange({
-                response_wait_time: Math.max(0, parseInt(e.target.value, 10) || 0),
+                response_wait_time: Math.max(
+                  0,
+                  parseInt(e.target.value, 10) || 0,
+                ),
               })
             }
             className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -1835,9 +1974,13 @@ function SectionAdvanced({ state, onChange }: SectionProps) {
               onChange={(e) => onChange({ is_memory_enable: e.target.checked })}
               className="size-4"
             />
-            <span className="text-sm font-medium">{PROPERTY_TITLES.agent?.isMemoryEnable}</span>
+            <span className="text-sm font-medium">
+              {PROPERTY_TITLES.agent?.isMemoryEnable}
+            </span>
           </label>
-          <p className="mt-1 text-xs text-muted-foreground">{PROPERTY_DESCRIPTIONS.agent?.isMemoryEnable}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {PROPERTY_DESCRIPTIONS.agent?.isMemoryEnable}
+          </p>
         </div>
         <div>
           <label className="flex items-center gap-2">
@@ -1849,10 +1992,13 @@ function SectionAdvanced({ state, onChange }: SectionProps) {
               }
               className="size-4"
             />
-            <span className="text-sm font-medium">Partir la respuesta en varios mensajes</span>
+            <span className="text-sm font-medium">
+              Partir la respuesta en varios mensajes
+            </span>
           </label>
           <p className="mt-1 text-xs text-muted-foreground">
-            Salida en varias burbujas (p. ej. WhatsApp). No confundir con agrupar varios mensajes del usuario.
+            Salida en varias burbujas (p. ej. WhatsApp). No confundir con
+            agrupar varios mensajes del usuario.
           </p>
         </div>
       </div>
@@ -1869,13 +2015,21 @@ function SectionAdvanced({ state, onChange }: SectionProps) {
               }
               className="size-4"
             />
-            <span className="text-sm font-medium">{PROPERTY_TITLES.agent?.isValidatorAgentEnable}</span>
+            <span className="text-sm font-medium">
+              {PROPERTY_TITLES.agent?.isValidatorAgentEnable}
+            </span>
           </label>
-          <p className="mt-1 text-xs text-muted-foreground">{PROPERTY_DESCRIPTIONS.agent?.isValidatorAgentEnable}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {PROPERTY_DESCRIPTIONS.agent?.isValidatorAgentEnable}
+          </p>
         </div>
         <div>
-          <label className="text-sm font-medium">{PROPERTY_TITLES.mcp?.maxRetries}</label>
-          <p className="text-xs text-muted-foreground">{PROPERTY_DESCRIPTIONS.mcp?.maxRetries}</p>
+          <label className="text-sm font-medium">
+            {PROPERTY_TITLES.mcp?.maxRetries}
+          </label>
+          <p className="text-xs text-muted-foreground">
+            {PROPERTY_DESCRIPTIONS.mcp?.maxRetries}
+          </p>
           <input
             type="number"
             min={0}
@@ -1899,12 +2053,18 @@ function SectionAdvanced({ state, onChange }: SectionProps) {
       <div className="space-y-3">
         <p className="text-sm font-semibold">Mensajes</p>
         <div>
-          <label className="text-sm font-medium">{PROPERTY_TITLES.answer?.notSupport}</label>
-          <p className="text-xs text-muted-foreground">{PROPERTY_DESCRIPTIONS.answer?.notSupport}</p>
+          <label className="text-sm font-medium">
+            {PROPERTY_TITLES.answer?.notSupport}
+          </label>
+          <p className="text-xs text-muted-foreground">
+            {PROPERTY_DESCRIPTIONS.answer?.notSupport}
+          </p>
           <input
             type="text"
             value={state.answer_not_support}
-            onChange={(e) => onChange({ answer_not_support: e.target.value.slice(0, 500) })}
+            onChange={(e) =>
+              onChange({ answer_not_support: e.target.value.slice(0, 500) })
+            }
             className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           />
         </div>
@@ -1924,8 +2084,8 @@ function SectionAdvanced({ state, onChange }: SectionProps) {
           </label>
           <p className="mt-1 text-xs text-muted-foreground">
             Equivale a identificación en la configuración técnica del agente (
-            <code className="text-xs">isAuthEnable</code>). Los usuarios deberán iniciar sesión para usar el
-            agente cuando aplique.
+            <code className="text-xs">isAuthEnable</code>). Los usuarios deberán
+            iniciar sesión para usar el agente cuando aplique.
           </p>
         </div>
       </div>
@@ -1941,7 +2101,10 @@ function SectionPipelines({ state, onChange }: SectionPipelinesProps) {
   const updatePipeline = useCallback(
     (pipelineIndex: number, updates: Partial<Pipeline>) => {
       const newPipelines = [...pipelines];
-      newPipelines[pipelineIndex] = { ...newPipelines[pipelineIndex], ...updates };
+      newPipelines[pipelineIndex] = {
+        ...newPipelines[pipelineIndex],
+        ...updates,
+      };
       onChange({ pipelines: newPipelines });
     },
     [pipelines, onChange],
@@ -1962,7 +2125,8 @@ function SectionPipelines({ state, onChange }: SectionPipelinesProps) {
     return (
       <div className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          No hay pipelines configurados. Se usará el pipeline predeterminado al crear el agente.
+          No hay pipelines configurados. Se usará el pipeline predeterminado al
+          crear el agente.
         </p>
         <Button
           type="button"
@@ -1991,27 +2155,36 @@ function SectionPipelines({ state, onChange }: SectionPipelinesProps) {
   return (
     <div className="space-y-6">
       {pipelines.map((pipeline, pipelineIndex) => (
-        <div key={pipeline.id || pipelineIndex} className="rounded-lg border p-4 space-y-4">
+        <div
+          key={pipeline.id || pipelineIndex}
+          className="rounded-lg border p-4 space-y-4"
+        >
           <div className="flex items-center justify-between">
             <div className="flex-1 space-y-2">
               <input
                 type="text"
                 value={pipeline.name}
-                onChange={(e) => updatePipeline(pipelineIndex, { name: e.target.value })}
+                onChange={(e) =>
+                  updatePipeline(pipelineIndex, { name: e.target.value })
+                }
                 placeholder="Nombre del pipeline"
                 className="font-medium text-lg bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-ring rounded px-2 py-1 -ml-2 w-full"
               />
               <input
                 type="text"
                 value={pipeline.description || ""}
-                onChange={(e) => updatePipeline(pipelineIndex, { description: e.target.value })}
+                onChange={(e) =>
+                  updatePipeline(pipelineIndex, { description: e.target.value })
+                }
                 placeholder="Descripción opcional"
                 className="text-sm text-muted-foreground bg-transparent border-none focus:outline-none w-full"
               />
             </div>
             <div className="flex items-center gap-2 ml-4">
               {pipeline.isDefault && (
-                <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">Default</span>
+                <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+                  Default
+                </span>
               )}
             </div>
           </div>
@@ -2035,7 +2208,10 @@ function SectionPipelines({ state, onChange }: SectionPipelinesProps) {
                     <div className="flex items-center gap-2 mt-1">
                       {stage.stageType && (
                         <span className="text-xs text-muted-foreground">
-                          Tipo: {STAGE_TYPES.find((st) => st.value === stage.stageType)?.label || stage.stageType}
+                          Tipo:{" "}
+                          {STAGE_TYPES.find(
+                            (st) => st.value === stage.stageType,
+                          )?.label || stage.stageType}
                         </span>
                       )}
                     </div>
@@ -2054,7 +2230,12 @@ function SectionPipelines({ state, onChange }: SectionPipelinesProps) {
   );
 }
 
-function SectionReview({ state, catalog, isSaving, onSubmit }: SectionProps & { onSubmit: () => void }) {
+function SectionReview({
+  state,
+  catalog,
+  isSaving,
+  onSubmit,
+}: SectionProps & { onSubmit: () => void }) {
   const isComplete =
     !!state.business_name &&
     !!state.owner_name &&
@@ -2075,10 +2256,15 @@ function SectionReview({ state, catalog, isSaving, onSubmit }: SectionProps & { 
     <div className="space-y-6">
       {!isComplete && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-4">
-          <p className="mb-2 font-medium text-destructive">Para crear tu agente necesitas:</p>
+          <p className="mb-2 font-medium text-destructive">
+            Para crear tu agente necesitas:
+          </p>
           <ul className="space-y-1">
             {missingFields.map((field) => (
-              <li key={field} className="flex items-center gap-2 text-sm text-destructive">
+              <li
+                key={field}
+                className="flex items-center gap-2 text-sm text-destructive"
+              >
                 <XIcon className="size-4" />
                 {field}
               </li>
@@ -2100,7 +2286,9 @@ function SectionReview({ state, catalog, isSaving, onSubmit }: SectionProps & { 
           </div>
           <div className="flex justify-between">
             <dt className="text-muted-foreground">Descripción:</dt>
-            <dd className="max-w-[200px] truncate">{state.description || "—"}</dd>
+            <dd className="max-w-[200px] truncate">
+              {state.description || "—"}
+            </dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-muted-foreground">País:</dt>
@@ -2110,9 +2298,13 @@ function SectionReview({ state, catalog, isSaving, onSubmit }: SectionProps & { 
       </div>
 
       <div className="rounded-lg border p-4">
-        <p className="mb-3 font-medium">🔧 Herramientas ({state.selected_tools.length})</p>
+        <p className="mb-3 font-medium">
+          🔧 Herramientas ({state.selected_tools.length})
+        </p>
         {state.selected_tools.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No hay herramientas seleccionadas</p>
+          <p className="text-sm text-muted-foreground">
+            No hay herramientas seleccionadas
+          </p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {state.selected_tools.map((toolId) => {
@@ -2185,7 +2377,8 @@ function TemplatesSection({
     {
       id: "sales",
       label: "Asistente de Ventas",
-      description: "Configuración completa para ventas, con gestión de clientes",
+      description:
+        "Configuración completa para ventas, con gestión de clientes",
       icon: "🛒",
       industry: "Retail",
     },
@@ -2247,7 +2440,9 @@ function TemplatesSection({
           <span className="text-2xl">{template.icon}</span>
           <div>
             <p className="font-medium">{template.label}</p>
-            <p className="text-sm text-muted-foreground">{template.description}</p>
+            <p className="text-sm text-muted-foreground">
+              {template.description}
+            </p>
           </div>
         </button>
       ))}
@@ -2259,25 +2454,36 @@ export function AgentFormBuilder() {
   const { session } = useAuth();
   const userName = session?.user?.name ?? session?.user?.email ?? "";
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  
+
   const [state, setState] = useState<FormBuilderState>(() => ({
     ...DEFAULT_FORM_STATE,
     owner_name: userName,
   }));
-  const [currentSection, setCurrentSection] = useState<FormSectionId>("templates");
-  const [completedSections, setCompletedSections] = useState<Set<FormSectionId>>(new Set());
+  const [currentSection, setCurrentSection] =
+    useState<FormSectionId>("templates");
+  const [completedSections, setCompletedSections] = useState<
+    Set<FormSectionId>
+  >(new Set());
   const [catalog, setCatalog] = useState<ToolsCatalogItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(true);
-  const [dynamicQuestions, setDynamicQuestions] = useState<DynamicQuestion[]>([]);
-  const [dynamicAnswers, setDynamicAnswers] = useState<Record<string, string>>({});
+  const [dynamicQuestions, setDynamicQuestions] = useState<DynamicQuestion[]>(
+    [],
+  );
+  const [dynamicAnswers, setDynamicAnswers] = useState<Record<string, string>>(
+    {},
+  );
   const [isAnalyzingAI, setIsAnalyzingAI] = useState(false);
   const [toolsRegenerateNonce, setToolsRegenerateNonce] = useState(0);
   const [toolsRecommendLoading, setToolsRecommendLoading] = useState(false);
-  const [toolsRecommendError, setToolsRecommendError] = useState<string | null>(null);
+  const [toolsRecommendError, setToolsRecommendError] = useState<string | null>(
+    null,
+  );
   const [toolsRationale, setToolsRationale] = useState<string | null>(null);
   const [toolsWarnings, setToolsWarnings] = useState<string[]>([]);
-  const [toolReasonById, setToolReasonById] = useState<Record<string, string>>({});
+  const [toolReasonById, setToolReasonById] = useState<Record<string, string>>(
+    {},
+  );
   const lastToolsSuccessHashRef = useRef<string | null>(null);
   const lastToolsRegenNonceRef = useRef(0);
   const [isToolFlowDocStep, setIsToolFlowDocStep] = useState(false);
@@ -2290,20 +2496,25 @@ export function AgentFormBuilder() {
   const [regenerateToolFlowsOpen, setRegenerateToolFlowsOpen] = useState(false);
   const [updateToolFlowsOpen, setUpdateToolFlowsOpen] = useState(false);
   const [flowQuestionsLoading, setFlowQuestionsLoading] = useState(false);
-  const [flowQuestionsError, setFlowQuestionsError] = useState<string | null>(null);
+  const [flowQuestionsError, setFlowQuestionsError] = useState<string | null>(
+    null,
+  );
   const [flowQuestionsRegenNonce, setFlowQuestionsRegenNonce] = useState(0);
   const lastFlowSuccessHashRef = useRef<string | null>(null);
   const lastFlowRegenNonceRef = useRef(0);
   /** Evita POST duplicado al pulsar Siguiente si el payload del negocio no cambió. */
   const lastAutoSavedBusinessPayloadRef = useRef<string | null>(null);
 
-  const [editingSavedCompanyId, setEditingSavedCompanyId] = useState<string | null>(
-    null,
-  );
+  const [editingSavedCompanyId, setEditingSavedCompanyId] = useState<
+    string | null
+  >(null);
 
-  const onBusinessProfileSaved = useCallback((payload: BuilderCompanyPayload) => {
-    lastAutoSavedBusinessPayloadRef.current = JSON.stringify(payload);
-  }, []);
+  const onBusinessProfileSaved = useCallback(
+    (payload: BuilderCompanyPayload) => {
+      lastAutoSavedBusinessPayloadRef.current = JSON.stringify(payload);
+    },
+    [],
+  );
 
   const handleEditingSavedCompanyIdChange = useCallback((id: string | null) => {
     setEditingSavedCompanyId(id);
@@ -2313,8 +2524,7 @@ export function AgentFormBuilder() {
   }, []);
 
   const saveBusinessProfileToFirestore = useCallback(async (): Promise<
-    | { ok: true; mode: "created" | "updated" }
-    | { ok: false; error: string }
+    { ok: true; mode: "created" | "updated" } | { ok: false; error: string }
   > => {
     if (!canPersistBuilderCompany(state)) {
       return {
@@ -2651,9 +2861,12 @@ export function AgentFormBuilder() {
     [state, catalog, toolsRationale, toolReasonById],
   );
 
-  const handleDynamicAnswerChange = useCallback((field: string, value: string) => {
-    setDynamicAnswers((prev) => ({ ...prev, [field]: value }));
-  }, []);
+  const handleDynamicAnswerChange = useCallback(
+    (field: string, value: string) => {
+      setDynamicAnswers((prev) => ({ ...prev, [field]: value }));
+    },
+    [],
+  );
 
   const canProceed = useCallback(
     (section: FormSectionId): boolean => {
@@ -2709,7 +2922,8 @@ export function AgentFormBuilder() {
         !!state.agent_description
       );
     }
-    if (section === "personality") return !!state.agent_personality || !!state.agent_name;
+    if (section === "personality")
+      return !!state.agent_personality || !!state.agent_name;
     return false;
   };
 
@@ -2726,13 +2940,14 @@ export function AgentFormBuilder() {
   const handleNext = useCallback(async () => {
     if (!canProceed(currentSection)) {
       let errorMsg = "Completa los campos requeridos:";
-      
+
       switch (currentSection) {
         case "business":
           if (!state.business_name) errorMsg += "\n• Nombre del negocio";
           if (!state.owner_name?.trim()) errorMsg += "\n• Responsable";
           if (!state.industry) errorMsg += "\n• Industria";
-          if (state.industry === "Otro" && !state.custom_industry) errorMsg += "\n• Especifica tu industria";
+          if (state.industry === "Otro" && !state.custom_industry)
+            errorMsg += "\n• Especifica tu industria";
           if (!state.description) errorMsg += "\n• Descripción del negocio";
           if (!state.target_audience) errorMsg += "\n• Audiencia objetivo";
           if (!state.agent_description) errorMsg += "\n• Rol del agente";
@@ -2741,7 +2956,8 @@ export function AgentFormBuilder() {
           break;
         case "personality":
           if (!state.agent_name) errorMsg += "\n• Nombre del agente";
-          if (!state.agent_personality) errorMsg += "\n• Personalidad del agente";
+          if (!state.agent_personality)
+            errorMsg += "\n• Personalidad del agente";
           if (!state.response_language) errorMsg += "\n• Idioma";
           if (!state.use_emojis) errorMsg += "\n• Uso de emojis";
           if (!state.tone) errorMsg += "\n• Tono de voz";
@@ -2759,7 +2975,7 @@ export function AgentFormBuilder() {
           }
           break;
       }
-      
+
       alert(errorMsg);
       return;
     }
@@ -2791,9 +3007,14 @@ export function AgentFormBuilder() {
     if (shouldAnalyzeWithAI(currentSection)) {
       setIsAnalyzingAI(true);
       try {
-        const questions = await analyzeAgentWithAI(currentSection, state as unknown as Record<string, unknown>);
+        const questions = await analyzeAgentWithAI(
+          currentSection,
+          state as unknown as Record<string, unknown>,
+        );
         if (questions && questions.length > 0) {
-          const relevantQuestions = questions.filter((q) => q.section === currentSection);
+          const relevantQuestions = questions.filter(
+            (q) => q.section === currentSection,
+          );
           if (relevantQuestions.length > 0) {
             setDynamicQuestions(relevantQuestions);
             setDynamicAnswers({});
@@ -2917,7 +3138,8 @@ export function AgentFormBuilder() {
         ai_temperature: state.ai_temperature,
         response_wait_time: state.response_wait_time,
         is_memory_enable: state.is_memory_enable,
-        is_multi_message_response_enable: state.is_multi_message_response_enable,
+        is_multi_message_response_enable:
+          state.is_multi_message_response_enable,
         is_validator_agent_enable: state.is_validator_agent_enable,
         mcp_max_retries: state.mcp_max_retries,
         answer_not_support: state.answer_not_support.trim(),
@@ -2989,7 +3211,12 @@ export function AgentFormBuilder() {
 
     switch (currentSection) {
       case "templates":
-        return <TemplatesSection onChange={handleChange} onNext={() => handleNext()} />;
+        return (
+          <TemplatesSection
+            onChange={handleChange}
+            onNext={() => handleNext()}
+          />
+        );
       case "business":
         return (
           <SectionBusiness
@@ -3022,11 +3249,12 @@ export function AgentFormBuilder() {
           return (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Documenta en español cómo debe el agente usar cada herramienta (disparadores,
-                datos a pedir, qué decir al usuario con el resultado). La generación con IA usa
-                tu negocio, el paso Flujos, las políticas de Avanzado y la justificación de la
-                recomendación de herramientas. Este contenido se integrará al generar el prompt
-                del sistema (traducido a inglés).
+                Documenta en español cómo debe el agente usar cada herramienta
+                (disparadores, datos a pedir, qué decir al usuario con el
+                resultado). La generación con IA usa tu negocio, el paso Flujos,
+                las políticas de Avanzado y la justificación de la recomendación
+                de herramientas. Este contenido se integrará al generar el
+                prompt del sistema (traducido a inglés).
               </p>
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -3077,8 +3305,8 @@ export function AgentFormBuilder() {
                 <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                   <Loader2Icon className="size-4 shrink-0 animate-spin" />
                   <span>
-                    Generando con IA… el texto aparece en vivo en el editor (no es el borrador
-                    anterior).
+                    Generando con IA… el texto aparece en vivo en el editor (no
+                    es el borrador anterior).
                   </span>
                 </p>
               ) : null}
@@ -3127,9 +3355,10 @@ export function AgentFormBuilder() {
           <DialogHeader>
             <DialogTitle>¿Revisar manual de herramientas?</DialogTitle>
             <DialogDescription>
-              Puedes generar y editar un documento en español con los flujos de uso de
-              las herramientas seleccionadas. Se usará al diseñar el prompt del agente
-              (traducido a inglés). Si prefieres omitir este paso, pulsa No.
+              Puedes generar y editar un documento en español con los flujos de
+              uso de las herramientas seleccionadas. Se usará al diseñar el
+              prompt del agente (traducido a inglés). Si prefieres omitir este
+              paso, pulsa No.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:justify-end">
@@ -3167,8 +3396,8 @@ export function AgentFormBuilder() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Regenerar el manual?</AlertDialogTitle>
             <AlertDialogDescription>
-              Se generará de nuevo el markdown con IA. Si habías editado el texto a
-              mano, esos cambios se perderán al sustituir el contenido.
+              Se generará de nuevo el markdown con IA. Si habías editado el
+              texto a mano, esos cambios se perderán al sustituir el contenido.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -3185,14 +3414,17 @@ export function AgentFormBuilder() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={updateToolFlowsOpen} onOpenChange={setUpdateToolFlowsOpen}>
+      <AlertDialog
+        open={updateToolFlowsOpen}
+        onOpenChange={setUpdateToolFlowsOpen}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Actualizar el manual?</AlertDialogTitle>
             <AlertDialogDescription>
               La IA ajustará el documento a la lista actual de herramientas y al
-              contexto del negocio, conservando lo que siga siendo válido cuando sea
-              posible.
+              contexto del negocio, conservando lo que siga siendo válido cuando
+              sea posible.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -3224,12 +3456,18 @@ export function AgentFormBuilder() {
             <AlertDialogHeader>
               <AlertDialogTitle>¿Salir del constructor?</AlertDialogTitle>
               <AlertDialogDescription>
-                Si sales ahora, perderás el progreso no guardado. ¿Estás seguro de que quieres salir?
+                Si sales ahora, perderás el progreso no guardado. ¿Estás seguro
+                de que quieres salir?
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={() => { setHasUnsavedChanges(false); window.location.href = "/"; }}>
+              <AlertDialogAction
+                onClick={() => {
+                  setHasUnsavedChanges(false);
+                  window.location.href = "/";
+                }}
+              >
                 Salir
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -3246,7 +3484,7 @@ export function AgentFormBuilder() {
                 ? "bg-primary text-primary-foreground"
                 : completedSections.has(section.id)
                   ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80",
             )}
           >
             {ICONS[section.id]}
@@ -3256,7 +3494,14 @@ export function AgentFormBuilder() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
-        <div className="mx-auto max-w-2xl pb-4">
+        <div
+          className={cn(
+            "mx-auto pb-4",
+            currentSection === "tools" && isToolFlowDocStep
+              ? "max-w-3xl"
+              : "max-w-2xl",
+          )}
+        >
           <div className="mb-6">
             <h2
               className="text-xl font-semibold"
@@ -3268,14 +3513,16 @@ export function AgentFormBuilder() {
             <p className="text-sm text-muted-foreground">{stepDescription}</p>
           </div>
 
-          {isLoadingCatalog && currentSection === "tools" && !isToolFlowDocStep ? (
+          {isLoadingCatalog &&
+          currentSection === "tools" &&
+          !isToolFlowDocStep ? (
             <div className="flex items-center justify-center py-12">
               <Loader2Icon className="size-6 animate-spin text-muted-foreground" />
             </div>
           ) : (
             <>
               {renderSection()}
-              
+
               {dynamicQuestions.length > 0 && (
                 <div className="mt-6 space-y-4 border-t pt-6">
                   <p className="text-sm font-medium text-muted-foreground">
@@ -3290,19 +3537,33 @@ export function AgentFormBuilder() {
                       {question.type === "select" && question.options ? (
                         <select
                           value={dynamicAnswers[question.field] || ""}
-                          onChange={(e) => handleDynamicAnswerChange(question.field, e.target.value)}
+                          onChange={(e) =>
+                            handleDynamicAnswerChange(
+                              question.field,
+                              e.target.value,
+                            )
+                          }
                           className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                         >
                           <option value="">Selecciona una opción</option>
                           {question.options.map((opt) => (
-                            <option key={opt} value={opt}>{opt}</option>
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
                           ))}
                         </select>
                       ) : question.type === "textarea" ? (
                         <textarea
                           value={dynamicAnswers[question.field] || ""}
-                          onChange={(e) => handleDynamicAnswerChange(question.field, e.target.value)}
-                          placeholder={question.placeholder || "Escribe tu respuesta..."}
+                          onChange={(e) =>
+                            handleDynamicAnswerChange(
+                              question.field,
+                              e.target.value,
+                            )
+                          }
+                          placeholder={
+                            question.placeholder || "Escribe tu respuesta..."
+                          }
                           rows={3}
                           className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                         />
@@ -3310,8 +3571,15 @@ export function AgentFormBuilder() {
                         <input
                           type="text"
                           value={dynamicAnswers[question.field] || ""}
-                          onChange={(e) => handleDynamicAnswerChange(question.field, e.target.value)}
-                          placeholder={question.placeholder || "Escribe tu respuesta..."}
+                          onChange={(e) =>
+                            handleDynamicAnswerChange(
+                              question.field,
+                              e.target.value,
+                            )
+                          }
+                          placeholder={
+                            question.placeholder || "Escribe tu respuesta..."
+                          }
                           className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                         />
                       )}
@@ -3338,48 +3606,51 @@ export function AgentFormBuilder() {
         </div>
       </div>
 
-      {currentSection !== "templates" && currentSection !== "review" && dynamicQuestions.length === 0 && (
-        <div className="mt-auto flex items-center justify-between border-t px-4 py-3">
-          <Button
-            variant="outline"
-            onClick={handlePrev}
-            disabled={currentIndex === 0}
-          >
-            <ArrowLeftIcon className="mr-2 size-4" />
-            Anterior
-          </Button>
-          <Button
-            type="button"
-            data-testid="form-builder-next"
-            onClick={handleNext}
-            disabled={
-              !canProceed(currentSection) ||
-              isAnalyzingAI ||
-              (currentSection === "flows" &&
-                (flowQuestionsLoading ||
-                  (state.flow_questions.length === 0 && !flowQuestionsError))) ||
-              (currentSection === "tools" &&
-                !isToolFlowDocStep &&
-                toolsRecommendLoading) ||
-              (currentSection === "tools" &&
-                isToolFlowDocStep &&
-                toolFlowsGenLoading)
-            }
-          >
-            {isAnalyzingAI ? (
-              <>
-                <Loader2Icon className="mr-2 size-4 animate-spin" />
-                Analizando...
-              </>
-            ) : (
-              <>
-                Siguiente
-                <ArrowRightIcon className="ml-2 size-4" />
-              </>
-            )}
-          </Button>
-        </div>
-      )}
+      {currentSection !== "templates" &&
+        currentSection !== "review" &&
+        dynamicQuestions.length === 0 && (
+          <div className="mt-auto flex items-center justify-between border-t px-4 py-3">
+            <Button
+              variant="outline"
+              onClick={handlePrev}
+              disabled={currentIndex === 0}
+            >
+              <ArrowLeftIcon className="mr-2 size-4" />
+              Anterior
+            </Button>
+            <Button
+              type="button"
+              data-testid="form-builder-next"
+              onClick={handleNext}
+              disabled={
+                !canProceed(currentSection) ||
+                isAnalyzingAI ||
+                (currentSection === "flows" &&
+                  (flowQuestionsLoading ||
+                    (state.flow_questions.length === 0 &&
+                      !flowQuestionsError))) ||
+                (currentSection === "tools" &&
+                  !isToolFlowDocStep &&
+                  toolsRecommendLoading) ||
+                (currentSection === "tools" &&
+                  isToolFlowDocStep &&
+                  toolFlowsGenLoading)
+              }
+            >
+              {isAnalyzingAI ? (
+                <>
+                  <Loader2Icon className="mr-2 size-4 animate-spin" />
+                  Analizando...
+                </>
+              ) : (
+                <>
+                  Siguiente
+                  <ArrowRightIcon className="ml-2 size-4" />
+                </>
+              )}
+            </Button>
+          </div>
+        )}
     </div>
   );
 }
