@@ -52,7 +52,7 @@ import {
 import {
   fetchAgentById,
   postAgentSystemPromptRegenerate,
-} from "@/lib/agents-api";
+} from "@/services/agents-api";
 import { toast } from "sonner";
 import type { Agent } from "@/lib/agent";
 import {

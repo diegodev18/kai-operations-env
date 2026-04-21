@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { fetchTestingDiff } from "@/lib/agents-api";
+import { fetchTestingDiff } from "@/services/agents-api";
 
 export type TestingDiffItem = {
   collection: string;

@@ -66,7 +66,7 @@ import {
   type BuilderCompanyPayload,
   type SavedBuilderCompany,
   type ToolFlowsMarkdownPayload,
-} from "@/lib/agents-api";
+} from "@/services/agents-api";
 import {
   PromptMarkdownEditor,
   PromptMarkdownViewToggle,

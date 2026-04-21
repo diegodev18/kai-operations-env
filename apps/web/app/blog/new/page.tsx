@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createBlogPost } from "@/lib/blog-api";
+import { createBlogPost } from "@/services/blog-api";
 import { BLOG_TAGS } from "@/lib/blog-tags";
 import {
   generateMarkdown,

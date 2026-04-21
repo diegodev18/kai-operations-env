@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { fetchToolsCatalog, type ToolsCatalogItem } from "@/lib/agents-api";
+import { fetchToolsCatalog, type ToolsCatalogItem } from "@/services/agents-api";
 
 export function useToolsCatalog() {
   const [tools, setTools] = useState<ToolsCatalogItem[]>([]);

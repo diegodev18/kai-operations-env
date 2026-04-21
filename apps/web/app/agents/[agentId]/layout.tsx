@@ -28,7 +28,9 @@ import {
   assignAgentToUser,
   fetchAgentById,
   fetchAssignedAgentForUser,
-} from "@/lib/agents-api";
+  fetchFavorites,
+  toggleFavorite,
+} from "@/services/agents-api";
 
 const SECTIONS = [
   { suffix: "tasks", label: "Tareas" },
@@ -188,9 +190,8 @@ export default function AgentDetailLayout({
     let cancelled = false;
     const loadFavorites = async () => {
       try {
-        const res = await fetch("/api/favorites", { credentials: "include" });
-        if (!cancelled && res.ok) {
-          const data = (await res.json()) as { favorites?: string[] };
+        const data = await fetchFavorites();
+        if (!cancelled && data) {
           setFavoriteAgentIds(new Set(data.favorites ?? []));
         }
       } catch {
@@ -309,11 +310,8 @@ export default function AgentDetailLayout({
                       setTogglingFavorite(agentId);
                       try {
                         const method = isFavorite ? "DELETE" : "POST";
-                        const res = await fetch(
-                          `/api/favorites/${encodeURIComponent(agentId)}`,
-                          { method, credentials: "include" },
-                        );
-                        if (res.ok) {
+                        const result = await toggleFavorite(agentId, method);
+                        if (result.ok) {
                           setFavoriteAgentIds((prev) => {
                             const next = new Set(prev);
                             if (isFavorite) {
@@ -329,7 +327,7 @@ export default function AgentDetailLayout({
                               : "Añadido a favoritos",
                           );
                         } else {
-                          toast.error("Error al actualizar favoritos");
+                          toast.error(result.error ?? "Error al actualizar favoritos");
                         }
                       } finally {
                         setTogglingFavorite(null);

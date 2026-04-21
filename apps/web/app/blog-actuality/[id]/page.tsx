@@ -18,7 +18,7 @@ import remarkGfm from "remark-gfm";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { fetchBlogPost, hideBlogPost, type BlogPost } from "@/lib/blog-api";
+import { fetchBlogPost, hideBlogPost, type BlogPost } from "@/services/blog-api";
 import { useAuth } from "@/hooks/auth";
 
 function formatDate(timestamp: number): string {

@@ -47,7 +47,7 @@ import {
   User2Icon,
   XIcon,
 } from "lucide-react";
-import { postAgentsTestingSimulate } from "@/lib/agents-api";
+import { postAgentsTestingSimulate } from "@/services/agents-api";
 import type {
   SimulateBody,
   SimulatorMode,

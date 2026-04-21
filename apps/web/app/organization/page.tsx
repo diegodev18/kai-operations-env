@@ -47,7 +47,7 @@ import {
   updateUserPhone,
   type OrganizationInvitation,
   type OrganizationUser,
-} from "@/lib/organization-api";
+} from "@/services/organization-api";
 import {
   buildWhatsappApiPhone,
   DEFAULT_WHATSAPP_LADA,

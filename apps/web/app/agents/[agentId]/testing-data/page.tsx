@@ -31,7 +31,7 @@ import {
   updateTestingDataDocument,
   deleteTestingDataDocument,
   type TestingDataDocument,
-} from "@/lib/agents-api";
+} from "@/services/agents-api";
 import {
   Loader2Icon,
   PlusIcon,

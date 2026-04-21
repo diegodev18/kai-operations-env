@@ -57,7 +57,7 @@ import {
   fetchWhatsappIntegrationStatus,
   patchAgentBillingConfig,
   patchImplementationTask,
-} from "@/lib/agents-api";
+} from "@/services/agents-api";
 import {
   FileUploadButton,
   AttachmentList,

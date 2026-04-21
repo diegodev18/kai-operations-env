@@ -15,7 +15,7 @@ import {
 import { Loader2Icon, RefreshCwIcon } from "lucide-react";
 import { updateAgentTool } from "@/hooks/agent-tools";
 import type { AgentTool } from "@/types/agent-tool";
-import type { ToolsCatalogItem } from "@/lib/agents-api";
+import type { ToolsCatalogItem } from "@/services/agents-api";
 
 type FieldSync = {
   key: string;

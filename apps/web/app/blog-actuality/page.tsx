@@ -28,7 +28,7 @@ import {
   fetchBlogPosts,
   searchBlogPosts,
   type BlogPost,
-} from "@/lib/blog-api";
+} from "@/services/blog-api";
 import { ACTUALITY_TAGS } from "@/lib/blog-tags";
 import { useAuth } from "@/hooks/auth";
 import { useUserRole } from "@/hooks/useUserRole";

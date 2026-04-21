@@ -4,8 +4,12 @@ import type {
 } from "@/types/agent-properties";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-
-const BASE = "/api/agents";
+import {
+  AGENTS_BASE,
+  fetchTestingProperties,
+  patchAgentPropertyDoc,
+  postAgentSyncFromProduction,
+} from "@/services/agents-api";
 
 export function useTestingProperties(agentId: string | null) {
   const [data, setData] = useState<AgentPropertiesResponse | null>(null);
@@ -23,37 +27,23 @@ export function useTestingProperties(agentId: string | null) {
     setData(null);
     setDidAutoSync(false);
     try {
-      const res = await fetch(
-        `${BASE}/${encodeURIComponent(agentId)}/testing/properties`,
-        {
-          credentials: "include",
-        },
-      );
-      if (!res.ok) {
-        const err = (await res.json()) as { error?: string };
-        if (res.status === 404 && autoSync) {
-          const syncRes = await fetch(
-            `${BASE}/${encodeURIComponent(agentId)}/sync-from-production`,
-            { method: "POST", credentials: "include" },
-          );
-          if (syncRes.ok) {
+      const json = (await fetchTestingProperties(agentId)) as AgentPropertiesResponse | null;
+      if (!json) {
+        if (autoSync) {
+          const syncResult = await postAgentSyncFromProduction(agentId);
+          if (syncResult.ok) {
             setDidAutoSync(true);
             toast.success("Datos sincronizados desde producción");
-            const retryRes = await fetch(
-              `${BASE}/${encodeURIComponent(agentId)}/testing/properties`,
-              { credentials: "include" },
-            );
-            if (retryRes.ok) {
-              const json = (await retryRes.json()) as AgentPropertiesResponse;
-              setData(json);
+            const retryJson = (await fetchTestingProperties(agentId)) as AgentPropertiesResponse | null;
+            if (retryJson) {
+              setData(retryJson);
             }
           }
-        } else if (res.status !== 404) {
-          toast.error(err.error ?? "Error al cargar propiedades de testing");
+        } else {
+          toast.error("Error al cargar propiedades de testing");
         }
         return;
       }
-      const json = (await res.json()) as AgentPropertiesResponse;
       setData(json);
     } catch {
       toast.error("Error al cargar propiedades de testing");
@@ -74,20 +64,9 @@ export async function updateTestingPropertyDocument(
   documentId: PropertyDocumentId,
   body: Record<string, unknown>,
 ): Promise<boolean> {
-  const res = await fetch(
-    `${BASE}/${encodeURIComponent(agentId)}/testing/properties/${encodeURIComponent(documentId)}`,
-    {
-      method: "PATCH",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    },
-  );
-  if (!res.ok) {
-    const err = (await res.json()) as { error?: string };
-    toast.error(err.error ?? "Error al guardar en testing");
+  const result = await patchAgentPropertyDoc(agentId, documentId, body);
+  if (!result.ok) {
+    toast.error(result.error ?? "Error al guardar en testing");
     return false;
   }
   return true;

@@ -9,6 +9,7 @@ import {
   type Attachment,
   type DbChangelogEntry,
 } from "../changelog-data";
+import { fetchOrganizationUsers } from "@/services/organization-api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -132,9 +133,8 @@ export default function NewChangelogForm({
   useEffect(() => {
     async function fetchOrgUsers() {
       try {
-        const usersRes = await fetch("/api/organization/users");
-        if (usersRes.ok) {
-          const data = await usersRes.json();
+        const data = await fetchOrganizationUsers();
+        if (data) {
           setOrganizationUsers(data.users || []);
         }
       } catch (error) {
