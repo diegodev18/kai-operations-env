@@ -1162,6 +1162,16 @@ export type RecommendToolsPayload = {
   tools_context_integrations?: string;
 };
 
+export type ToolFlowsMarkdownPayload = RecommendToolsPayload & {
+  selectedToolIds: string[];
+  mode: "generate" | "update";
+  existingMarkdownEs?: string;
+  /** Políticas, saludo, temas a evitar, rationale y razones por herramienta de la recomendación. */
+  supplemental_context?: string;
+  /** Si true, el servidor devuelve SSE (`delta` / `done` / `error`). El cliente del builder lo envía siempre. */
+  stream?: boolean;
+};
+
 export type FlowQuestionsPayload = {
   business_name?: string;
   owner_name?: string;
@@ -1287,6 +1297,104 @@ export async function recommendAgentTools(
   }
 }
 
+type ToolFlowsSsePayload =
+  | { delta: string; done?: undefined; error?: undefined }
+  | { done: true; delta?: undefined; error?: undefined }
+  | { error: string; delta?: undefined; done?: undefined };
+
+async function consumeToolFlowsMarkdownSse(
+  response: Response,
+  onStreamDelta?: (accumulated: string) => void,
+): Promise<{ ok: true; markdown: string } | { ok: false; error: string }> {
+  const reader = response.body?.getReader();
+  if (!reader) {
+    return { ok: false, error: "Sin cuerpo de respuesta del servidor" };
+  }
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let accumulated = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let sep: number;
+    while ((sep = buffer.indexOf("\n\n")) >= 0) {
+      const block = buffer.slice(0, sep);
+      buffer = buffer.slice(sep + 2);
+      for (const line of block.split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("data:")) continue;
+        const jsonStr = trimmed.slice(5).trim();
+        let obj: ToolFlowsSsePayload;
+        try {
+          obj = JSON.parse(jsonStr) as ToolFlowsSsePayload;
+        } catch {
+          continue;
+        }
+        if ("error" in obj && typeof obj.error === "string") {
+          return { ok: false, error: obj.error };
+        }
+        if ("done" in obj && obj.done === true) {
+          const out = accumulated.trim();
+          if (!out) return { ok: false, error: "El modelo no devolvió contenido." };
+          return { ok: true, markdown: out };
+        }
+        if ("delta" in obj && typeof obj.delta === "string" && obj.delta.length > 0) {
+          accumulated += obj.delta;
+          onStreamDelta?.(accumulated);
+        }
+      }
+    }
+  }
+  const out = accumulated.trim();
+  if (!out) return { ok: false, error: "El modelo no devolvió contenido." };
+  return { ok: true, markdown: out };
+}
+
+export async function generateAgentToolFlowsMarkdown(
+  payload: ToolFlowsMarkdownPayload,
+  opts?: { onStreamDelta?: (accumulated: string) => void },
+): Promise<{ ok: true; markdown: string } | { ok: false; error: string }> {
+  try {
+    const res = await fetch("/api/agents/builder/tool-flows-markdown", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "text/event-stream, application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({ ...payload, stream: true }),
+    });
+    const ct = res.headers.get("content-type") ?? "";
+    if (res.ok && ct.includes("text/event-stream") && res.body) {
+      return consumeToolFlowsMarkdownSse(res, opts?.onStreamDelta);
+    }
+    const data = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      markdown?: string;
+      invalidIds?: string[];
+    };
+    if (!res.ok) {
+      return {
+        ok: false,
+        error: data.error ?? "No se pudo generar el manual de herramientas",
+      };
+    }
+    if (typeof data.markdown !== "string" || !data.markdown.trim()) {
+      return { ok: false, error: "Respuesta inválida del servidor" };
+    }
+    return { ok: true, markdown: data.markdown.trim() };
+  } catch (e) {
+    return {
+      ok: false,
+      error:
+        e instanceof Error
+          ? e.message
+          : "Error de red al generar el manual de herramientas",
+    };
+  }
+}
+
 export interface DynamicQuestion {
   field: string;
   label: string;
@@ -1296,6 +1404,46 @@ export interface DynamicQuestion {
   options?: string[];
   placeholder?: string;
   aiReason?: string;
+}
+
+/**
+ * Obtiene un substring que debería ser un array JSON válido.
+ * Evita el regex ambicioso /\\[[\\s\\S]*\\]/ (cruza markdown y varios bloques).
+ */
+function extractFirstJsonArrayString(text: string): string | null {
+  if (!text || typeof text !== "string") return null;
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced?.[1]) {
+    const inner = fenced[1].trim();
+    if (inner.startsWith("[")) return inner;
+  }
+  const start = text.indexOf("[");
+  if (start < 0) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (inString) {
+      if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+    if (ch === "[") depth++;
+    else if (ch === "]") {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null;
 }
 
 export async function analyzeAgentWithAI(
@@ -1378,23 +1526,35 @@ Si no necesitas más preguntas, retorna un array vacío: []
       return null;
     }
 
+    const assistantText = String(data.assistantMessage);
+    const jsonStr = extractFirstJsonArrayString(assistantText);
+    if (!jsonStr) {
+      return null;
+    }
+
     try {
-      const jsonMatch = data.assistantMessage.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>[];
-        return parsed
-          .filter((q) => q && q.field && q.label)
-          .map((q) => {
-            const sec = String(q.section ?? "");
-            const section =
-              sec === "basics" ? "business" : sec === "personality" ? "personality" : "business";
-            return { ...q, section } as DynamicQuestion;
-          });
+      const parsed = JSON.parse(jsonStr) as unknown;
+      if (!Array.isArray(parsed)) {
+        console.error("analyzeAgentWithAI: JSON no es un array", typeof parsed);
+        return null;
       }
+      return parsed
+        .filter((q) => q && typeof q === "object" && "field" in q && "label" in q)
+        .map((q) => {
+          const row = q as Record<string, unknown>;
+          const sec = String(row.section ?? "");
+          const section =
+            sec === "basics" ? "business" : sec === "personality" ? "personality" : "business";
+          return { ...row, section } as DynamicQuestion;
+        });
     } catch (parseError) {
       console.error("Failed to parse AI response:", parseError);
+      console.error(
+        "analyzeAgentWithAI: fragmento (primeros 400 chars):",
+        jsonStr.slice(0, 400),
+      );
     }
-    
+
     return null;
   } catch (error) {
     console.error("Error calling AI analysis:", error);

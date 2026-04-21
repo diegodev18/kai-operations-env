@@ -8,6 +8,7 @@
  * - FORM_BUILDER_STOP_AT=before-review — solo avanza hasta el paso Revisión (sin crear agente)
  * - FORM_BUILDER_NO_PAUSE_END=1 — no llama a page.pause() al final (CI o cierre automático)
  * - FORM_BUILDER_PAUSE_BEFORE_NEXT=1 — pausa en el inspector antes de cada clic en «Siguiente» (revisar y luego Resume)
+ * - FORM_BUILDER_TOOL_MANUAL=1 — tras Herramientas, entra al subpaso «Manual de herramientas», espera la IA y rellena markdown en vista raw antes de ir a Pipelines
  *
  * En local, al llegar a Revisión se hace page.pause() por defecto (salvo CI o NO_PAUSE_END).
  * El Inspector de Playwright es otra ventana: hay que pulsar «Resume» para que el test termine.
@@ -110,6 +111,46 @@ async function waitForStepHeading(page: Page, title: string) {
   await expect(page.getByTestId("form-builder-section-title")).toHaveText(title, {
     timeout: 180_000,
   });
+}
+
+/**
+ * Tras el primer «Siguiente» en Herramientas aparece el modal del manual de flujos.
+ * Por defecto se omite; con `FORM_BUILDER_TOOL_MANUAL=1` se recorre el subpaso opcional.
+ * Termina con el título de sección en **Pipelines**.
+ */
+async function completeToolManualOfferStep(page: Page) {
+  const dialog = page
+    .getByRole("dialog")
+    .filter({ has: page.getByText("¿Revisar manual de herramientas?") });
+  await expect(
+    dialog.getByRole("heading", { name: /Revisar manual de herramientas/i }),
+  ).toBeVisible({ timeout: 120_000 });
+
+  if (process.env.FORM_BUILDER_TOOL_MANUAL === "1") {
+    await dialog.getByRole("button", { name: "Sí, revisar" }).click();
+    await waitForStepHeading(page, "Manual de herramientas");
+
+    const genLine = page.getByText("Generando con IA…");
+    if (await genLine.isVisible().catch(() => false)) {
+      await expect(genLine).toBeHidden({ timeout: 180_000 });
+    }
+
+    await page
+      .getByRole("switch", { name: /Vista visual; activar para texto raw/i })
+      .click();
+
+    const md = page.getByPlaceholder(
+      "# Manual de herramientas — describe flujos por herramienta",
+    );
+    await expect(md).toBeVisible({ timeout: 30_000 });
+    // Solo validamos que la vista raw esté disponible; no pisamos el manual generado.
+
+    await clickFormNext(page);
+  } else {
+    await dialog.getByRole("button", { name: "No, continuar" }).click();
+  }
+
+  await waitForStepHeading(page, "Pipelines");
 }
 
 async function ensureLoggedInOrPause(page: Page) {
@@ -258,7 +299,8 @@ test("form builder: rellenar y avanzar hasta Revisión (UI)", async ({ page }) =
   await waitForStepHeading(page, "Herramientas");
   await clickFormNext(page);
 
-  await waitForStepHeading(page, "Pipelines");
+  await completeToolManualOfferStep(page);
+
   await clickFormNext(page);
 
   if (STOP_AT === "before-review") {

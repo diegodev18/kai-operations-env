@@ -136,6 +136,8 @@ export interface FormBuilderState {
   brandValues: string[];
   policies: string;
   selected_tools: string[];
+  /** Manual de flujos de herramientas (markdown en español); vacío si se omite el paso. */
+  toolFlowsMarkdownEs: string;
   whatsapp_enabled: boolean;
   email_enabled: boolean;
   chat_enabled: boolean;
@@ -189,6 +191,7 @@ export const DEFAULT_FORM_STATE: FormBuilderState = {
   brandValues: [],
   policies: "",
   selected_tools: [],
+  toolFlowsMarkdownEs: "",
   whatsapp_enabled: true,
   email_enabled: false,
   chat_enabled: false,

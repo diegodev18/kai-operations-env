@@ -224,6 +224,9 @@ Hard rules:
 - Do NOT paste, quote, or imitate default prompts from any internal repo (never mention MCP-KAI-AGENTS, webhook boilerplate, or framework defaults).
 - Optimize for Gemini: explicit role, boundaries, tool-use discipline, grounding rules (only state facts consistent with provided context; if unknown, say you do not have that information), no hallucinated policies or APIs.
 - Be specific to the business and tools in the JSON context; no generic platitudes.
+- **Spanish tool-flow manual (draftRoot.toolFlowsMarkdownEs):** If the builder JSON includes a non-empty string field \`toolFlowsMarkdownEs\` on the root draft object, it is an operational playbook written in **Spanish**. You MUST incorporate its guidance into the system prompt by **translating and adapting** it into clear **English** instructions (e.g. a section **"Tool usage playbooks"** or equivalent). Do **not** leave internal instruction paragraphs in Spanish in the final system_prompt. User-facing example phrases may still appear in the end-user language per the "End-user language" rule.
+- **No internal-action narration to end users:** Explicitly forbid user-facing phrases like "I will check", "let me search", "one moment while I consult", or similar narration of hidden/internal actions. Internal/tool actions happen first; then the agent replies with the useful outcome (or only the strictly required clarification question).
+- **Persona fidelity in user-facing text:** Explicitly enforce that user-facing responses match configured persona/style from context (agent_personality, tone, emoji preference, accent/variant, signature, required phrases).
 - No contradictions: one coherent tone, one set of escalation rules.
 - The deployed agent is NOT the builder UI—write instructions for the live assistant.
 
@@ -247,7 +250,8 @@ The system_prompt value must be plain text suitable for a single Firestore strin
     const critiqueSystem = `You are a strict reviewer of system prompts for Gemini agents.
 Given the BUILDER CONTEXT (JSON) and the DRAFT SYSTEM PROMPT, find concrete problems: contradictions, ambiguity, missing guardrails, hallucination risk, unclear tool usage, wrong language rules, or missing business specifics.
 
-**Language checks:** The system prompt document must be entirely in **English** (except quoted user-facing examples or exact phrases as allowed). If the draft is partly or wholly in Spanish or another language, flag it and require a full English rewrite. Verify an "End-user language" section exists and matches context.response_language.
+**Language checks:** The system prompt document must be entirely in **English** (except quoted user-facing examples or exact phrases as allowed). If the draft is partly or wholly in Spanish or another language, flag it and require a full English rewrite. Verify an "End-user language" section exists and matches context.response_language. If \`draftRoot.toolFlowsMarkdownEs\` is present and non-empty, verify its content was translated into English tool-use guidance (not pasted as Spanish).
+Also verify the prompt explicitly bans narration of internal actions to end users ("I will check...", "let me look it up...", etc.) and enforces persona fidelity (tone/style fields from context reflected in user-facing behavior).
 
 Return STRICT JSON only:
 {"issues": string[], "rewrite_instructions": string}
@@ -278,8 +282,9 @@ issues: short bullet strings; rewrite_instructions: one consolidated instruction
       }
     }
 
-    const rewriteSystem = `You are a prompt engineer. Rewrite the DRAFT SYSTEM PROMPT into a final version that fully applies the rewrite_instructions and fixes every issue.
-The final system_prompt must be **entirely in English** (instructions to the model). Preserve end-user language rules via an "End-user language" section matching the builder context. Preserve exact-phrase blocks as required.
+const rewriteSystem = `You are a prompt engineer. Rewrite the DRAFT SYSTEM PROMPT into a final version that fully applies the rewrite_instructions and fixes every issue.
+The final system_prompt must be **entirely in English** (instructions to the model). Preserve end-user language rules via an "End-user language" section matching the builder context. Preserve exact-phrase blocks as required. If the builder context includes \`toolFlowsMarkdownEs\`, ensure playbooks are fully integrated in English.
+Include explicit instructions that forbid narration of hidden/internal actions to end users and require persona fidelity (tone, personality, emoji preference, accent/variant, signature, required phrases) in user-facing responses.
 Return STRICT JSON only: {"system_prompt": "..."} with \\n escapes for newlines inside the JSON string.`;
 
     const raw3 = await generateJsonPhase(

@@ -532,6 +532,7 @@ const patchBusinessSchema = z.object({
 const patchToolsSchema = z.object({
   step: z.literal("tools"),
   selected_tools: z.array(z.string().trim().min(1)).min(1),
+  toolFlowsMarkdownEs: z.string().max(100_000).optional(),
 });
 
 const patchCompleteSchema = z.object({
@@ -954,11 +955,15 @@ export async function patchAgentDraft(
 
       await replaceDraftTools(draftRef, catalog, selectedWithMandatory);
 
-      await draftRef.update({
+      const toolsRootPatch: Record<string, unknown> = {
         selected_tools: selectedWithMandatory,
         creation_step: "tools",
         updated_at: ts,
-      });
+      };
+      if (body.toolFlowsMarkdownEs !== undefined) {
+        toolsRootPatch.toolFlowsMarkdownEs = body.toolFlowsMarkdownEs;
+      }
+      await draftRef.update(toolsRootPatch);
 
       return c.json({
         id: draftId,

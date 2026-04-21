@@ -69,6 +69,28 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] =
   ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.4.23": {
+    date: "2026-04-21",
+    description:
+      "Builder de agentes: paso opcional Manual de herramientas, contexto reforzado y generación en streaming",
+    changes: {
+      added: [
+        "E2E del form builder actualizado para el modal opcional tras «Herramientas»: ruta rápida (No, continuar) y ruta opcional con `FORM_BUILDER_TOOL_MANUAL=1` para entrar a «Manual de herramientas».",
+        "Nueva variable documentada `FORM_BUILDER_TOOL_MANUAL=1` en README de `apps/web`.",
+        "Generación del manual de herramientas en tiempo real (SSE): backend emite `delta/done/error`, proxy Next reenvía stream y el editor muestra texto incremental durante «Generando con IA…».",
+        "Campo `supplemental_context` para enriquecer la generación de flujos con contexto de Avanzado + racional de recomendación por herramienta.",
+      ],
+      changed: [
+        "El payload del manual ahora incluye personalidad/estilo configurados (tono, rasgos, emojis, acento, firma, longitud, estilo conversacional), además de políticas y frases requeridas.",
+        "El prompt del generador de manual de tools exige ejemplos conversacionales más específicos y alineados a negocio/contexto/persona.",
+        "Ancho del subpaso «Manual de herramientas» ajustado a `max-w-4xl` (más espacio que el formulario base, sin llegar a full-width).",
+      ],
+      fixed: [
+        "El test E2E ya no pisa el contenido del manual con texto de prueba (`# E2E ...`) al recorrer la ruta opcional.",
+        "Reglas endurecidas en el diseñador de prompt y en el diseñador de flujos para evitar narración de acciones internas al usuario (ej. “voy a buscar...”) y priorizar respuesta final útil.",
+      ],
+    },
+  },
   "2.4.22": {
     date: "2026-04-20",
     description:

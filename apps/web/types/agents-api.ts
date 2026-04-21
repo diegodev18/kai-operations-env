@@ -138,7 +138,7 @@ export type AgentDraftPatchBody =
       mcp_max_retries?: number;
       answer_not_support?: string;
     }
-  | { step: "tools"; selected_tools: string[] }
+  | { step: "tools"; selected_tools: string[]; toolFlowsMarkdownEs?: string }
   | { step: "complete" };
 
 export type AgentDraftClient = Record<string, unknown>;
