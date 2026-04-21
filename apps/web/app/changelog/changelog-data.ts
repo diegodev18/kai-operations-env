@@ -69,6 +69,26 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] =
   ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.4.24": {
+    date: "2026-04-21",
+    description:
+      "Atlas: paso opcional «Manual de herramientas» en el builder, con generación/actualización IA y traducción al prompt final",
+    changes: {
+      added: [
+        "En el constructor de agentes (`agent-form-builder`), nuevo subpaso opcional «Manual de herramientas» después de «Herramientas», con diálogo inicial Sí/No al pulsar Siguiente.",
+        "Editor markdown para el manual con `PromptMarkdownEditor` + `PromptMarkdownViewToggle`, pensado para iterar flujos de uso de tools en español.",
+        "Botones «Regenerar» y «Actualizar» para el manual con confirmación mediante `AlertDialog` antes de ejecutar la acción.",
+        "Nueva API `POST /api/agents/builder/tool-flows-markdown` (Hono + proxy Next + cliente en `agents-api`) para generar/actualizar markdown de flujos con IA.",
+      ],
+      changed: [
+        "El payload del paso `tools` ahora también puede persistir `toolFlowsMarkdownEs` junto con `selected_tools` en el borrador del agente.",
+        "El submit final del builder envía `toolFlowsMarkdownEs` en el PATCH de `tools` para que el contenido quede disponible antes de `step: complete`.",
+      ],
+      improved: [
+        "La generación multi-fase del system prompt ahora integra `draftRoot.toolFlowsMarkdownEs`: usa esa guía en español para construir instrucciones en inglés, evitando dejar instrucciones internas en español en el prompt final.",
+      ],
+    },
+  },
   "2.4.23": {
     date: "2026-04-21",
     description:
