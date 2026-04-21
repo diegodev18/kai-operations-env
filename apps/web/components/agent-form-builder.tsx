@@ -250,6 +250,19 @@ function buildOperationalContextNarrative(state: FormBuilderState): string {
 /** Texto del paso Avanzado útil para redactar flujos de uso de herramientas. */
 function buildAdvancedProfileNarrative(state: FormBuilderState): string {
   const parts: string[] = [];
+  parts.push(
+    [
+      "Estilo/persona configurada para respuestas al usuario:",
+      `- Personalidad base: ${state.agent_personality.trim() || "(no definida)"}`,
+      `- Rasgos: ${state.personality_traits.length ? state.personality_traits.join(", ") : "(sin rasgos)"}`,
+      `- Tono: ${state.tone}`,
+      `- Uso de emojis: ${state.use_emojis}`,
+      `- Acento/variante: ${state.country_accent.trim() || "(sin acento específico)"}`,
+      `- Firma del agente: ${state.agent_signature.trim() || "(sin firma)"}`,
+      `- Longitud preferida: ${state.responseLength}`,
+      `- Estilo de conversación: ${state.conversationStyle}`,
+    ].join("\n"),
+  );
   if (state.policies.trim()) {
     parts.push(`Políticas / límites del agente:\n${state.policies.trim()}`);
   }

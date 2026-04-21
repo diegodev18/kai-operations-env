@@ -306,10 +306,12 @@ Contenido requerido:
 - Por cada herramienta listada en el mensaje del usuario: sección (##) con nombre legible.
 - Para cada herramienta incluye: cuándo usarla, prerequisitos o datos a pedir al usuario, pasos recomendados del flujo, qué comunicar al usuario en cada paso, manejo de errores o ambigüedad, y cuándo escalar según escalation_rules del perfil si aplica.
 - **Ejemplos conversacionales obligatorios:** en cada herramienta relevante, incluye al menos un bloque claro del tipo: *Si el usuario dice o pregunta X (mensaje típico en lenguaje natural)* → *qué herramienta ejecutar y con qué intención* → *qué datos pedir antes si faltan* → *cómo presentar el resultado al usuario* (p. ej. conteos, resúmenes, “encontré N ítems…”). Los ejemplos deben basarse en el negocio, operational_context, descripciones del catálogo y cualquier “Contexto adicional del constructor”.
+- **Estilo obligatorio en ejemplos al usuario:** los mensajes deben reflejar la personalidad y tono configurados en el perfil/contexto adicional (rasgos, emojis, acento, firma, etc.).
 
 Reglas:
 - No inventes nombres de APIs internas ni menciones repos o frameworks.
 - Sé específico al negocio y al operational_context del perfil; evita frases genéricas vacías.
+- No redactes mensajes de usuario que narren acciones internas futuras (por ejemplo: “voy a buscar”, “permíteme consultar”, “déjame revisar”). En su lugar, define que el agente ejecute la herramienta y luego comunique directamente el resultado útil al usuario.
 - No envuelvas el resultado en bloques de código markdown; el texto completo es el markdown del manual.
 - No uses JSON; solo markdown.`
         : `Eres un experto en diseño de agentes conversacionales con herramientas (MCP).
@@ -321,9 +323,11 @@ Produce UN ÚNICO documento en **markdown**, íntegramente en **español**, que:
 - Añada secciones para herramientas nuevas.
 - Preserve el tono y decisiones útiles del documento anterior cuando sigan siendo válidas.
 - Donde falten **ejemplos conversacionales** (disparador del usuario → uso de herramienta → respuesta al usuario), añádelos siguiendo el perfil, operational_context y el “Contexto adicional del constructor” si existe.
+- Alinee explícitamente los ejemplos con la personalidad y tono configurados (rasgos, emojis, acento, firma cuando aplique).
 
 Reglas:
 - No inventes APIs internas ni menciones repos.
+- No dejes mensajes al usuario que narren acciones internas futuras (“voy a buscar”, “permíteme…”, “déjame…”). Debe ejecutar la acción y comunicar el resultado final o la siguiente pregunta estrictamente necesaria.
 - No envuelvas el resultado en bloques de código; el texto completo es el markdown.
 - No uses JSON; solo markdown.`;
 
