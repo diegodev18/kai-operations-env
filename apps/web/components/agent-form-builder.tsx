@@ -247,8 +247,85 @@ function buildOperationalContextNarrative(state: FormBuilderState): string {
     .join("\n\n---\n\n");
 }
 
+/** Texto del paso Avanzado útil para redactar flujos de uso de herramientas. */
+function buildAdvancedProfileNarrative(state: FormBuilderState): string {
+  const parts: string[] = [];
+  if (state.policies.trim()) {
+    parts.push(`Políticas / límites del agente:\n${state.policies.trim()}`);
+  }
+  if (state.greetingMessage.trim()) {
+    parts.push(`Saludo típico:\n${state.greetingMessage.trim()}`);
+  }
+  if (state.brandValues.length) {
+    parts.push(`Valores de marca: ${state.brandValues.filter(Boolean).join(", ")}`);
+  }
+  if (state.topicsToAvoid.length) {
+    parts.push(`Temas a evitar: ${state.topicsToAvoid.filter(Boolean).join(", ")}`);
+  }
+  if (state.requiredPhrases.length) {
+    parts.push(
+      `Frases requeridas en ciertos casos: ${state.requiredPhrases.filter(Boolean).join(" | ")}`,
+    );
+  }
+  return parts.join("\n\n");
+}
+
+function buildToolsSelectionNarrative(
+  catalog: ToolsCatalogItem[],
+  selectedToolIds: string[],
+  rationale: string | null,
+  toolReasonById: Record<string, string>,
+): string {
+  const chunks: string[] = [];
+  if (rationale?.trim()) {
+    chunks.push(
+      "Motivación general de la recomendación de herramientas para este negocio:\n" +
+        rationale.trim(),
+    );
+  }
+  const byId = new Map(catalog.map((t) => [t.id, t]));
+  const perTool: string[] = [];
+  for (const id of selectedToolIds) {
+    const reason = toolReasonById[id]?.trim();
+    if (!reason) continue;
+    const t = byId.get(id);
+    const label =
+      (t?.displayName && t.displayName.trim()) || (t?.name && t.name.trim()) || id;
+    perTool.push(`### ${label} (id: \`${id}\`)\n${reason}`);
+  }
+  if (perTool.length) {
+    chunks.push(
+      "Justificación por herramienta (úsalas para definir disparadores y respuestas al usuario):\n\n" +
+        perTool.join("\n\n"),
+    );
+  }
+  return chunks.join("\n\n---\n\n");
+}
+
+function buildSupplementalToolFlowsContext(
+  state: FormBuilderState,
+  catalog: ToolsCatalogItem[],
+  toolsRationale: string | null,
+  toolReasonById: Record<string, string>,
+): string {
+  return [
+    buildAdvancedProfileNarrative(state),
+    buildToolsSelectionNarrative(
+      catalog,
+      state.selected_tools,
+      toolsRationale,
+      toolReasonById,
+    ),
+  ]
+    .filter((s) => s.trim().length > 0)
+    .join("\n\n===\n\n");
+}
+
 function buildToolFlowsMarkdownPayload(
   state: FormBuilderState,
+  catalog: ToolsCatalogItem[],
+  toolsRationale: string | null,
+  toolReasonById: Record<string, string>,
 ): Omit<ToolFlowsMarkdownPayload, "mode" | "existingMarkdownEs"> {
   return {
     business_name: state.business_name,
@@ -270,6 +347,12 @@ function buildToolFlowsMarkdownPayload(
     tools_context_data_actions: "",
     tools_context_commerce_reservations: "",
     tools_context_integrations: "",
+    supplemental_context: buildSupplementalToolFlowsContext(
+      state,
+      catalog,
+      toolsRationale,
+      toolReasonById,
+    ),
     selectedToolIds: [...state.selected_tools],
   };
 }
@@ -2187,6 +2270,8 @@ export function AgentFormBuilder() {
   const [isToolFlowDocStep, setIsToolFlowDocStep] = useState(false);
   const [toolManualOfferOpen, setToolManualOfferOpen] = useState(false);
   const [toolFlowsGenLoading, setToolFlowsGenLoading] = useState(false);
+  /** Texto acumulado mientras el modelo escribe (SSE); el editor lo muestra en vivo. */
+  const [toolFlowsGenStreamText, setToolFlowsGenStreamText] = useState("");
   const [rawViewToolFlows, setRawViewToolFlows] = useState(false);
   const [toolFlowsMarkdownRemount, setToolFlowsMarkdownRemount] = useState(0);
   const [regenerateToolFlowsOpen, setRegenerateToolFlowsOpen] = useState(false);
@@ -2512,16 +2597,25 @@ export function AgentFormBuilder() {
         );
         return;
       }
+      setToolFlowsGenStreamText("");
       setToolFlowsGenLoading(true);
       try {
-        const base = buildToolFlowsMarkdownPayload(state);
-        const res = await generateAgentToolFlowsMarkdown({
-          ...base,
-          mode,
-          ...(mode === "update"
-            ? { existingMarkdownEs: state.toolFlowsMarkdownEs }
-            : {}),
-        });
+        const base = buildToolFlowsMarkdownPayload(
+          state,
+          catalog,
+          toolsRationale,
+          toolReasonById,
+        );
+        const res = await generateAgentToolFlowsMarkdown(
+          {
+            ...base,
+            mode,
+            ...(mode === "update"
+              ? { existingMarkdownEs: state.toolFlowsMarkdownEs }
+              : {}),
+          },
+          { onStreamDelta: (acc) => setToolFlowsGenStreamText(acc) },
+        );
         if (res.ok) {
           setState((prev) => ({
             ...prev,
@@ -2538,9 +2632,10 @@ export function AgentFormBuilder() {
         }
       } finally {
         setToolFlowsGenLoading(false);
+        setToolFlowsGenStreamText("");
       }
     },
-    [state],
+    [state, catalog, toolsRationale, toolReasonById],
   );
 
   const handleDynamicAnswerChange = useCallback((field: string, value: string) => {
@@ -2914,9 +3009,11 @@ export function AgentFormBuilder() {
           return (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Documenta en español cómo debe el agente usar cada herramienta. Este
-                contenido se integrará al generar el prompt del sistema (traducido a
-                inglés).
+                Documenta en español cómo debe el agente usar cada herramienta (disparadores,
+                datos a pedir, qué decir al usuario con el resultado). La generación con IA usa
+                tu negocio, el paso Flujos, las políticas de Avanzado y la justificación de la
+                recomendación de herramientas. Este contenido se integrará al generar el prompt
+                del sistema (traducido a inglés).
               </p>
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -2951,7 +3048,11 @@ export function AgentFormBuilder() {
                 />
               </div>
               <PromptMarkdownEditor
-                value={state.toolFlowsMarkdownEs}
+                value={
+                  toolFlowsGenLoading
+                    ? toolFlowsGenStreamText
+                    : state.toolFlowsMarkdownEs
+                }
                 onChange={(md) => handleChange({ toolFlowsMarkdownEs: md })}
                 disabled={toolFlowsGenLoading}
                 className="min-h-[320px] w-full text-sm"
@@ -2960,9 +3061,12 @@ export function AgentFormBuilder() {
                 markdownPaneRemountKey={toolFlowsMarkdownRemount}
               />
               {toolFlowsGenLoading ? (
-                <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2Icon className="size-4 animate-spin" />
-                  Generando con IA…
+                <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2Icon className="size-4 shrink-0 animate-spin" />
+                  <span>
+                    Generando con IA… el texto aparece en vivo en el editor (no es el borrador
+                    anterior).
+                  </span>
                 </p>
               ) : null}
             </div>
@@ -3000,7 +3104,7 @@ export function AgentFormBuilder() {
       : (sections[currentIndex]?.title ?? "");
   const stepDescription =
     currentSection === "tools" && isToolFlowDocStep
-      ? "Markdown en español: cuándo y cómo usar cada herramienta. Regenerar o Actualizar piden confirmación."
+      ? "Markdown en español: cuándo y cómo usar cada herramienta. Incluye ejemplos del tipo «si el usuario pregunta X → usar la herramienta Y → responder con Z». Regenerar o Actualizar piden confirmación."
       : (sections[currentIndex]?.description ?? "");
 
   return (

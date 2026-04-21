@@ -26,9 +26,23 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     headers: forwardHeaders(req),
     body,
   });
+  const upstreamCt = upstream.headers.get("content-type") ?? "";
+  if (
+    upstreamCt.includes("text/event-stream") &&
+    upstream.body != null
+  ) {
+    return new NextResponse(upstream.body, {
+      status: upstream.status,
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      },
+    });
+  }
   const text = await upstream.text();
-  const contentType =
-    upstream.headers.get("content-type") ?? "application/json; charset=utf-8";
+  const contentType = upstreamCt || "application/json; charset=utf-8";
   return new NextResponse(text, {
     status: upstream.status,
     headers: { "Content-Type": contentType },

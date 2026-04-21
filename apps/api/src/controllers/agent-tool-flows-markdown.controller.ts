@@ -47,9 +47,13 @@ const toolFlowsBodySchema = z.object({
   tools_context_data_actions: z.string().optional().default(""),
   tools_context_commerce_reservations: z.string().optional().default(""),
   tools_context_integrations: z.string().optional().default(""),
+  /** Políticas, saludo, temas a evitar, y texto de la recomendación de herramientas (razones por id). */
+  supplemental_context: z.string().max(100_000).optional().default(""),
   selectedToolIds: z.array(z.string().trim().min(1)).min(1),
   mode: z.enum(["generate", "update"]),
   existingMarkdownEs: z.string().max(100_000).optional(),
+  /** Si es true, la respuesta es `text/event-stream` (SSE) con eventos JSON `delta` / `done` / `error`. */
+  stream: z.boolean().optional().default(false),
 });
 
 type CatalogRow = {
@@ -115,6 +119,23 @@ function extractTextFromModelResponse(response: unknown): string {
   }
   return chunks.join("").trim();
 }
+
+/** Fragmento de texto en un chunk del stream (`chunk.text` o estructura candidates/parts). */
+function extractStreamDelta(chunk: unknown): string {
+  if (chunk != null && typeof chunk === "object" && "text" in chunk) {
+    const t = (chunk as { text?: unknown }).text;
+    if (typeof t === "string" && t.length > 0) return t;
+  }
+  return extractTextFromModelResponse(chunk);
+}
+
+type StreamableModels = {
+  generateContentStream: (args: {
+    model: string;
+    contents: string;
+    config: Record<string, unknown>;
+  }) => Promise<AsyncIterable<unknown>>;
+};
 
 async function loadToolsCatalogRows(): Promise<CatalogRow[]> {
   const db = getFirestore();
@@ -257,6 +278,14 @@ export async function postAgentToolFlowsMarkdown(
       toolsBlock,
     ];
 
+    if (body.supplemental_context.trim()) {
+      userParts.push(
+        "",
+        "Contexto adicional del constructor (políticas, voz, y motivación de la recomendación de herramientas). Úsalo para inventar disparadores realistas y respuestas al usuario:",
+        body.supplemental_context.trim(),
+      );
+    }
+
     if (body.mode === "update" && body.existingMarkdownEs?.trim()) {
       userParts.push(
         "",
@@ -276,10 +305,11 @@ Contenido requerido:
 - Un título principal (#) para el manual.
 - Por cada herramienta listada en el mensaje del usuario: sección (##) con nombre legible.
 - Para cada herramienta incluye: cuándo usarla, prerequisitos o datos a pedir al usuario, pasos recomendados del flujo, qué comunicar al usuario en cada paso, manejo de errores o ambigüedad, y cuándo escalar según escalation_rules del perfil si aplica.
+- **Ejemplos conversacionales obligatorios:** en cada herramienta relevante, incluye al menos un bloque claro del tipo: *Si el usuario dice o pregunta X (mensaje típico en lenguaje natural)* → *qué herramienta ejecutar y con qué intención* → *qué datos pedir antes si faltan* → *cómo presentar el resultado al usuario* (p. ej. conteos, resúmenes, “encontré N ítems…”). Los ejemplos deben basarse en el negocio, operational_context, descripciones del catálogo y cualquier “Contexto adicional del constructor”.
 
 Reglas:
 - No inventes nombres de APIs internas ni menciones repos o frameworks.
-- Sé específico al negocio y al operational_context del perfil.
+- Sé específico al negocio y al operational_context del perfil; evita frases genéricas vacías.
 - No envuelvas el resultado en bloques de código markdown; el texto completo es el markdown del manual.
 - No uses JSON; solo markdown.`
         : `Eres un experto en diseño de agentes conversacionales con herramientas (MCP).
@@ -290,19 +320,81 @@ Produce UN ÚNICO documento en **markdown**, íntegramente en **español**, que:
 - Actualice o elimine secciones de herramientas que ya no apliquen.
 - Añada secciones para herramientas nuevas.
 - Preserve el tono y decisiones útiles del documento anterior cuando sigan siendo válidas.
+- Donde falten **ejemplos conversacionales** (disparador del usuario → uso de herramienta → respuesta al usuario), añádelos siguiendo el perfil, operational_context y el “Contexto adicional del constructor” si existe.
 
 Reglas:
 - No inventes APIs internas ni menciones repos.
 - No envuelvas el resultado en bloques de código; el texto completo es el markdown.
 - No uses JSON; solo markdown.`;
 
+    const genConfig = {
+      systemInstruction,
+      temperature: body.mode === "update" ? 0.2 : 0.25,
+    };
+
+    if (body.stream) {
+      const encoder = new TextEncoder();
+      const readable = new ReadableStream({
+        async start(controller) {
+          const send = (obj: Record<string, unknown>) => {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify(obj)}\n\n`),
+            );
+          };
+          try {
+            const streamIt = await (
+              ai.models as unknown as StreamableModels
+            ).generateContentStream({
+              model: MODEL,
+              contents: userMessage,
+              config: genConfig,
+            });
+            let full = "";
+            for await (const chunk of streamIt) {
+              const delta = extractStreamDelta(chunk);
+              if (delta) {
+                full += delta;
+                send({ delta });
+              }
+            }
+            const trimmed = full.trim();
+            if (!trimmed) {
+              send({
+                error: "El modelo no devolvió contenido. Reintenta.",
+              });
+            } else {
+              send({ done: true });
+            }
+          } catch (e) {
+            logger.error("postAgentToolFlowsMarkdown stream failed", {
+              message: e instanceof Error ? e.message : String(e),
+            });
+            send({
+              error:
+                e instanceof Error
+                  ? e.message
+                  : "Error al generar el manual de herramientas.",
+            });
+          } finally {
+            controller.close();
+          }
+        },
+      });
+      return new Response(readable, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/event-stream; charset=utf-8",
+          "Cache-Control": "no-cache, no-transform",
+          Connection: "keep-alive",
+          "X-Accel-Buffering": "no",
+        },
+      });
+    }
+
     const res = await ai.models.generateContent({
       model: MODEL,
       contents: userMessage,
-      config: {
-        systemInstruction,
-        temperature: body.mode === "update" ? 0.2 : 0.25,
-      } as never,
+      config: genConfig as never,
     });
 
     const markdown = extractTextFromModelResponse(res);

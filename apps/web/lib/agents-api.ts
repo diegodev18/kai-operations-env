@@ -1166,6 +1166,10 @@ export type ToolFlowsMarkdownPayload = RecommendToolsPayload & {
   selectedToolIds: string[];
   mode: "generate" | "update";
   existingMarkdownEs?: string;
+  /** Políticas, saludo, temas a evitar, rationale y razones por herramienta de la recomendación. */
+  supplemental_context?: string;
+  /** Si true, el servidor devuelve SSE (`delta` / `done` / `error`). El cliente del builder lo envía siempre. */
+  stream?: boolean;
 };
 
 export type FlowQuestionsPayload = {
@@ -1293,17 +1297,79 @@ export async function recommendAgentTools(
   }
 }
 
+type ToolFlowsSsePayload =
+  | { delta: string; done?: undefined; error?: undefined }
+  | { done: true; delta?: undefined; error?: undefined }
+  | { error: string; delta?: undefined; done?: undefined };
+
+async function consumeToolFlowsMarkdownSse(
+  response: Response,
+  onStreamDelta?: (accumulated: string) => void,
+): Promise<{ ok: true; markdown: string } | { ok: false; error: string }> {
+  const reader = response.body?.getReader();
+  if (!reader) {
+    return { ok: false, error: "Sin cuerpo de respuesta del servidor" };
+  }
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let accumulated = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let sep: number;
+    while ((sep = buffer.indexOf("\n\n")) >= 0) {
+      const block = buffer.slice(0, sep);
+      buffer = buffer.slice(sep + 2);
+      for (const line of block.split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("data:")) continue;
+        const jsonStr = trimmed.slice(5).trim();
+        let obj: ToolFlowsSsePayload;
+        try {
+          obj = JSON.parse(jsonStr) as ToolFlowsSsePayload;
+        } catch {
+          continue;
+        }
+        if ("error" in obj && typeof obj.error === "string") {
+          return { ok: false, error: obj.error };
+        }
+        if ("done" in obj && obj.done === true) {
+          const out = accumulated.trim();
+          if (!out) return { ok: false, error: "El modelo no devolvió contenido." };
+          return { ok: true, markdown: out };
+        }
+        if ("delta" in obj && typeof obj.delta === "string" && obj.delta.length > 0) {
+          accumulated += obj.delta;
+          onStreamDelta?.(accumulated);
+        }
+      }
+    }
+  }
+  const out = accumulated.trim();
+  if (!out) return { ok: false, error: "El modelo no devolvió contenido." };
+  return { ok: true, markdown: out };
+}
+
 export async function generateAgentToolFlowsMarkdown(
   payload: ToolFlowsMarkdownPayload,
+  opts?: { onStreamDelta?: (accumulated: string) => void },
 ): Promise<{ ok: true; markdown: string } | { ok: false; error: string }> {
   try {
     const res = await fetch("/api/agents/builder/tool-flows-markdown", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "text/event-stream, application/json",
+      },
       credentials: "include",
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, stream: true }),
     });
-    const data = (await res.json()) as {
+    const ct = res.headers.get("content-type") ?? "";
+    if (res.ok && ct.includes("text/event-stream") && res.body) {
+      return consumeToolFlowsMarkdownSse(res, opts?.onStreamDelta);
+    }
+    const data = (await res.json().catch(() => ({}))) as {
       error?: string;
       markdown?: string;
       invalidIds?: string[];

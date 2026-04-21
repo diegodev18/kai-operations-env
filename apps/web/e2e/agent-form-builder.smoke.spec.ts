@@ -143,7 +143,7 @@ async function completeToolManualOfferStep(page: Page) {
       "# Manual de herramientas — describe flujos por herramienta",
     );
     await expect(md).toBeVisible({ timeout: 30_000 });
-    await md.fill("# E2E\nFlujo manual de prueba.");
+    // Solo validamos que la vista raw esté disponible; no pisamos el manual generado.
 
     await clickFormNext(page);
   } else {
