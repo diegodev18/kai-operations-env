@@ -1,5 +1,6 @@
 import type { Agent } from "@/lib/agent";
 import { toAgentWithOperations, type AgentWithOperations, type AgentBilling, type PaymentRecord } from "@/lib/agent";
+import { parseJsonResponse } from "@/utils/api-helpers";
 import type {
   AgentDraftClient,
   AgentDraftPatchBody,
@@ -257,26 +258,21 @@ export async function postAgentGrower(
       body: JSON.stringify(body),
     },
   );
-  let data: {
+  const data = await parseJsonResponse<{
     ok?: boolean;
     grower?: { email: string; name: string };
     error?: string;
-  } = {};
-  try {
-    data = (await res.json()) as typeof data;
-  } catch {
-    /* empty */
-  }
+  }>(res);
   if (!res.ok) {
     return {
       ok: false,
-      error: data.error ?? "No se pudo agregar el grower",
+      error: data?.error ?? "No se pudo agregar el grower",
     };
   }
-  if (data.ok && data.grower) {
+  if (data?.ok && data?.grower) {
     return { ok: true, grower: data.grower };
   }
-  return { ok: false, error: "Respuesta inv?lida del servidor" };
+  return { ok: false, error: "Respuesta inválida del servidor" };
 }
 
 export async function fetchAgentGrowers(
@@ -309,22 +305,17 @@ export async function deleteAgentGrower(
       credentials: "include",
     },
   );
-  let data: { ok?: boolean; error?: string } = {};
-  try {
-    data = (await res.json()) as typeof data;
-  } catch {
-    /* empty */
-  }
+  const data = await parseJsonResponse<{ ok?: boolean; error?: string }>(res);
   if (!res.ok) {
     return {
       ok: false,
-      error: data.error ?? "No se pudo quitar el grower",
+      error: data?.error ?? "No se pudo quitar el grower",
     };
   }
-  if (data.ok) {
+  if (data?.ok) {
     return { ok: true };
   }
-  return { ok: false, error: "Respuesta inv?lida del servidor" };
+  return { ok: false, error: "Respuesta inválida del servidor" };
 }
 
 export async function postAgentTechLead(

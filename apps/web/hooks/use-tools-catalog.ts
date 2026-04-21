@@ -1,22 +1,21 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect } from "react";
 import { fetchToolsCatalog, type ToolsCatalogItem } from "@/services/agents-api";
+import { useApiResource } from "./use-api-resource";
 
 export function useToolsCatalog() {
-  const [tools, setTools] = useState<ToolsCatalogItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    setIsLoading(true);
-    const list = await fetchToolsCatalog();
-    setTools(list ?? []);
-    setIsLoading(false);
-  }, []);
+  const { data, isLoading, refetch } = useApiResource(
+    async () => {
+      const list = await fetchToolsCatalog();
+      return list ?? [];
+    },
+    [],
+  );
 
   useEffect(() => {
     queueMicrotask(() => {
-      void load();
+      void refetch();
     });
-  }, [load]);
+  }, [refetch]);
 
-  return { tools, isLoading, refetch: load };
+  return { tools: data ?? [], isLoading, refetch };
 }
