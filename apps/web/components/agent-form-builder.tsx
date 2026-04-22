@@ -13,9 +13,7 @@ import {
   SettingsIcon,
   RocketIcon,
   ListChecks,
-  GripVerticalIcon,
   PlusIcon,
-  PencilIcon,
   HomeIcon,
   ChevronDownIcon,
   RefreshCwIcon,
@@ -44,6 +42,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { ConfirmationDialog } from "@/components/confirmation-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -81,8 +80,6 @@ import {
   type AgentFlowQuestion,
   type Pipeline,
   type Stage,
-  STAGE_COLORS,
-  STAGE_ICONS,
   STAGE_TYPES,
 } from "@/lib/form-builder-constants";
 import {
@@ -2110,17 +2107,6 @@ function SectionPipelines({ state, onChange }: SectionPipelinesProps) {
     [pipelines, onChange],
   );
 
-  const updateStage = useCallback(
-    (pipelineIndex: number, stageIndex: number, updates: Partial<Stage>) => {
-      const newPipelines = [...pipelines];
-      const stages = [...newPipelines[pipelineIndex].stages];
-      stages[stageIndex] = { ...stages[stageIndex], ...updates };
-      newPipelines[pipelineIndex] = { ...newPipelines[pipelineIndex], stages };
-      onChange({ pipelines: newPipelines });
-    },
-    [pipelines, onChange],
-  );
-
   if (pipelines.length === 0) {
     return (
       <div className="space-y-4">
@@ -3388,58 +3374,29 @@ export function AgentFormBuilder() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog
+      <ConfirmationDialog
         open={regenerateToolFlowsOpen}
         onOpenChange={setRegenerateToolFlowsOpen}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Regenerar el manual?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Se generará de nuevo el markdown con IA. Si habías editado el
-              texto a mano, esos cambios se perderán al sustituir el contenido.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                setRegenerateToolFlowsOpen(false);
-                void runToolFlowsMarkdown("generate");
-              }}
-            >
-              Regenerar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title="¿Regenerar el manual?"
+        description="Se generará de nuevo el markdown con IA. Si habías editado el texto a mano, esos cambios se perderán al sustituir el contenido."
+        confirmText="Regenerar"
+        onConfirm={() => {
+          setRegenerateToolFlowsOpen(false);
+          void runToolFlowsMarkdown("generate");
+        }}
+      />
 
-      <AlertDialog
+      <ConfirmationDialog
         open={updateToolFlowsOpen}
         onOpenChange={setUpdateToolFlowsOpen}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Actualizar el manual?</AlertDialogTitle>
-            <AlertDialogDescription>
-              La IA ajustará el documento a la lista actual de herramientas y al
-              contexto del negocio, conservando lo que siga siendo válido cuando
-              sea posible.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                setUpdateToolFlowsOpen(false);
-                void runToolFlowsMarkdown("update");
-              }}
-            >
-              Actualizar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title="¿Actualizar el manual?"
+        description="La IA ajustará el documento a la lista actual de herramientas y al contexto del negocio, conservando lo que siga siendo válido cuando sea posible."
+        confirmText="Actualizar"
+        onConfirm={() => {
+          setUpdateToolFlowsOpen(false);
+          void runToolFlowsMarkdown("update");
+        }}
+      />
 
       <div className="shrink-0 flex items-center gap-2 border-b px-4 py-3">
         <AlertDialog>
