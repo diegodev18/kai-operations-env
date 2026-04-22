@@ -1,10 +1,11 @@
 # KAI Operations — guía para agentes
 
-Este repositorio agrupa varias apps y herramientas. **Las convenciones de código del frontend Next.js** (hooks, `components/`, `types/`, `services/`, exportaciones, megacomponentes, capas `lib` / `consts` / `utils`) están documentadas en detalle aquí:
+Este repositorio agrupa varias apps y herramientas.
 
-→ **[`apps/web/AGENTS.md`](apps/web/AGENTS.md)**
+- **Frontend Next.js** — convenciones detalladas (hooks, `components/`, `types/`, `services/`, exportaciones, megacomponentes, capas): **[`apps/web/AGENTS.md`](apps/web/AGENTS.md)**  
+  Antes de tocar `apps/web/`, léelo; incluye reglas de Next, changelog, hooks (sin `toast` en hooks), componentes por dominio, barrels, y cuándo partir un megacomponente en subcarpeta.
 
-Antes de tocar `apps/web/`, léelo; incluye reglas de Next “no asumir la versión de training”, changelog, hooks (sin `toast` en hooks), componentes por dominio, barrels, y cuándo partir un megacomponente en subcarpeta.
+- **API Bun + Hono** — capas `routes/` / `controllers/`, comandos, anti‑patrones de controladores monolíticos: **[`apps/api/AGENTS.md`](apps/api/AGENTS.md)**
 
 ## Resumen ejecutivo (web)
 
@@ -16,4 +17,13 @@ Antes de tocar `apps/web/`, léelo; incluye reglas de Next “no asumir la versi
 | Megacomponentes | Carpeta `dominio/feature/` con `index.tsx` + módulos por flujo (`types`, `constants`, `*-helpers`, vistas). |
 | Tipos compartidos | Preferir `@/types` (barrel), no duplicar en hooks o en features salvo tipos realmente locales. |
 
-Otras carpetas en la raíz del monorepo pueden tener sus propias notas (`README`, `CLAUDE.md`, etc.); no sustituyen a `apps/web/AGENTS.md` para el código de la app web.
+## Resumen ejecutivo (api)
+
+| Tema | Regla breve |
+|------|-------------|
+| `routes/` | Solo wiring Hono + auth; delegar en controllers. |
+| `controllers/` | Handlers HTTP; si crece demasiado, carpeta + `index.ts` con reexports. |
+| `export default` (routers) | Patrón actual en `routes/`; ver `apps/api/AGENTS.md` antes de cambiar. |
+| Verificación | `bunx tsc -p apps/api/tsconfig.json --noEmit` en `apps/api/`. |
+
+Otras carpetas en la raíz del monorepo pueden tener sus propias notas (`README`, `CLAUDE.md`, etc.); para código web y API usa los `AGENTS.md` de cada app.
