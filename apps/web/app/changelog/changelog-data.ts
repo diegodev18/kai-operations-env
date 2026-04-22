@@ -69,6 +69,35 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] =
   ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.5.0": {
+    date: "2026-04-21",
+    description:
+      "Refactorización de frontend: reorganización de arquitectura, consolidación de componentes y eliminación de código duplicado",
+    changes: {
+      added: [
+        "Nuevo directorio `services/` para centralizar todas las llamadas al backend API; separa responsabilidades de `lib/` (SDKs) vs `services/` (API calls).",
+        "Hook genérico `useApiResource<T>()` para eliminar boilerplate en patrones fetch-on-mount: gestiona loading, error, y refetch automáticamente.",
+        "Helper `parseJsonResponse<T>()` en `utils/api-helpers.ts` para parsear respuestas JSON sin try-catch repetido.",
+        "Componentes compartidos `ChangelogListPage` y `ChangelogVersionPage` para consolidar 6 páginas de changelog duplicadas (panel/tools/agents).",
+        "5 nuevas funciones en `services/agents-api.ts`: `fetchFavorites()`, `toggleFavorite()`, `fetchAgentProperties()`, `patchAgentPropertyDoc()`, `fetchTestingProperties()`.",
+      ],
+      changed: [
+        "Moví `agents-api.ts`, `organization-api.ts`, `blog-api.ts` de `lib/` a nuevo directorio `services/`; actualicé 40+ imports en todo el proyecto.",
+        "Refactoricé 3 hooks (`useProductionPrompt`, `useTestingDiff`, `useToolsCatalog`) para usar `useApiResource`, reduciendo boilerplate de estado.",
+        "Reduje 6 páginas de changelog (panel, tools, agents × [list, detail]) a wrappers de 5-9 LOC cada una (era 150 LOC por página).",
+        "Componentes que hacen fetch directo ahora usan funciones del service (`operations-dashboard.tsx`, `agent-tools-panel.tsx`, `layout.tsx`).",
+      ],
+      improved: [
+        "Separación clara de responsabilidades: `lib/` = SDKs/tipos/helpers puros; `services/` = API calls; `utils/` = helpers reutilizables.",
+        "Mantenibilidad: cambios en lógica de API se hacen en un único lugar (`services/`).",
+        "Escalabilidad: agregar nuevo changelog project ahora requiere solo 2 archivos de 5-10 LOC.",
+        "Reducción de código: ~650 líneas de duplicación eliminadas (changelog + hooks + fetch patterns).",
+      ],
+      fixed: [
+        "Solucionó error de HTML validation «<a> cannot be a descendant of <a>» en previsualizaciones de blog markdown dentro de `Link` wrapper.",
+      ],
+    },
+  },
   "2.4.24": {
     date: "2026-04-21",
     description:

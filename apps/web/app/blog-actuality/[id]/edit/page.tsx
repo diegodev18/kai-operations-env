@@ -20,9 +20,9 @@ import {
   updateBlogPost,
   uploadBlogImage,
   type BlogPost,
-} from "@/lib/blog-api";
+} from "@/services/blog-api";
 import { ACTUALITY_TAGS } from "@/lib/blog-tags";
-import { fetchOrganizationUsers } from "@/lib/organization-api";
+import { fetchOrganizationUsers } from "@/services/organization-api";
 import { useAuth } from "@/hooks/auth";
 
 const POST_TYPE = "actuality" as const;

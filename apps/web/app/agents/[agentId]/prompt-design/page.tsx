@@ -3,7 +3,7 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AgentPromptDesigner } from "@/components/agent-prompt-designer";
-import { fetchAgentById } from "@/lib/agents-api";
+import { fetchAgentById } from "@/services/agents-api";
 
 export default function AgentPromptDesignPage() {
   const params = useParams();

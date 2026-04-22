@@ -30,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { fetchBlogPost, updateBlogPost, type BlogPost } from "@/lib/blog-api";
+import { fetchBlogPost, updateBlogPost, type BlogPost } from "@/services/blog-api";
 import { BLOG_TAGS } from "@/lib/blog-tags";
 import {
   generateMarkdown,

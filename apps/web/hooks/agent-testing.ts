@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { fetchTestingDiff } from "@/lib/agents-api";
+import { fetchTestingDiff } from "@/services/agents-api";
+import { useApiResource } from "./use-api-resource";
 
 export type TestingDiffItem = {
   collection: string;
@@ -10,32 +10,18 @@ export type TestingDiffItem = {
 };
 
 export function useTestingDiff(agentId: string) {
-  const [data, setData] = useState<TestingDiffItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { data: result, isLoading, refetch } = useApiResource(
+    async () => {
+      if (!agentId) return null;
+      return await fetchTestingDiff(agentId);
+    },
+    [agentId],
+  );
 
-  const fetchDiff = useCallback(async () => {
-    if (!agentId) return;
-    setIsLoading(true);
-    setError(null);
-    try {
-      const result = await fetchTestingDiff(agentId);
-      if (result) {
-        setData(result.diff);
-      } else {
-        setData([]);
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Error fetching diff");
-      setData([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [agentId]);
-
-  useEffect(() => {
-    void fetchDiff();
-  }, [fetchDiff]);
-
-  return { data, isLoading, error, refetch: fetchDiff };
+  return {
+    data: result?.diff ?? [],
+    isLoading,
+    error: null,
+    refetch,
+  };
 }

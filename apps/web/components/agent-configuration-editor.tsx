@@ -60,12 +60,12 @@ import {
   postAgentTechLead,
   postAgentSyncFromProduction,
   deleteAgentTechLead,
-} from "@/lib/agents-api";
+} from "@/services/agents-api";
 import {
   fetchOrganizationMe,
   fetchOrganizationUsers,
   type OrganizationUser,
-} from "@/lib/organization-api";
+} from "@/services/organization-api";
 import { AGENT_VERSIONS } from "@/consts/agent-versions";
 import { PromoteDiffDialog } from "@/components/promote-diff-dialog";
 

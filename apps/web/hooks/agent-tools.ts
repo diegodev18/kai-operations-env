@@ -5,8 +5,7 @@ import type {
 } from "@/types/agent-tool";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-
-const BASE = "/api/agents";
+import { AGENTS_BASE } from "@/services/agents-api";
 
 export function useAgentTools(agentId: string | null) {
   const [tools, setTools] = useState<AgentTool[]>([]);
@@ -21,7 +20,7 @@ export function useAgentTools(agentId: string | null) {
     setTools([]);
     try {
       const res = await fetch(
-        `${BASE}/${encodeURIComponent(agentId)}/tools`,
+        `${AGENTS_BASE}/${encodeURIComponent(agentId)}/tools`,
         {
           credentials: "include",
         },
@@ -51,7 +50,7 @@ export async function createAgentTool(
   agentId: string,
   body: CreateAgentToolBody,
 ): Promise<AgentTool | null> {
-  const res = await fetch(`${BASE}/${encodeURIComponent(agentId)}/tools`, {
+  const res = await fetch(`${AGENTS_BASE}/${encodeURIComponent(agentId)}/tools`, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -73,7 +72,7 @@ export async function updateAgentTool(
   body: UpdateAgentToolBody,
 ): Promise<AgentTool | null> {
   const res = await fetch(
-    `${BASE}/${encodeURIComponent(agentId)}/tools/${encodeURIComponent(toolId)}`,
+    `${AGENTS_BASE}/${encodeURIComponent(agentId)}/tools/${encodeURIComponent(toolId)}`,
     {
       method: "PATCH",
       credentials: "include",
@@ -96,7 +95,7 @@ export async function deleteAgentTool(
   toolId: string,
 ): Promise<boolean> {
   const res = await fetch(
-    `${BASE}/${encodeURIComponent(agentId)}/tools/${encodeURIComponent(toolId)}`,
+    `${AGENTS_BASE}/${encodeURIComponent(agentId)}/tools/${encodeURIComponent(toolId)}`,
     {
       method: "DELETE",
       credentials: "include",

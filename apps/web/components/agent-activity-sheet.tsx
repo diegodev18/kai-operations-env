@@ -18,7 +18,7 @@ import {
   fetchAgentGrowers,
   fetchImplementationActivity,
   patchImplementationActivityCommentVisibility,
-} from "@/lib/agents-api";
+} from "@/services/agents-api";
 import type { AgentGrowerRow, ImplementationActivityEntry } from "@/types/agents-api";
 import { Button } from "@/components/ui/button";
 import {

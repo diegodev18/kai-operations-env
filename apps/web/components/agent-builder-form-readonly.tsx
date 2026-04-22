@@ -7,7 +7,7 @@ import {
   fetchAgentBuilderForm,
   fetchToolsCatalog,
   type ToolsCatalogItem,
-} from "@/lib/agents-api";
+} from "@/services/agents-api";
 import type { AgentBuilderFormResponse } from "@/types/agents-api";
 import {
   FORM_SECTIONS,

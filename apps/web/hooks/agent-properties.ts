@@ -4,8 +4,11 @@ import type {
 } from "@/types/agent-properties";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-
-const BASE = "/api/agents";
+import {
+  AGENTS_BASE,
+  fetchAgentProperties,
+  patchAgentPropertyDoc,
+} from "@/services/agents-api";
 
 export function useAgentProperties(agentId: string | null) {
   const [data, setData] = useState<AgentPropertiesResponse | null>(null);
@@ -19,18 +22,11 @@ export function useAgentProperties(agentId: string | null) {
     setIsLoading(true);
     setData(null);
     try {
-      const res = await fetch(
-        `${BASE}/${encodeURIComponent(agentId)}/properties`,
-        {
-          credentials: "include",
-        },
-      );
-      if (!res.ok) {
-        const err = (await res.json()) as { error?: string };
-        toast.error(err.error ?? "Error al cargar propiedades");
+      const json = (await fetchAgentProperties(agentId)) as AgentPropertiesResponse | null;
+      if (!json) {
+        toast.error("Error al cargar propiedades");
         return;
       }
-      const json = (await res.json()) as AgentPropertiesResponse;
       setData(json);
     } catch {
       toast.error("Error al cargar propiedades del agente");
@@ -51,20 +47,9 @@ export async function updateAgentPropertyDocument(
   documentId: PropertyDocumentId,
   body: Record<string, unknown>,
 ): Promise<boolean> {
-  const res = await fetch(
-    `${BASE}/${encodeURIComponent(agentId)}/properties/${encodeURIComponent(documentId)}`,
-    {
-      method: "PATCH",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    },
-  );
-  if (!res.ok) {
-    const err = (await res.json()) as { error?: string };
-    toast.error(err.error ?? "Error al guardar");
+  const result = await patchAgentPropertyDoc(agentId, documentId, body);
+  if (!result.ok) {
+    toast.error(result.error ?? "Error al guardar");
     return false;
   }
   return true;

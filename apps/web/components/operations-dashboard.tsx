@@ -82,11 +82,12 @@ import {
   postAgentOperationsArchive,
   assignAgentToUser,
   fetchAssignedAgentForUser,
-} from "@/lib/agents-api";
+  toggleFavorite,
+} from "@/services/agents-api";
 import {
   fetchOrganizationUsers,
   type OrganizationUser,
-} from "@/lib/organization-api";
+} from "@/services/organization-api";
 import { ChangelogNavItem } from "@/components/changelog-nav";
 
 const STATUS_LABELS: Record<AgentOperationalStatus, string> = {
@@ -1155,11 +1156,8 @@ export function OperationsDashboard(props: {
                                       : "POST";
                                     setIsTogglingFavorite(agent.id);
                                     try {
-                                      const res = await fetch(
-                                        `/api/favorites/${encodeURIComponent(agent.id)}`,
-                                        { method, credentials: "include" },
-                                      );
-                                      if (res.ok) {
+                                      const result = await toggleFavorite(agent.id, method);
+                                      if (result.ok) {
                                         setAgents((prev) =>
                                           prev.map((a) =>
                                             a.id === agent.id
@@ -1176,10 +1174,7 @@ export function OperationsDashboard(props: {
                                             : "Añadido a favoritos",
                                         );
                                       } else {
-                                        const err = await res.text();
-                                        toast.error(
-                                          `Error: ${res.status} - ${err || "Error desconocido"}`,
-                                        );
+                                        toast.error(result.error ?? "Error desconocido");
                                       }
                                     } catch {
                                       toast.error(

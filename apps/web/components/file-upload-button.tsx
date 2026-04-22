@@ -5,7 +5,7 @@ import { Loader2Icon, PaperclipIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { uploadAgentFile } from "@/lib/agents-api";
+import { uploadAgentFile } from "@/services/agents-api";
 import type { ImplementationTaskAttachment } from "@/types/agents-api";
 
 type FileUploadButtonProps = {

@@ -56,7 +56,7 @@ import {
   type DraftPendingTask,
   type DraftPropertyItem,
   type ToolsCatalogItem,
-} from "@/lib/agents-api";
+} from "@/services/agents-api";
 import { BuilderChatUiBlock } from "@/components/builder-chat-ui";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ToolsCatalogSearchList } from "@/components/tools-catalog-search-list";

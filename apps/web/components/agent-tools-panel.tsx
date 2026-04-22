@@ -38,7 +38,9 @@ import { SyncFromCatalogDialog } from "@/components/sync-from-catalog-dialog";
 import {
   fetchAgentById,
   postAgentSyncFromProduction,
-} from "@/lib/agents-api";
+  fetchAgentProperties,
+  patchAgentPropertyDoc,
+} from "@/services/agents-api";
 import {
   Loader2Icon,
   PlusIcon,
@@ -80,35 +82,17 @@ function getDocSchemasFromToolSchema(schema: unknown): Record<string, JsonRecord
 }
 
 async function fetchAgentPropertiesMap(agentId: string): Promise<JsonRecord | null> {
-  try {
-    const res = await fetch(`/api/agents/${encodeURIComponent(agentId)}/properties`, {
-      credentials: "include",
-    });
-    if (!res.ok) return null;
-    const json = (await res.json()) as unknown;
-    return json && typeof json === "object" && !Array.isArray(json)
-      ? (json as JsonRecord)
-      : null;
-  } catch {
-    return null;
-  }
+  const result = await fetchAgentProperties(agentId);
+  return (result as JsonRecord) || null;
 }
 
-async function patchAgentPropertyDoc(
+async function patchAgentPropertyDocLocal(
   agentId: string,
   docId: string,
   payload: JsonRecord
 ): Promise<boolean> {
-  const res = await fetch(
-    `/api/agents/${encodeURIComponent(agentId)}/properties/${encodeURIComponent(docId)}`,
-    {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    }
-  );
-  return res.ok;
+  const result = await patchAgentPropertyDoc(agentId, docId, payload as Record<string, unknown>);
+  return result.ok;
 }
 
 function ToolListItem({
@@ -499,7 +483,7 @@ function AddToolDialog({
         const docsToSave = Object.keys(propertyDocSchemas);
         if (docsToSave.length > 0) {
           for (const docId of docsToSave) {
-            const ok = await patchAgentPropertyDoc(
+            const ok = await patchAgentPropertyDocLocal(
               agentId,
               docId,
               agentPropertiesValues[docId] ?? {}
@@ -790,7 +774,7 @@ function EditToolDialog({
         const docsToSave = Object.keys(propertyDocSchemas);
         if (docsToSave.length > 0) {
           for (const docId of docsToSave) {
-            const ok = await patchAgentPropertyDoc(
+            const ok = await patchAgentPropertyDocLocal(
               agentId,
               docId,
               agentPropertiesValues[docId] ?? {}
