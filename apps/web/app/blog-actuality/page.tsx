@@ -303,7 +303,12 @@ export default function ActualityPage() {
                       ) : null}
                     </div>
                     <div className="line-clamp-2 text-sm text-muted-foreground prose prose-sm dark:prose-invert prose-p:my-0 max-w-prose">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          a: ({ children }) => <>{children}</>,
+                        }}
+                      >
                         {post.content.slice(0, 220)}
                       </ReactMarkdown>
                     </div>
