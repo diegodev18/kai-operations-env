@@ -6,7 +6,7 @@ import type {
   PromptTarget,
   SuggestedPrompts,
   UsePromptChatParams,
-} from "@/types/prompt-chat";
+} from "@/types";
 import {
   CHAT_STATUS_LOADING_MESSAGES,
   isChatStatusMessage,
@@ -24,7 +24,7 @@ export type {
   PromptMode,
   PromptTarget,
   SuggestedPrompts,
-} from "@/types/prompt-chat";
+} from "@/types";
 
 export { isChatStatusMessage };
 

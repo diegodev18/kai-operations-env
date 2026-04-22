@@ -3,7 +3,7 @@
 import type {
   AgentPropertiesResponse,
   PropertyDocumentId,
-} from "@/types/agent-properties";
+} from "@/types";
 import {
   useTestingProperties,
   updateTestingPropertyDocument,

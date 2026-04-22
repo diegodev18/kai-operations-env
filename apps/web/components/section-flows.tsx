@@ -8,7 +8,7 @@ import type {
   AgentFlowQuestion,
   FormBuilderState,
   FormSectionId,
-} from "@/types/form-builder";
+} from "@/types";
 import { FlowQuestionField } from "@/components/flow-question-components";
 
 interface SectionFlowsProps {

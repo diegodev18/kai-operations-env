@@ -59,7 +59,7 @@ hooks/
 │   └── testing/
 │       └── testing-diff.ts     # useTestingDiff
 └── chat/
-    ├── prompt-chat.ts          # usePromptChat (+ re-exports from @/types/prompt-chat)
+    ├── prompt-chat.ts          # usePromptChat (+ re-exports from @/types)
     └── prompt-models.ts        # usePromptModels
 ```
 
@@ -90,7 +90,7 @@ hooks/
 
 ### 7. Types
 
-- Domain types stay under `apps/web/types/` (e.g. `@/types/prompt-chat`). Hooks may re-export types for convenience when they already did so historically; do not duplicate type definitions inside hook files.
+- Domain types stay under `apps/web/types/` (e.g. `@/types`). Hooks may re-export types for convenience when they already did so historically; do not duplicate type definitions inside hook files.
 
 ## App layers (`types`, `consts`, `utils`, `lib`, `services`)
 
@@ -98,12 +98,31 @@ Use the right folder so HTTP clients, constants, and shared helpers do not drift
 
 ### 1. `types/` ([`apps/web/types/`](apps/web/types))
 
-- All domain and API contract types (even if only one module uses them today). Prefer `import type { … } from "@/types/…"`. El constructor de agentes usa [`types/form-builder.ts`](types/form-builder.ts).
+- All domain and API contract types (even if only one module uses them today). Prefer **`import type { … } from "@/types"`** (barrel [`types/index.ts`](types/index.ts)). Imports profundos (`@/types/agents/agents-api`, etc.) solo si necesitas evitar el barrel.
 - `lib/`, `services/`, `hooks/`, and components should not grow large `interface` / `type` blocks; keep shapes here.
+- Literales del editor de schema (`SCHEMA_TYPES`, `EMPTY_SCHEMA`, `SchemaType`) viven en [`consts/parameter-schema.ts`](consts/parameter-schema.ts) y se reexportan desde `@/types` por comodidad.
+
+```
+types/
+├── index.ts                         # barrel público → preferir `from "@/types"`
+├── agents/
+│   ├── agents-api.ts                # payloads / respuestas del cliente HTTP de agentes
+│   ├── agent-tool.ts
+│   └── agent-properties.ts
+├── form-builder/
+│   └── index.ts                     # estado y tipos del constructor de agentes
+├── chat/
+│   ├── prompt-chat.ts               # asistente de diseño de prompt
+│   └── prompt-diff.ts
+├── integration/
+│   └── integration-simulator.ts
+└── parameter-schema/
+    └── editor.ts                    # EditorProperty / EditorState (SchemaType desde consts)
+```
 
 ### 2. `consts/` ([`apps/web/consts/`](apps/web/consts))
 
-- Product and domain constants (`as const` arrays, fixed lists, default IDs). Examples: [`consts/blog-tags.ts`](consts/blog-tags.ts), [`consts/form-builder/`](consts/form-builder/) (constructor de agentes).
+- Product and domain constants (`as const` arrays, fixed lists, default IDs). Examples: [`consts/blog-tags.ts`](consts/blog-tags.ts), [`consts/form-builder/`](consts/form-builder/) (constructor de agentes), [`consts/parameter-schema.ts`](consts/parameter-schema.ts) (listas del editor de schema de herramientas).
 - No `fetch` or server I/O.
 
 ### 3. `utils/` ([`apps/web/utils/`](apps/web/utils))
@@ -146,7 +165,7 @@ lib/
 ### 6. Imports (examples)
 
 ```ts
-import type { AgentBuilderFormResponse } from "@/types/agents-api";
+import type { AgentBuilderFormResponse } from "@/types";
 import { BLOG_TAGS } from "@/consts/blog-tags";
 import { parseJsonResponse } from "@/utils/api-helpers";
 import { cn } from "@/lib/utils";

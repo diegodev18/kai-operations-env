@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import type { AgentPropertiesResponse } from "@/types/agent-properties";
+import type { AgentPropertiesResponse } from "@/types";
 
 export function usePropertiesBase(agentId: string | null, initialLoading = false) {
   const [data, setData] = useState<AgentPropertiesResponse | null>(null);

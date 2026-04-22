@@ -21,7 +21,7 @@ export type {
   AgentBuilderFormPayload,
   AgentBuilderFormInitialPayload,
   DraftPropertyItem,
-} from "@/types/agents-api";
+} from "@/types";
 
 export { AGENTS_BASE, AGENTS_PAGE_SIZE } from "./constants";
 export { normalizeAgentStatus } from "./normalize";

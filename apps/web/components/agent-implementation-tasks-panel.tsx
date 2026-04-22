@@ -47,7 +47,7 @@ import type {
   ImplementationTask,
   ImplementationTaskAttachment,
   WhatsappIntegrationStatusItem,
-} from "@/types/agents-api";
+} from "@/types";
 import type { AgentBilling } from "@/lib/agents/agent";
 import {
   createImplementationTask,

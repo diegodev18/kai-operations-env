@@ -5,7 +5,7 @@ import type {
   PersonalityTrait,
   StageType,
   ToolCategory,
-} from "@/types/form-builder";
+} from "@/types";
 
 /** Modelos LLM disponibles en el constructor (misma lista que el editor de configuración). */
 export const BUILDER_LLM_MODELS = [

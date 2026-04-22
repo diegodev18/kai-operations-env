@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
-import type { AgentFlowQuestion } from "@/types/form-builder";
+import type { AgentFlowQuestion } from "@/types";
 
 const FLOW_SELECT_OTRO = "\nOtro:";
 const FLOW_SUGGEST_EXTRA_SEP = " | ";

@@ -20,7 +20,7 @@ import type {
   SavedBuilderCompany,
   AgentBuilderFormResponse,
   DraftPropertyItem,
-} from "@/types/agents-api";
+} from "@/types";
 import { normalizeAgentStatus } from "@/services/agents/normalize";
 
 export async function postAgentGrower(

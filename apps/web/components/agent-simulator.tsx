@@ -52,7 +52,7 @@ import type {
   SimulateBody,
   SimulatorMode,
   SSEEvent,
-} from "@/types/integration-simulator";
+} from "@/types";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { parseSSEStream } from "@/utils/integration-sse";
 

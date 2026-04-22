@@ -1,6 +1,6 @@
 "use client";
 
-import type { AgentTool, AgentToolType, CreateAgentToolBody } from "@/types/agent-tool";
+import type { AgentTool, AgentToolType, CreateAgentToolBody } from "@/types";
 import {
   createAgentTool,
   deleteAgentTool,

@@ -1,4 +1,4 @@
-import type { PropertyDocumentId } from "@/types/agent-properties";
+import type { PropertyDocumentId } from "@/types";
 import { toast } from "sonner";
 import { patchAgentPropertyDoc } from "@/services/agents-api";
 

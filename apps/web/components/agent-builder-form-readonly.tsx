@@ -8,7 +8,7 @@ import {
   fetchToolsCatalog,
   type ToolsCatalogItem,
 } from "@/services/agents-api";
-import type { AgentBuilderFormResponse } from "@/types/agents-api";
+import type { AgentBuilderFormResponse } from "@/types";
 import { FORM_SECTIONS, STAGE_TYPES } from "@/consts/form-builder/constants";
 import type {
   AgentFlowQuestion,
@@ -17,7 +17,7 @@ import type {
   Pipeline,
   Stage,
   StageType,
-} from "@/types/form-builder";
+} from "@/types";
 import { PROPERTY_TITLES } from "@/consts/form-builder/property-descriptions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";

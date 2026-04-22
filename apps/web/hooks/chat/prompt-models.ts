@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { PromptModelInfo } from "@/types/prompt-chat";
+import type { PromptModelInfo } from "@/types";
 
 export function usePromptModels() {
   const [models, setModels] = useState<PromptModelInfo[]>([]);

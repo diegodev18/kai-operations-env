@@ -1,14 +1,6 @@
-/** Estado y tipos del editor de schema JSON (tools / parámetros). */
+/** Estado del editor de schema JSON (tools / parámetros). */
 
-export const SCHEMA_TYPES = [
-  "string",
-  "number",
-  "boolean",
-  "array",
-  "object",
-] as const;
-
-export type SchemaType = (typeof SCHEMA_TYPES)[number];
+import type { SchemaType } from "@/consts/parameter-schema";
 
 export interface EditorProperty {
   id: string;
@@ -30,9 +22,3 @@ export interface EditorState {
   properties: EditorProperty[];
   required: string[];
 }
-
-export const EMPTY_SCHEMA: Record<string, unknown> = {
-  type: "OBJECT",
-  properties: {},
-  required: [],
-};

@@ -1,4 +1,4 @@
-import type { AgentTool } from "@/types/agent-tool";
+import type { AgentTool } from "@/types";
 import { useCallback, useEffect, useState } from "react";
 import { AGENTS_BASE } from "@/services/agents-api";
 

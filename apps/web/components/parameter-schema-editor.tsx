@@ -17,7 +17,7 @@ import {
   type EditorProperty,
   type EditorState,
   type SchemaType,
-} from "@/types/parameter-schema";
+} from "@/types";
 import { editorStateToSchema, schemaToEditorState } from "@/utils/parameter-schema-editor";
 
 const DEFAULT_PROPERTY = (): EditorProperty => ({

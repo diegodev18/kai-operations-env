@@ -1,4 +1,4 @@
-import type { AgentPropertiesResponse } from "@/types/agent-properties";
+import type { AgentPropertiesResponse } from "@/types";
 import { useCallback, useEffect, useState } from "react";
 import {
   fetchTestingProperties,

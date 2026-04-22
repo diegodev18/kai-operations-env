@@ -98,7 +98,7 @@ import type {
   PersonalityTrait,
   Pipeline,
   Stage,
-} from "@/types/form-builder";
+} from "@/types";
 import {
   PROPERTY_DESCRIPTIONS,
   PROPERTY_TITLES,

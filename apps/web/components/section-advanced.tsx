@@ -5,7 +5,7 @@ import {
   PROPERTY_DESCRIPTIONS,
   PROPERTY_TITLES,
 } from "@/consts/form-builder/property-descriptions";
-import type { FormBuilderState } from "@/types/form-builder";
+import type { FormBuilderState } from "@/types";
 
 interface SectionAdvancedProps {
   state: FormBuilderState;

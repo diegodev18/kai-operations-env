@@ -70,7 +70,7 @@ import {
   PROPERTY_DESCRIPTIONS,
   PROPERTY_TITLES,
 } from "@/consts/form-builder/property-descriptions";
-import type { BuilderChatUI } from "@/types/agents-api";
+import type { BuilderChatUI } from "@/types";
 import { cn } from "@/lib/utils";
 
 type ChatMessage = {

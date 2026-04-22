@@ -2,7 +2,7 @@ import type {
   AgentTool,
   CreateAgentToolBody,
   UpdateAgentToolBody,
-} from "@/types/agent-tool";
+} from "@/types";
 import { toast } from "sonner";
 import { AGENTS_BASE } from "@/services/agents-api";
 

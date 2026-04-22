@@ -19,7 +19,7 @@ import {
   fetchImplementationActivity,
   patchImplementationActivityCommentVisibility,
 } from "@/services/agents-api";
-import type { AgentGrowerRow, ImplementationActivityEntry } from "@/types/agents-api";
+import type { AgentGrowerRow, ImplementationActivityEntry } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,

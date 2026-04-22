@@ -18,7 +18,7 @@ import type {
   BuilderChatUI,
   BuilderChatUIForm,
   BuilderChatUIOptions,
-} from "@/types/agents-api";
+} from "@/types";
 import { cn } from "@/lib/utils";
 
 const MAX_OPTIONS = 8;

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { CheckIcon, Undo2Icon } from "lucide-react";
-import type { DiffLine, PromptDiffViewProps } from "@/types/prompt-diff";
+import type { DiffLine, PromptDiffViewProps } from "@/types";
 import {
   buildPairedContentMap,
   buildTextWithRevertedHunks,

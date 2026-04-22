@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 
 import { Input } from "@/components/ui/input";
-import type { ToolsCatalogItem } from "@/types/agents-api";
+import type { ToolsCatalogItem } from "@/types";
 
 export function ToolsCatalogSearchList({
   tools,

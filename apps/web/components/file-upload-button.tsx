@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { uploadAgentFile } from "@/services/agents-api";
-import type { ImplementationTaskAttachment } from "@/types/agents-api";
+import type { ImplementationTaskAttachment } from "@/types";
 
 type FileUploadButtonProps = {
   agentId: string;
