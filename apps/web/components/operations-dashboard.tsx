@@ -92,6 +92,10 @@ import { ChangelogNavItem } from "@/components/changelog-nav";
 import { IconButtonWithTooltip } from "@/components/icon-button-with-tooltip";
 import { BillingConfigDialog } from "@/components/billing-config-dialog";
 import { RegisterPaymentDialog } from "@/components/register-payment-dialog";
+import {
+  OrgUserPickerDialog,
+  type OrgUser,
+} from "@/components/org-user-picker-dialog";
 
 const STATUS_LABELS: Record<AgentOperationalStatus, string> = {
   active: "Activo",
@@ -1567,90 +1571,25 @@ export function OperationsDashboard(props: {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog
+      <OrgUserPickerDialog
         open={growerTarget != null}
         onOpenChange={(open) => {
           if (!open) setGrowerTarget(null);
         }}
-      >
-        <DialogContent showClose className="max-h-[min(90vh,32rem)]">
-          <DialogHeader>
-            <DialogTitle>Gestionar growers</DialogTitle>
-            <DialogDescription>
-              Agente:{" "}
-              <span className="font-medium text-foreground">
-                {growerTarget?.name}
-              </span>
-              . Los usuarios de la organización aparecen con un tick si ya son
-              growers; marca para añadir o desmarca para quitar (nombre y correo
-              de su cuenta).
-            </DialogDescription>
-          </DialogHeader>
-          <div className="min-h-0 flex-1 overflow-hidden py-2">
-            {growerPickerLoading ? (
-              <div className="flex items-center justify-center gap-2 py-10 text-muted-foreground">
-                <Loader2Icon className="size-5 animate-spin" />
-                <span>Cargando usuarios y growers…</span>
-              </div>
-            ) : sortedOrgUsers.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">
-                No hay usuarios en la organización.
-              </p>
-            ) : (
-              <ul className="max-h-64 space-y-1 overflow-y-auto pr-1">
-                {sortedOrgUsers.map((u) => {
-                  const already = checkIsGrower(u);
-                  const busy = addingGrowerUserId === u.id;
-                  return (
-                    <li key={u.id}>
-                      <label className="flex cursor-pointer items-center gap-3 rounded-md border border-transparent px-2 py-2 hover:bg-muted/50">
-                        <Checkbox
-                          checked={already}
-                          disabled={
-                            busy || growerPickerLoading || !growerTarget
-                          }
-                          onCheckedChange={(v) => {
-                            if (v === true) void onCheckAddGrower(u);
-                            else void onUncheckRemoveGrower(u);
-                          }}
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-medium">
-                            {u.name}
-                          </div>
-                          <div className="truncate text-xs text-muted-foreground">
-                            {u.email}
-                            {u.role === "admin" ? (
-                              <span className="ml-2 text-foreground/80">
-                                · admin
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                        {busy ? (
-                          <Loader2Icon
-                            className="size-4 shrink-0 animate-spin text-muted-foreground"
-                            aria-hidden
-                          />
-                        ) : null}
-                      </label>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setGrowerTarget(null)}
-            >
-              Cerrar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        title="Gestionar growers"
+        description={
+          growerTarget
+            ? `Agente: ${growerTarget.name}. Marca para añadir o desmarca para quitar growers.`
+            : undefined
+        }
+        users={sortedOrgUsers}
+        isLoading={growerPickerLoading}
+        checkIsAssigned={checkIsGrower}
+        onAdd={onCheckAddGrower}
+        onRemove={onUncheckRemoveGrower}
+        addingUserId={addingGrowerUserId}
+        renderUserMeta={(u) => (u.role === "admin" ? "admin" : undefined)}
+      />
       <BillingConfigDialog
         open={billingDialogAgent != null}
         onOpenChange={(open) => {

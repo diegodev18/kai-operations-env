@@ -13,12 +13,13 @@ import {
 } from "@/components/ui/dialog";
 import { type ReactNode } from "react";
 
-export interface OrgUser {
+export type OrgUser = {
   id: string;
   email: string;
   name?: string;
   image?: string;
-}
+  [key: string]: unknown;
+};
 
 export function OrgUserPickerDialog({
   open,
@@ -37,13 +38,13 @@ export function OrgUserPickerDialog({
   onOpenChange: (open: boolean) => void;
   title: string;
   description?: string;
-  users: OrgUser[];
+  users: any[];
   isLoading: boolean;
-  checkIsAssigned: (user: OrgUser) => boolean;
-  onAdd: (user: OrgUser) => void | Promise<void>;
-  onRemove: (user: OrgUser) => void | Promise<void>;
-  addingUserId?: string;
-  renderUserMeta?: (user: OrgUser) => ReactNode;
+  checkIsAssigned: (user: any) => boolean;
+  onAdd: (user: any) => void | Promise<void>;
+  onRemove: (user: any) => void | Promise<void>;
+  addingUserId?: string | null;
+  renderUserMeta?: (user: any) => ReactNode;
 }) {
   const [search, setSearch] = useState("");
 
