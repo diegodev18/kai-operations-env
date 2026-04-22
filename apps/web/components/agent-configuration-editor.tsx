@@ -13,7 +13,6 @@ import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -24,14 +23,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   Loader2Icon,
   ChevronDownIcon,
@@ -68,6 +59,11 @@ import {
 } from "@/services/organization-api";
 import { AGENT_VERSIONS } from "@/consts/agent-versions";
 import { PromoteDiffDialog } from "@/components/promote-diff-dialog";
+import { ConfirmTextDialog } from "@/components/confirm-text-dialog";
+import {
+  OrgUserPickerDialog,
+  type OrgUser,
+} from "@/components/org-user-picker-dialog";
 
 const DOCUMENT_IDS: PropertyDocumentId[] = [
   "agent",
@@ -278,7 +274,6 @@ export function AgentConfigurationEditor({
   const [saving, setSaving] = useState(false);
   const [agentNameForConfirm, setAgentNameForConfirm] = useState("");
   const [isDisableDialogOpen, setIsDisableDialogOpen] = useState(false);
-  const [disableConfirmInput, setDisableConfirmInput] = useState("");
   const [isGrowersDialogOpen, setIsGrowersDialogOpen] = useState(false);
   const [orgUsers, setOrgUsers] = useState<OrganizationUser[]>([]);
   const [dialogGrowers, setDialogGrowers] = useState<AgentGrowerRow[]>([]);
@@ -631,13 +626,8 @@ export function AgentConfigurationEditor({
     [data],
   );
 
-  const expectedDisableName = agentNameForConfirm.trim() || agentId;
-  const canConfirmDisable =
-    normalizeConfirmInput(disableConfirmInput) === "confirmar" && !saving;
-
   const handleDisableDialogOpenChange = useCallback((open: boolean) => {
     setIsDisableDialogOpen(open);
-    if (!open) setDisableConfirmInput("");
   }, []);
 
   const handleToggleClick = useCallback(() => {
@@ -1677,212 +1667,58 @@ export function AgentConfigurationEditor({
             agentNameForConfirm={agentNameForConfirm}
             onSuccess={handlePromoteSuccess}
           />
-          <Dialog open={isDisableDialogOpen} onOpenChange={handleDisableDialogOpenChange}>
-            <DialogContent className="max-w-md" showClose>
-              <DialogHeader>
-                <DialogTitle>Confirmar apagado del agente</DialogTitle>
-                <p className="text-sm text-muted-foreground">
-                  Para apagar el agente, escribe{" "}
-                  <span className="font-semibold text-foreground">CONFIRMAR</span>
-                </p>
-              </DialogHeader>
-              <div className="space-y-2">
-                <Label htmlFor="confirm-disable-agent-name">Confirmar</Label>
-                <Input
-                  id="confirm-disable-agent-name"
-                  value={disableConfirmInput}
-                  onChange={(e) => setDisableConfirmInput(e.target.value)}
-                  placeholder="CONFIRMAR"
-                  autoComplete="off"
-                />
-              </div>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => handleDisableDialogOpenChange(false)}
-                  disabled={saving}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  disabled={!canConfirmDisable}
-                  onClick={async () => {
-                    const toggled = await handleToggleEnabled();
-                    if (toggled) handleDisableDialogOpenChange(false);
-                  }}
-                >
-                  {saving ? (
-                    <>
-                      <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
-                      Apagando…
-                    </>
-                  ) : (
-                    "Apagar agente"
-                  )}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-          <Dialog
+          <ConfirmTextDialog
+            open={isDisableDialogOpen}
+            onOpenChange={handleDisableDialogOpenChange}
+            title="Confirmar apagado del agente"
+            description="Para apagar el agente, escribe la palabra de confirmación."
+            confirmWord="CONFIRMAR"
+            confirmText="Apagar agente"
+            saving={saving}
+            isDangerous
+            onConfirm={async () => {
+              await handleToggleEnabled();
+            }}
+          />
+          <OrgUserPickerDialog
             open={isGrowersDialogOpen}
             onOpenChange={(open) => {
               setIsGrowersDialogOpen(open);
               if (!open) setAddingGrowerUserId(null);
             }}
-          >
-            <DialogContent showClose className="max-h-[min(90vh,32rem)]">
-              <DialogHeader>
-                <DialogTitle>Gestionar growers</DialogTitle>
-                <DialogDescription>
-                  Los usuarios de la organización aparecen con un tick si ya son
-                  growers; marca para añadir o desmarca para quitar (nombre y correo
-                  de su cuenta).
-                </DialogDescription>
-              </DialogHeader>
-              <div className="min-h-0 flex-1 overflow-hidden py-2">
-                {growerPickerLoading ? (
-                  <div className="flex items-center justify-center gap-2 py-10 text-muted-foreground">
-                    <Loader2Icon className="size-5 animate-spin" />
-                    <span>Cargando usuarios y growers…</span>
-                  </div>
-                ) : sortedOrgUsers.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-muted-foreground">
-                    No hay usuarios en la organización.
-                  </p>
-                ) : (
-                  <ul className="max-h-64 space-y-1 overflow-y-auto pr-1">
-                    {sortedOrgUsers.map((u) => {
-                      const already = checkIsGrower(u);
-                      const busy = addingGrowerUserId === u.id;
-                      return (
-                        <li key={u.id}>
-                          <label className="flex cursor-pointer items-center gap-3 rounded-md border border-transparent px-2 py-2 hover:bg-muted/50">
-                            <Checkbox
-                              checked={already}
-                              disabled={busy || growerPickerLoading || !agentId}
-                              onCheckedChange={(v) => {
-                                if (v === true) void onCheckAddGrower(u);
-                                else void onUncheckRemoveGrower(u);
-                              }}
-                            />
-                            <div className="min-w-0 flex-1">
-                              <div className="truncate text-sm font-medium">
-                                {u.name}
-                              </div>
-                              <div className="truncate text-xs text-muted-foreground">
-                                {u.email}
-                              </div>
-                            </div>
-                            {busy ? (
-                              <Loader2Icon
-                                className="size-4 shrink-0 animate-spin text-muted-foreground"
-                                aria-hidden
-                              />
-                            ) : null}
-                          </label>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsGrowersDialogOpen(false)}
-                >
-                  Cerrar
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-          <Dialog
+            title="Gestionar growers"
+            description="Los usuarios de la organización aparecen con un tick si ya son growers; marca para añadir o desmarca para quitar (nombre y correo de su cuenta)."
+            users={sortedOrgUsers}
+            isLoading={growerPickerLoading}
+            checkIsAssigned={checkIsGrower}
+            onAdd={onCheckAddGrower}
+            onRemove={onUncheckRemoveGrower}
+            addingUserId={addingGrowerUserId}
+          />
+          <OrgUserPickerDialog
             open={isTechLeadsDialogOpen}
             onOpenChange={(open) => {
               setIsTechLeadsDialogOpen(open);
               if (!open) setAddingTechLeadUserId(null);
             }}
-          >
-            <DialogContent showClose className="max-h-[min(90vh,32rem)]">
-              <DialogHeader>
-                <DialogTitle>Gestionar tech leads</DialogTitle>
-                <DialogDescription>
-                  Los usuarios de la organización aparecen con un tick si ya son
-                  tech leads; marca para añadir o desmarca para quitar. Un usuario no puede ser grower y tech lead a la vez.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="min-h-0 flex-1 overflow-hidden py-2">
-                {dialogTechLeadsLoading ? (
-                  <div className="flex items-center justify-center gap-2 py-10 text-muted-foreground">
-                    <Loader2Icon className="size-5 animate-spin" />
-                    <span>Cargando tech leads…</span>
-                  </div>
-                ) : sortedOrgUsers.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-muted-foreground">
-                    No hay usuarios en la organización.
-                  </p>
-                ) : (
-                  <ul className="max-h-64 space-y-1 overflow-y-auto pr-1">
-                    {sortedOrgUsers.map((u) => {
-                      const alreadyTechLead = dialogTechLeads.some(
-                        (tl) => tl.email.trim().toLowerCase() === u.email.trim().toLowerCase()
-                      );
-                      const alreadyGrower = dialogGrowers.some(
-                        (g) => g.email.trim().toLowerCase() === u.email.trim().toLowerCase()
-                      );
-                      const busy = addingTechLeadUserId === u.id;
-                      return (
-                        <li key={u.id}>
-                          <label className="flex cursor-pointer items-center gap-3 rounded-md border border-transparent px-2 py-2 hover:bg-muted/50">
-                            <Checkbox
-                              checked={alreadyTechLead}
-                              disabled={busy || dialogTechLeadsLoading || !agentId || alreadyGrower}
-                              onCheckedChange={(v) => {
-                                if (v === true) void onCheckAddTechLead(u);
-                                else void onUncheckRemoveTechLead(u);
-                              }}
-                            />
-                            <div className="min-w-0 flex-1">
-                              <div className="truncate text-sm font-medium">
-                                {u.name}
-                              </div>
-                              <div className="truncate text-xs text-muted-foreground">
-                                {u.email}
-                                {alreadyGrower && (
-                                  <span className="ml-2 text-amber-600">
-                                    · grower
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            {busy ? (
-                              <Loader2Icon
-                                className="size-4 shrink-0 animate-spin text-muted-foreground"
-                                aria-hidden
-                              />
-                            ) : null}
-                          </label>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsTechLeadsDialogOpen(false)}
-                >
-                  Cerrar
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+            title="Gestionar tech leads"
+            description="Los usuarios de la organización aparecen con un tick si ya son tech leads; marca para añadir o desmarca para quitar. Un usuario no puede ser grower y tech lead a la vez."
+            users={sortedOrgUsers}
+            isLoading={dialogTechLeadsLoading}
+            checkIsAssigned={checkIsTechLead}
+            onAdd={onCheckAddTechLead}
+            onRemove={onUncheckRemoveTechLead}
+            addingUserId={addingTechLeadUserId}
+            renderUserMeta={(u) => {
+              const alreadyGrower = dialogGrowers.some(
+                (g) => g.email.trim().toLowerCase() === u.email.trim().toLowerCase()
+              );
+              if (alreadyGrower) {
+                return <span className="text-amber-600">grower</span>;
+              }
+              return null;
+            }}
+          />
         </div>
       ) : null}
     </div>

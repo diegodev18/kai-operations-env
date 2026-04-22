@@ -89,6 +89,13 @@ import {
   type OrganizationUser,
 } from "@/services/organization-api";
 import { ChangelogNavItem } from "@/components/changelog-nav";
+import { IconButtonWithTooltip } from "@/components/icon-button-with-tooltip";
+import { BillingConfigDialog } from "@/components/billing-config-dialog";
+import { RegisterPaymentDialog } from "@/components/register-payment-dialog";
+import {
+  OrgUserPickerDialog,
+  type OrgUser,
+} from "@/components/org-user-picker-dialog";
 
 const STATUS_LABELS: Record<AgentOperationalStatus, string> = {
   active: "Activo",
@@ -160,19 +167,7 @@ export function OperationsDashboard(props: {
   const [paymentsLoading, setPaymentsLoading] = useState(false);
   const [billingDialogAgent, setBillingDialogAgent] =
     useState<AgentWithOperations | null>(null);
-  const [billingSaving, setBillingSaving] = useState(false);
-  const [billingDomiciliated, setBillingDomiciliated] = useState<
-    boolean | null
-  >(null);
-  const [billingDefaultAmount, setBillingDefaultAmount] = useState("");
-  const [billingDueDate, setBillingDueDate] = useState("");
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const [paymentAmount, setPaymentAmount] = useState("");
-  const [paymentPeriod, setPaymentPeriod] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("transferencia");
-  const [paymentReference, setPaymentReference] = useState("");
-  const [paymentNotes, setPaymentNotes] = useState("");
-  const [paymentSaving, setPaymentSaving] = useState(false);
   const [paymentTargetAgent, setPaymentTargetAgent] =
     useState<AgentWithOperations | null>(null);
   const [defaultModeDialogOpen, setDefaultModeDialogOpen] = useState(false);
@@ -789,19 +784,13 @@ export function OperationsDashboard(props: {
                     Crear nuevo agente
                   </Link>
                 </Button>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setDefaultModeDialogOpen(true)}
-                    >
-                      <Settings2Icon className="size-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Configurar modo por defecto</TooltipContent>
-                </Tooltip>
+                <IconButtonWithTooltip
+                  icon={<Settings2Icon className="size-4" />}
+                  tooltip="Configurar modo por defecto"
+                  onClick={() => setDefaultModeDialogOpen(true)}
+                  variant="outline"
+                  size="icon"
+                />
               </div>
             </div>
 
@@ -826,182 +815,111 @@ export function OperationsDashboard(props: {
                 <span className="px-2 py-1.5 text-xs text-muted-foreground">
                   Estatus
                 </span>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant={statusFilter === "all" ? "secondary" : "ghost"}
-                      size="icon-sm"
-                      className="size-8"
-                      onClick={() => setStatusFilter("all")}
-                    >
-                      <LayoutGridIcon className="size-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Todos los estatus</TooltipContent>
-                </Tooltip>
+                <IconButtonWithTooltip
+                  icon={<LayoutGridIcon className="size-4" />}
+                  tooltip="Todos los estatus"
+                  onClick={() => setStatusFilter("all")}
+                  active={statusFilter === "all"}
+                  size="icon-sm"
+                  className="size-8"
+                />
                 {(Object.keys(STATUS_LABELS) as AgentOperationalStatus[]).map(
-                  (s) => (
-                    <Tooltip key={s}>
-                      <TooltipTrigger asChild>
-                        <Button
-                          type="button"
-                          variant={statusFilter === s ? "secondary" : "ghost"}
-                          size="icon-sm"
-                          className="size-8"
-                          onClick={() => setStatusFilter(s)}
-                        >
-                          {s === "active" && (
-                            <CheckCircleIcon className="size-4" />
-                          )}
-                          {s === "testing" && (
-                            <Loader2Icon className="size-4" />
-                          )}
-                          {s === "suspended" && (
-                            <PauseCircleIcon className="size-4" />
-                          )}
-                          {s === "off" && <PowerIcon className="size-4" />}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>{STATUS_LABELS[s]}</TooltipContent>
-                    </Tooltip>
-                  ),
+                  (s) => {
+                    const getStatusIcon = () => {
+                      switch (s) {
+                        case "active":
+                          return <CheckCircleIcon className="size-4" />;
+                        case "testing":
+                          return <Loader2Icon className="size-4" />;
+                        case "suspended":
+                          return <PauseCircleIcon className="size-4" />;
+                        case "off":
+                          return <PowerIcon className="size-4" />;
+                      }
+                    };
+                    return (
+                      <IconButtonWithTooltip
+                        key={s}
+                        icon={getStatusIcon()}
+                        tooltip={STATUS_LABELS[s]}
+                        onClick={() => setStatusFilter(s)}
+                        active={statusFilter === s}
+                        size="icon-sm"
+                        className="size-8"
+                      />
+                    );
+                  },
                 )}
               </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant={billingAlertOnly ? "secondary" : "ghost"}
-                    size="icon-sm"
-                    className="size-9 rounded-md border border-border"
-                    onClick={() => setBillingAlertOnly((v) => !v)}
-                  >
-                    <AlertCircleIcon className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Solo alerta de pago</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant={
-                      favoritesFilter === "favorites" ? "secondary" : "ghost"
-                    }
-                    size="icon-sm"
-                    className="size-9 rounded-md border border-border"
-                    onClick={() =>
-                      setFavoritesFilter((v) =>
-                        v === "all" ? "favorites" : "all",
-                      )
-                    }
-                  >
-                    <StarIcon className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Favoritos</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant={showOnlyArchived ? "secondary" : "ghost"}
-                    size="icon-sm"
-                    className="size-9 rounded-md border border-border"
-                    onClick={() => setShowOnlyArchived((v) => !v)}
-                  >
-                    <ArchiveIcon className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Solo archivados</TooltipContent>
-              </Tooltip>
+              <IconButtonWithTooltip
+                icon={<AlertCircleIcon className="size-4" />}
+                tooltip="Solo alerta de pago"
+                onClick={() => setBillingAlertOnly((v) => !v)}
+                active={billingAlertOnly}
+                className="size-9 rounded-md border border-border"
+              />
+              <IconButtonWithTooltip
+                icon={<StarIcon className="size-4" />}
+                tooltip="Favoritos"
+                onClick={() =>
+                  setFavoritesFilter((v) =>
+                    v === "all" ? "favorites" : "all",
+                  )
+                }
+                active={favoritesFilter === "favorites"}
+                className="size-9 rounded-md border border-border"
+              />
+              <IconButtonWithTooltip
+                icon={<ArchiveIcon className="size-4" />}
+                tooltip="Solo archivados"
+                onClick={() => setShowOnlyArchived((v) => !v)}
+                active={showOnlyArchived}
+                className="size-9 rounded-md border border-border"
+              />
               <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-1">
                 <span className="px-2 py-1.5 text-xs text-muted-foreground">
                   Cobranza
                 </span>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant={cobranzaFilter === "all" ? "secondary" : "ghost"}
-                      size="icon-sm"
-                      className="size-8"
-                      onClick={() => setCobranzaFilter("all")}
-                    >
-                      <LayoutGridIcon className="size-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Todos</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant={
-                        cobranzaFilter === "domiciliated"
-                          ? "secondary"
-                          : "ghost"
-                      }
-                      size="icon-sm"
-                      className="size-8"
-                      onClick={() => setCobranzaFilter("domiciliated")}
-                    >
-                      <Building2Icon className="size-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Domiciliados</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant={
-                        cobranzaFilter === "non-domiciliated"
-                          ? "secondary"
-                          : "ghost"
-                      }
-                      size="icon-sm"
-                      className="size-8"
-                      onClick={() => setCobranzaFilter("non-domiciliated")}
-                    >
-                      <BanknoteIcon className="size-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>No domiciliados</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant={
-                        cobranzaFilter === "unknown" ? "secondary" : "ghost"
-                      }
-                      size="icon-sm"
-                      className="size-8"
-                      onClick={() => setCobranzaFilter("unknown")}
-                    >
-                      <HelpCircleIcon className="size-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Sin información (domiciliación)</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant={
-                        cobranzaFilter === "overdue" ? "secondary" : "ghost"
-                      }
-                      size="icon-sm"
-                      className="size-8"
-                      onClick={() => setCobranzaFilter("overdue")}
-                    >
-                      <AlertCircleIcon className="size-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Alerta de falta de pago</TooltipContent>
-                </Tooltip>
+                <IconButtonWithTooltip
+                  icon={<LayoutGridIcon className="size-4" />}
+                  tooltip="Todos"
+                  onClick={() => setCobranzaFilter("all")}
+                  active={cobranzaFilter === "all"}
+                  size="icon-sm"
+                  className="size-8"
+                />
+                <IconButtonWithTooltip
+                  icon={<Building2Icon className="size-4" />}
+                  tooltip="Domiciliados"
+                  onClick={() => setCobranzaFilter("domiciliated")}
+                  active={cobranzaFilter === "domiciliated"}
+                  size="icon-sm"
+                  className="size-8"
+                />
+                <IconButtonWithTooltip
+                  icon={<BanknoteIcon className="size-4" />}
+                  tooltip="No domiciliados"
+                  onClick={() => setCobranzaFilter("non-domiciliated")}
+                  active={cobranzaFilter === "non-domiciliated"}
+                  size="icon-sm"
+                  className="size-8"
+                />
+                <IconButtonWithTooltip
+                  icon={<HelpCircleIcon className="size-4" />}
+                  tooltip="Sin información (domiciliación)"
+                  onClick={() => setCobranzaFilter("unknown")}
+                  active={cobranzaFilter === "unknown"}
+                  size="icon-sm"
+                  className="size-8"
+                />
+                <IconButtonWithTooltip
+                  icon={<AlertCircleIcon className="size-4" />}
+                  tooltip="Alerta de falta de pago"
+                  onClick={() => setCobranzaFilter("overdue")}
+                  active={cobranzaFilter === "overdue"}
+                  size="icon-sm"
+                  className="size-8"
+                />
               </div>
               {cobranzaFilter !== "all" && (
                 <div className="flex items-center gap-2">
@@ -1309,24 +1227,6 @@ export function OperationsDashboard(props: {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setBillingDialogAgent(agent);
-                                  setBillingDomiciliated(
-                                    agent.billing.domiciliated,
-                                  );
-                                  setBillingDefaultAmount(
-                                    agent.billing.defaultPaymentAmount
-                                      ? String(
-                                          agent.billing.defaultPaymentAmount,
-                                        )
-                                      : "",
-                                  );
-                                  setBillingDueDate(
-                                    agent.billing.paymentDueDate
-                                      ? agent.billing.paymentDueDate.slice(
-                                          0,
-                                          10,
-                                        )
-                                      : "",
-                                  );
                                 }}
                               >
                                 <PencilIcon className="size-3" />
@@ -1368,69 +1268,49 @@ export function OperationsDashboard(props: {
                                   <span>—</span>
                                 )}
                               </div>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="icon-sm"
-                                    aria-label="Gestionar growers"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setGrowerTarget({
-                                        id: agent.id,
-                                        name: agent.name,
-                                      });
-                                    }}
-                                  >
-                                    <PlusIcon className="size-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  Gestionar growers
-                                </TooltipContent>
-                              </Tooltip>
+                              <IconButtonWithTooltip
+                                icon={<PlusIcon className="size-4" />}
+                                tooltip="Gestionar growers"
+                                onClick={(e) => {
+                                  e?.stopPropagation();
+                                  setGrowerTarget({
+                                    id: agent.id,
+                                    name: agent.name,
+                                  });
+                                }}
+                                variant="outline"
+                                size="icon-sm"
+                              />
                             </div>
                           </td>
                           {isAdmin ? (
                             <td className="p-3">
                               {agent.status === "archived" ? (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="icon-sm"
-                                      aria-label="Desarchivar"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        void submitArchiveStatusChange(agent.id, "active");
-                                      }}
-                                    >
-                                      <ArchiveRestoreIcon className="size-3.5" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Desarchivar</TooltipContent>
-                                </Tooltip>
+                                <IconButtonWithTooltip
+                                  icon={<ArchiveRestoreIcon className="size-3.5" />}
+                                  tooltip="Desarchivar"
+                                  onClick={(e) => {
+                                    e?.stopPropagation();
+                                    void submitArchiveStatusChange(
+                                      agent.id,
+                                      "active",
+                                    );
+                                  }}
+                                  variant="outline"
+                                  size="icon-sm"
+                                />
                               ) : (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="icon-sm"
-                                      aria-label="Archivar"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setArchiveTarget(agent);
-                                        setArchiveConfirmText("");
-                                      }}
-                                    >
-                                      <ArchiveIcon className="size-3.5" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Archivar</TooltipContent>
-                                </Tooltip>
+                                <IconButtonWithTooltip
+                                  icon={<ArchiveIcon className="size-3.5" />}
+                                  tooltip="Archivar"
+                                  onClick={(e) => {
+                                    e?.stopPropagation();
+                                    setArchiveTarget(agent);
+                                    setArchiveConfirmText("");
+                                  }}
+                                  variant="outline"
+                                  size="icon-sm"
+                                />
                               )}
                             </td>
                           ) : null}
@@ -1460,35 +1340,6 @@ export function OperationsDashboard(props: {
                                       size="sm"
                                       onClick={() => {
                                         setPaymentTargetAgent(agent);
-                                        setPaymentAmount(
-                                          agent.billing.defaultPaymentAmount
-                                            ? String(
-                                                agent.billing
-                                                  .defaultPaymentAmount,
-                                              )
-                                            : "",
-                                        );
-                                        const now = new Date();
-                                        const months = [
-                                          "Enero",
-                                          "Febrero",
-                                          "Marzo",
-                                          "Abril",
-                                          "Mayo",
-                                          "Junio",
-                                          "Julio",
-                                          "Agosto",
-                                          "Septiembre",
-                                          "Octubre",
-                                          "Noviembre",
-                                          "Diciembre",
-                                        ];
-                                        setPaymentPeriod(
-                                          `${months[now.getMonth()]} ${now.getFullYear()}`,
-                                        );
-                                        setPaymentMethod("transferencia");
-                                        setPaymentReference("");
-                                        setPaymentNotes("");
                                         setPaymentDialogOpen(true);
                                       }}
                                     >
@@ -1720,222 +1571,36 @@ export function OperationsDashboard(props: {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog
+      <OrgUserPickerDialog
         open={growerTarget != null}
         onOpenChange={(open) => {
           if (!open) setGrowerTarget(null);
         }}
-      >
-        <DialogContent showClose className="max-h-[min(90vh,32rem)]">
-          <DialogHeader>
-            <DialogTitle>Gestionar growers</DialogTitle>
-            <DialogDescription>
-              Agente:{" "}
-              <span className="font-medium text-foreground">
-                {growerTarget?.name}
-              </span>
-              . Los usuarios de la organización aparecen con un tick si ya son
-              growers; marca para añadir o desmarca para quitar (nombre y correo
-              de su cuenta).
-            </DialogDescription>
-          </DialogHeader>
-          <div className="min-h-0 flex-1 overflow-hidden py-2">
-            {growerPickerLoading ? (
-              <div className="flex items-center justify-center gap-2 py-10 text-muted-foreground">
-                <Loader2Icon className="size-5 animate-spin" />
-                <span>Cargando usuarios y growers…</span>
-              </div>
-            ) : sortedOrgUsers.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">
-                No hay usuarios en la organización.
-              </p>
-            ) : (
-              <ul className="max-h-64 space-y-1 overflow-y-auto pr-1">
-                {sortedOrgUsers.map((u) => {
-                  const already = checkIsGrower(u);
-                  const busy = addingGrowerUserId === u.id;
-                  return (
-                    <li key={u.id}>
-                      <label className="flex cursor-pointer items-center gap-3 rounded-md border border-transparent px-2 py-2 hover:bg-muted/50">
-                        <Checkbox
-                          checked={already}
-                          disabled={
-                            busy || growerPickerLoading || !growerTarget
-                          }
-                          onCheckedChange={(v) => {
-                            if (v === true) void onCheckAddGrower(u);
-                            else void onUncheckRemoveGrower(u);
-                          }}
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-medium">
-                            {u.name}
-                          </div>
-                          <div className="truncate text-xs text-muted-foreground">
-                            {u.email}
-                            {u.role === "admin" ? (
-                              <span className="ml-2 text-foreground/80">
-                                · admin
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                        {busy ? (
-                          <Loader2Icon
-                            className="size-4 shrink-0 animate-spin text-muted-foreground"
-                            aria-hidden
-                          />
-                        ) : null}
-                      </label>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setGrowerTarget(null)}
-            >
-              Cerrar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog
+        title="Gestionar growers"
+        description={
+          growerTarget
+            ? `Agente: ${growerTarget.name}. Marca para añadir o desmarca para quitar growers.`
+            : undefined
+        }
+        users={sortedOrgUsers}
+        isLoading={growerPickerLoading}
+        checkIsAssigned={checkIsGrower}
+        onAdd={onCheckAddGrower}
+        onRemove={onUncheckRemoveGrower}
+        addingUserId={addingGrowerUserId}
+        renderUserMeta={(u) => (u.role === "admin" ? "admin" : undefined)}
+      />
+      <BillingConfigDialog
         open={billingDialogAgent != null}
         onOpenChange={(open) => {
           if (!open) setBillingDialogAgent(null);
         }}
-      >
-        <DialogContent showClose>
-          <DialogHeader>
-            <DialogTitle>Configuración de Cobranza</DialogTitle>
-            <DialogDescription>
-              Agente:{" "}
-              <span className="font-medium text-foreground">
-                {billingDialogAgent?.name}
-              </span>
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Domiciliación</p>
-              <div className="flex flex-col gap-2 text-sm">
-                <label className="flex cursor-pointer items-center gap-2">
-                  <input
-                    type="radio"
-                    name="billing-domiciliation"
-                    className="size-4 accent-primary"
-                    checked={billingDomiciliated === true}
-                    onChange={() => setBillingDomiciliated(true)}
-                  />
-                  Domiciliado (pago automático mensual)
-                </label>
-                <label className="flex cursor-pointer items-center gap-2">
-                  <input
-                    type="radio"
-                    name="billing-domiciliation"
-                    className="size-4 accent-primary"
-                    checked={billingDomiciliated === false}
-                    onChange={() => setBillingDomiciliated(false)}
-                  />
-                  No domiciliado
-                </label>
-                <label className="flex cursor-pointer items-center gap-2">
-                  <input
-                    type="radio"
-                    name="billing-domiciliation"
-                    className="size-4 accent-primary"
-                    checked={billingDomiciliated === null}
-                    onChange={() => setBillingDomiciliated(null)}
-                  />
-                  Sin información
-                </label>
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Monto mensual</label>
-              <Input
-                type="number"
-                value={billingDefaultAmount}
-                onChange={(e) => setBillingDefaultAmount(e.target.value)}
-                placeholder="p. ej. 1500"
-              />
-            </div>
-            {billingDomiciliated !== true && (
-              <div>
-                <label className="text-sm font-medium">
-                  Fecha límite de pago
-                </label>
-                <Input
-                  type="date"
-                  value={billingDueDate}
-                  onChange={(e) => setBillingDueDate(e.target.value)}
-                />
-              </div>
-            )}
-            {billingDialogAgent?.billing.lastPaymentDate && (
-              <p className="text-xs text-muted-foreground">
-                Último pago:{" "}
-                {new Date(
-                  billingDialogAgent.billing.lastPaymentDate,
-                ).toLocaleDateString("es-MX")}
-              </p>
-            )}
-            {billingDomiciliated === true && (
-              <p className="text-xs text-muted-foreground bg-muted/50 rounded-md p-2">
-                Los pagos domiciliados se renuevan automáticamente cada mes. No
-                se requiere acción manual.
-              </p>
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setBillingDialogAgent(null)}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              disabled={billingSaving}
-              onClick={async () => {
-                if (!billingDialogAgent) return;
-                setBillingSaving(true);
-                try {
-                  const r = await patchAgentBillingConfig(
-                    billingDialogAgent.id,
-                    {
-                      domiciliated: billingDomiciliated,
-                      defaultPaymentAmount: billingDefaultAmount
-                        ? Number(billingDefaultAmount)
-                        : undefined,
-                      paymentDueDate: billingDueDate || null,
-                    },
-                  );
-                  if (r.ok) {
-                    toast.success("Configuración actualizada");
-                    const id = billingDialogAgent.id;
-                    setBillingDialogAgent(null);
-                    await refreshAgentBillingInList(id);
-                  } else {
-                    toast.error(r.error);
-                  }
-                } finally {
-                  setBillingSaving(false);
-                }
-              }}
-            >
-              Guardar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog
+        agent={billingDialogAgent}
+        onSaved={async (agent) => {
+          await refreshAgentBillingInList(agent.id);
+        }}
+      />
+      <RegisterPaymentDialog
         open={paymentDialogOpen}
         onOpenChange={(open) => {
           if (!open) {
@@ -1943,128 +1608,24 @@ export function OperationsDashboard(props: {
             setPaymentTargetAgent(null);
           }
         }}
-      >
-        <DialogContent showClose>
-          <DialogHeader>
-            <DialogTitle>Registrar Pago</DialogTitle>
-            <DialogDescription>
-              Agente:{" "}
-              <span className="font-medium text-foreground">
-                {paymentTargetAgent?.name ?? "—"}
-              </span>
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div>
-              <label className="text-sm font-medium">Monto</label>
-              <Input
-                type="number"
-                value={paymentAmount}
-                onChange={(e) => setPaymentAmount(e.target.value)}
-                placeholder="p. ej. 1500"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Período</label>
-              <Input
-                value={paymentPeriod}
-                onChange={(e) => setPaymentPeriod(e.target.value)}
-                placeholder="p. ej. Abril 2026"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Método de pago</label>
-              <select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-              >
-                <option value="transferencia">Transferencia</option>
-                <option value="efectivo">Efectivo</option>
-                <option value="tarjeta">Tarjeta</option>
-                <option value="cheque">Cheque</option>
-                <option value="otro">Otro</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-medium">
-                Referencia (opcional)
-              </label>
-              <Input
-                value={paymentReference}
-                onChange={(e) => setPaymentReference(e.target.value)}
-                placeholder="p. ej. REF-12345"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Notas (opcional)</label>
-              <Input
-                value={paymentNotes}
-                onChange={(e) => setPaymentNotes(e.target.value)}
-                placeholder="Notas adicionales"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setPaymentDialogOpen(false);
-                setPaymentTargetAgent(null);
-              }}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              disabled={paymentSaving || !paymentAmount || !paymentPeriod}
-              onClick={async () => {
-                if (!paymentTargetAgent) {
-                  toast.error("No se pudo identificar el agente.");
-                  return;
-                }
-                setPaymentSaving(true);
-                try {
-                  const r = await createPaymentRecord(paymentTargetAgent.id, {
-                    amount: Number(paymentAmount),
-                    period: paymentPeriod,
-                    paymentMethod,
-                    reference: paymentReference || undefined,
-                    notes: paymentNotes || undefined,
-                  });
-                  if (r.ok) {
-                    toast.success("Pago registrado");
-                    const agentId = paymentTargetAgent.id;
-                    setPaymentDialogOpen(false);
-                    setPaymentTargetAgent(null);
-                    const res = await fetchAgentBilling(agentId);
-                    setExpandedPayments(res?.payments ?? []);
-                    if (res?.billing) {
-                      setAgents((prev) =>
-                        prev.map((a) =>
-                          a.id === agentId
-                            ? {
-                                ...a,
-                                billing: { ...a.billing, ...res.billing },
-                              }
-                            : a,
-                        ),
-                      );
+        agent={paymentTargetAgent}
+        onPaymentCreated={async (agentId) => {
+          const res = await fetchAgentBilling(agentId);
+          setExpandedPayments(res?.payments ?? []);
+          if (res?.billing) {
+            setAgents((prev) =>
+              prev.map((a) =>
+                a.id === agentId
+                  ? {
+                      ...a,
+                      billing: { ...a.billing, ...res.billing },
                     }
-                  } else {
-                    toast.error(r.error);
-                  }
-                } finally {
-                  setPaymentSaving(false);
-                }
-              }}
-            >
-              Registrar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                  : a,
+              ),
+            );
+          }
+        }}
+      />
       <Dialog
         open={defaultModeDialogOpen}
         onOpenChange={setDefaultModeDialogOpen}
