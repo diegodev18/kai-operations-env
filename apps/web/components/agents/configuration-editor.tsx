@@ -270,7 +270,8 @@ export function AgentConfigurationEditor({
   agentId: string;
   onAgentUpdated?: () => void;
 }) {
-  const { data, isLoading, didAutoSync, refetch } = useTestingProperties(agentId);
+  const { data, isLoading, error: testingPropertiesError, didAutoSync, refetch } =
+    useTestingProperties(agentId);
   const [formState, setFormState] = useState<AgentPropertiesResponse | null>(
     null
   );
@@ -303,6 +304,16 @@ export function AgentConfigurationEditor({
   const [savingFirestoreDataMode, setSavingFirestoreDataMode] = useState(false);
   const pendingVersionRef = useRef<string | null>(null);
   const { data: diffData, isLoading: isDiffLoading, refetch: refetchDiff } = useTestingDiff(agentId);
+
+  useEffect(() => {
+    if (testingPropertiesError) toast.error(testingPropertiesError);
+  }, [testingPropertiesError]);
+
+  useEffect(() => {
+    if (didAutoSync) {
+      toast.success("Datos sincronizados desde producción");
+    }
+  }, [didAutoSync]);
 
   useEffect(() => {
     if (data) {

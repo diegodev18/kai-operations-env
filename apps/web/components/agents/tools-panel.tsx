@@ -161,7 +161,7 @@ export function AgentToolsPanel({ agentId }: { agentId: string }) {
 }
 
 function ToolsPanel({ agentId }: { agentId: string }) {
-  const { tools, isLoading, refetch } = useAgentTools(agentId);
+  const { tools, isLoading, error: toolsLoadError, refetch } = useAgentTools(agentId);
   const [addOpen, setAddOpen] = useState(false);
   const [editTool, setEditTool] = useState<AgentTool | null>(null);
   const [deleteTool, setDeleteTool] = useState<AgentTool | null>(null);
@@ -170,6 +170,10 @@ function ToolsPanel({ agentId }: { agentId: string }) {
   const [promoteDialogOpen, setPromoteDialogOpen] = useState(false);
   const [agentNameForConfirm, setAgentNameForConfirm] = useState("");
   const { data: diffData, isLoading: isDiffLoading, refetch: refetchDiff } = useTestingDiff(agentId);
+
+  useEffect(() => {
+    if (toolsLoadError) toast.error(toolsLoadError);
+  }, [toolsLoadError]);
 
   useEffect(() => {
     if (!agentId) return;

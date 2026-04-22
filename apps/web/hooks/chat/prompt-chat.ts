@@ -112,7 +112,7 @@ export const usePromptChat = ({
 
       if (!response.ok) {
         let errorMessage =
-          "No se pudo completar la solicitud. Intentalo de nuevo.";
+          "No se pudo completar la solicitud. Inténtalo de nuevo.";
         try {
           const data = (await response.json()) as { error?: string };
           if (data.error) {
@@ -137,7 +137,7 @@ export const usePromptChat = ({
       const reader = response.body?.getReader();
       if (!reader) {
         const connectionError =
-          "Error al conectar con el servidor. Intentalo de nuevo.";
+          "Error al conectar con el servidor. Inténtalo de nuevo.";
         setError(connectionError);
         setMessages((prev) => {
           const next = [...prev];
@@ -229,7 +229,7 @@ export const usePromptChat = ({
               });
             } else if (data.t === "error") {
               const streamError =
-                data.err ?? "Error inesperado durante la generacion.";
+                data.err ?? "Error inesperado durante la generación.";
               setError(streamError);
               setMessages((prev) => {
                 const next = [...prev];

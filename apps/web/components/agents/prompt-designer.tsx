@@ -201,22 +201,50 @@ export function AgentPromptDesigner({
 }) {
   const [agent, setAgent] = useState<Agent | null>(null);
   const [loadingAgent, setLoadingAgent] = useState(true);
-  const { data: propertiesData, isLoading: propertiesLoading } =
-    useAgentProperties(agentId);
+  const {
+    data: propertiesData,
+    isLoading: propertiesLoading,
+    error: propertiesError,
+  } = useAgentProperties(agentId);
   const {
     data: testingPropertiesData,
     isLoading: testingPropertiesLoading,
+    error: testingPropertiesError,
+    didAutoSync: testingDidAutoSync,
     refetch: refetchTestingProperties,
   } = useTestingProperties(agentId);
-  const { tools: agentTools } = useAgentTools(agentId);
+  const { tools: agentTools, error: agentToolsError } = useAgentTools(agentId);
   const {
     data: productionPrompt,
     isLoading: loadingProductionPrompt,
+    error: productionPromptError,
     refetch: refetchProductionPrompt,
   } = useProductionPrompt(agentId);
 
   const hasTestingData = testingPropertiesData != null;
   const effectiveProperties = hasTestingData ? testingPropertiesData : propertiesData;
+
+  useEffect(() => {
+    if (propertiesError) toast.error(propertiesError);
+  }, [propertiesError]);
+
+  useEffect(() => {
+    if (testingPropertiesError) toast.error(testingPropertiesError);
+  }, [testingPropertiesError]);
+
+  useEffect(() => {
+    if (testingDidAutoSync) {
+      toast.success("Datos sincronizados desde producción");
+    }
+  }, [testingDidAutoSync]);
+
+  useEffect(() => {
+    if (agentToolsError) toast.error(agentToolsError);
+  }, [agentToolsError]);
+
+  useEffect(() => {
+    if (productionPromptError) toast.error(productionPromptError);
+  }, [productionPromptError]);
 
   const [savedPrompt, setSavedPrompt] = useState("");
   const [editingPrompt, setEditingPrompt] = useState("");
