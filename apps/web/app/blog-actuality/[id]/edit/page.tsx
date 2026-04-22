@@ -14,7 +14,7 @@ import { ArrowLeftIcon, Loader2Icon, SaveIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { ActualityMarkdownComposer } from "@/components/actuality-markdown-composer";
+import { ActualityMarkdownComposer } from "@/components/blog";
 import {
   fetchBlogPost,
   updateBlogPost,

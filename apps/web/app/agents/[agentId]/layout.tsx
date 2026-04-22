@@ -20,8 +20,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { UserMenu } from "@/components/user-menu";
-import { AgentActivitySheet } from "@/components/agent-activity-sheet";
+import { AgentActivitySheet } from "@/components/agents";
+import { UserMenu } from "@/components/shared";
 import { useAuth } from "@/hooks";
 import { cn } from "@/lib/utils";
 import {

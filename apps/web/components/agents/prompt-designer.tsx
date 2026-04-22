@@ -79,12 +79,13 @@ import {
   type PromptModelId,
   type PromptMode,
 } from "@/hooks";
-import PromptDiffView from "@/components/prompt-diff-view";
 import {
+  PromptChatPanel,
+  PromptDiffView,
   PromptMarkdownEditor,
   PromptMarkdownViewToggle,
-} from "@/components/prompt-markdown-editor";
-import { PromptChatPanel, type PromptChatPanelProps } from "@/components/prompt-chat-panel";
+  type PromptChatPanelProps,
+} from "@/components/prompt";
 import {
   buildTextWithRevertedHunks,
   computeDiffLines,

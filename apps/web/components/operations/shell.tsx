@@ -22,8 +22,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { UserMenu } from "@/components/user-menu";
-import { ChangelogNavItem } from "@/components/changelog-nav";
+import { ChangelogNavItem, UserMenu } from "@/components/shared";
 import { useAuth, useUserRole } from "@/hooks";
 
 export type BreadcrumbSegment = { label: string; href?: string };

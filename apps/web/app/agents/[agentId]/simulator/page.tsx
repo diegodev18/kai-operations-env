@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { AgentSimulator } from "@/components/agent-simulator";
+import { AgentSimulator } from "@/components/agents";
 
 export default function AgentSimulatorPage() {
   const params = useParams();

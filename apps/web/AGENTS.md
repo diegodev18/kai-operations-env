@@ -92,6 +92,34 @@ hooks/
 
 - Domain types stay under `apps/web/types/` (e.g. `@/types`). Hooks may re-export types for convenience when they already did so historically; do not duplicate type definitions inside hook files.
 
+## Components (`apps/web/components/`)
+
+- UI de producto agrupada por **dominio** en subcarpetas; **no** hay barrel global `@/components` (solo por dominio, ver abajo).
+- **[`components/ui/`](apps/web/components/ui/)** y alias shadcn en [`components.json`](components.json): no mover `ui/` ni cambiar el alias `ui` → `@/components/ui` sin actualizar shadcn.
+- **[`components/ai-elements/`](apps/web/components/ai-elements/)**: piezas de registro externo (p. ej. shimmer); tratarlas como capa aparte de `ui/`.
+
+### Nombres de archivo dentro del dominio
+
+Dentro de una carpeta de dominio, el nombre del archivo **no repite** el prefijo que ya da la carpeta (ej. `agents/form-builder.tsx` exportando `AgentFormBuilder`, no `agents/agent-form-builder.tsx`). Igual: `operations/dashboard.tsx`, `prompt/chat-panel.tsx`.
+
+### Barrels opcionales por dominio
+
+- [`components/agents/index.ts`](apps/web/components/agents/index.ts), [`operations/index.ts`](apps/web/components/operations/index.ts), [`prompt/index.ts`](apps/web/components/prompt/index.ts), [`shared/index.ts`](apps/web/components/shared/index.ts), [`blog/index.ts`](apps/web/components/blog/index.ts): re-exportan la API pública de ese dominio. Preferir `import { … } from "@/components/agents"` cuando importes varios símbolos del mismo dominio; usar ruta profunda (`@/components/agents/form-builder`) si quieres acotar el grafo de módulos.
+
+### Árbol orientativo
+
+```
+components/
+├── ui/                    # shadcn / Radix (no mover)
+├── ai-elements/
+├── agents/                # constructor, diagrama, configuración, herramientas, simulador, secciones…
+├── operations/            # dashboard, shell (breadcrumb)
+├── prompt/                # chat panel, markdown editor, diff, promote diff
+├── blog/                  # compositor actualidad (markdown-composer)
+├── database/              # JsonTreeView + utils
+└── shared/                # login, user menu, diálogos transversales, form-input-components, changelog-nav…
+```
+
 ## App layers (`types`, `consts`, `utils`, `lib`, `services`)
 
 Use the right folder so HTTP clients, constants, and shared helpers do not drift into `lib/`.
@@ -166,6 +194,8 @@ lib/
 
 ```ts
 import type { AgentBuilderFormResponse } from "@/types";
+import { AgentFormBuilder } from "@/components/agents";
+import { LoginPage } from "@/components/shared";
 import { BLOG_TAGS } from "@/consts/blog-tags";
 import { parseJsonResponse } from "@/utils/api-helpers";
 import { cn } from "@/lib/utils";

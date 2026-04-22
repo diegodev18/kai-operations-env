@@ -61,7 +61,7 @@ import {
 import {
   FileUploadButton,
   AttachmentList,
-} from "@/components/file-upload-button";
+} from "@/components/shared";
 import { useUserRole } from "@/hooks";
 
 function toDateInputValue(value?: string | null): string {

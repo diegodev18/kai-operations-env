@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { UserMenu } from "@/components/user-menu";
+import { ChangelogNavItem, UserMenu } from "@/components/shared";
 import { useAuth, useUserRole } from "@/hooks";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -23,7 +23,6 @@ import {
   CopyIcon as CopyIconLucide,
   PencilIcon,
 } from "lucide-react";
-import { ChangelogNavItem } from "@/components/changelog-nav";
 import { FolderSearch as FolderSearchIcon } from "lucide-react";
 
 const SERVICES = [

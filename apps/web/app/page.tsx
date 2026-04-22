@@ -1,7 +1,7 @@
 "use client";
 
-import { OperationsDashboard } from "@/components/operations-dashboard";
-import { LoginPage } from "@/components/login-page";
+import { OperationsDashboard } from "@/components/operations";
+import { LoginPage } from "@/components/shared";
 import { useAuth } from "@/hooks";
 
 export default function Home() {

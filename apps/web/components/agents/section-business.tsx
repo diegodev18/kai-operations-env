@@ -16,7 +16,7 @@ import {
   type SavedBuilderCompany,
   type ToolsCatalogItem,
 } from "@/services/agents-api";
-import { EscalationRulesInput, StringListInput } from "@/components/form-input-components";
+import { EscalationRulesInput, StringListInput } from "@/components/shared";
 import type { FormBuilderState } from "@/types";
 
 interface SectionBusinessProps {

@@ -9,8 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { ChangelogNavItem } from "@/components/changelog-nav";
-import { UserMenu } from "@/components/user-menu";
+import { ChangelogNavItem, UserMenu } from "@/components/shared";
 import { useAuth } from "@/hooks";
 import {
   UploadIcon,

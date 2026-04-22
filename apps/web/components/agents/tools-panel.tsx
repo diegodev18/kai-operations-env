@@ -30,11 +30,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ParameterSchemaEditor } from "@/components/parameter-schema-editor";
+import { ParameterSchemaEditor } from "@/components/agents/parameter-schema-editor";
 import { parametersSchemaForApi } from "@/utils/parameter-schema-editor";
-import { ToolsCatalogSearchList } from "@/components/tools-catalog-search-list";
-import { PromoteDiffDialog } from "@/components/promote-diff-dialog";
-import { SyncFromCatalogDialog } from "@/components/sync-from-catalog-dialog";
+import { ToolsCatalogSearchList } from "@/components/agents/tools-catalog-search-list";
+import { PromoteDiffDialog } from "@/components/prompt";
+import { SyncFromCatalogDialog } from "@/components/agents/sync-from-catalog-dialog";
 import {
   fetchAgentById,
   postAgentSyncFromProduction,

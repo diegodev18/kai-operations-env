@@ -30,7 +30,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ImplementationActivityCommentEditor } from "@/components/implementation-activity-comment-editor";
+import { ImplementationActivityCommentEditor } from "@/components/shared";
 import { useAuth } from "@/hooks";
 
 type ActivityFilter = "all" | "comment" | "system";

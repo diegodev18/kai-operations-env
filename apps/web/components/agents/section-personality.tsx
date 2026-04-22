@@ -2,7 +2,7 @@
 
 import type { FormBuilderState, PersonalityTrait } from "@/types";
 import { cn } from "@/lib/utils";
-import { StringListInput } from "@/components/form-input-components";
+import { StringListInput } from "@/components/shared";
 
 interface SectionPersonalityProps {
   state: FormBuilderState;

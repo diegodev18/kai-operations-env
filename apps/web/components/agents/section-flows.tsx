@@ -9,7 +9,7 @@ import type {
   FormBuilderState,
   FormSectionId,
 } from "@/types";
-import { FlowQuestionField } from "@/components/flow-question-components";
+import { FlowQuestionField } from "@/components/agents/flow-question-components";
 
 interface SectionFlowsProps {
   state: FormBuilderState;

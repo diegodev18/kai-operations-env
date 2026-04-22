@@ -2,7 +2,7 @@
 
 import { useParams } from "next/navigation";
 
-import { AgentBuilderFormReadonly } from "@/components/agent-builder-form-readonly";
+import { AgentBuilderFormReadonly } from "@/components/agents";
 
 export default function AgentFormPage() {
   const params = useParams();

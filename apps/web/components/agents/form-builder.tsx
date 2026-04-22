@@ -42,7 +42,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ConfirmationDialog } from "@/components/confirmation-dialog";
+import {
+  ConfirmationDialog,
+  EscalationRulesInput,
+  StringListInput,
+} from "@/components/shared";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -69,22 +73,18 @@ import {
 import {
   PromptMarkdownEditor,
   PromptMarkdownViewToggle,
-} from "@/components/prompt-markdown-editor";
-import {
-  EscalationRulesInput,
-  StringListInput,
-} from "@/components/form-input-components";
+} from "@/components/prompt";
 import {
   FlowSelectChips,
   FlowSuggestionsMulti,
   FlowSuggestionsSingle,
   FlowQuestionField,
-} from "@/components/flow-question-components";
-import { SectionBusiness } from "@/components/section-business";
-import { SectionFlows } from "@/components/section-flows";
-import { SectionTools } from "@/components/section-tools";
-import { SectionPersonality } from "@/components/section-personality";
-import { SectionAdvanced } from "@/components/section-advanced";
+} from "@/components/agents/flow-question-components";
+import { SectionBusiness } from "@/components/agents/section-business";
+import { SectionFlows } from "@/components/agents/section-flows";
+import { SectionTools } from "@/components/agents/section-tools";
+import { SectionPersonality } from "@/components/agents/section-personality";
+import { SectionAdvanced } from "@/components/agents/section-advanced";
 import {
   DEFAULT_FORM_STATE,
   FORM_SECTIONS,

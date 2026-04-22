@@ -2,7 +2,7 @@
 
 import { useParams } from "next/navigation";
 
-import { AgentImplementationTasksPanel } from "@/components/agent-implementation-tasks-panel";
+import { AgentImplementationTasksPanel } from "@/components/agents";
 
 export default function AgentTasksPage() {
   const params = useParams();

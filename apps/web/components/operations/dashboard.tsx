@@ -49,7 +49,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { UserMenu } from "@/components/user-menu";
+import {
+  BillingConfigDialog,
+  ChangelogNavItem,
+  IconButtonWithTooltip,
+  OrgUserPickerDialog,
+  RegisterPaymentDialog,
+  UserMenu,
+} from "@/components/shared";
+import type { OrgUser } from "@/components/shared";
 import { useUserRole } from "@/hooks";
 import { Input } from "@/components/ui/input";
 import {
@@ -88,15 +96,6 @@ import {
   fetchOrganizationUsers,
   type OrganizationUser,
 } from "@/services/organization-api";
-import { ChangelogNavItem } from "@/components/changelog-nav";
-import { IconButtonWithTooltip } from "@/components/icon-button-with-tooltip";
-import { BillingConfigDialog } from "@/components/billing-config-dialog";
-import { RegisterPaymentDialog } from "@/components/register-payment-dialog";
-import {
-  OrgUserPickerDialog,
-  type OrgUser,
-} from "@/components/org-user-picker-dialog";
-
 const STATUS_LABELS: Record<AgentOperationalStatus, string> = {
   active: "Activo",
   off: "Apagado",

@@ -57,9 +57,9 @@ import {
   type DraftPropertyItem,
   type ToolsCatalogItem,
 } from "@/services/agents-api";
-import { BuilderChatUiBlock } from "@/components/builder-chat-ui";
+import { BuilderChatUiBlock } from "@/components/agents/builder-chat-ui";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ToolsCatalogSearchList } from "@/components/tools-catalog-search-list";
+import { ToolsCatalogSearchList } from "@/components/agents/tools-catalog-search-list";
 import {
   BUILDER_TECHNICAL_FIELDS,
   BUILDER_TECH_PROPERTY_DEPENDENCY_EDGES,

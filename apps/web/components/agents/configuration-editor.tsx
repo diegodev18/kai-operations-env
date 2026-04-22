@@ -61,12 +61,12 @@ import {
   type OrganizationUser,
 } from "@/services/organization-api";
 import { AGENT_VERSIONS } from "@/consts/agent-versions";
-import { PromoteDiffDialog } from "@/components/promote-diff-dialog";
-import { ConfirmTextDialog } from "@/components/confirm-text-dialog";
+import { PromoteDiffDialog } from "@/components/prompt";
 import {
+  ConfirmTextDialog,
   OrgUserPickerDialog,
   type OrgUser,
-} from "@/components/org-user-picker-dialog";
+} from "@/components/shared";
 
 const DOCUMENT_IDS: PropertyDocumentId[] = [
   "agent",
