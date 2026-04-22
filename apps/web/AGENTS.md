@@ -31,51 +31,63 @@ When making changes that warrant a changelog entry, update `app/changelog/change
 
 ## Hooks
 
-All hooks in `apps/web/hooks/` must follow these conventions:
+All hooks in `apps/web/hooks/` follow these conventions. Prefer importing from the barrel `@/hooks` unless you need a deep import for a specific reason.
 
 ### 1. Structure
 
 ```
 hooks/
-├── index.ts              # barrel file with re-exports
+├── index.ts                    # barrel: re-export public hooks + actions
 ├── auth/
-│   ├── auth.ts          # useAuth
-│   └── use-user-role.ts # useUserRole
+│   ├── auth.ts                 # useAuth
+│   └── user-role.ts            # useUserRole
 ├── api/
-│   └── use-api-resource.ts
+│   └── api-resource.ts         # useApiResource
 ├── agents/
 │   ├── tools/
-│   │   ├── use-agent-tools.ts
-│   │   └── agent-tools.actions.ts
+│   │   ├── agent-tools.ts      # useAgentTools
+│   │   ├── agent-tools.actions.ts
+│   │   └── tools-catalog.ts    # useToolsCatalog
 │   ├── properties/
-│   │   ├── use-agent-properties.ts
-│   │   └── use-testing-properties.ts
+│   │   ├── agent-properties.ts        # useAgentProperties
+│   │   ├── testing-properties.ts      # useTestingProperties
+│   │   ├── agent-properties.actions.ts
+│   │   └── properties-base.ts         # shared state helpers (internal)
+│   ├── prompt/
+│   │   ├── production-prompt.ts       # useProductionPrompt, fetchProductionPromptSnapshot
+│   │   └── agent-prompt.actions.ts      # updateAgentPrompt, promotePromptToProduction
 │   └── testing/
-│       └── use-testing-diff.ts
+│       └── testing-diff.ts     # useTestingDiff
 └── chat/
-    ├── use-prompt-chat.ts
-    └── use-prompt-models.ts
+    ├── prompt-chat.ts          # usePromptChat (+ re-exports from @/types/prompt-chat)
+    └── prompt-models.ts        # usePromptModels
 ```
 
 ### 2. Naming
 
-- Hooks: `use-nombre.ts`
-- Actions: `nombre.actions.ts`
-- Directories: kebab-case
+- **Files and directories:** kebab-case where applicable; **file names must not start with `use-`**.
+- **Hook functions:** export names use the `use` prefix (e.g. `useAuth` in `auth/auth.ts`, `useAgentTools` in `agents/tools/agent-tools.ts`).
+- **Actions:** `nombre.actions.ts` (async mutations, API calls with user-facing feedback).
 
 ### 3. One hook per file
 
-If related actions exist (async functions that mutate data), separate them into `.actions.ts` or add `// Actions` section at the end of the file.
+- One primary hook per module when possible.
+- Related async mutations belong in a sibling `*.actions.ts` file (or a clearly marked `// Actions` block only if splitting would be artificial).
 
-### 4. Errors
+### 4. Errors and feedback
 
-- Pure hooks: return `error` or `null`, **do not use toast**
-- Actions: use toast for user feedback
+- **Hooks:** return structured state including `error: string | null` where failures matter; **do not use `toast`** inside hooks.
+- **Actions:** use `toast` (or equivalent) for success/error feedback after mutations.
 
-### 5. Barrel file
+### 5. Barrel file (`index.ts`)
 
-Create `index.ts` with re-exports of all public exports.
+- Re-export everything that is part of the public API of `hooks/` from `hooks/index.ts`.
+- Consumers should prefer `import { … } from "@/hooks"`.
 
 ### 6. Avoid duplication
 
-Extract shared logic into generic hooks (e.g., `useApiResource`).
+- Extract shared fetch/state patterns into small primitives (e.g. `useApiResource` in `api/api-resource.ts`) or internal helpers (e.g. `properties-base.ts`), instead of copying the same `useEffect` / `useState` blocks across hooks.
+
+### 7. Types
+
+- Domain types stay under `apps/web/types/` (e.g. `@/types/prompt-chat`). Hooks may re-export types for convenience when they already did so historically; do not duplicate type definitions inside hook files.
