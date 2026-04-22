@@ -31,13 +31,13 @@ When making changes that warrant a changelog entry, update `app/changelog/change
 
 ## Hooks
 
-All hooks in `apps/web/hooks/` deben seguir estas convenciones:
+All hooks in `apps/web/hooks/` must follow these conventions:
 
-### 1. Estructura
+### 1. Structure
 
 ```
 hooks/
-├── index.ts              # barrel file con re-exports
+├── index.ts              # barrel file with re-exports
 ├── auth/
 │   ├── auth.ts          # useAuth
 │   └── use-user-role.ts # useUserRole
@@ -57,25 +57,25 @@ hooks/
     └── use-prompt-models.ts
 ```
 
-### 2. Nombrado
+### 2. Naming
 
 - Hooks: `use-nombre.ts`
 - Actions: `nombre.actions.ts`
-- Directorios: kebab-case
+- Directories: kebab-case
 
-### 3. Un hook por archivo
+### 3. One hook per file
 
-Si hay actions relacionadas (funciones async que mutan datos), separarlas en `.actions.ts` o poniendo `// Actions` al final del archivo.
+If related actions exist (async functions that mutate data), separate them into `.actions.ts` or add `// Actions` section at the end of the file.
 
-### 4. Errores
+### 4. Errors
 
-- Hooks puros: retornar `error` o `null`, **no usar toast**
-- Actions: usar toast para feedback al usuario
+- Pure hooks: return `error` or `null`, **do not use toast**
+- Actions: use toast for user feedback
 
 ### 5. Barrel file
 
-Crear `index.ts` con re-exports de todo lo público.
+Create `index.ts` with re-exports of all public exports.
 
-### 6. Evitar duplicación
+### 6. Avoid duplication
 
-Extraer lógica compartida a hooks genéricos (ej. `useApiResource`).
+Extract shared logic into generic hooks (e.g., `useApiResource`).
