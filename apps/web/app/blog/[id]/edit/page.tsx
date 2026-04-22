@@ -31,12 +31,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { fetchBlogPost, updateBlogPost, type BlogPost } from "@/services/blog-api";
-import { BLOG_TAGS } from "@/lib/blog-tags";
+import { BLOG_TAGS } from "@/consts/blog-tags";
 import {
   generateMarkdown,
   parseMarkdownContent,
   type LessonFields,
-} from "@/lib/lesson-markdown";
+} from "@/lib/blog/lesson-markdown";
 import { useAuth } from "@/hooks";
 
 const SECTIONS: {

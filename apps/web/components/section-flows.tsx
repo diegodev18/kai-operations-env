@@ -3,12 +3,12 @@
 import { useCallback } from "react";
 import { Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { FORM_SECTIONS } from "@/consts/form-builder/constants";
 import type {
+  AgentFlowQuestion,
   FormBuilderState,
   FormSectionId,
-  AgentFlowQuestion,
-} from "@/lib/form-builder-constants";
-import { FORM_SECTIONS } from "@/lib/form-builder-constants";
+} from "@/types/form-builder";
 import { FlowQuestionField } from "@/components/flow-question-components";
 
 interface SectionFlowsProps {

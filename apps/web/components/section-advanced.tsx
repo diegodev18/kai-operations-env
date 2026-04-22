@@ -1,11 +1,11 @@
 "use client";
 
-import type { FormBuilderState } from "@/lib/form-builder-constants";
+import { BUILDER_LLM_MODELS } from "@/consts/form-builder/constants";
 import {
   PROPERTY_DESCRIPTIONS,
   PROPERTY_TITLES,
-} from "@/lib/property-descriptions";
-import { BUILDER_LLM_MODELS } from "@/lib/form-builder-constants";
+} from "@/consts/form-builder/property-descriptions";
+import type { FormBuilderState } from "@/types/form-builder";
 
 interface SectionAdvancedProps {
   state: FormBuilderState;

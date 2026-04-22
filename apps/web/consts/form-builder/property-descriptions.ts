@@ -57,10 +57,7 @@ export const PROPERTY_TITLES: Record<string, Record<string, string>> = {
  * Descripciones de cada property para mostrar como label/helper en el formulario.
  * Fuente: MCP-KAI-AGENTS/docs/AGENT_PROPERTIES.md
  */
-export const PROPERTY_DESCRIPTIONS: Record<
-  string,
-  Record<string, string>
-> = {
+export const PROPERTY_DESCRIPTIONS: Record<string, Record<string, string>> = {
   agent: {
     isAuthEnable:
       "Si está en true, se usan prompts distintos según si el usuario está autenticado o no. Las cadenas vienen del documento prompt (auth.auth y auth.unauth).",
@@ -97,7 +94,7 @@ export const PROPERTY_DESCRIPTIONS: Record<
     "thinking.level":
       "Nivel de thinking del modelo (minimal, low, medium, high). Puede usarse con includeThoughts en false para más razonamiento interno sin exponer pensamientos.",
     "thinking.budget":
-      "Presupuesto en tokens: 0 = desactivado, -1 = automático, número positivo = tokens. Controla cuánto puede \"pensar\" el modelo internamente.",
+      'Presupuesto en tokens: 0 = desactivado, -1 = automático, número positivo = tokens. Controla cuánto puede "pensar" el modelo internamente.',
   },
   answer: {
     notSupport:

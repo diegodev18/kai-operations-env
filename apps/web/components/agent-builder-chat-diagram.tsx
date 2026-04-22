@@ -65,8 +65,11 @@ import {
   BUILDER_TECH_PROPERTY_DEPENDENCY_EDGES,
   formatTechnicalFieldValue,
   getTechFieldDefault,
-} from "@/lib/builder-technical-properties";
-import { PROPERTY_DESCRIPTIONS, PROPERTY_TITLES } from "@/lib/property-descriptions";
+} from "@/lib/form-builder/builder-technical-properties";
+import {
+  PROPERTY_DESCRIPTIONS,
+  PROPERTY_TITLES,
+} from "@/consts/form-builder/property-descriptions";
 import type { BuilderChatUI } from "@/types/agents-api";
 import { cn } from "@/lib/utils";
 

@@ -21,7 +21,7 @@ import {
   uploadBlogImage,
   type BlogPost,
 } from "@/services/blog-api";
-import { ACTUALITY_TAGS } from "@/lib/blog-tags";
+import { ACTUALITY_TAGS } from "@/consts/blog-tags";
 import { fetchOrganizationUsers } from "@/services/organization-api";
 import { useAuth } from "@/hooks";
 

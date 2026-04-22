@@ -53,7 +53,7 @@ import {
   DEFAULT_WHATSAPP_LADA,
   parseStoredPhoneForEditor,
   WHATSAPP_LADA_OPTIONS,
-} from "@/lib/whatsapp-phone-format";
+} from "@/lib/phone/whatsapp-phone-format";
 
 export default function OrganizationPage() {
   const router = useRouter();

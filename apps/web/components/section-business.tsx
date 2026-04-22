@@ -17,7 +17,7 @@ import {
   type ToolsCatalogItem,
 } from "@/services/agents-api";
 import { EscalationRulesInput, StringListInput } from "@/components/form-input-components";
-import type { FormBuilderState } from "@/lib/form-builder-constants";
+import type { FormBuilderState } from "@/types/form-builder";
 
 interface SectionBusinessProps {
   state: FormBuilderState;

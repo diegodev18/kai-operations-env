@@ -89,18 +89,20 @@ import {
   DEFAULT_FORM_STATE,
   FORM_SECTIONS,
   BUILDER_LLM_MODELS,
-  type FormBuilderState,
-  type FormSectionId,
-  type PersonalityTrait,
-  type AgentFlowQuestion,
-  type Pipeline,
-  type Stage,
   STAGE_TYPES,
-} from "@/lib/form-builder-constants";
+} from "@/consts/form-builder/constants";
+import type {
+  AgentFlowQuestion,
+  FormBuilderState,
+  FormSectionId,
+  PersonalityTrait,
+  Pipeline,
+  Stage,
+} from "@/types/form-builder";
 import {
   PROPERTY_DESCRIPTIONS,
   PROPERTY_TITLES,
-} from "@/lib/property-descriptions";
+} from "@/consts/form-builder/property-descriptions";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks";
 

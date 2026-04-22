@@ -37,7 +37,10 @@ import {
   CheckIcon,
   AlertTriangleIcon,
 } from "lucide-react";
-import { PROPERTY_DESCRIPTIONS, PROPERTY_TITLES } from "@/lib/property-descriptions";
+import {
+  PROPERTY_DESCRIPTIONS,
+  PROPERTY_TITLES,
+} from "@/consts/form-builder/property-descriptions";
 import { cn } from "@/lib/utils";
 import {
   type AgentGrowerRow,

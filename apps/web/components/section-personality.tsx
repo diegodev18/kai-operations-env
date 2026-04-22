@@ -1,6 +1,6 @@
 "use client";
 
-import type { FormBuilderState, PersonalityTrait } from "@/lib/form-builder-constants";
+import type { FormBuilderState, PersonalityTrait } from "@/types/form-builder";
 import { cn } from "@/lib/utils";
 import { StringListInput } from "@/components/form-input-components";
 

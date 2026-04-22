@@ -9,17 +9,16 @@ import {
   type ToolsCatalogItem,
 } from "@/services/agents-api";
 import type { AgentBuilderFormResponse } from "@/types/agents-api";
-import {
-  FORM_SECTIONS,
-  STAGE_TYPES,
-  type AgentFlowQuestion,
-  type FormSection,
-  type FormSectionId,
-  type Pipeline,
-  type Stage,
-  type StageType,
-} from "@/lib/form-builder-constants";
-import { PROPERTY_TITLES } from "@/lib/property-descriptions";
+import { FORM_SECTIONS, STAGE_TYPES } from "@/consts/form-builder/constants";
+import type {
+  AgentFlowQuestion,
+  FormSection,
+  FormSectionId,
+  Pipeline,
+  Stage,
+  StageType,
+} from "@/types/form-builder";
+import { PROPERTY_TITLES } from "@/consts/form-builder/property-descriptions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 

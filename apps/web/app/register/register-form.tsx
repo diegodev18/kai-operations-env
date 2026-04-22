@@ -15,13 +15,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { authClient } from "@/lib/auth-client";
+import { authClient } from "@/lib/auth/auth-client";
 import { fetchInvitationPreview } from "@/services/organization-api";
 import {
   buildWhatsappApiPhone,
   DEFAULT_WHATSAPP_LADA,
   WHATSAPP_LADA_OPTIONS,
-} from "@/lib/whatsapp-phone-format";
+} from "@/lib/phone/whatsapp-phone-format";
 
 export function RegisterWithInvitation() {
   const router = useRouter();

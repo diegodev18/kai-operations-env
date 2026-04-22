@@ -1,4 +1,4 @@
-/** Tipos compartidos de respuestas y payloads de `lib/agents-api`. */
+/** Tipos de respuestas y payloads del cliente HTTP de agentes (`services/agents`). */
 
 export type AgentGrowerRow = { email: string; name: string };
 
@@ -271,4 +271,13 @@ export type AgentBuilderFormResponse = {
   in_commercial?: boolean;
   in_production?: boolean;
   primary_source?: "commercial" | "production";
+};
+
+/** Ítem de lista en documentos de propiedades del borrador (personality / business). */
+export type DraftPropertyItem = {
+  id: string;
+  title: string;
+  content: string;
+  created_at?: string | null;
+  updated_at?: string | null;
 };

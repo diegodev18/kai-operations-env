@@ -370,7 +370,7 @@ export const changelogData: Record<string, ChangelogEntry> = {
     changes: {
       added: [
         "API `PATCH /api/builder/saved-companies/:id` para actualizar `name`, `payload` y `updatedAt` en Firestore, con comprobación de `usersBuildersId` (404/403 si no corresponde).",
-        "Cliente `patchSavedBuilderCompany` en `lib/agents-api.ts`.",
+        "Cliente `patchSavedBuilderCompany` en `services/agents-api.ts`.",
         "Al cargar un perfil desde el selector se enlaza su documento: «Actualizar empresa» hace PATCH; el primer guardado sin perfil cargado sigue creando con POST y asocia el id para siguientes actualizaciones.",
         "Indicador «Editando: [nombre]» y botón «Guardar como nuevo» (desvincula el doc y el siguiente guardado crea otro registro). Al elegir «Guardar como nuevo» se resetea la deduplicación del auto-guardado al pulsar Siguiente.",
         "Guardado automático al pulsar Siguiente reutiliza la misma lógica POST/PATCH según haya perfil en edición.",
@@ -385,7 +385,7 @@ export const changelogData: Record<string, ChangelogEntry> = {
       added: [
         "Colección Firestore `builderCompanies` con documentos por perfil de negocio: `usersBuildersId` (teléfono del builder, alineado con `usersBuilders`), `name`, `payload` en camelCase (`businessName`, `description`, `industry`, etc.), `createdAt` y `updatedAt`.",
         "API Hono `GET` y `POST /api/builder/saved-companies` (validación Zod); sin endpoint de borrado. Rewrite en `next.config.ts` hacia la API interna para `/api/builder/*`.",
-        "Cliente `fetchSavedBuilderCompanies` y `postSavedBuilderCompany` en `lib/agents-api.ts`; tipos `BuilderCompanyPayload` y `SavedBuilderCompany`.",
+        "Cliente `fetchSavedBuilderCompanies` y `postSavedBuilderCompany` en `services/agents-api.ts`; tipos `BuilderCompanyPayload` y `SavedBuilderCompany`.",
         "En el paso Negocio del form builder: bloque «Empresas guardadas» con buscador por nombre o descripción, lista que muestra el nombre y debajo la descripción del negocio (para distinguir entradas con el mismo nombre), y botón «Guardar empresa actual».",
         "Guardado automático del perfil del negocio al pulsar **Siguiente** cuando los datos obligatorios están completos, con deduplicación por hash del payload para no crear registros idénticos seguidos.",
         "Callback `onBusinessProfileSaved` para alinear el estado de deduplicación tras guardar manualmente o cargar un perfil desde el selector.",

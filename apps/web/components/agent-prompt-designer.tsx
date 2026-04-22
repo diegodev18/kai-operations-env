@@ -54,7 +54,7 @@ import {
   postAgentSystemPromptRegenerate,
 } from "@/services/agents-api";
 import { toast } from "sonner";
-import type { Agent } from "@/lib/agent";
+import type { Agent } from "@/lib/agents/agent";
 import {
   useAgentProperties,
   updateAgentPropertyDocument,

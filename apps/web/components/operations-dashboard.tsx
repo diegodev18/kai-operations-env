@@ -67,7 +67,7 @@ import type {
   AgentOperationalStatus,
   AgentWithOperations,
   PaymentRecord,
-} from "@/lib/agent";
+} from "@/lib/agents/agent";
 import {
   AGENTS_PAGE_SIZE,
   type AgentGrowerRow,

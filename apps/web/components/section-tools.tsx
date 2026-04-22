@@ -14,11 +14,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import type {
-  FormBuilderState,
-  FormSectionId,
-} from "@/lib/form-builder-constants";
-import { FORM_SECTIONS } from "@/lib/form-builder-constants";
+import { FORM_SECTIONS } from "@/consts/form-builder/constants";
+import type { FormBuilderState, FormSectionId } from "@/types/form-builder";
 import type { ToolsCatalogItem } from "@/services/agents-api";
 
 interface SectionToolsProps {

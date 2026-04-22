@@ -1,5 +1,6 @@
-import type { Agent } from "@/lib/agent";
-import { toAgentWithOperations, type AgentWithOperations, type AgentBilling, type PaymentRecord } from "@/lib/agent";
+import type { Agent } from "@/lib/agents/agent";
+import { type AgentBilling, type PaymentRecord } from "@/lib/agents/agent";
+import { parseJsonResponse } from "@/utils/api-helpers";
 import type {
   AgentDraftClient,
   AgentDraftPatchBody,
@@ -8,7 +9,6 @@ import type {
   AgentTechLeadRow,
   ImplementationTask,
   ImplementationTaskStatus,
-  ImplementationTaskType,
   ImplementationTaskAttachment,
   ImplementationActivityEntry,
   ToolsCatalogItem,
@@ -19,145 +19,9 @@ import type {
   BuilderCompanyPayload,
   SavedBuilderCompany,
   AgentBuilderFormResponse,
-  AgentBuilderFormAdvanced,
-  AgentBuilderFormPayload,
-  AgentBuilderFormInitialPayload,
+  DraftPropertyItem,
 } from "@/types/agents-api";
-
-export type {
-  AgentDraftClient,
-  AgentDraftPatchBody,
-  DraftPendingTask,
-  AgentGrowerRow,
-  AgentTechLeadRow,
-  ImplementationTask,
-  ImplementationTaskStatus,
-  ImplementationTaskType,
-  ImplementationTaskAttachment,
-  ImplementationActivityEntry,
-  ToolsCatalogItem,
-  BuilderChatDraftPatch,
-  BuilderChatMessage,
-  BuilderChatUI,
-  WhatsappIntegrationStatusItem,
-  BuilderCompanyPayload,
-  SavedBuilderCompany,
-  AgentBuilderFormResponse,
-  AgentBuilderFormAdvanced,
-  AgentBuilderFormPayload,
-  AgentBuilderFormInitialPayload,
-};
-
-export type DraftPropertyItem = {
-  id: string;
-  title: string;
-  content: string;
-  created_at?: string | null;
-  updated_at?: string | null;
-};
-
-/** Tama?o de cada p?gina al listar agentes (carga perezosa: primero solo esta cantidad). */
-export const AGENTS_PAGE_SIZE = 10;
-
-function normalizeAgentStatus(value: unknown): "active" | "archived" {
-  return value === "archived" ? "archived" : "active";
-}
-
-function agentsInfoUrl(
-  light: boolean,
-  paginated: boolean,
-  pageSize: number,
-  cursor?: string,
-  q?: string,
-  filters?: {
-    status?: string;
-    billingAlert?: string;
-    domiciliated?: string;
-  },
-  preview?: boolean,
-  favorites?: boolean,
-  archivedOnly?: boolean,
-): string {
-  const params = new URLSearchParams();
-  if (light) params.set("light", "1");
-  if (paginated) {
-    params.set("limit", String(Math.max(1, Math.min(100, pageSize))));
-    if (cursor) params.set("cursor", cursor);
-  }
-  const trimmedQ = q?.trim();
-  if (trimmedQ) params.set("q", trimmedQ);
-  if (filters) {
-    if (filters.status) params.set("status", filters.status);
-    if (filters.billingAlert) params.set("billingAlert", filters.billingAlert);
-    if (filters.domiciliated !== undefined) params.set("domiciliated", filters.domiciliated);
-  }
-  if (preview) params.set("preview", "1");
-  if (favorites) params.set("favorites", "1");
-  if (archivedOnly) params.set("archived", "only");
-  return `/api/agents/info?${params.toString()}`;
-}
-
-export async function fetchAgentsPage(
-  options: {
-    light?: boolean;
-    paginated?: boolean;
-    pageSize?: number;
-    cursor?: string;
-    /** Búsqueda en servidor (Firestore); vacío omite el parámetro. */
-    q?: string;
-    filters?: {
-      status?: string;
-      billingAlert?: string;
-      domiciliated?: string;
-    };
-    /** Modo preview: carga más rápido sin growers/techLeads */
-    preview?: boolean;
-    /** Filtro de favoritos del usuario actual */
-    favorites?: boolean;
-    /** Filtro de archivados (query server-side). */
-    archivedOnly?: boolean;
-  } = {},
-): Promise<{ agents: AgentWithOperations[]; nextCursor: string | null } | null> {
-  const {
-    light = true,
-    paginated = true,
-    pageSize = AGENTS_PAGE_SIZE,
-    cursor,
-    q,
-    filters,
-    preview,
-    favorites,
-    archivedOnly,
-  } = options;
-  const url = agentsInfoUrl(
-    light,
-    paginated,
-    pageSize,
-    cursor,
-    q,
-    filters,
-    preview,
-    favorites,
-    archivedOnly,
-  );
-  const response = await fetch(url, {
-    credentials: "include",
-    cache: "no-store",
-  });
-  if (!response.ok) return null;
-  const data = (await response.json()) as
-    | { agents: Agent[]; nextCursor?: string | null }
-    | { agents: Agent[] };
-  const list = (data.agents ?? []).map((agent) =>
-    toAgentWithOperations({
-      ...agent,
-      status: normalizeAgentStatus((agent as { status?: unknown }).status),
-    }),
-  );
-  const nextCursor =
-    "nextCursor" in data ? (data.nextCursor ?? null) : null;
-  return { agents: list, nextCursor };
-}
+import { normalizeAgentStatus } from "@/services/agents/normalize";
 
 export async function postAgentGrower(
   agentId: string,
@@ -175,26 +39,21 @@ export async function postAgentGrower(
       body: JSON.stringify(body),
     },
   );
-  let data: {
+  const data = await parseJsonResponse<{
     ok?: boolean;
     grower?: { email: string; name: string };
     error?: string;
-  } = {};
-  try {
-    data = (await res.json()) as typeof data;
-  } catch {
-    /* empty */
-  }
+  }>(res);
   if (!res.ok) {
     return {
       ok: false,
-      error: data.error ?? "No se pudo agregar el grower",
+      error: data?.error ?? "No se pudo agregar el grower",
     };
   }
-  if (data.ok && data.grower) {
+  if (data?.ok && data?.grower) {
     return { ok: true, grower: data.grower };
   }
-  return { ok: false, error: "Respuesta inv?lida del servidor" };
+  return { ok: false, error: "Respuesta inválida del servidor" };
 }
 
 export async function fetchAgentGrowers(
@@ -227,22 +86,17 @@ export async function deleteAgentGrower(
       credentials: "include",
     },
   );
-  let data: { ok?: boolean; error?: string } = {};
-  try {
-    data = (await res.json()) as typeof data;
-  } catch {
-    /* empty */
-  }
+  const data = await parseJsonResponse<{ ok?: boolean; error?: string }>(res);
   if (!res.ok) {
     return {
       ok: false,
-      error: data.error ?? "No se pudo quitar el grower",
+      error: data?.error ?? "No se pudo quitar el grower",
     };
   }
-  if (data.ok) {
+  if (data?.ok) {
     return { ok: true };
   }
-  return { ok: false, error: "Respuesta inv?lida del servidor" };
+  return { ok: false, error: "Respuesta inválida del servidor" };
 }
 
 export async function postAgentTechLead(
