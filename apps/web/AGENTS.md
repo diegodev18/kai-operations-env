@@ -44,6 +44,7 @@ hooks/
 ├── api/
 │   └── api-resource.ts         # useApiResource
 ├── agents/
+│   ├── builder-form-readonly.ts  # useBuilderFormReadonlyData (builder form + catálogo, sin toast)
 │   ├── tools/
 │   │   ├── agent-tools.ts      # useAgentTools
 │   │   ├── agent-tools.actions.ts
@@ -102,6 +103,21 @@ hooks/
 
 Dentro de una carpeta de dominio, el nombre del archivo **no repite** el prefijo que ya da la carpeta (ej. `agents/form-builder.tsx` exportando `AgentFormBuilder`, no `agents/agent-form-builder.tsx`). Igual: `operations/dashboard.tsx`, `prompt/chat-panel.tsx`.
 
+### Exportaciones (named vs default)
+
+- En **`components/**`** usa **solo exportaciones con nombre**: `export function MiComponente` o `export { MiComponente }`. **No** uses `export default` en componentes de producto; facilita barrels explícitos y evita `import X from` vs `import { X }` mezclados.
+- En **`app/**`** (páginas, layouts, `route`, etc.) sí aplica **`export default`** cuando el App Router de Next lo requiere.
+- En barrels del dominio, reexporta con nombre: `export { PromptDiffView } from "./diff-view"` — **no** `export { default as PromptDiffView } from "..."`.
+
+### Megacomponentes → subcarpeta en el mismo dominio
+
+- Si un archivo mezcla muchos flujos (p. ej. diagrama + formulario lateral + diálogos + helpers), **divídelo** en `components/<dominio>/<nombre-feature>/` con **`index.tsx`** como única entrada pública (el barrel del dominio hace `export { … } from "./nombre-feature"` y Node resuelve al `index.tsx`).
+- Convención de piezas:
+  - **`types.ts`** — tipos locales del feature; los contratos HTTP compartidos siguen en **`types/`** (ver sección **App layers** → **`types/`** más abajo).
+  - **`constants.ts`**, **`*-helpers.ts`** — constantes y lógica pura (sin `toast`; el feedback va en componentes o `*.actions.ts`).
+  - **`*.tsx` por flujo** — p. ej. grafo (`progressive-graph.tsx`), panel lateral (`builder-chat-sidebar.tsx`), diálogos (`diagram-dialogs.tsx`).
+- Referencia: [`components/agents/builder-chat-diagram/`](apps/web/components/agents/builder-chat-diagram/) (`index.tsx`, `progressive-graph.tsx`, `builder-chat-sidebar.tsx`, `diagram-dialogs.tsx`, `draft-helpers.ts`, `constants.ts`, `types.ts`, …).
+
 ### Barrels opcionales por dominio
 
 - [`components/agents/index.ts`](apps/web/components/agents/index.ts), [`operations/index.ts`](apps/web/components/operations/index.ts), [`prompt/index.ts`](apps/web/components/prompt/index.ts), [`shared/index.ts`](apps/web/components/shared/index.ts), [`blog/index.ts`](apps/web/components/blog/index.ts): re-exportan la API pública de ese dominio. Preferir `import { … } from "@/components/agents"` cuando importes varios símbolos del mismo dominio; usar ruta profunda (`@/components/agents/form-builder`) si quieres acotar el grafo de módulos.
@@ -113,10 +129,11 @@ components/
 ├── ui/                    # shadcn / Radix (no mover)
 ├── ai-elements/
 ├── agents/                # constructor, diagrama, configuración, herramientas, simulador, secciones…
+│   └── builder-chat-diagram/   # ejemplo de megacomponente: index + grafo, sidebar, diálogos, helpers
 ├── operations/            # dashboard, shell (breadcrumb)
 ├── prompt/                # chat panel, markdown editor, diff, promote diff
 ├── blog/                  # compositor actualidad (markdown-composer)
-├── database/              # JsonTreeView + utils
+├── database/              # JsonTreeView (named export) + json-tree-view-utils
 └── shared/                # login, user menu, diálogos transversales, form-input-components, changelog-nav…
 ```
 
@@ -195,6 +212,7 @@ lib/
 ```ts
 import type { AgentBuilderFormResponse } from "@/types";
 import { AgentFormBuilder } from "@/components/agents";
+import { JsonTreeView } from "@/components/database/JsonTreeView";
 import { LoginPage } from "@/components/shared";
 import { BLOG_TAGS } from "@/consts/blog-tags";
 import { parseJsonResponse } from "@/utils/api-helpers";
