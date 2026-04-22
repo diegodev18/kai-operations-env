@@ -20,7 +20,7 @@ export function IconButtonWithTooltip({
 }: {
   icon: ReactNode;
   tooltip: string;
-  onClick?: () => void;
+  onClick?: (e?: React.MouseEvent<HTMLButtonElement>) => void;
   variant?:
     | "default"
     | "destructive"

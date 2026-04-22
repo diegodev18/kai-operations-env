@@ -89,6 +89,7 @@ import {
   type OrganizationUser,
 } from "@/services/organization-api";
 import { ChangelogNavItem } from "@/components/changelog-nav";
+import { IconButtonWithTooltip } from "@/components/icon-button-with-tooltip";
 
 const STATUS_LABELS: Record<AgentOperationalStatus, string> = {
   active: "Activo",
@@ -789,19 +790,13 @@ export function OperationsDashboard(props: {
                     Crear nuevo agente
                   </Link>
                 </Button>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setDefaultModeDialogOpen(true)}
-                    >
-                      <Settings2Icon className="size-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Configurar modo por defecto</TooltipContent>
-                </Tooltip>
+                <IconButtonWithTooltip
+                  icon={<Settings2Icon className="size-4" />}
+                  tooltip="Configurar modo por defecto"
+                  onClick={() => setDefaultModeDialogOpen(true)}
+                  variant="outline"
+                  size="icon"
+                />
               </div>
             </div>
 
@@ -826,182 +821,111 @@ export function OperationsDashboard(props: {
                 <span className="px-2 py-1.5 text-xs text-muted-foreground">
                   Estatus
                 </span>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant={statusFilter === "all" ? "secondary" : "ghost"}
-                      size="icon-sm"
-                      className="size-8"
-                      onClick={() => setStatusFilter("all")}
-                    >
-                      <LayoutGridIcon className="size-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Todos los estatus</TooltipContent>
-                </Tooltip>
+                <IconButtonWithTooltip
+                  icon={<LayoutGridIcon className="size-4" />}
+                  tooltip="Todos los estatus"
+                  onClick={() => setStatusFilter("all")}
+                  active={statusFilter === "all"}
+                  size="icon-sm"
+                  className="size-8"
+                />
                 {(Object.keys(STATUS_LABELS) as AgentOperationalStatus[]).map(
-                  (s) => (
-                    <Tooltip key={s}>
-                      <TooltipTrigger asChild>
-                        <Button
-                          type="button"
-                          variant={statusFilter === s ? "secondary" : "ghost"}
-                          size="icon-sm"
-                          className="size-8"
-                          onClick={() => setStatusFilter(s)}
-                        >
-                          {s === "active" && (
-                            <CheckCircleIcon className="size-4" />
-                          )}
-                          {s === "testing" && (
-                            <Loader2Icon className="size-4" />
-                          )}
-                          {s === "suspended" && (
-                            <PauseCircleIcon className="size-4" />
-                          )}
-                          {s === "off" && <PowerIcon className="size-4" />}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>{STATUS_LABELS[s]}</TooltipContent>
-                    </Tooltip>
-                  ),
+                  (s) => {
+                    const getStatusIcon = () => {
+                      switch (s) {
+                        case "active":
+                          return <CheckCircleIcon className="size-4" />;
+                        case "testing":
+                          return <Loader2Icon className="size-4" />;
+                        case "suspended":
+                          return <PauseCircleIcon className="size-4" />;
+                        case "off":
+                          return <PowerIcon className="size-4" />;
+                      }
+                    };
+                    return (
+                      <IconButtonWithTooltip
+                        key={s}
+                        icon={getStatusIcon()}
+                        tooltip={STATUS_LABELS[s]}
+                        onClick={() => setStatusFilter(s)}
+                        active={statusFilter === s}
+                        size="icon-sm"
+                        className="size-8"
+                      />
+                    );
+                  },
                 )}
               </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant={billingAlertOnly ? "secondary" : "ghost"}
-                    size="icon-sm"
-                    className="size-9 rounded-md border border-border"
-                    onClick={() => setBillingAlertOnly((v) => !v)}
-                  >
-                    <AlertCircleIcon className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Solo alerta de pago</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant={
-                      favoritesFilter === "favorites" ? "secondary" : "ghost"
-                    }
-                    size="icon-sm"
-                    className="size-9 rounded-md border border-border"
-                    onClick={() =>
-                      setFavoritesFilter((v) =>
-                        v === "all" ? "favorites" : "all",
-                      )
-                    }
-                  >
-                    <StarIcon className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Favoritos</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant={showOnlyArchived ? "secondary" : "ghost"}
-                    size="icon-sm"
-                    className="size-9 rounded-md border border-border"
-                    onClick={() => setShowOnlyArchived((v) => !v)}
-                  >
-                    <ArchiveIcon className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Solo archivados</TooltipContent>
-              </Tooltip>
+              <IconButtonWithTooltip
+                icon={<AlertCircleIcon className="size-4" />}
+                tooltip="Solo alerta de pago"
+                onClick={() => setBillingAlertOnly((v) => !v)}
+                active={billingAlertOnly}
+                className="size-9 rounded-md border border-border"
+              />
+              <IconButtonWithTooltip
+                icon={<StarIcon className="size-4" />}
+                tooltip="Favoritos"
+                onClick={() =>
+                  setFavoritesFilter((v) =>
+                    v === "all" ? "favorites" : "all",
+                  )
+                }
+                active={favoritesFilter === "favorites"}
+                className="size-9 rounded-md border border-border"
+              />
+              <IconButtonWithTooltip
+                icon={<ArchiveIcon className="size-4" />}
+                tooltip="Solo archivados"
+                onClick={() => setShowOnlyArchived((v) => !v)}
+                active={showOnlyArchived}
+                className="size-9 rounded-md border border-border"
+              />
               <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-1">
                 <span className="px-2 py-1.5 text-xs text-muted-foreground">
                   Cobranza
                 </span>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant={cobranzaFilter === "all" ? "secondary" : "ghost"}
-                      size="icon-sm"
-                      className="size-8"
-                      onClick={() => setCobranzaFilter("all")}
-                    >
-                      <LayoutGridIcon className="size-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Todos</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant={
-                        cobranzaFilter === "domiciliated"
-                          ? "secondary"
-                          : "ghost"
-                      }
-                      size="icon-sm"
-                      className="size-8"
-                      onClick={() => setCobranzaFilter("domiciliated")}
-                    >
-                      <Building2Icon className="size-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Domiciliados</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant={
-                        cobranzaFilter === "non-domiciliated"
-                          ? "secondary"
-                          : "ghost"
-                      }
-                      size="icon-sm"
-                      className="size-8"
-                      onClick={() => setCobranzaFilter("non-domiciliated")}
-                    >
-                      <BanknoteIcon className="size-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>No domiciliados</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant={
-                        cobranzaFilter === "unknown" ? "secondary" : "ghost"
-                      }
-                      size="icon-sm"
-                      className="size-8"
-                      onClick={() => setCobranzaFilter("unknown")}
-                    >
-                      <HelpCircleIcon className="size-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Sin información (domiciliación)</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant={
-                        cobranzaFilter === "overdue" ? "secondary" : "ghost"
-                      }
-                      size="icon-sm"
-                      className="size-8"
-                      onClick={() => setCobranzaFilter("overdue")}
-                    >
-                      <AlertCircleIcon className="size-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Alerta de falta de pago</TooltipContent>
-                </Tooltip>
+                <IconButtonWithTooltip
+                  icon={<LayoutGridIcon className="size-4" />}
+                  tooltip="Todos"
+                  onClick={() => setCobranzaFilter("all")}
+                  active={cobranzaFilter === "all"}
+                  size="icon-sm"
+                  className="size-8"
+                />
+                <IconButtonWithTooltip
+                  icon={<Building2Icon className="size-4" />}
+                  tooltip="Domiciliados"
+                  onClick={() => setCobranzaFilter("domiciliated")}
+                  active={cobranzaFilter === "domiciliated"}
+                  size="icon-sm"
+                  className="size-8"
+                />
+                <IconButtonWithTooltip
+                  icon={<BanknoteIcon className="size-4" />}
+                  tooltip="No domiciliados"
+                  onClick={() => setCobranzaFilter("non-domiciliated")}
+                  active={cobranzaFilter === "non-domiciliated"}
+                  size="icon-sm"
+                  className="size-8"
+                />
+                <IconButtonWithTooltip
+                  icon={<HelpCircleIcon className="size-4" />}
+                  tooltip="Sin información (domiciliación)"
+                  onClick={() => setCobranzaFilter("unknown")}
+                  active={cobranzaFilter === "unknown"}
+                  size="icon-sm"
+                  className="size-8"
+                />
+                <IconButtonWithTooltip
+                  icon={<AlertCircleIcon className="size-4" />}
+                  tooltip="Alerta de falta de pago"
+                  onClick={() => setCobranzaFilter("overdue")}
+                  active={cobranzaFilter === "overdue"}
+                  size="icon-sm"
+                  className="size-8"
+                />
               </div>
               {cobranzaFilter !== "all" && (
                 <div className="flex items-center gap-2">
@@ -1368,69 +1292,49 @@ export function OperationsDashboard(props: {
                                   <span>—</span>
                                 )}
                               </div>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="icon-sm"
-                                    aria-label="Gestionar growers"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setGrowerTarget({
-                                        id: agent.id,
-                                        name: agent.name,
-                                      });
-                                    }}
-                                  >
-                                    <PlusIcon className="size-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  Gestionar growers
-                                </TooltipContent>
-                              </Tooltip>
+                              <IconButtonWithTooltip
+                                icon={<PlusIcon className="size-4" />}
+                                tooltip="Gestionar growers"
+                                onClick={(e) => {
+                                  e?.stopPropagation();
+                                  setGrowerTarget({
+                                    id: agent.id,
+                                    name: agent.name,
+                                  });
+                                }}
+                                variant="outline"
+                                size="icon-sm"
+                              />
                             </div>
                           </td>
                           {isAdmin ? (
                             <td className="p-3">
                               {agent.status === "archived" ? (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="icon-sm"
-                                      aria-label="Desarchivar"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        void submitArchiveStatusChange(agent.id, "active");
-                                      }}
-                                    >
-                                      <ArchiveRestoreIcon className="size-3.5" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Desarchivar</TooltipContent>
-                                </Tooltip>
+                                <IconButtonWithTooltip
+                                  icon={<ArchiveRestoreIcon className="size-3.5" />}
+                                  tooltip="Desarchivar"
+                                  onClick={(e) => {
+                                    e?.stopPropagation();
+                                    void submitArchiveStatusChange(
+                                      agent.id,
+                                      "active",
+                                    );
+                                  }}
+                                  variant="outline"
+                                  size="icon-sm"
+                                />
                               ) : (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="icon-sm"
-                                      aria-label="Archivar"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setArchiveTarget(agent);
-                                        setArchiveConfirmText("");
-                                      }}
-                                    >
-                                      <ArchiveIcon className="size-3.5" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Archivar</TooltipContent>
-                                </Tooltip>
+                                <IconButtonWithTooltip
+                                  icon={<ArchiveIcon className="size-3.5" />}
+                                  tooltip="Archivar"
+                                  onClick={(e) => {
+                                    e?.stopPropagation();
+                                    setArchiveTarget(agent);
+                                    setArchiveConfirmText("");
+                                  }}
+                                  variant="outline"
+                                  size="icon-sm"
+                                />
                               )}
                             </td>
                           ) : null}
