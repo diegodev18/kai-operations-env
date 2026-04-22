@@ -28,3 +28,54 @@ When making changes that warrant a changelog entry, update `app/changelog/change
 2. The version number follows semver (major.minor.patch).
 
 3. Only add entries when releasing a new version - do not update the changelog for every PR.
+
+## Hooks
+
+All hooks in `apps/web/hooks/` deben seguir estas convenciones:
+
+### 1. Estructura
+
+```
+hooks/
+├── index.ts              # barrel file con re-exports
+├── auth/
+│   ├── auth.ts          # useAuth
+│   └── use-user-role.ts # useUserRole
+├── api/
+│   └── use-api-resource.ts
+├── agents/
+│   ├── tools/
+│   │   ├── use-agent-tools.ts
+│   │   └── agent-tools.actions.ts
+│   ├── properties/
+│   │   ├── use-agent-properties.ts
+│   │   └── use-testing-properties.ts
+│   └── testing/
+│       └── use-testing-diff.ts
+└── chat/
+    ├── use-prompt-chat.ts
+    └── use-prompt-models.ts
+```
+
+### 2. Nombrado
+
+- Hooks: `use-nombre.ts`
+- Actions: `nombre.actions.ts`
+- Directorios: kebab-case
+
+### 3. Un hook por archivo
+
+Si hay actions relacionadas (funciones async que mutan datos), separarlas en `.actions.ts` o poniendo `// Actions` al final del archivo.
+
+### 4. Errores
+
+- Hooks puros: retornar `error` o `null`, **no usar toast**
+- Actions: usar toast para feedback al usuario
+
+### 5. Barrel file
+
+Crear `index.ts` con re-exports de todo lo público.
+
+### 6. Evitar duplicación
+
+Extraer lógica compartida a hooks genéricos (ej. `useApiResource`).
