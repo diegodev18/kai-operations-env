@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ChangelogNavItem } from "@/components/changelog-nav";
 import { UserMenu } from "@/components/user-menu";
-import { useAuth } from "@/hooks/auth";
+import { useAuth } from "@/hooks";
 import { Loader2Icon, CopyIcon, MenuIcon, LayoutDashboardIcon, BookOpenIcon, MegaphoneIcon, UploadIcon, CopyIcon as CopyIconLucide, PencilIcon, FolderSearch as FolderSearchIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";

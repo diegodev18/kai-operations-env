@@ -7,8 +7,8 @@ import type {
 import {
   useTestingProperties,
   updateTestingPropertyDocument,
-} from "@/hooks/agent-testing-properties";
-import { useTestingDiff } from "@/hooks/agent-testing";
+} from "@/hooks";
+import { useTestingDiff } from "@/hooks";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";

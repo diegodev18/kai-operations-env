@@ -43,8 +43,8 @@ import type {
   ChatMessagePdf,
   PromptModelId,
   PromptMode,
-} from "@/hooks/prompt-chat";
-import { isChatStatusMessage } from "@/hooks/prompt-chat";
+} from "@/hooks";
+import { isChatStatusMessage } from "@/hooks";
 
 type PendingPdf = ChatMessagePdf & { name: string };
 

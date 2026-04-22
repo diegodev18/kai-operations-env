@@ -5,7 +5,7 @@ import { Suspense, useEffect, useState } from "react";
 import { AgentBuilderChatDiagram } from "@/components/agent-builder-chat-diagram";
 import { AgentFormBuilder } from "@/components/agent-form-builder";
 import { LoginPage } from "@/components/login-page";
-import { useAuth } from "@/hooks/auth";
+import { useAuth } from "@/hooks";
 
 function NewAgentPageInner() {
   const { session, isPending } = useAuth();

@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { fetchTestingDiff } from "@/services/agents-api";
-import { useApiResource } from "./use-api-resource";
+import { useApiResource } from "@/hooks/api/api-resource";
 
 export type TestingDiffItem = {
   collection: string;
@@ -10,10 +11,21 @@ export type TestingDiffItem = {
 };
 
 export function useTestingDiff(agentId: string) {
+  const [error, setError] = useState<string | null>(null);
+
   const { data: result, isLoading, refetch } = useApiResource(
     async () => {
-      if (!agentId) return null;
-      return await fetchTestingDiff(agentId);
+      if (!agentId) {
+        setError(null);
+        return null;
+      }
+      try {
+        setError(null);
+        return await fetchTestingDiff(agentId);
+      } catch {
+        setError("Error al cargar diferencias de testing");
+        return null;
+      }
     },
     [agentId],
   );
@@ -21,7 +33,7 @@ export function useTestingDiff(agentId: string) {
   return {
     data: result?.diff ?? [],
     isLoading,
-    error: null,
+    error,
     refetch,
   };
 }

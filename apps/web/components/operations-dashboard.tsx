@@ -50,7 +50,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { UserMenu } from "@/components/user-menu";
-import { useUserRole } from "@/hooks/useUserRole";
+import { useUserRole } from "@/hooks";
 import { Input } from "@/components/ui/input";
 import {
   Sheet,

@@ -102,7 +102,7 @@ import {
   PROPERTY_TITLES,
 } from "@/lib/property-descriptions";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/hooks/auth";
+import { useAuth } from "@/hooks";
 
 const ICONS: Record<string, React.ReactNode> = {
   templates: <RocketIcon className="size-5" />,

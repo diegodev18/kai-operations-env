@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ImplementationActivityCommentEditor } from "@/components/implementation-activity-comment-editor";
-import { useAuth } from "@/hooks/auth";
+import { useAuth } from "@/hooks";
 
 type ActivityFilter = "all" | "comment" | "system";
 

@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/tooltip";
 import { UserMenu } from "@/components/user-menu";
 import { AgentActivitySheet } from "@/components/agent-activity-sheet";
-import { useAuth } from "@/hooks/auth";
+import { useAuth } from "@/hooks";
 import { cn } from "@/lib/utils";
 import {
   assignAgentToUser,

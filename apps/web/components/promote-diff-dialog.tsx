@@ -20,7 +20,7 @@ import {
   Loader2Icon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { TestingDiffItem } from "@/hooks/agent-testing";
+import type { TestingDiffItem } from "@/hooks";
 import { postPromoteToProduction } from "@/services/agents-api";
 
 type GroupedDiff = {

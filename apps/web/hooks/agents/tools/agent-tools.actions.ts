@@ -3,48 +3,8 @@ import type {
   CreateAgentToolBody,
   UpdateAgentToolBody,
 } from "@/types/agent-tool";
-import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AGENTS_BASE } from "@/services/agents-api";
-
-export function useAgentTools(agentId: string | null) {
-  const [tools, setTools] = useState<AgentTool[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const refetch = useCallback(async () => {
-    if (!agentId) {
-      setTools([]);
-      return;
-    }
-    setIsLoading(true);
-    setTools([]);
-    try {
-      const res = await fetch(
-        `${AGENTS_BASE}/${encodeURIComponent(agentId)}/tools`,
-        {
-          credentials: "include",
-        },
-      );
-      if (!res.ok) {
-        const err = (await res.json()) as { error?: string };
-        toast.error(err.error ?? "Error al cargar tools");
-        return;
-      }
-      const json = (await res.json()) as { tools: AgentTool[] };
-      setTools(json.tools ?? []);
-    } catch {
-      toast.error("Error al cargar tools del agente");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [agentId]);
-
-  useEffect(() => {
-    refetch();
-  }, [refetch]);
-
-  return { tools, isLoading, refetch };
-}
 
 export async function createAgentTool(
   agentId: string,

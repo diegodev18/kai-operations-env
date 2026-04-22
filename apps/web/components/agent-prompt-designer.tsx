@@ -58,17 +58,17 @@ import type { Agent } from "@/lib/agent";
 import {
   useAgentProperties,
   updateAgentPropertyDocument,
-} from "@/hooks/agent-properties";
+} from "@/hooks";
 import {
   useTestingProperties,
   updateTestingPropertyDocument,
-} from "@/hooks/agent-testing-properties";
-import { useAgentTools } from "@/hooks/agent-tools";
+} from "@/hooks";
+import { useAgentTools } from "@/hooks";
 import {
   useProductionPrompt,
   fetchProductionPromptSnapshot,
   promotePromptToProduction as promotePromptApi,
-} from "@/hooks/agent-production-prompt";
+} from "@/hooks";
 import {
   usePromptChat,
   usePromptModels,
@@ -78,7 +78,7 @@ import {
   type ChatMessagePdf,
   type PromptModelId,
   type PromptMode,
-} from "@/hooks/prompt-chat";
+} from "@/hooks";
 import PromptDiffView from "@/components/prompt-diff-view";
 import {
   PromptMarkdownEditor,

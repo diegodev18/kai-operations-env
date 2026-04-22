@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ChangelogNavItem } from "@/components/changelog-nav";
 import { UserMenu } from "@/components/user-menu";
-import { useAuth } from "@/hooks/auth";
+import { useAuth } from "@/hooks";
 import JsonTreeView from "@/components/JsonTreeView";
 import { collectAllPaths } from "@/components/json-tree-view-utils";
 import {

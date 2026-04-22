@@ -33,7 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAuth } from "@/hooks/auth";
+import { useAuth } from "@/hooks";
 import {
   copyOrganizationInvitationLink,
   createOrganizationInvitation,

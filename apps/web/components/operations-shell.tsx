@@ -24,8 +24,7 @@ import {
 } from "@/components/ui/sheet";
 import { UserMenu } from "@/components/user-menu";
 import { ChangelogNavItem } from "@/components/changelog-nav";
-import { useAuth } from "@/hooks/auth";
-import { useUserRole } from "@/hooks/useUserRole";
+import { useAuth, useUserRole } from "@/hooks";
 
 export type BreadcrumbSegment = { label: string; href?: string };
 

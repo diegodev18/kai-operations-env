@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { UserMenu } from "@/components/user-menu";
-import { useAuth } from "@/hooks/auth";
+import { useAuth } from "@/hooks";
 import { Loader2Icon, MenuIcon, LayoutDashboardIcon, LayoutGridIcon, BookOpenIcon, MegaphoneIcon, UploadIcon, CopyIcon as CopyIconLucide, PencilIcon, FolderSearch as FolderSearchIcon } from "lucide-react";
 import { ChangelogNavItem } from "@/components/changelog-nav";
 import { cn } from "@/lib/utils";

@@ -6,9 +6,9 @@ import {
   deleteAgentTool,
   updateAgentTool,
   useAgentTools,
-} from "@/hooks/agent-tools";
-import { useToolsCatalog } from "@/hooks/use-tools-catalog";
-import { useTestingDiff, type TestingDiffItem } from "@/hooks/agent-testing";
+} from "@/hooks";
+import { useToolsCatalog } from "@/hooks";
+import { useTestingDiff, type TestingDiffItem } from "@/hooks";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {

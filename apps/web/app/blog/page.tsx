@@ -26,8 +26,7 @@ import {
 } from "@/components/ui/select";
 import { fetchBlogPosts, searchBlogPosts, type BlogPost } from "@/services/blog-api";
 import { BLOG_TAGS } from "@/lib/blog-tags";
-import { useAuth } from "@/hooks/auth";
-import { useUserRole } from "@/hooks/useUserRole";
+import { useAuth, useUserRole } from "@/hooks";
 
 function formatDate(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString("es-ES", {

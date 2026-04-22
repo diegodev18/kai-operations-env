@@ -1,9 +1,8 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
 import type {
   ChatMessage,
   ChatMessageImage,
   ChatMessagePdf,
-  PromptModelInfo,
   PromptTarget,
   SuggestedPrompts,
   UsePromptChatParams,
@@ -29,30 +28,6 @@ export type {
 
 export { isChatStatusMessage };
 
-export function usePromptModels() {
-  const [models, setModels] = useState<PromptModelInfo[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchModels = async () => {
-      try {
-        const res = await fetch("/api/prompt/models", {
-          credentials: "include",
-        });
-        if (res.ok) {
-          const data = (await res.json()) as { models: PromptModelInfo[] };
-          setModels(data.models ?? []);
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchModels();
-  }, []);
-
-  return { models, isLoading };
-}
-
 export const usePromptChat = ({
   agentName,
   getCurrentPrompt,
@@ -69,6 +44,7 @@ export const usePromptChat = ({
     () => initialMessages ?? [],
   );
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [suggestedPrompt, setSuggestedPrompt] = useState<string | null>(null);
   const [suggestedPrompts, setSuggestedPrompts] =
     useState<SuggestedPrompts | null>(null);
@@ -99,6 +75,7 @@ export const usePromptChat = ({
       ...nextMessages,
       { role: "model", content: pickRandom(CHAT_STATUS_LOADING_MESSAGES) },
     ]);
+    setError(null);
     setSuggestedPrompt(null);
     setSuggestedPrompts(null);
     setSuggestedTarget(["base"]);
@@ -135,15 +112,16 @@ export const usePromptChat = ({
 
       if (!response.ok) {
         let errorMessage =
-          "No se pudo completar la solicitud. Inténtalo de nuevo.";
+          "No se pudo completar la solicitud. Intentalo de nuevo.";
         try {
           const data = (await response.json()) as { error?: string };
           if (data.error) {
             errorMessage = data.error;
           }
         } catch {
-          /* ignore */
+          // ignore
         }
+        setError(errorMessage);
         setMessages((prev) => {
           const next = [...prev];
           next[next.length - 1] = {
@@ -158,12 +136,14 @@ export const usePromptChat = ({
 
       const reader = response.body?.getReader();
       if (!reader) {
+        const connectionError =
+          "Error al conectar con el servidor. Intentalo de nuevo.";
+        setError(connectionError);
         setMessages((prev) => {
           const next = [...prev];
           next[next.length - 1] = {
             role: "model",
-            content:
-              "⚠️ Error al conectar con el servidor. Inténtalo de nuevo.",
+            content: `⚠️ ${connectionError}`,
           };
           return next;
         });
@@ -248,17 +228,20 @@ export const usePromptChat = ({
                 return next;
               });
             } else if (data.t === "error") {
+              const streamError =
+                data.err ?? "Error inesperado durante la generacion.";
+              setError(streamError);
               setMessages((prev) => {
                 const next = [...prev];
                 next[next.length - 1] = {
                   role: "model",
-                  content: `⚠️ ${data.err ?? "Error inesperado durante la generación."}`,
+                  content: `⚠️ ${streamError}`,
                 };
                 return next;
               });
             }
           } catch {
-            /* ignore parse errors for partial lines */
+            // ignore parse errors for partial lines
           }
         }
       }
@@ -275,6 +258,7 @@ export const usePromptChat = ({
 
   const reset = useCallback(() => {
     setMessages([]);
+    setError(null);
     setSuggestedPrompt(null);
     setSuggestedPrompts(null);
     setSuggestedTarget(["base"]);
@@ -283,6 +267,7 @@ export const usePromptChat = ({
   return {
     messages,
     isLoading,
+    error,
     suggestedPrompt,
     suggestedPrompts,
     suggestedTarget,

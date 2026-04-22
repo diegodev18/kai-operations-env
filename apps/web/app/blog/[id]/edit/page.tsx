@@ -37,7 +37,7 @@ import {
   parseMarkdownContent,
   type LessonFields,
 } from "@/lib/lesson-markdown";
-import { useAuth } from "@/hooks/auth";
+import { useAuth } from "@/hooks";
 
 const SECTIONS: {
   key: keyof LessonFields;

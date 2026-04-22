@@ -23,7 +23,7 @@ import {
 } from "@/services/blog-api";
 import { ACTUALITY_TAGS } from "@/lib/blog-tags";
 import { fetchOrganizationUsers } from "@/services/organization-api";
-import { useAuth } from "@/hooks/auth";
+import { useAuth } from "@/hooks";
 
 const POST_TYPE = "actuality" as const;
 

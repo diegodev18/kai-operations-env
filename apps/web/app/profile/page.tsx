@@ -10,8 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAuth } from "@/hooks/auth";
-import { useUserRole } from "@/hooks/useUserRole";
+import { useAuth, useUserRole } from "@/hooks";
 import { authClient } from "@/lib/auth-client";
 import {
   buildGithubAvatarUrl,

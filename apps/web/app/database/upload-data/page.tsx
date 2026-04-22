@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ChangelogNavItem } from "@/components/changelog-nav";
 import { UserMenu } from "@/components/user-menu";
-import { useAuth } from "@/hooks/auth";
+import { useAuth } from "@/hooks";
 import {
   UploadIcon,
   FileJsonIcon,

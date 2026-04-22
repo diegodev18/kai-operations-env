@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ChangelogNavItem } from "@/components/changelog-nav";
 import { UserMenu } from "@/components/user-menu";
-import { useAuth } from "@/hooks/auth";
+import { useAuth } from "@/hooks";
 import { Loader2Icon, PlusIcon, Trash2Icon, MenuIcon, LayoutDashboardIcon, BookOpenIcon, MegaphoneIcon, UploadIcon, CopyIcon as CopyIconLucide, PencilIcon, FolderSearch as FolderSearchIcon } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
