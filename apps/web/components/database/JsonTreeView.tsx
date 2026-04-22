@@ -192,7 +192,7 @@ export interface JsonTreeViewRootProps {
   onExpandedPathsChange?: (paths: Set<string>) => void;
 }
 
-export default function JsonTreeView({
+export function JsonTreeView({
   data,
   searchTerm = "",
   defaultExpanded = false,

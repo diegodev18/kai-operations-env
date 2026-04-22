@@ -1,6 +1,6 @@
 export { PromptChatPanel } from "./chat-panel";
 export type { PromptChatPanelProps } from "./chat-panel";
-export { default as PromptDiffView } from "./diff-view";
+export { PromptDiffView } from "./diff-view";
 export {
   PromptMarkdownEditor,
   PromptMarkdownViewToggle,

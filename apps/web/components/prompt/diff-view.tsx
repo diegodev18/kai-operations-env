@@ -23,7 +23,7 @@ const lineNumberStyles: Record<DiffLine["type"], string> = {
   unchanged: "text-muted-foreground/40",
 };
 
-export default function PromptDiffView({
+export function PromptDiffView({
   oldText,
   newText,
   onRevertHunk,
