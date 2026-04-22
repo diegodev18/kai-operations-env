@@ -3,6 +3,8 @@ export { useUserRole } from "./auth/user-role";
 
 export { useApiResource } from "./api/api-resource";
 
+export { useBuilderFormReadonlyData } from "./agents/builder-form-readonly";
+
 export { useAgentTools } from "./agents/tools/agent-tools";
 export {
   createAgentTool,

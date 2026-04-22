@@ -56,7 +56,6 @@ import { Input } from "@/components/ui/input";
 import {
   postAgentDraft,
   patchAgentDraft,
-  fetchToolsCatalog,
   analyzeAgentWithAI,
   recommendAgentTools,
   generateAgentToolFlowsMarkdown,
@@ -64,7 +63,6 @@ import {
   fetchSavedBuilderCompanies,
   postSavedBuilderCompany,
   patchSavedBuilderCompany,
-  type ToolsCatalogItem,
   type DynamicQuestion,
   type BuilderCompanyPayload,
   type SavedBuilderCompany,
@@ -98,13 +96,14 @@ import type {
   PersonalityTrait,
   Pipeline,
   Stage,
+  ToolsCatalogItem,
 } from "@/types";
 import {
   PROPERTY_DESCRIPTIONS,
   PROPERTY_TITLES,
 } from "@/consts/form-builder/property-descriptions";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/hooks";
+import { useAuth, useToolsCatalog } from "@/hooks";
 
 const ICONS: Record<string, React.ReactNode> = {
   templates: <RocketIcon className="size-5" />,
@@ -831,6 +830,7 @@ function TemplatesSection({
 
 export function AgentFormBuilder() {
   const { session } = useAuth();
+  const { tools: catalog, isLoading: isLoadingCatalog } = useToolsCatalog();
   const userName = session?.user?.name ?? session?.user?.email ?? "";
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
@@ -843,9 +843,7 @@ export function AgentFormBuilder() {
   const [completedSections, setCompletedSections] = useState<
     Set<FormSectionId>
   >(new Set());
-  const [catalog, setCatalog] = useState<ToolsCatalogItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-  const [isLoadingCatalog, setIsLoadingCatalog] = useState(true);
   const [dynamicQuestions, setDynamicQuestions] = useState<DynamicQuestion[]>(
     [],
   );
@@ -983,14 +981,6 @@ export function AgentFormBuilder() {
       JSON.stringify(state.flow_questions),
     ],
   );
-
-  useEffect(() => {
-    void (async () => {
-      const tools = await fetchToolsCatalog();
-      setCatalog(tools ?? []);
-      setIsLoadingCatalog(false);
-    })();
-  }, []);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {

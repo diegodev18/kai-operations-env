@@ -1,14 +1,9 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useMemo } from "react";
 import { Loader2Icon } from "lucide-react";
 
-import {
-  fetchAgentBuilderForm,
-  fetchToolsCatalog,
-  type ToolsCatalogItem,
-} from "@/services/agents-api";
-import type { AgentBuilderFormResponse } from "@/types";
+import { useBuilderFormReadonlyData } from "@/hooks";
 import { FORM_SECTIONS, STAGE_TYPES } from "@/consts/form-builder/constants";
 import type {
   AgentFlowQuestion,
@@ -308,43 +303,7 @@ function sectionsInOrder(ids: FormSectionId[]): FormSection[] {
 }
 
 export function AgentBuilderFormReadonly({ agentId }: { agentId: string }) {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [payload, setPayload] = useState<AgentBuilderFormResponse | null>(null);
-  const [catalog, setCatalog] = useState<ToolsCatalogItem[] | null>(null);
-
-  useEffect(() => {
-    if (!agentId) return;
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    void (async () => {
-      try {
-        const [formRes, tools] = await Promise.all([
-          fetchAgentBuilderForm(agentId),
-          fetchToolsCatalog(),
-        ]);
-        if (cancelled) return;
-        if (!formRes) {
-          setError("No se pudo cargar el formulario del agente.");
-          setPayload(null);
-        } else {
-          setPayload(formRes);
-        }
-        setCatalog(tools ?? []);
-      } catch {
-        if (!cancelled) {
-          setError("Error al cargar el formulario.");
-          setPayload(null);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [agentId]);
+  const { loading, error, payload, catalog } = useBuilderFormReadonlyData(agentId);
 
   const toolNameById = useMemo(() => {
     const map = new Map<string, string>();

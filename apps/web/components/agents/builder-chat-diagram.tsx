@@ -47,7 +47,6 @@ import {
   fetchDraftPropertyItems,
   fetchDraftPendingTasks,
   fetchDraftTechnicalProperties,
-  fetchToolsCatalog,
   patchDraftPropertyItem,
   patchDraftTechnicalPropertyDocument,
   postAgentBuilderChat,
@@ -55,7 +54,6 @@ import {
   postAgentDraft,
   type DraftPendingTask,
   type DraftPropertyItem,
-  type ToolsCatalogItem,
 } from "@/services/agents-api";
 import { BuilderChatUiBlock } from "@/components/agents/builder-chat-ui";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -70,8 +68,9 @@ import {
   PROPERTY_DESCRIPTIONS,
   PROPERTY_TITLES,
 } from "@/consts/form-builder/property-descriptions";
-import type { BuilderChatUI } from "@/types";
+import type { BuilderChatUI, ToolsCatalogItem } from "@/types";
 import { cn } from "@/lib/utils";
+import { useToolsCatalog } from "@/hooks";
 
 type ChatMessage = {
   id: string;
@@ -856,6 +855,7 @@ const CHAT_COMPOSER_MAX_HEIGHT_PX =
   CHAT_COMPOSER_LINE_HEIGHT_PX * 4 + CHAT_COMPOSER_PAD_Y_PX;
 
 export function AgentBuilderChatDiagram(props?: { initialMode?: "form" | "conversational" }) {
+  const { tools: catalog } = useToolsCatalog();
   const router = useRouter();
   const searchParams = useSearchParams();
   const draftFromUrl = searchParams.get("draft")?.trim() ?? "";
@@ -868,7 +868,6 @@ export function AgentBuilderChatDiagram(props?: { initialMode?: "form" | "conver
   const [saving, setSaving] = useState(false);
   const [chatPanelWidth, setChatPanelWidth] = useState(430);
   const [chatInput, setChatInput] = useState("");
-  const [catalog, setCatalog] = useState<ToolsCatalogItem[]>([]);
   const [pendingTasks, setPendingTasks] = useState<DraftPendingTask[]>([]);
   const [queuedDeferredTexts, setQueuedDeferredTexts] = useState<string[]>([]);
   const [confirmedSummary, setConfirmedSummary] = useState(false);
@@ -1362,18 +1361,6 @@ export function AgentBuilderChatDiagram(props?: { initialMode?: "form" | "conver
       updateStepFromState,
     ],
   );
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const list = await fetchToolsCatalog();
-      if (cancelled) return;
-      if (list) setCatalog(list);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     if (!draftFromUrl) {
