@@ -90,6 +90,8 @@ import {
 } from "@/services/organization-api";
 import { ChangelogNavItem } from "@/components/changelog-nav";
 import { IconButtonWithTooltip } from "@/components/icon-button-with-tooltip";
+import { BillingConfigDialog } from "@/components/billing-config-dialog";
+import { RegisterPaymentDialog } from "@/components/register-payment-dialog";
 
 const STATUS_LABELS: Record<AgentOperationalStatus, string> = {
   active: "Activo",
@@ -161,19 +163,7 @@ export function OperationsDashboard(props: {
   const [paymentsLoading, setPaymentsLoading] = useState(false);
   const [billingDialogAgent, setBillingDialogAgent] =
     useState<AgentWithOperations | null>(null);
-  const [billingSaving, setBillingSaving] = useState(false);
-  const [billingDomiciliated, setBillingDomiciliated] = useState<
-    boolean | null
-  >(null);
-  const [billingDefaultAmount, setBillingDefaultAmount] = useState("");
-  const [billingDueDate, setBillingDueDate] = useState("");
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const [paymentAmount, setPaymentAmount] = useState("");
-  const [paymentPeriod, setPaymentPeriod] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("transferencia");
-  const [paymentReference, setPaymentReference] = useState("");
-  const [paymentNotes, setPaymentNotes] = useState("");
-  const [paymentSaving, setPaymentSaving] = useState(false);
   const [paymentTargetAgent, setPaymentTargetAgent] =
     useState<AgentWithOperations | null>(null);
   const [defaultModeDialogOpen, setDefaultModeDialogOpen] = useState(false);
@@ -1233,24 +1223,6 @@ export function OperationsDashboard(props: {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setBillingDialogAgent(agent);
-                                  setBillingDomiciliated(
-                                    agent.billing.domiciliated,
-                                  );
-                                  setBillingDefaultAmount(
-                                    agent.billing.defaultPaymentAmount
-                                      ? String(
-                                          agent.billing.defaultPaymentAmount,
-                                        )
-                                      : "",
-                                  );
-                                  setBillingDueDate(
-                                    agent.billing.paymentDueDate
-                                      ? agent.billing.paymentDueDate.slice(
-                                          0,
-                                          10,
-                                        )
-                                      : "",
-                                  );
                                 }}
                               >
                                 <PencilIcon className="size-3" />
@@ -1364,35 +1336,6 @@ export function OperationsDashboard(props: {
                                       size="sm"
                                       onClick={() => {
                                         setPaymentTargetAgent(agent);
-                                        setPaymentAmount(
-                                          agent.billing.defaultPaymentAmount
-                                            ? String(
-                                                agent.billing
-                                                  .defaultPaymentAmount,
-                                              )
-                                            : "",
-                                        );
-                                        const now = new Date();
-                                        const months = [
-                                          "Enero",
-                                          "Febrero",
-                                          "Marzo",
-                                          "Abril",
-                                          "Mayo",
-                                          "Junio",
-                                          "Julio",
-                                          "Agosto",
-                                          "Septiembre",
-                                          "Octubre",
-                                          "Noviembre",
-                                          "Diciembre",
-                                        ];
-                                        setPaymentPeriod(
-                                          `${months[now.getMonth()]} ${now.getFullYear()}`,
-                                        );
-                                        setPaymentMethod("transferencia");
-                                        setPaymentReference("");
-                                        setPaymentNotes("");
                                         setPaymentDialogOpen(true);
                                       }}
                                     >
@@ -1708,138 +1651,17 @@ export function OperationsDashboard(props: {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog
+      <BillingConfigDialog
         open={billingDialogAgent != null}
         onOpenChange={(open) => {
           if (!open) setBillingDialogAgent(null);
         }}
-      >
-        <DialogContent showClose>
-          <DialogHeader>
-            <DialogTitle>Configuración de Cobranza</DialogTitle>
-            <DialogDescription>
-              Agente:{" "}
-              <span className="font-medium text-foreground">
-                {billingDialogAgent?.name}
-              </span>
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Domiciliación</p>
-              <div className="flex flex-col gap-2 text-sm">
-                <label className="flex cursor-pointer items-center gap-2">
-                  <input
-                    type="radio"
-                    name="billing-domiciliation"
-                    className="size-4 accent-primary"
-                    checked={billingDomiciliated === true}
-                    onChange={() => setBillingDomiciliated(true)}
-                  />
-                  Domiciliado (pago automático mensual)
-                </label>
-                <label className="flex cursor-pointer items-center gap-2">
-                  <input
-                    type="radio"
-                    name="billing-domiciliation"
-                    className="size-4 accent-primary"
-                    checked={billingDomiciliated === false}
-                    onChange={() => setBillingDomiciliated(false)}
-                  />
-                  No domiciliado
-                </label>
-                <label className="flex cursor-pointer items-center gap-2">
-                  <input
-                    type="radio"
-                    name="billing-domiciliation"
-                    className="size-4 accent-primary"
-                    checked={billingDomiciliated === null}
-                    onChange={() => setBillingDomiciliated(null)}
-                  />
-                  Sin información
-                </label>
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Monto mensual</label>
-              <Input
-                type="number"
-                value={billingDefaultAmount}
-                onChange={(e) => setBillingDefaultAmount(e.target.value)}
-                placeholder="p. ej. 1500"
-              />
-            </div>
-            {billingDomiciliated !== true && (
-              <div>
-                <label className="text-sm font-medium">
-                  Fecha límite de pago
-                </label>
-                <Input
-                  type="date"
-                  value={billingDueDate}
-                  onChange={(e) => setBillingDueDate(e.target.value)}
-                />
-              </div>
-            )}
-            {billingDialogAgent?.billing.lastPaymentDate && (
-              <p className="text-xs text-muted-foreground">
-                Último pago:{" "}
-                {new Date(
-                  billingDialogAgent.billing.lastPaymentDate,
-                ).toLocaleDateString("es-MX")}
-              </p>
-            )}
-            {billingDomiciliated === true && (
-              <p className="text-xs text-muted-foreground bg-muted/50 rounded-md p-2">
-                Los pagos domiciliados se renuevan automáticamente cada mes. No
-                se requiere acción manual.
-              </p>
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setBillingDialogAgent(null)}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              disabled={billingSaving}
-              onClick={async () => {
-                if (!billingDialogAgent) return;
-                setBillingSaving(true);
-                try {
-                  const r = await patchAgentBillingConfig(
-                    billingDialogAgent.id,
-                    {
-                      domiciliated: billingDomiciliated,
-                      defaultPaymentAmount: billingDefaultAmount
-                        ? Number(billingDefaultAmount)
-                        : undefined,
-                      paymentDueDate: billingDueDate || null,
-                    },
-                  );
-                  if (r.ok) {
-                    toast.success("Configuración actualizada");
-                    const id = billingDialogAgent.id;
-                    setBillingDialogAgent(null);
-                    await refreshAgentBillingInList(id);
-                  } else {
-                    toast.error(r.error);
-                  }
-                } finally {
-                  setBillingSaving(false);
-                }
-              }}
-            >
-              Guardar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog
+        agent={billingDialogAgent}
+        onSaved={async (agent) => {
+          await refreshAgentBillingInList(agent.id);
+        }}
+      />
+      <RegisterPaymentDialog
         open={paymentDialogOpen}
         onOpenChange={(open) => {
           if (!open) {
@@ -1847,128 +1669,24 @@ export function OperationsDashboard(props: {
             setPaymentTargetAgent(null);
           }
         }}
-      >
-        <DialogContent showClose>
-          <DialogHeader>
-            <DialogTitle>Registrar Pago</DialogTitle>
-            <DialogDescription>
-              Agente:{" "}
-              <span className="font-medium text-foreground">
-                {paymentTargetAgent?.name ?? "—"}
-              </span>
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div>
-              <label className="text-sm font-medium">Monto</label>
-              <Input
-                type="number"
-                value={paymentAmount}
-                onChange={(e) => setPaymentAmount(e.target.value)}
-                placeholder="p. ej. 1500"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Período</label>
-              <Input
-                value={paymentPeriod}
-                onChange={(e) => setPaymentPeriod(e.target.value)}
-                placeholder="p. ej. Abril 2026"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Método de pago</label>
-              <select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-              >
-                <option value="transferencia">Transferencia</option>
-                <option value="efectivo">Efectivo</option>
-                <option value="tarjeta">Tarjeta</option>
-                <option value="cheque">Cheque</option>
-                <option value="otro">Otro</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-medium">
-                Referencia (opcional)
-              </label>
-              <Input
-                value={paymentReference}
-                onChange={(e) => setPaymentReference(e.target.value)}
-                placeholder="p. ej. REF-12345"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Notas (opcional)</label>
-              <Input
-                value={paymentNotes}
-                onChange={(e) => setPaymentNotes(e.target.value)}
-                placeholder="Notas adicionales"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setPaymentDialogOpen(false);
-                setPaymentTargetAgent(null);
-              }}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              disabled={paymentSaving || !paymentAmount || !paymentPeriod}
-              onClick={async () => {
-                if (!paymentTargetAgent) {
-                  toast.error("No se pudo identificar el agente.");
-                  return;
-                }
-                setPaymentSaving(true);
-                try {
-                  const r = await createPaymentRecord(paymentTargetAgent.id, {
-                    amount: Number(paymentAmount),
-                    period: paymentPeriod,
-                    paymentMethod,
-                    reference: paymentReference || undefined,
-                    notes: paymentNotes || undefined,
-                  });
-                  if (r.ok) {
-                    toast.success("Pago registrado");
-                    const agentId = paymentTargetAgent.id;
-                    setPaymentDialogOpen(false);
-                    setPaymentTargetAgent(null);
-                    const res = await fetchAgentBilling(agentId);
-                    setExpandedPayments(res?.payments ?? []);
-                    if (res?.billing) {
-                      setAgents((prev) =>
-                        prev.map((a) =>
-                          a.id === agentId
-                            ? {
-                                ...a,
-                                billing: { ...a.billing, ...res.billing },
-                              }
-                            : a,
-                        ),
-                      );
+        agent={paymentTargetAgent}
+        onPaymentCreated={async (agentId) => {
+          const res = await fetchAgentBilling(agentId);
+          setExpandedPayments(res?.payments ?? []);
+          if (res?.billing) {
+            setAgents((prev) =>
+              prev.map((a) =>
+                a.id === agentId
+                  ? {
+                      ...a,
+                      billing: { ...a.billing, ...res.billing },
                     }
-                  } else {
-                    toast.error(r.error);
-                  }
-                } finally {
-                  setPaymentSaving(false);
-                }
-              }}
-            >
-              Registrar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                  : a,
+              ),
+            );
+          }
+        }}
+      />
       <Dialog
         open={defaultModeDialogOpen}
         onOpenChange={setDefaultModeDialogOpen}
