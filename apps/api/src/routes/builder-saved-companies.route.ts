@@ -9,7 +9,7 @@ import { db } from "@/db/client";
 import { user as userTable } from "@/db/schema/auth";
 import { getFirestore, Timestamp } from "@/lib/firestore";
 import { auth } from "@/lib/auth";
-import { resolveSessionUserRole } from "@/utils/sessionUser";
+import { resolveSessionUserRole } from "@/utils/session-user";
 import {
   extractFirestoreIndexUrl,
   firestoreFailureHint,

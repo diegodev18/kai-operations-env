@@ -17,7 +17,7 @@ import {
 } from "@/controllers/organization.controller";
 import { auth } from "@/lib/auth";
 import { isOperationsAdmin } from "@/utils/operations-access";
-import { resolveSessionUserRole } from "@/utils/sessionUser";
+import { resolveSessionUserRole } from "@/utils/session-user";
 
 export const organizationRouter = new Hono();
 

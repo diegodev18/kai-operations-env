@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import admin from "firebase-admin";
 import { getFirestore, FieldValue, Timestamp } from "@/lib/firestore";
 import { auth } from "@/lib/auth";
-import { resolveSessionUserRole } from "@/utils/sessionUser";
+import { resolveSessionUserRole } from "@/utils/session-user";
 import { FIREBASE_APP_NAME } from "@/config";
 import { nanoid } from "nanoid";
 

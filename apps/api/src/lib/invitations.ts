@@ -8,7 +8,7 @@ import { invitation, user } from "@/db/schema/auth";
 import {
   generateInvitationPlainToken,
   hashInvitationToken,
-} from "@/utils/invitationToken";
+} from "@/utils/invitation-token";
 
 export function normalizeInviteEmail(email: string): string {
   return email.trim().toLowerCase();

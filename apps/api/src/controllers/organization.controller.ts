@@ -14,8 +14,8 @@ import {
   normalizeInviteEmail,
   rotatePendingInvitationToken,
 } from "@/lib/invitations";
-import { changeMemberRole, removeMember, resetUserPassword } from "@/lib/organizationMembers";
-import { generateInvitationPlainToken } from "@/utils/invitationToken";
+import { changeMemberRole, removeMember, resetUserPassword } from "@/lib/organization-members";
+import { generateInvitationPlainToken } from "@/utils/invitation-token";
 import { isValidEmail } from "@/utils/validation";
 
 export const getOrganizationMe = async (

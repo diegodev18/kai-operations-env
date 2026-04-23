@@ -16,7 +16,7 @@ import type {
   SubirBody,
 } from "@/types/database-admin";
 import { isOperationsAdmin } from "@/utils/operations-access";
-import { resolveSessionUserRole } from "@/utils/sessionUser";
+import { resolveSessionUserRole } from "@/utils/session-user";
 
 export type {
   ActualizarDocumentoBody,
