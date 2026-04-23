@@ -1112,7 +1112,10 @@ export function getProjectById(id: ProjectId) {
   return PROJECTS.find((p) => p.id === id);
 }
 
-/** True si el usuario de sesión es el creador de la entrada (id o email de autor). */
+/**
+ * True si el usuario es el creador (id o email de autor).
+ * En UI/API de edición se combina con rol admin: `isAdmin || canEditChangelogEntry(...)`.
+ */
 export function canEditChangelogEntry(
   entry: DbChangelogEntry,
   sessionUser: { id?: string; email?: string | null } | null | undefined,

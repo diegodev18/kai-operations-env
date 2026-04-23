@@ -319,9 +319,12 @@ export async function patchChangelogEntry(
     (k) => k !== "hidden" && ALLOW_PATCH_FIELDS.has(k),
   );
   if (contentKeys.length > 0) {
-    if (!isChangelogCreator(existing, authCtx)) {
+    if (!isChangelogCreator(existing, authCtx) && !admin) {
       return c.json(
-        { error: "Solo el creador puede editar el contenido de esta entrada" },
+        {
+          error:
+            "Solo el creador de la entrada o un administrador puede editar el contenido",
+        },
         403,
       );
     }

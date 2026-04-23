@@ -164,9 +164,10 @@ export function ChangelogVersionPage({ version, projectId }: ChangelogVersionPag
     notFound();
   }
 
-  if (isFirebaseProject && entry && !canEditChangelogEntry(entry, sessionUser)) {
-    notFound();
-  }
+  const canEditThisEntry =
+    isFirebaseProject && entry
+      ? isAdmin || canEditChangelogEntry(entry, sessionUser)
+      : false;
 
   return (
     <OperationsShell
@@ -182,7 +183,7 @@ export function ChangelogVersionPage({ version, projectId }: ChangelogVersionPag
           <Button variant="ghost" size="sm" asChild>
             <Link href={`/changelog/${projectId}`}>Volver</Link>
           </Button>
-          {isFirebaseProject && isAdmin ? (
+          {isFirebaseProject && canEditThisEntry ? (
             <Button onClick={() => setEditDialogOpen(true)} variant="outline" size="sm">
               <PencilIcon className="mr-2 size-4" />
               Editar

@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import {
+  canEditChangelogEntry,
   getProjectById,
   getAtlasVersions,
   type DbChangelogEntry,
@@ -10,7 +11,7 @@ import {
 } from "../changelog-data";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useUserRole } from "@/hooks";
+import { useAuth, useUserRole } from "@/hooks";
 import { ArrowLeftIcon, EyeIcon, EyeOffIcon, PencilIcon, PlusIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import NewChangelogForm from "./new-changelog-form";
@@ -22,8 +23,15 @@ interface ChangelogListPageProps {
 
 export function ChangelogListPage({ projectId }: ChangelogListPageProps) {
   const project = getProjectById(projectId);
+  const { session } = useAuth();
   const { isAdmin } = useUserRole();
   const isFirebaseProject = projectId !== "atlas";
+  const sessionUser = session?.user
+    ? {
+        id: session.user.id,
+        email: (session.user as { email?: string }).email,
+      }
+    : null;
   const firebaseProjectId = isFirebaseProject ? (projectId as Exclude<ProjectId, "atlas">) : null;
   const [search, setSearch] = useState("");
   const [entries, setEntries] = useState<DbChangelogEntry[]>([]);
@@ -122,6 +130,10 @@ export function ChangelogListPage({ projectId }: ChangelogListPageProps) {
     }));
   }, [filteredEntries, isFirebaseProject, projectId]);
 
+  const showActionsColumn =
+    isFirebaseProject &&
+    (isAdmin || entries.some((e) => canEditChangelogEntry(e, sessionUser)));
+
   return (
     <OperationsShell
       breadcrumb={[
@@ -145,12 +157,12 @@ export function ChangelogListPage({ projectId }: ChangelogListPageProps) {
                 Proyectos
               </Link>
             </Button>
-            {isFirebaseProject && isAdmin && (
+            {isFirebaseProject ? (
               <Button onClick={() => setFormDialogOpen(true)} size="sm">
                 <PlusIcon className="mr-1 size-4" />
                 Nueva entrada
               </Button>
-            )}
+            ) : null}
           </div>
         </header>
 
@@ -177,8 +189,10 @@ export function ChangelogListPage({ projectId }: ChangelogListPageProps) {
                     Description
                   </th>
                   <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Details</th>
-                  {isFirebaseProject && isAdmin ? (
-                    <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Admin</th>
+                  {showActionsColumn ? (
+                    <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
+                      {isAdmin ? "Admin" : "Acciones"}
+                    </th>
                   ) : null}
                 </tr>
               </thead>
@@ -200,32 +214,37 @@ export function ChangelogListPage({ projectId }: ChangelogListPageProps) {
                         View
                       </Link>
                     </td>
-                    {isFirebaseProject && isAdmin ? (
+                    {showActionsColumn ? (
                       <td className="px-4 py-4">
                         <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setFormEntryId(entry.id);
-                              setFormDialogOpen(true);
-                            }}
-                            disabled={togglingId === entry.id}
-                          >
-                            <PencilIcon className="size-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              if (entry.sourceEntry) {
-                                void toggleEntryHidden(entry.sourceEntry);
-                              }
-                            }}
-                            disabled={togglingId === entry.id}
-                          >
-                            {entry.hidden ? <EyeIcon className="size-4" /> : <EyeOffIcon className="size-4" />}
-                          </Button>
+                          {entry.sourceEntry &&
+                          (isAdmin || canEditChangelogEntry(entry.sourceEntry, sessionUser)) ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setFormEntryId(entry.id);
+                                setFormDialogOpen(true);
+                              }}
+                              disabled={togglingId === entry.id}
+                            >
+                              <PencilIcon className="size-4" />
+                            </Button>
+                          ) : null}
+                          {isAdmin ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                if (entry.sourceEntry) {
+                                  void toggleEntryHidden(entry.sourceEntry);
+                                }
+                              }}
+                              disabled={togglingId === entry.id}
+                            >
+                              {entry.hidden ? <EyeIcon className="size-4" /> : <EyeOffIcon className="size-4" />}
+                            </Button>
+                          ) : null}
                         </div>
                       </td>
                     ) : null}
