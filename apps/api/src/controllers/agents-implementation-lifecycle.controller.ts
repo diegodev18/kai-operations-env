@@ -19,6 +19,7 @@ import {
 import {
   appendImplementationActivityEntry,
 } from "@/services/implementation-activity.service";
+import { appendLifecycleEvent } from "@/services/implementation-lifecycle-events.service";
 
 type LifecycleDoc = {
   createdAt?: unknown;
@@ -195,6 +196,44 @@ async function appendLifecycleChangeLog(
   });
 }
 
+async function appendLifecycleArtifacts(
+  db: Firestore,
+  agentId: string,
+  actorEmail: string | null,
+  field: string,
+  prevValue: unknown,
+  nextValue: unknown,
+  updatedFrom: LifecycleUpdatedFrom,
+  reasonCode: string | null,
+  idempotencyKey?: string | null,
+) {
+  await Promise.all([
+    appendLifecycleChangeLog(
+      db,
+      agentId,
+      actorEmail,
+      field,
+      prevValue,
+      nextValue,
+      updatedFrom,
+      reasonCode,
+    ),
+    appendLifecycleEvent(db, agentId, {
+      eventType: "lifecycle_field_updated",
+      field,
+      previous: prevValue ?? null,
+      next: nextValue ?? null,
+      actorEmail,
+      updatedFrom,
+      reasonCode,
+      idempotencyKey,
+      metadata: {
+        source: "lifecycle_controller",
+      },
+    }),
+  ]);
+}
+
 export async function getImplementationLifecycle(
   c: Context,
   authCtx: AgentsInfoAuthContext,
@@ -249,7 +288,7 @@ export async function getImplementationLifecycle(
       await lifecycleRef.set(patch, { merge: true });
       const actorEmail = authCtx.userEmail?.toLowerCase().trim() ?? null;
       if (previousAuto !== autoStatus.status) {
-        await appendLifecycleChangeLog(
+        await appendLifecycleArtifacts(
           db,
           agentId,
           actorEmail,
@@ -258,10 +297,11 @@ export async function getImplementationLifecycle(
           autoStatus.status,
           "automation",
           "auto_status_recalc",
+          `auto-get:${toIsoOrNull(current.updatedAt) ?? "none"}:serverStatusAuto`,
         );
       }
       if ("deliveredAt" in patch) {
-        await appendLifecycleChangeLog(
+        await appendLifecycleArtifacts(
           db,
           agentId,
           actorEmail,
@@ -270,6 +310,7 @@ export async function getImplementationLifecycle(
           patch.deliveredAt,
           "automation",
           "auto_status_recalc",
+          `auto-get:${toIsoOrNull(current.updatedAt) ?? "none"}:deliveredAt`,
         );
       }
     }
@@ -368,6 +409,11 @@ export async function patchImplementationLifecycle(
       typeof reasonCodeRaw === "string" && reasonCodeRaw.trim().length > 0
         ? reasonCodeRaw.trim().slice(0, 120)
         : null;
+    const idempotencyKeyRaw = payload.idempotencyKey;
+    const idempotencyKey =
+      typeof idempotencyKeyRaw === "string" && idempotencyKeyRaw.trim().length > 0
+        ? idempotencyKeyRaw.trim().slice(0, 200)
+        : null;
 
     const { db, hasTestingData, inProduction } = await resolveAgentWriteDatabase(agentId);
     if (!hasTestingData && !inProduction) {
@@ -418,7 +464,7 @@ export async function patchImplementationLifecycle(
     const logTasks: Promise<void>[] = [];
     if (payload.soldAt !== undefined) {
       logTasks.push(
-        appendLifecycleChangeLog(
+        appendLifecycleArtifacts(
           db,
           agentId,
           actorEmail,
@@ -427,12 +473,13 @@ export async function patchImplementationLifecycle(
           patch.soldAt,
           updatedFrom,
           reasonCode,
+          idempotencyKey ? `${idempotencyKey}:soldAt` : null,
         ),
       );
     }
     if (payload.nextMeetingAt !== undefined) {
       logTasks.push(
-        appendLifecycleChangeLog(
+        appendLifecycleArtifacts(
           db,
           agentId,
           actorEmail,
@@ -441,12 +488,13 @@ export async function patchImplementationLifecycle(
           patch.nextMeetingAt,
           updatedFrom,
           reasonCode,
+          idempotencyKey ? `${idempotencyKey}:nextMeetingAt` : null,
         ),
       );
     }
     if (commercialStatusRaw !== undefined) {
       logTasks.push(
-        appendLifecycleChangeLog(
+        appendLifecycleArtifacts(
           db,
           agentId,
           actorEmail,
@@ -457,12 +505,13 @@ export async function patchImplementationLifecycle(
           commercialStatusRaw,
           updatedFrom,
           reasonCode,
+          idempotencyKey ? `${idempotencyKey}:commercialStatus` : null,
         ),
       );
     }
     if (overrideRaw !== undefined) {
       logTasks.push(
-        appendLifecycleChangeLog(
+        appendLifecycleArtifacts(
           db,
           agentId,
           actorEmail,
@@ -473,12 +522,13 @@ export async function patchImplementationLifecycle(
           overrideRaw,
           updatedFrom,
           reasonCode,
+          idempotencyKey ? `${idempotencyKey}:serverStatusOverride` : null,
         ),
       );
     }
     if (previousAuto !== autoStatus.status) {
       logTasks.push(
-        appendLifecycleChangeLog(
+        appendLifecycleArtifacts(
           db,
           agentId,
           actorEmail,
@@ -487,12 +537,13 @@ export async function patchImplementationLifecycle(
           autoStatus.status,
           "automation",
           "auto_status_recalc",
+          idempotencyKey ? `${idempotencyKey}:serverStatusAuto` : null,
         ),
       );
     }
     if ("deliveredAt" in patch) {
       logTasks.push(
-        appendLifecycleChangeLog(
+        appendLifecycleArtifacts(
           db,
           agentId,
           actorEmail,
@@ -501,6 +552,7 @@ export async function patchImplementationLifecycle(
           patch.deliveredAt,
           "automation",
           "auto_status_recalc",
+          idempotencyKey ? `${idempotencyKey}:deliveredAt` : null,
         ),
       );
     }

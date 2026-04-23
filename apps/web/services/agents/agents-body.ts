@@ -770,6 +770,7 @@ export async function patchImplementationLifecycle(
     serverStatusOverride?: AgentServerStatus | null;
     updatedFrom?: LifecycleUpdatedFrom;
     reasonCode?: string | null;
+    idempotencyKey?: string;
   },
 ): Promise<
   | { ok: true; lifecycle: AgentImplementationLifecycle }

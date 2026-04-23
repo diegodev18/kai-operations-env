@@ -134,6 +134,10 @@ export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
           serverStatusOverride === "auto" ? null : serverStatusOverride,
         updatedFrom: "manual",
         reasonCode: reasonCode.trim() || null,
+        idempotencyKey:
+          typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+            ? crypto.randomUUID()
+            : `${Date.now()}-${agentId}`,
       });
       if (!result.ok) {
         toast.error(result.error);
