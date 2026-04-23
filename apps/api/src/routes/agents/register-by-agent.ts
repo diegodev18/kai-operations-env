@@ -40,6 +40,11 @@ import {
   patchImplementationActivityCommentVisibility,
 } from "@/controllers/agents-implementation-activity.controller";
 import {
+  deleteSimulatorState,
+  getSimulatorState,
+  patchSimulatorState,
+} from "@/controllers/agents-simulator-state.controller";
+import {
   getImplementationLifecycle,
   patchImplementationLifecycle,
 } from "@/controllers/agents-implementation-lifecycle.controller";
@@ -407,6 +412,36 @@ r.patch("/:agentId/implementation-activity/:entryId", async (c) => {
     agentId,
     entryId,
   );
+});
+
+r.get("/:agentId/simulator-state", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return getSimulatorState(c, ctx.authCtx, agentId);
+});
+
+r.patch("/:agentId/simulator-state", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return patchSimulatorState(c, ctx.authCtx, agentId);
+});
+
+r.delete("/:agentId/simulator-state", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return deleteSimulatorState(c, ctx.authCtx, agentId);
 });
 
 r.get("/:agentId/implementation-lifecycle", async (c) => {

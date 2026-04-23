@@ -24,6 +24,7 @@ import type {
   AgentCommercialStatus,
   AgentServerStatus,
   LifecycleUpdatedFrom,
+  SimulatorStoredConversation,
 } from "@/types";
 import { normalizeAgentStatus } from "@/services/agents/normalize";
 
@@ -1638,6 +1639,77 @@ export async function patchImplementationActivityCommentVisibility(
     return { ok: false, error: "Respuesta inválida del servidor" };
   }
   return { ok: true, entry: data.entry };
+}
+
+export async function fetchSimulatorState(
+  agentId: string,
+): Promise<{ conversations: SimulatorStoredConversation[] } | null> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/simulator-state`,
+    {
+      credentials: "include",
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) return null;
+  try {
+    return (await res.json()) as { conversations: SimulatorStoredConversation[] };
+  } catch {
+    return null;
+  }
+}
+
+export async function patchSimulatorState(
+  agentId: string,
+  conversations: SimulatorStoredConversation[],
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/simulator-state`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ conversations }),
+    },
+  );
+  let data: { ok?: boolean; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return { ok: false, error: data.error ?? "No se pudo guardar el historial del simulador" };
+  }
+  if (!data.ok) {
+    return { ok: false, error: "Respuesta inválida del servidor" };
+  }
+  return { ok: true };
+}
+
+export async function deleteSimulatorState(
+  agentId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/simulator-state`,
+    {
+      method: "DELETE",
+      credentials: "include",
+    },
+  );
+  let data: { ok?: boolean; error?: string } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return { ok: false, error: data.error ?? "No se pudo eliminar el historial del simulador" };
+  }
+  if (!data.ok) {
+    return { ok: false, error: "Respuesta inválida del servidor" };
+  }
+  return { ok: true };
 }
 
 export async function assignAgentToUser(

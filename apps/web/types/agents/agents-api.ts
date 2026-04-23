@@ -52,6 +52,14 @@ export type ImplementationActivityEntry = {
   metadata?: Record<string, unknown>;
 };
 
+export type SimulatorStoredConversation = {
+  id: string;
+  prompt: string;
+  streamEvents: unknown[];
+  error: string | null;
+  closedAt?: string | null;
+};
+
 export type AgentCommercialStatus =
   | "building"
   | "internal_test"

@@ -29,15 +29,26 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   BotIcon,
   CheckCircle2Icon,
   ChevronRightIcon,
+  HistoryIcon,
   PlayIcon,
   PlusIcon,
   RotateCcwIcon,
@@ -47,9 +58,15 @@ import {
   User2Icon,
   XIcon,
 } from "lucide-react";
-import { postAgentsTestingSimulate } from "@/services/agents-api";
+import {
+  deleteSimulatorState,
+  fetchSimulatorState,
+  patchSimulatorState,
+  postAgentsTestingSimulate,
+} from "@/services/agents-api";
 import type {
   SimulateBody,
+  SimulatorStoredConversation,
   SimulatorMode,
   SSEEvent,
 } from "@/types";
@@ -307,6 +324,71 @@ interface ConversationState {
   error: string | null;
   isSending: boolean;
   currentTurn: "user" | "agent" | null;
+  closedAt: string | null;
+}
+
+function createEmptyConversation(): ConversationState {
+  return {
+    id: generateId(),
+    prompt: "",
+    streamEvents: [],
+    error: null,
+    isSending: false,
+    currentTurn: null,
+    closedAt: null,
+  };
+}
+
+function normalizeConversationForStorage(
+  conversation: ConversationState,
+): SimulatorStoredConversation {
+  return {
+    id: conversation.id,
+    prompt: conversation.prompt,
+    streamEvents: conversation.streamEvents,
+    error: conversation.error,
+    closedAt: conversation.closedAt,
+  };
+}
+
+function inflateConversationFromStorage(
+  conversation: SimulatorStoredConversation,
+): ConversationState {
+  return {
+    id: conversation.id,
+    prompt: conversation.prompt,
+    streamEvents: conversation.streamEvents as SSEEvent[],
+    error: conversation.error,
+    isSending: false,
+    currentTurn: null,
+    closedAt: typeof conversation.closedAt === "string" ? conversation.closedAt : null,
+  };
+}
+
+function ensureAtLeastOneConversation(
+  conversations: ConversationState[],
+): ConversationState[] {
+  return conversations.length > 0 ? conversations : [createEmptyConversation()];
+}
+
+function ensureAtLeastOneOpenConversation(
+  conversations: ConversationState[],
+): ConversationState[] {
+  const withAtLeastOne = ensureAtLeastOneConversation(conversations);
+  const hasOpenConversation = withAtLeastOne.some(
+    (conversation) => conversation.closedAt === null,
+  );
+  return hasOpenConversation
+    ? withAtLeastOne
+    : [...withAtLeastOne, createEmptyConversation()];
+}
+
+function isConversationMeaningful(conversation: ConversationState): boolean {
+  return (
+    conversation.prompt.trim().length > 0 ||
+    conversation.streamEvents.length > 0 ||
+    Boolean(conversation.error)
+  );
 }
 
 function generateId() {
@@ -318,18 +400,22 @@ function ConversationCard({
   conversation,
   onSend,
   onStop,
+  onClose,
   onReset,
   onRemove,
   canRemove,
+  canClose,
   onUpdatePrompt,
 }: {
   index: number;
   conversation: ConversationState;
   onSend: () => void;
   onStop: () => void;
+  onClose: () => void;
   onReset: () => void;
   onRemove: () => void;
   canRemove: boolean;
+  canClose: boolean;
   onUpdatePrompt: (prompt: string) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -347,22 +433,42 @@ function ConversationCard({
           <CardTitle className="text-sm font-medium">
             Conversación {index + 1}
           </CardTitle>
-          {canRemove && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={onRemove}
-                  className="rounded-md p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                >
-                  <Trash2Icon className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Eliminar conversación</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
+          <div className="flex items-center gap-1">
+            {canClose && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="rounded-md p-1 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                    aria-label="Cerrar conversación"
+                  >
+                    <XIcon className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Cerrar conversación</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {canRemove && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={onRemove}
+                    className="rounded-md p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    aria-label="Eliminar conversación"
+                  >
+                    <Trash2Icon className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Eliminar conversación</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="flex flex-1 min-h-0 flex-col gap-2 overflow-hidden pt-0">
@@ -472,14 +578,26 @@ export function AgentSimulator({
     useState<SimulatorMode>(savedParams.simulatorMode);
   const [stream, setStream] = useState(savedParams.stream);
   const [testMode, setTestMode] = useState(savedParams.testMode);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(true);
+  const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
 
   useEffect(() => {
     saveParams({ messageLimit, simulatorMode, stream, testMode });
   }, [messageLimit, simulatorMode, stream, testMode]);
 
   const [conversations, setConversations] = useState<ConversationState[]>([
-    { id: generateId(), prompt: "", streamEvents: [], error: null, isSending: false, currentTurn: null },
+    createEmptyConversation(),
   ]);
+  const historyConversations = useMemo(
+    () => conversations.filter((conversation) => isConversationMeaningful(conversation)),
+    [conversations],
+  );
+  const visibleConversations = useMemo(
+    () => conversations.filter((conversation) => conversation.closedAt === null),
+    [conversations],
+  );
+  const skipNextPersistRef = useRef(true);
+  const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const buildBody = useCallback(
     (prompt: string): SimulateBody | null => {
@@ -509,6 +627,68 @@ export function AgentSimulator({
   );
 
   const abortRef = useRef<Record<string, AbortController>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    skipNextPersistRef.current = true;
+    setIsHistoryLoading(true);
+
+    (async () => {
+      const data = await fetchSimulatorState(agentId);
+      if (cancelled) return;
+      if (Array.isArray(data?.conversations) && data.conversations.length > 0) {
+        setConversations(
+          ensureAtLeastOneOpenConversation(
+            data.conversations.map((conversation) =>
+              inflateConversationFromStorage(conversation),
+            ),
+          ),
+        );
+      } else {
+        setConversations([createEmptyConversation()]);
+      }
+      setIsHistoryLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [agentId]);
+
+  useEffect(() => {
+    if (isHistoryLoading) return;
+    if (skipNextPersistRef.current) {
+      skipNextPersistRef.current = false;
+      return;
+    }
+    if (saveDebounceRef.current) {
+      clearTimeout(saveDebounceRef.current);
+    }
+
+    saveDebounceRef.current = setTimeout(async () => {
+      const payload = conversations
+        .filter((conversation) => isConversationMeaningful(conversation))
+        .map((conversation) => normalizeConversationForStorage(conversation));
+      const result = await patchSimulatorState(agentId, payload);
+      if (!result.ok) {
+        toast.error(result.error);
+      }
+    }, 450);
+
+    return () => {
+      if (saveDebounceRef.current) {
+        clearTimeout(saveDebounceRef.current);
+        saveDebounceRef.current = null;
+      }
+    };
+  }, [agentId, conversations, isHistoryLoading]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(abortRef.current).forEach((controller) => controller.abort());
+      abortRef.current = {};
+    };
+  }, []);
 
   const sendRequest = useCallback(
     async (convId: string) => {
@@ -634,126 +814,264 @@ export function AgentSimulator({
   }, []);
 
   const removeConversation = useCallback((convId: string) => {
-    setConversations((prev) => prev.filter((c) => c.id !== convId));
+    setConversations((prev) =>
+      ensureAtLeastOneOpenConversation(prev.filter((c) => c.id !== convId)),
+    );
+  }, []);
+
+  const closeConversation = useCallback((convId: string) => {
+    const controller = abortRef.current[convId];
+    if (controller) {
+      controller.abort();
+      delete abortRef.current[convId];
+    }
+    setConversations((prev) =>
+      ensureAtLeastOneOpenConversation(
+        prev.map((c) =>
+          c.id === convId
+            ? {
+                ...c,
+                isSending: false,
+                currentTurn: null,
+                closedAt: c.closedAt ?? new Date().toISOString(),
+              }
+            : c,
+        ),
+      ),
+    );
   }, []);
 
   const addConversation = () => {
     setConversations((prev) => [
       ...prev,
-      { id: generateId(), prompt: "", streamEvents: [], error: null, isSending: false, currentTurn: null },
+      createEmptyConversation(),
     ]);
   };
+
+  const clearAllHistory = useCallback(async () => {
+    Object.values(abortRef.current).forEach((controller) => controller.abort());
+    abortRef.current = {};
+    const result = await deleteSimulatorState(agentId);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    skipNextPersistRef.current = true;
+    setConversations([createEmptyConversation()]);
+    toast.success("Historial eliminado");
+  }, [agentId]);
 
   return (
     <div className="flex h-full w-full flex-col">
       <div className="flex items-center justify-between py-2">
         <h2 className="text-lg font-semibold">Simulador de Agente</h2>
-        <Dialog>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="icon">
-                  <Settings2Icon className="h-4 w-4" />
-                </Button>
-              </DialogTrigger>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Editar parámetros</p>
-            </TooltipContent>
-          </Tooltip>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Parámetros de simulación</DialogTitle>
-              <DialogDescription>
-                Configura cómo quieres hacer la prueba. Estos parámetros se aplican a todas las conversaciones.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div className="space-y-1">
-                <Label htmlFor="sim-limit">
-                  Cantidad máxima de mensajes: {messageLimit}
-                </Label>
-                <Slider
-                  id="sim-limit"
-                  min={1}
-                  max={MESSAGE_LIMIT_MAX}
-                  step={1}
-                  value={[Number(messageLimit)]}
-                  onValueChange={(v: number[]) => setMessageLimit(String(v[0]))}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Desliza para ajustar la duración de la conversación. Recomendado: 10–20 para conversaciones completas.
-                </p>
+        <div className="flex items-center gap-2">
+          <Dialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <HistoryIcon className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Historial</p>
+              </TooltipContent>
+            </Tooltip>
+            <DialogContent className="sm:max-w-xl">
+              <DialogHeader>
+                <DialogTitle>Historial del simulador</DialogTitle>
+                <DialogDescription>
+                  Administra las conversaciones guardadas para este agente.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div className="max-h-[380px] space-y-2 overflow-y-auto rounded-md border border-border/60 p-2">
+                  {isHistoryLoading ? (
+                    <p className="text-sm text-muted-foreground">Cargando historial...</p>
+                  ) : historyConversations.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No hay conversaciones guardadas.</p>
+                  ) : (
+                    historyConversations.map((conversation, index) => (
+                      <div
+                        key={conversation.id}
+                        className="flex items-start justify-between gap-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">
+                            Conversación {index + 1}
+                          </p>
+                          <p className="line-clamp-2 text-xs text-muted-foreground">
+                            {conversation.prompt.trim() || "Sin instrucción"}
+                          </p>
+                          <p className="mt-1 text-[11px] text-muted-foreground">
+                            Eventos: {conversation.streamEvents.length}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            Estado: {conversation.closedAt ? "Cerrada" : "Activa"}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() => removeConversation(conversation.id)}
+                          disabled={isHistoryLoading}
+                        >
+                          <Trash2Icon className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div className="flex items-center justify-end">
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        disabled={isHistoryLoading || historyConversations.length === 0}
+                      >
+                        Eliminar todo el historial
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>¿Eliminar todo el historial?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Esta acción borrará todas las conversaciones guardadas de este simulador para tu usuario.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => {
+                            void clearAllHistory();
+                            setIsHistoryDialogOpen(false);
+                          }}
+                        >
+                          Eliminar
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               </div>
-              <div className="space-y-1">
-                <Label>Tipo de simulación</Label>
-                <Select
-                  value={simulatorMode}
-                  onValueChange={(v: string) => setSimulatorMode(v as SimulatorMode)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="questions_only">Solo preguntas</SelectItem>
-                    <SelectItem value="full">Conversación completa</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  "Solo preguntas" hace una prueba breve. "Conversación completa"
-                  intenta una prueba más amplia.
-                </p>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <Settings2Icon className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Editar parámetros</p>
+              </TooltipContent>
+            </Tooltip>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Parámetros de simulación</DialogTitle>
+                <DialogDescription>
+                  Configura cómo quieres hacer la prueba. Estos parámetros se aplican a todas las conversaciones.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <div className="space-y-1">
+                  <Label htmlFor="sim-limit">
+                    Cantidad máxima de mensajes: {messageLimit}
+                  </Label>
+                  <Slider
+                    id="sim-limit"
+                    min={1}
+                    max={MESSAGE_LIMIT_MAX}
+                    step={1}
+                    value={[Number(messageLimit)]}
+                    onValueChange={(v: number[]) => setMessageLimit(String(v[0]))}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Desliza para ajustar la duración de la conversación. Recomendado: 10–20 para conversaciones completas.
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <Label>Tipo de simulación</Label>
+                  <Select
+                    value={simulatorMode}
+                    onValueChange={(v: string) => setSimulatorMode(v as SimulatorMode)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="questions_only">Solo preguntas</SelectItem>
+                      <SelectItem value="full">Conversación completa</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    "Solo preguntas" hace una prueba breve. "Conversación completa"
+                    intenta una prueba más amplia.
+                  </p>
+                </div>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={stream}
+                    onChange={(e) => setStream(e.target.checked)}
+                  />
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help">
+                        Ver respuestas en tiempo real (se muestran a medida que van llegando)
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Stream (SSE)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={testMode}
+                    onChange={(e) => setTestMode(e.target.checked)}
+                  />
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help">
+                        Modo de prueba segura (evita acciones reales y usa entorno de prueba)
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Modo testing</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </label>
               </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={stream}
-                  onChange={(e) => setStream(e.target.checked)}
-                />
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="cursor-help">
-                      Ver respuestas en tiempo real (se muestran a medida que van llegando)
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Stream (SSE)</p>
-                  </TooltipContent>
-                </Tooltip>
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={testMode}
-                  onChange={(e) => setTestMode(e.target.checked)}
-                />
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="cursor-help">
-                      Modo de prueba segura (evita acciones reales y usa entorno de prueba)
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Modo testing</p>
-                  </TooltipContent>
-                </Tooltip>
-              </label>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="flex min-h-0 flex-1 items-stretch gap-4 overflow-x-auto pb-4">
-        {conversations.map((conv, index) => (
+        {visibleConversations.map((conv, index) => (
           <div key={conv.id} className="flex w-[540px] flex-shrink-0 flex-col">
             <ConversationCard
               index={index}
               conversation={conv}
               onSend={() => sendRequest(conv.id)}
               onStop={() => stopRequest(conv.id)}
+              onClose={() => closeConversation(conv.id)}
               onReset={() => resetConversation(conv.id)}
               onRemove={() => removeConversation(conv.id)}
-              canRemove={conversations.length > 1}
+              canRemove={visibleConversations.length > 1}
+              canClose={true}
               onUpdatePrompt={(prompt) =>
                 setConversations((prev) =>
                   prev.map((c) => (c.id === conv.id ? { ...c, prompt } : c))

@@ -35,6 +35,10 @@ import { useAuth } from "@/hooks";
 
 type ActivityFilter = "all" | "comment" | "system";
 
+function stripScriptTags(html: string): string {
+  return html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+}
+
 function formatDateTime(iso?: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -379,7 +383,9 @@ export function AgentActivitySheet({ agentId }: { agentId: string }) {
                         ) : isComment && entry.bodyHtml ? (
                           <div
                             className="prose prose-sm max-w-none text-sm dark:prose-invert [&_a]:text-primary [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1"
-                            dangerouslySetInnerHTML={{ __html: entry.bodyHtml }}
+                            dangerouslySetInnerHTML={{
+                              __html: stripScriptTags(entry.bodyHtml),
+                            }}
                           />
                         ) : (
                           <p className="text-sm text-foreground">
