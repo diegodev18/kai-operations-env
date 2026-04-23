@@ -22,6 +22,17 @@ export type CommercialStatus = (typeof COMMERCIAL_STATUS_VALUES)[number];
 export type ServerStatus = (typeof SERVER_STATUS_VALUES)[number];
 export type LifecycleUpdatedFrom = (typeof LIFECYCLE_UPDATED_FROM_VALUES)[number];
 
+const COMMERCIAL_STATUS_TRANSITIONS: Record<
+  CommercialStatus,
+  readonly CommercialStatus[]
+> = {
+  building: ["internal_test"],
+  internal_test: ["client_test", "iterating"],
+  client_test: ["iterating", "delivered"],
+  iterating: ["client_test", "delivered"],
+  delivered: ["iterating"],
+} as const;
+
 export function isCommercialStatus(value: unknown): value is CommercialStatus {
   return (
     typeof value === "string" &&
@@ -43,4 +54,12 @@ export function isLifecycleUpdatedFrom(
     typeof value === "string" &&
     LIFECYCLE_UPDATED_FROM_VALUES.includes(value as LifecycleUpdatedFrom)
   );
+}
+
+export function canTransitionCommercialStatus(
+  from: CommercialStatus,
+  to: CommercialStatus,
+): boolean {
+  if (from === to) return true;
+  return COMMERCIAL_STATUS_TRANSITIONS[from].includes(to);
 }

@@ -79,6 +79,10 @@ export type AgentImplementationLifecycle = {
   updatedFrom: LifecycleUpdatedFrom;
   reasonCode: string | null;
   updatedAt: string | null;
+  commercialStateChangedAt: string | null;
+  serverStateChangedAt: string | null;
+  daysInCommercialState: number;
+  daysInServerState: number;
 };
 
 /** Respuesta de GET .../whatsapp-integration-status (sin datos sensibles). */

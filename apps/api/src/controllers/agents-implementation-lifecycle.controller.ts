@@ -3,6 +3,7 @@ import type { Firestore } from "firebase-admin/firestore";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 
 import {
+  canTransitionCommercialStatus,
   isCommercialStatus,
   isLifecycleUpdatedFrom,
   isServerStatus,
@@ -29,6 +30,8 @@ type LifecycleDoc = {
   commercialStatus?: unknown;
   serverStatusOverride?: unknown;
   autoServerStatus?: unknown;
+  commercialStateChangedAt?: unknown;
+  serverStateChangedAt?: unknown;
   updatedBy?: unknown;
   updatedFrom?: unknown;
   reasonCode?: unknown;
@@ -64,6 +67,15 @@ function parseInputDate(value: unknown): string | null | undefined {
   return d.toISOString();
 }
 
+function computeDaysSince(iso: string | null): number {
+  if (!iso) return 0;
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return 0;
+  const diffMs = Date.now() - t;
+  if (diffMs <= 0) return 0;
+  return Math.floor(diffMs / 86_400_000);
+}
+
 function normalizeLifecycleForResponse(
   raw: LifecycleDoc | null,
   serverStatusAuto: ServerStatus,
@@ -92,6 +104,9 @@ function normalizeLifecycleForResponse(
       ? raw.reasonCode.trim()
       : null;
   const updatedAt = toIsoOrNull(raw?.updatedAt);
+  const commercialStateChangedAt =
+    toIsoOrNull(raw?.commercialStateChangedAt) ?? createdAt;
+  const serverStateChangedAt = toIsoOrNull(raw?.serverStateChangedAt) ?? createdAt;
   return {
     createdAt,
     soldAt,
@@ -105,6 +120,10 @@ function normalizeLifecycleForResponse(
     updatedFrom,
     reasonCode,
     updatedAt,
+    commercialStateChangedAt,
+    serverStateChangedAt,
+    daysInCommercialState: computeDaysSince(commercialStateChangedAt),
+    daysInServerState: computeDaysSince(serverStateChangedAt),
   };
 }
 
@@ -273,8 +292,13 @@ export async function getImplementationLifecycle(
     if (!toIsoOrNull(current.createdAt) && createdAtFallback) {
       patch.createdAt = createdAtFallback;
     }
+    if (!toIsoOrNull(current.commercialStateChangedAt)) {
+      patch.commercialStateChangedAt =
+        toIsoOrNull(current.createdAt) ?? createdAtFallback ?? new Date().toISOString();
+    }
     if (previousAuto !== autoStatus.status) {
       patch.autoServerStatus = autoStatus.status;
+      patch.serverStateChangedAt = new Date().toISOString();
       if (previousAuto !== "active" && autoStatus.status === "active") {
         patch.deliveredAt = new Date().toISOString();
       }
@@ -438,18 +462,41 @@ export async function patchImplementationLifecycle(
     const previousAuto = isServerStatus(current.autoServerStatus)
       ? current.autoServerStatus
       : null;
+    const previousCommercial = isCommercialStatus(current.commercialStatus)
+      ? current.commercialStatus
+      : "building";
+    const nextCommercial =
+      commercialStatusRaw !== undefined ? commercialStatusRaw : previousCommercial;
+    if (!canTransitionCommercialStatus(previousCommercial, nextCommercial)) {
+      return c.json(
+        {
+          error: `Transición no permitida de commercialStatus: ${previousCommercial} -> ${nextCommercial}`,
+        },
+        409,
+      );
+    }
 
     const patch: Record<string, unknown> = {};
     if (!toIsoOrNull(current.createdAt) && createdAtFallback) {
       patch.createdAt = createdAtFallback;
     }
+    if (!toIsoOrNull(current.commercialStateChangedAt)) {
+      patch.commercialStateChangedAt =
+        toIsoOrNull(current.createdAt) ?? createdAtFallback ?? new Date().toISOString();
+    }
     if (payload.soldAt !== undefined) patch.soldAt = soldAt;
     if (payload.nextMeetingAt !== undefined) patch.nextMeetingAt = nextMeetingAt;
-    if (commercialStatusRaw !== undefined) patch.commercialStatus = commercialStatusRaw;
+    if (commercialStatusRaw !== undefined) {
+      patch.commercialStatus = commercialStatusRaw;
+      if (commercialStatusRaw !== previousCommercial) {
+        patch.commercialStateChangedAt = new Date().toISOString();
+      }
+    }
     if (overrideRaw !== undefined) patch.serverStatusOverride = overrideRaw;
 
     if (previousAuto !== autoStatus.status) {
       patch.autoServerStatus = autoStatus.status;
+      patch.serverStateChangedAt = new Date().toISOString();
       if (previousAuto !== "active" && autoStatus.status === "active") {
         patch.deliveredAt = new Date().toISOString();
       }

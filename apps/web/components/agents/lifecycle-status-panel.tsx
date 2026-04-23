@@ -306,6 +306,14 @@ export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
             <Label>Estatus comercial actual</Label>
             <Input value={COMMERCIAL_STATUS_LABELS_ES[data.commercialStatus]} readOnly />
           </div>
+          <div className="space-y-1">
+            <Label>Días en estado comercial</Label>
+            <Input value={String(data.daysInCommercialState)} readOnly />
+          </div>
+          <div className="space-y-1">
+            <Label>Días en estado servidor</Label>
+            <Input value={String(data.daysInServerState)} readOnly />
+          </div>
         </div>
       </section>
 

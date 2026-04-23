@@ -81,6 +81,10 @@ export interface Agent {
     updatedFrom: "manual" | "automation" | "sync";
     reasonCode: string | null;
     updatedAt: string | null;
+    commercialStateChangedAt: string | null;
+    serverStateChangedAt: string | null;
+    daysInCommercialState: number;
+    daysInServerState: number;
   };
 }
 
