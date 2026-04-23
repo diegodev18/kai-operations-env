@@ -69,6 +69,49 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] =
   ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.5.1": {
+    date: "2026-04-23",
+    description:
+      "Atlas: refactorización de hooks por dominio, separación de actions y normalización de imports públicos",
+    changes: {
+      added: [
+        "Nueva estructura de hooks por dominio en `apps/web/hooks/`: `auth/`, `api/`, `agents/` (tools/properties/prompt/testing), `chat/` e `index.ts` como barrel público.",
+        "Nuevos archivos de actions separados para operaciones async con feedback UX: `agent-tools.actions.ts` y `agent-prompt.actions.ts`.",
+        "Separación de `prompt-chat.ts` en `chat/use-prompt-chat.ts` (hook principal) y `chat/use-prompt-models.ts` (carga de modelos), manteniendo tipos en `@/types/prompt-chat`.",
+      ],
+      changed: [
+        "Renombrado y reubicación de hooks a convención kebab-case (`use-*.ts`) y organización por responsabilidad para mejorar trazabilidad y mantenimiento.",
+        "Actualización de imports en componentes/páginas para consumir rutas nuevas o exports centralizados desde `@/hooks`.",
+        "Hooks de lectura ajustados para manejo de errores no intrusivo (retornan `error | null`) y sin side-effects de toast.",
+      ],
+      improved: [
+        "Menor duplicación al consolidar patrones de fetch/refetch en hooks reutilizables, priorizando `use-api-resource` como base común.",
+        "Arquitectura más escalable para crecimiento de módulos de agente (tools/properties/prompt/testing) sin mezclar estados ni responsabilidades.",
+      ],
+    },
+  },
+  "2.5.2": {
+    date: "2026-04-23",
+    description:
+      "Atlas: estandarización de nombres kebab-case en API, centralización de tipos y mejora del árbol de subcolecciones de Testing Data",
+    changes: {
+      added: [
+        "Nueva capa de contratos compartidos en `apps/api/src/types/` con módulos dedicados por dominio (`agents-types`, `agent-collaborators`, `database-admin`, `prompt-chat`, `testing-data`, etc.) y barrel único en `types/index.ts`.",
+        "Respuesta de subcolecciones de Testing Data ahora incluye `documentsScanned` para trazabilidad del escaneo de referencias.",
+      ],
+      changed: [
+        "Migración de imports de tipos en API para consumir `@/types/...` y eliminar dependencias inversas `types -> utils`.",
+        "Renombrado de archivos API a kebab-case en `types/`, `lib/`, `utils/` y `constants/` (ej. `session-user.ts`, `invitation-token.ts`, `organization-members.ts`, `agent-property-defaults.ts`).",
+        "Actualización de `AGENTS.md` (raíz, `apps/api`, `apps/web`) para documentar convención de naming kebab-case y ubicación de contratos compartidos.",
+      ],
+      fixed: [
+        "Corregido `listTestingDataSubcollections`: ya no limita a 50 documentos; usa `CollectionReference.listDocuments()` y recorre todas las refs para evitar subcolecciones omitidas en el árbol de UI.",
+      ],
+      improved: [
+        "Menor costo de lectura en Firestore para descubrimiento de subcolecciones al evitar `get()` de documentos y operar por metadatos de referencias.",
+      ],
+    },
+  },
   "2.5.0": {
     date: "2026-04-21",
     description:
@@ -95,6 +138,62 @@ export const changelogData: Record<string, ChangelogEntry> = {
       ],
       fixed: [
         "Solucionó error de HTML validation «<a> cannot be a descendant of <a>» en previsualizaciones de blog markdown dentro de `Link` wrapper.",
+      ],
+    },
+  },
+  "2.5.3": {
+    date: "2026-04-23",
+    description:
+      "Atlas: historial persistente del simulador de agentes por usuario, con gestión de conversaciones y mejoras de estabilidad SSR/hidratación",
+    changes: {
+      added: [
+        "Persistencia del simulador por agente y por usuario de backoffice en Firestore (`agent_configurations/{agentId}/implementation/simulator/users/{backofficeUserId}`).",
+        "Nuevos endpoints de API para estado del simulador: `GET`, `PATCH` y `DELETE /api/agents/:agentId/simulator-state`.",
+        "Botón y diálogo de Historial en el simulador para listar conversaciones guardadas, ver estado (activa/cerrada), abrir conversaciones cerradas y eliminar historial completo.",
+        "Acciones de seguridad UX: confirmación (`AlertDialog`) al eliminar conversación desde card y desde historial.",
+      ],
+      changed: [
+        "El simulador ahora crea una nueva card al ejecutar sobre una conversación ya finalizada, preservando intacto el resultado/historial anterior.",
+        "Conversaciones cerradas se ocultan del carrusel principal pero permanecen en historial, con opción de reabrir.",
+        "Siempre se garantiza al menos una card abierta para nuevas pruebas, incluso cuando todo el historial previo está cerrado.",
+        "La instrucción de conversaciones finalizadas queda visible pero bloqueada (solo lectura) para evitar cambios sobre ejecuciones históricas.",
+      ],
+      fixed: [
+        "Corregido mismatch de hidratación en el simulador (atributos SSR/cliente en `Textarea`).",
+        "Corregido warning de React por `setState` síncrono dentro de `useEffect` durante carga de historial.",
+        "Mitigado error de `script tag while rendering React component` eliminando scripts embebidos al renderizar HTML histórico en actividad.",
+        "El diálogo de historial ya no muestra la conversación placeholder vacía como si fuera historial real.",
+      ],
+      improved: [
+        "Guardado del historial con debounce para reducir escrituras durante streaming SSE y mejorar rendimiento.",
+        "Normalización de conversaciones persistidas para evitar estados efímeros (`isSending`/`currentTurn`) al recargar.",
+      ],
+    },
+  },
+  "2.5.4": {
+    date: "2026-04-23",
+    description:
+      "Atlas: nueva vista Dates & Statuses con lifecycle operativo, bitácora enriquecida y reglas de transición por estado",
+    changes: {
+      added: [
+        "Nueva vista de detalle del agente en `/agents/:id/dates-statuses` para gestionar fechas y estados operativos/comerciales.",
+        "Nuevos endpoints `GET` y `PATCH /api/agents/:agentId/implementation-lifecycle` con persistencia en `agent_configurations/{agentId}/implementation/lifecycle`.",
+        "Contrato de lifecycle con metadatos de trazabilidad: `updatedBy`, `updatedFrom`, `reasonCode`, `updatedAt`.",
+        "Event log inmutable para lifecycle en `implementation/events/items` con soporte de `idempotencyKey` y escritura dual (proyección + evento).",
+        "Resumen UI tipo bitácora en la vista de lifecycle, con bloques de fechas, estados/permanencia y última actualización.",
+      ],
+      changed: [
+        "Estatus comerciales y de servidor estandarizados en inglés en API/datos, con etiquetas en español en UI mediante mapeo centralizado.",
+        "La ruta de navegación de la sección quedó en `dates-statuses` (reemplaza `fechas-estado`).",
+        "El resumen de lifecycle fue compactado y refactorizado para renderizar cards y filas mediante `.map`, reduciendo repetición en JSX.",
+      ],
+      fixed: [
+        "Bitácora de lifecycle ya no registra cambios falsos cuando el valor final no cambia (`vacío -> vacío`).",
+        "Guardado de lifecycle evita escribir y loguear campos sin cambios efectivos para reducir ruido operativo.",
+      ],
+      improved: [
+        "Máquina de estados para `commercialStatus` con transiciones válidas/invalidación (`409`) en API.",
+        "Nuevos campos temporales `commercialStateChangedAt` y `serverStateChangedAt`, y métricas `daysInCommercialState` / `daysInServerState` para seguimiento de aging.",
       ],
     },
   },
