@@ -23,10 +23,10 @@ Verificación rápida: `GET /` y `GET /health` en el puerto configurado ([`confi
 | Carpeta | Rol | Evitar |
 |---------|-----|--------|
 | **`routes/`** | Definición de rutas Hono: método, path, orden. Resolver auth con helpers (p. ej. [`agents-auth.ts`](src/routes/agents-auth.ts)) y delegar al **controller**. | Lógica de negocio larga, acceso directo masivo a Firestore sin pasar por un controlador/servicio claro. |
-| **`controllers/`** | Handlers HTTP: validar input (p. ej. Zod), permisos, orquestar servicios/Firestore, devolver `Response` / helpers de [`lib/api-error.ts`](src/lib/api-error.ts). | Archivos monolíticos de miles de líneas (ver más abajo). |
+| **`controllers/`** | Solo **handlers de rutas** (funciones que reciben `Context` y devuelven `Response`): validar input, permisos, orquestar Firestore/servicios, `ApiErrors` / [`lib/api-error.ts`](src/lib/api-error.ts). La lógica auxiliar vive en **`utils/`** (o `services/`). | Helpers de dominio dentro de `controllers/`; monolitos de miles de líneas (ver más abajo). |
 | **`services/`** | Jobs o flujos reutilizables (p. ej. generación de system prompt, sync). | Endpoints HTTP; eso es `routes` + `controllers`. |
 | **`lib/`** | Infra transversal: auth, Firestore client, logger, errores API. | Clientes HTTP a APIs externas de producto si merecen otro sitio; criterio: si es solo para un dominio, valorar `services/`. |
-| **`utils/`** | Helpers puros o compartidos (validación, errores Firestore, serialización parcial). | Duplicar tipos que deberían vivir en `types/`. |
+| **`utils/`** | Helpers puros o compartidos (validación Zod, errores Firestore, serialización, authz de lectura Firestore). Agrupar por dominio en subcarpetas (p. ej. [`utils/agent-drafts/`](src/utils/agent-drafts/) para borradores). | Duplicar tipos que deberían vivir en `types/`. |
 | **`constants/`** | Contratos y valores fijos del dominio (propiedades builder, defaults Firestore, etc.). | Lógica condicional pesada (mejor `utils/` o `services/`). |
 | **`db/`** | Cliente Drizzle y esquemas SQL. | Reglas de negocio de agentes. |
 | **`src/types/`** | Declaraciones `.d.ts` compartidas en la API. | — |
@@ -50,12 +50,12 @@ Al añadir un router nuevo: `export const miRouter = new Hono();` … y en `inde
 
 Si un **`*.controller.ts`** supera ~400–500 líneas o mezcla dominios claros (p. ej. borradores + tareas + propiedades técnicas en un solo archivo):
 
-1. Crear carpeta **`src/controllers/<nombre-dominio>/`** (ej. `agent-drafts/`).
-2. Partir en módulos por responsabilidad (`draft-pending-tasks.ts`, `draft-property-items.ts`, …) con funciones exportadas.
-3. Exponer la API estable desde **`index.ts`** en esa carpeta (`export { postAgentDraft, getAgentDraft, … }`).
-4. Actualizar imports en **`routes/`** (y en otros controladores si importaban el monolito).
+1. Crear carpeta **`src/controllers/<nombre-dominio>/`** (ej. `agent-drafts/`) con **solo handlers HTTP** (un archivo por grupo de rutas o recurso).
+2. Mover constantes, esquemas Zod, serialización, acceso Firestore reutilizable, etc. a **`src/utils/<nombre-dominio>/`**.
+3. Exponer handlers desde **`controllers/<dominio>/index.ts`** (`export { postAgentDraft, getAgentDraft, … }`).
+4. Actualizar imports en **`routes/`** y en otros módulos que consuman helpers (`@/utils/...`).
 
-**Dependencias entre controladores:** vigilar imports cruzados (ej. drafts que importan helpers de `agent-detail.controller.ts`) para no crear **ciclos**; extraer lo compartido a `utils/` o `services/` si hace falta.
+**Dependencias entre controladores:** vigilar imports cruzados (ej. drafts que importan `persistInitialBuilderSnapshotIfMissing` desde `@/utils/agent-detail/builder-form`) para no crear **ciclos**; extraer lo compartido a `utils/` o `services/` si hace falta.
 
 ## Referencias útiles
 

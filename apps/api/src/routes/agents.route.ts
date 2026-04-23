@@ -15,7 +15,7 @@ import {
   postDraftPropertyItem,
   postDraftPendingTask,
   postAgentDraft,
-} from "@/controllers/agent-drafts.controller";
+} from "@/controllers/agent-drafts";
 import { postAgentBuilderChat } from "@/controllers/agent-builder-chat.controller";
 import { postAgentFlowQuestions } from "@/controllers/agent-flow-questions.controller";
 import { postAgentRecommendTools } from "@/controllers/agent-recommend-tools.controller";
@@ -36,7 +36,7 @@ import {
   updateAgentPropertyDocument,
   getProductionPrompt,
   promotePromptToProduction,
-} from "@/controllers/agent-detail.controller";
+} from "@/controllers/agent-detail";
 import {
   createAgentTool,
   deleteAgentTool,

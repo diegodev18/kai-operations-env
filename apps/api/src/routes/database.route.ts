@@ -10,7 +10,7 @@ import {
   listSubcollections,
   previewCollection,
   subirDocumentos,
-} from "@/controllers/database.controller";
+} from "@/controllers/database";
 
 export const databaseRouter = new Hono();
 
