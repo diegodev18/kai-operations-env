@@ -186,6 +186,66 @@ export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
     );
   }
 
+  const summaryCards: Array<{
+    id: string;
+    title: string;
+    Icon: typeof CalendarClockIcon;
+    rows: Array<{ label: string; value: string | number }>;
+  }> = [
+    {
+      id: "dates",
+      title: "Fechas clave",
+      Icon: CalendarClockIcon,
+      rows: [
+        { label: "Creación", value: formatDateTime(data.createdAt) },
+        { label: "Venta", value: formatDateTime(data.soldAt) },
+        { label: "Entrega", value: formatDateTime(data.deliveredAt) },
+        { label: "Próxima reunión", value: formatDateTime(data.nextMeetingAt) },
+      ],
+    },
+    {
+      id: "statuses",
+      title: "Estados y permanencia",
+      Icon: ActivityIcon,
+      rows: [
+        {
+          label: "Comercial",
+          value: COMMERCIAL_STATUS_LABELS_ES[data.commercialStatus],
+        },
+        {
+          label: "Servidor (efectivo)",
+          value: SERVER_STATUS_LABELS_ES[data.serverStatus],
+        },
+        {
+          label: "Servidor (auto)",
+          value: SERVER_STATUS_LABELS_ES[data.serverStatusAuto],
+        },
+        {
+          label: "Servidor (override)",
+          value: data.serverStatusOverride
+            ? SERVER_STATUS_LABELS_ES[data.serverStatusOverride]
+            : "Automático",
+        },
+        {
+          label: "Días en estado comercial",
+          value: data.daysInCommercialState,
+        },
+        { label: "Días en estado servidor", value: data.daysInServerState },
+      ],
+    },
+    {
+      id: "latest-update",
+      title: "Última actualización",
+      Icon: UserCircle2Icon,
+      rows: [
+        { label: "Actor", value: data.updatedBy ?? "Sistema" },
+        { label: "Origen", value: data.updatedFrom },
+        { label: "Razón", value: data.reasonCode ?? "—" },
+        { label: "Fecha", value: formatDateTime(data.updatedAt) },
+      ],
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <h2 className="text-sm font-semibold text-foreground">Fechas y estado</h2>
@@ -303,105 +363,24 @@ export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
         </h3>
         <div className="relative space-y-2.5 pl-4">
           <div className="pointer-events-none absolute left-2 top-2 bottom-2 w-px bg-border" />
-
-          <Card className="relative gap-0!">
-            <span className="absolute -left-5 top-4 flex size-6 items-center justify-center rounded-full border bg-muted ring-2 ring-background">
-              <CalendarClockIcon className="size-3 text-muted-foreground" />
-            </span>
-            <CardHeader className="pb-0 pt-2.5">
-              <CardTitle className="text-xs">Fechas clave</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-1.5 pt-1 text-xs sm:grid-cols-2">
-              <p>
-                <span className="text-muted-foreground">Creación:</span>{" "}
-                {formatDateTime(data.createdAt)}
-              </p>
-              <p>
-                <span className="text-muted-foreground">Venta:</span>{" "}
-                {formatDateTime(data.soldAt)}
-              </p>
-              <p>
-                <span className="text-muted-foreground">Entrega:</span>{" "}
-                {formatDateTime(data.deliveredAt)}
-              </p>
-              <p>
-                <span className="text-muted-foreground">Próxima reunión:</span>{" "}
-                {formatDateTime(data.nextMeetingAt)}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="relative gap-0!">
-            <span className="absolute -left-5 top-4 flex size-6 items-center justify-center rounded-full border bg-muted ring-2 ring-background">
-              <ActivityIcon className="size-3 text-muted-foreground" />
-            </span>
-            <CardHeader className="pb-0 pt-2.5">
-              <CardTitle className="text-xs">Estados y permanencia</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-1.5 pt-1 text-xs sm:grid-cols-2">
-              <p>
-                <span className="text-muted-foreground">Comercial:</span>{" "}
-                {COMMERCIAL_STATUS_LABELS_ES[data.commercialStatus]}
-              </p>
-              <p>
-                <span className="text-muted-foreground">
-                  Servidor (efectivo):
-                </span>{" "}
-                {SERVER_STATUS_LABELS_ES[data.serverStatus]}
-              </p>
-              <p>
-                <span className="text-muted-foreground">Servidor (auto):</span>{" "}
-                {SERVER_STATUS_LABELS_ES[data.serverStatusAuto]}
-              </p>
-              <p>
-                <span className="text-muted-foreground">
-                  Servidor (override):
-                </span>{" "}
-                {data.serverStatusOverride
-                  ? SERVER_STATUS_LABELS_ES[data.serverStatusOverride]
-                  : "Automático"}
-              </p>
-              <p>
-                <span className="text-muted-foreground">
-                  Días en estado comercial:
-                </span>{" "}
-                {data.daysInCommercialState}
-              </p>
-              <p>
-                <span className="text-muted-foreground">
-                  Días en estado servidor:
-                </span>{" "}
-                {data.daysInServerState}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="relative gap-0!">
-            <span className="absolute -left-5 top-4 flex size-6 items-center justify-center rounded-full border bg-muted ring-2 ring-background">
-              <UserCircle2Icon className="size-3 text-muted-foreground" />
-            </span>
-            <CardHeader className="pb-0 pt-2.5">
-              <CardTitle className="text-xs">Última actualización</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-1.5 pt-1 text-xs sm:grid-cols-2">
-              <p>
-                <span className="text-muted-foreground">Actor:</span>{" "}
-                {data.updatedBy ?? "Sistema"}
-              </p>
-              <p>
-                <span className="text-muted-foreground">Origen:</span>{" "}
-                {data.updatedFrom}
-              </p>
-              <p>
-                <span className="text-muted-foreground">Razón:</span>{" "}
-                {data.reasonCode ?? "—"}
-              </p>
-              <p>
-                <span className="text-muted-foreground">Fecha:</span>{" "}
-                {formatDateTime(data.updatedAt)}
-              </p>
-            </CardContent>
-          </Card>
+          {summaryCards.map(({ id, title, Icon, rows }) => (
+            <Card key={id} className="relative gap-0!">
+              <span className="absolute -left-5 top-4 flex size-6 items-center justify-center rounded-full border bg-muted ring-2 ring-background">
+                <Icon className="size-3 text-muted-foreground" />
+              </span>
+              <CardHeader className="pb-0 pt-2.5">
+                <CardTitle className="text-xs">{title}</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-1.5 pt-1 text-xs sm:grid-cols-2 xl:grid-cols-3">
+                {rows.map((row) => (
+                  <p key={`${id}-${row.label}`}>
+                    <span className="text-muted-foreground">{row.label}:</span>{" "}
+                    {row.value}
+                  </p>
+                ))}
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </section>
 
