@@ -3,7 +3,7 @@ import type {
   QueryDocumentSnapshot,
 } from "firebase-admin/firestore";
 
-import type { GrowerPayload } from "@/types/collaborators";
+import type { GrowerPayload } from "@/types/agent-collaborators";
 
 /**
  * Convierte documentos de `agent_configurations/{id}/growers/{doc}` en payload de API.

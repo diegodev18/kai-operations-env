@@ -6,7 +6,7 @@ import {
   getBuilderAllowlistEntry,
   normalizeAndValidateBuilderPropertyValue,
 } from "@/constants/builder-suggested-properties";
-import type { AgentsInfoAuthContext } from "@/types/agents";
+import type { AgentsInfoAuthContext } from "@/types/agents-types";
 
 import { getAuthorizedDraftRef } from "./authorized-draft";
 

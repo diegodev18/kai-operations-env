@@ -9,7 +9,7 @@ import type {
   AgentDocument,
   AgentsInfoAuthContext,
   LightAgent,
-} from "@/types/agents";
+} from "@/types/agents-types";
 import type { PrefetchedAgentData } from "@/utils/agents/agentSearchMatch";
 import {
   agentMatchesGrowersSearchQuery,

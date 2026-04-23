@@ -6,7 +6,7 @@ import { z } from "zod";
 
 import { getFirestore } from "@/lib/firestore";
 import logger from "@/lib/logger";
-import type { AgentsInfoAuthContext } from "@/types/agents";
+import type { AgentsInfoAuthContext } from "@/types/agents-types";
 
 const TOOLS_CATALOG = "toolsCatalog";
 const MODEL = "gemini-2.5-pro";

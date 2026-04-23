@@ -3,7 +3,7 @@ import { FieldValue } from "firebase-admin/firestore";
 
 import { ApiErrors } from "@/lib/api-error";
 import { appendImplementationActivityEntry } from "@/services/implementation-activity.service";
-import type { AgentsInfoAuthContext } from "@/types/agents";
+import type { AgentsInfoAuthContext } from "@/types/agents-types";
 import { resolveAgentWriteDatabase, userCanAccessAgent } from "@/utils/agents";
 import {
   extractFirestoreIndexUrl,

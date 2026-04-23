@@ -2,7 +2,7 @@ import type { Context } from "hono";
 
 import { ApiErrors } from "@/lib/api-error";
 import { serverTimestampField } from "@/constants/agentPropertyDefaults";
-import type { AgentsInfoAuthContext } from "@/types/agents";
+import type { AgentsInfoAuthContext } from "@/types/agents-types";
 
 import { handleFirestoreError } from "@/utils/agent-drafts/access";
 import { getAuthorizedDraftRef } from "@/utils/agent-drafts/authorized-draft";

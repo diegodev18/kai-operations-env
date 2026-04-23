@@ -11,7 +11,7 @@ import {
   isFirestoreDataMode,
 } from "@/constants/firestore-data-mode";
 import { appendImplementationActivityEntry } from "@/services/implementation-activity.service";
-import type { AgentsInfoAuthContext } from "@/types/agents";
+import type { AgentsInfoAuthContext } from "@/types/agents-types";
 import { resolveAgentWriteDatabase, userCanEditAgent } from "@/utils/agents";
 import { isOperationsAdmin } from "@/utils/operations-access";
 import { handleFirestoreError, requireAgentAccess } from "@/utils/agent-detail/access";

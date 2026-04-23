@@ -295,10 +295,10 @@ export function AgentBuilderChatDiagram(props?: { initialMode?: "form" | "conver
   );
 
   const openRequiredNodeDialog = useCallback((key: RequiredNodeFieldKey, label: string) => {
-    setRequiredNodeKey(key);
-    setRequiredNodeLabel(label);
-    setRequiredNodeValue(draftState[key]);
-    setRequiredNodeDialogOpen(true);
+      setRequiredNodeKey(key);
+      setRequiredNodeLabel(label);
+      setRequiredNodeValue(draftState[key]);
+      setRequiredNodeDialogOpen(true);
   }, [draftState]);
 
   const syncTechnicalProps = useCallback(async (id: string) => {

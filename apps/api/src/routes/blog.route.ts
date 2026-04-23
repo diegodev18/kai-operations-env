@@ -7,7 +7,7 @@ import { resolveSessionUserRole } from "@/utils/sessionUser";
 import { FIREBASE_APP_NAME } from "@/config";
 import { nanoid } from "nanoid";
 
-import type { BlogPost } from "@/types/blog";
+import type { BlogPost } from "@/types/blog-types";
 
 export const blogRouter = new Hono();
 

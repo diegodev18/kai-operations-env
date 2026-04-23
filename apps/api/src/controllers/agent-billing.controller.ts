@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { getFirestore } from "@/lib/firestore";
 import { appendImplementationActivityEntry } from "@/services/implementation-activity.service";
-import type { AgentsInfoAuthContext } from "@/types/agents";
+import type { AgentsInfoAuthContext } from "@/types/agents-types";
 import { isOperationsAdmin, isOperationsCommercial } from "@/utils/operations-access";
 import { parseBillingDoc, parsePaymentRecordDoc } from "@/utils/agents";
 

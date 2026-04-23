@@ -4,7 +4,7 @@ import type { QueryDocumentSnapshot } from "firebase-admin/firestore";
 import { ApiErrors } from "@/lib/api-error";
 import { PROPERTY_DOC_IDS } from "@/constants/agentPropertyDefaults";
 import { getFirestore } from "@/lib/firestore";
-import type { AgentsInfoAuthContext } from "@/types/agents";
+import type { AgentsInfoAuthContext } from "@/types/agents-types";
 import {
   getAgentDeploymentFlags,
   parseAgentDoc,

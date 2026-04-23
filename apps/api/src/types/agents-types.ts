@@ -1,6 +1,6 @@
 import type { QueryDocumentSnapshot } from "firebase-admin/firestore";
 
-import type { GrowerPayload, TechLeadPayload } from "./collaborators";
+import type { GrowerPayload, TechLeadPayload } from "./agent-collaborators";
 
 export type AgentsInfoAuthContext = {
   userEmail?: string;

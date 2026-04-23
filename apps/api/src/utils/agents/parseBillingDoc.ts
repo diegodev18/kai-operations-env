@@ -1,6 +1,6 @@
 import type { DocumentSnapshot } from "firebase-admin/firestore";
 
-import type { AgentBilling } from "@/types/agents";
+import type { AgentBilling } from "@/types/agents-types";
 
 export type ParsedPaymentRecord = {
   id: string;

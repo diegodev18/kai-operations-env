@@ -3,7 +3,7 @@ import type { Context } from "hono";
 import admin from "firebase-admin";
 
 import { getFirestore } from "@/lib/firestore";
-import type { AgentsInfoAuthContext } from "@/types/agents";
+import type { AgentsInfoAuthContext } from "@/types/agents-types";
 import type {
   SerializedFirestoreGeoPoint,
   SerializedFirestoreTimestamp,

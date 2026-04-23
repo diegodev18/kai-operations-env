@@ -8,7 +8,7 @@ import {
   setSystemPromptGeneratingFlags,
 } from "@/services/system-prompt-generation-job";
 import { appendImplementationActivityEntry } from "@/services/implementation-activity.service";
-import type { AgentsInfoAuthContext } from "@/types/agents";
+import type { AgentsInfoAuthContext } from "@/types/agents-types";
 import { resolveAgentWriteDatabase } from "@/utils/agents";
 import { handleFirestoreError, requireAgentAccess } from "@/utils/agent-detail/access";
 

@@ -1,8 +1,8 @@
 import type { Context } from "hono";
 import { nanoid } from "nanoid";
 
-import type { AgentsInfoAuthContext } from "@/types/agents";
-import type { ChangelogPayload } from "@/types/changelog";
+import type { AgentsInfoAuthContext } from "@/types/agents-types";
+import type { ChangelogPayload } from "@/types/changelog-types";
 import { getFirestore, FieldValue } from "@/lib/firestore";
 import { isOperationsAdmin } from "@/utils/operations-access";
 import { compareChangelogEntriesVersionThenRegisterDateDesc } from "@/utils/semver-compare";

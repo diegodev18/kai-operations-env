@@ -6,7 +6,7 @@ import {
   firestoreFailureHint,
   isFirebaseConfigError,
 } from "@/utils/firestore/errors";
-import type { AgentsInfoAuthContext } from "@/types/agents";
+import type { AgentsInfoAuthContext } from "@/types/agents-types";
 import { userCanAccessAgent } from "@/utils/agents";
 
 export function normalizeAgentStatus(value: unknown): "active" | "archived" {

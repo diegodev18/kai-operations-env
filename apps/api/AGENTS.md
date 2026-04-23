@@ -35,7 +35,7 @@ Flujo típico: `routes/*.route.ts` → función en `controllers/*.controller.ts`
 
 ## Tipos (`src/types/`)
 
-- Los shapes compartidos (DTOs, payloads, respuestas reutilizables) viven en **`src/types/*.ts`**. `utils/`, `controllers/` y `routes/` importan desde `@/types/...` o desde el barrel `@/types`.
+- Los shapes compartidos (DTOs, payloads, respuestas reutilizables) viven en **`src/types/*.ts`** con nombres de archivo en **kebab-case** (p. ej. `agents-types.ts`, `agent-collaborators.ts`). `utils/`, `controllers/` y `routes/` importan desde `@/types/...` o desde el barrel `@/types`.
 - **`types` no debe depender de `utils/`** (evitar ciclos): si un tipo estaba en `utils` y lo usan varios sitios, muévelo a `types/` y haz que `utils` importe desde `@/types/...`.
 - Reservar **`.d.ts`** solo para casos excepcionales (p. ej. `declare module` / augmentación global), no como ubicación principal de tipos de negocio.
 

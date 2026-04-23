@@ -10,7 +10,7 @@ import {
   isOperationsAdmin,
   isOperationsCommercial,
 } from "@/utils/operations-access";
-import type { AgentsInfoAuthContext } from "@/types/agents";
+import type { AgentsInfoAuthContext } from "@/types/agents-types";
 
 export function canAccessDraft(
   authCtx: AgentsInfoAuthContext,

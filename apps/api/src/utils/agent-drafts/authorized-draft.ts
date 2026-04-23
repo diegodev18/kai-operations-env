@@ -1,7 +1,7 @@
 import type { DocumentReference } from "firebase-admin/firestore";
 
 import { getFirestore } from "@/lib/firestore";
-import type { AgentsInfoAuthContext } from "@/types/agents";
+import type { AgentsInfoAuthContext } from "@/types/agents-types";
 
 import { AGENT_CONFIGURATIONS } from "./constants";
 import { canAccessDraft } from "./access";

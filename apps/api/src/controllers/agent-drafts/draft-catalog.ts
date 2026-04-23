@@ -1,7 +1,7 @@
 import type { Context } from "hono";
 
 import { getFirestore } from "@/lib/firestore";
-import type { AgentsInfoAuthContext } from "@/types/agents";
+import type { AgentsInfoAuthContext } from "@/types/agents-types";
 
 import { handleFirestoreError } from "@/utils/agent-drafts/access";
 import { TOOLS_CATALOG } from "@/utils/agent-drafts/constants";

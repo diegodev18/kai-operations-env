@@ -13,7 +13,7 @@ import { eq } from "drizzle-orm";
 import { getFirestore, FieldValue } from "@/lib/firestore";
 import logger, { formatError } from "@/lib/logger";
 import { runSystemPromptGenerationJob } from "@/services/system-prompt-generation-job";
-import type { AgentsInfoAuthContext } from "@/types/agents";
+import type { AgentsInfoAuthContext } from "@/types/agents-types";
 import { mergeMandatoryToolDocIds } from "@/controllers/agent-recommend-tools.controller";
 import { isOperationsAdmin } from "@/utils/operations-access";
 import { serializeAgentConfigurationRootForClient } from "@/utils/agents/serializeAgentRootForClient";

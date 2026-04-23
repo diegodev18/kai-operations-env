@@ -5,12 +5,12 @@ export type {
   LightAgent,
   ImplementationTaskStatus,
   ImplementationTaskPayload,
-} from "./agents";
-export type { GrowerPayload, TechLeadPayload } from "./collaborators";
+} from "./agents-types";
+export type { GrowerPayload, TechLeadPayload } from "./agent-collaborators";
 
 export type { AgentsTestingSimulateBody } from "./agents-testing";
-export type { BlogPost } from "./blog";
-export type { ChangelogPayload } from "./changelog";
+export type { BlogPost } from "./blog-types";
+export type { ChangelogPayload } from "./changelog-types";
 export type {
   ActualizarDocumentoBody,
   DuplicacionLog,
