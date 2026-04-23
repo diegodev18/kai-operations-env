@@ -2,7 +2,7 @@ import type { DocumentReference } from "firebase-admin/firestore";
 
 import {
   type PropertyDocId,
-} from "@/constants/agentPropertyDefaults";
+} from "@/constants/agent-property-defaults";
 import { FieldValue } from "@/lib/firestore";
 import {
   serializeAgentConfigurationRootForClient,

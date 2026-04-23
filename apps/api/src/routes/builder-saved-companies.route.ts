@@ -4,7 +4,7 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 
 import { BUILDER_COMPANIES_COLLECTION } from "@/constants/builder-companies";
-import { serverTimestampField } from "@/constants/agentPropertyDefaults";
+import { serverTimestampField } from "@/constants/agent-property-defaults";
 import { db } from "@/db/client";
 import { user as userTable } from "@/db/schema/auth";
 import { getFirestore, Timestamp } from "@/lib/firestore";

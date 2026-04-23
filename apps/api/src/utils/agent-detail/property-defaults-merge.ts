@@ -1,7 +1,7 @@
 import {
   PROPERTY_DEFAULTS,
   type PropertyDocId,
-} from "@/constants/agentPropertyDefaults";
+} from "@/constants/agent-property-defaults";
 
 export function mergeWithDefaults<T extends PropertyDocId>(
   docId: T,

@@ -5,7 +5,7 @@ import {
   serverTimestampField,
   writeDefaultAgentProperties,
   writeDefaultTestingProperties,
-} from "@/constants/agentPropertyDefaults";
+} from "@/constants/agent-property-defaults";
 import { applyBuilderAdvancedProperties } from "@/utils/apply-builder-advanced-properties";
 import { db as drizzleDb } from "@/db/client";
 import { user as userTable } from "@/db/schema/auth";

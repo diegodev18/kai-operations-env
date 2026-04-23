@@ -1,7 +1,7 @@
 import type { Context } from "hono";
 
 import { ApiErrors } from "@/lib/api-error";
-import { serverTimestampField } from "@/constants/agentPropertyDefaults";
+import { serverTimestampField } from "@/constants/agent-property-defaults";
 import type { AgentsInfoAuthContext } from "@/types/agents-types";
 
 import { handleFirestoreError } from "@/utils/agent-drafts/access";

@@ -1,6 +1,6 @@
 import type { DocumentReference } from "firebase-admin/firestore";
 
-import { serverTimestampField } from "@/constants/agentPropertyDefaults";
+import { serverTimestampField } from "@/constants/agent-property-defaults";
 import logger from "@/lib/logger";
 
 import { USERS_BUILDERS } from "./constants";

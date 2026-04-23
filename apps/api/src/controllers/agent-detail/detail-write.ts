@@ -4,7 +4,7 @@ import { ApiErrors } from "@/lib/api-error";
 import {
   PROPERTY_DOC_IDS,
   type PropertyDocId,
-} from "@/constants/agentPropertyDefaults";
+} from "@/constants/agent-property-defaults";
 import { getFirestore } from "@/lib/firestore";
 import {
   FIRESTORE_DATA_MODES,

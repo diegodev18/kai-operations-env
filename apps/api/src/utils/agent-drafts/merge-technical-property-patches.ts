@@ -1,7 +1,7 @@
 import {
   serverTimestampField,
   writeDefaultAgentProperties,
-} from "@/constants/agentPropertyDefaults";
+} from "@/constants/agent-property-defaults";
 import {
   getBuilderAllowlistEntry,
   normalizeAndValidateBuilderPropertyValue,

@@ -1,4 +1,4 @@
-import { PROPERTY_DOC_IDS } from "@/constants/agentPropertyDefaults";
+import { PROPERTY_DOC_IDS } from "@/constants/agent-property-defaults";
 
 /** Subconjunto de `properties` del borrador expuesto como bundle técnico. */
 export const DRAFT_TECHNICAL_PROPERTY_DOC_IDS = [
