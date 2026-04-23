@@ -5,7 +5,7 @@ import { cors } from "hono/cors";
 import { CORS_OPTIONS, NODE_ENV, PORT_NUMBER } from "@/config";
 import { getHealth } from "@/controllers/health.controller";
 import { auth } from "@/lib/auth";
-import api from "@/routes";
+import { api } from "@/routes";
 
 const app = new Hono();
 

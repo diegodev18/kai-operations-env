@@ -17,9 +17,9 @@ import {
 } from "@/controllers/organization.controller";
 import { auth } from "@/lib/auth";
 import { isOperationsAdmin } from "@/utils/operations-access";
-import { resolveSessionUserRole } from "@/utils/sessionUser";
+import { resolveSessionUserRole } from "@/utils/session-user";
 
-const organizationRouter = new Hono();
+export const organizationRouter = new Hono();
 
 organizationRouter.get("/invitation-preview", (c) => getInvitationPreview(c));
 
@@ -145,5 +145,3 @@ organizationRouter.delete("/invitations/:invitationId", async (c) => {
   }
   return deleteOrganizationInvitation(c);
 });
-
-export default organizationRouter;

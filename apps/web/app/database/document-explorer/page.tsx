@@ -9,11 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { ChangelogNavItem } from "@/components/changelog-nav";
-import { UserMenu } from "@/components/user-menu";
-import { useAuth } from "@/hooks/auth";
-import JsonTreeView from "@/components/JsonTreeView";
-import { collectAllPaths } from "@/components/json-tree-view-utils";
+import { ChangelogNavItem, UserMenu } from "@/components/shared";
+import { useAuth } from "@/hooks";
+import { JsonTreeView } from "@/components/database/JsonTreeView";
+import { collectAllPaths } from "@/components/database/json-tree-view-utils";
 import {
   Loader2,
   Copy,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { AgentConfigurationEditor } from "@/components/agent-configuration-editor";
+import { AgentConfigurationEditor } from "@/components/agents";
 
 export default function AgentConfigurationPage() {
   const params = useParams();

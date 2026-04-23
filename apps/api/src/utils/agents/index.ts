@@ -7,15 +7,11 @@ export {
 export { buildLightAgent } from "./buildLightAgent";
 export { userCanAddGrowerToAgent } from "./growerAccess";
 export { isGrowerCursor } from "./growersCursor";
-export {
-  fetchGrowersForAgent,
-  mapGrowerDocsToPayload,
-  type GrowerPayload,
-} from "./growers";
+export type { GrowerPayload, TechLeadPayload } from "@/types/agent-collaborators";
+export { fetchGrowersForAgent, mapGrowerDocsToPayload } from "./growers";
 export {
   fetchTechLeadsForAgent,
   mapTechLeadDocsToPayload,
-  type TechLeadPayload,
 } from "./techLeads";
 export {
   parseAgentDoc,

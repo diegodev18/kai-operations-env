@@ -10,9 +10,9 @@ import {
   listSubcollections,
   previewCollection,
   subirDocumentos,
-} from "@/controllers/database.controller";
+} from "@/controllers/database";
 
-const databaseRouter = new Hono();
+export const databaseRouter = new Hono();
 
 databaseRouter.get("/coleccion/preview", previewCollection);
 databaseRouter.get("/documento", getDocument);
@@ -23,5 +23,3 @@ databaseRouter.post("/subir", subirDocumentos);
 databaseRouter.post("/duplicar/coleccion", duplicarColeccion);
 databaseRouter.post("/duplicar/documento", duplicarDocumento);
 databaseRouter.post("/clonar-recursivo", clonarRecursivo);
-
-export default databaseRouter;

@@ -1,7 +1,7 @@
 import type {
   PromptTarget,
   SuggestedPrompts,
-} from "@/types/prompt-chat";
+} from "@/types";
 
 export const CHAT_STATUS_LOADING_MESSAGES = [
   "✨ Perfeccionando tu prompt...",

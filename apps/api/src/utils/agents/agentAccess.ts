@@ -1,7 +1,7 @@
 import type { Firestore } from "firebase-admin/firestore";
 
 import { getFirestore } from "@/lib/firestore";
-import type { AgentsInfoAuthContext } from "@/types/agents";
+import type { AgentsInfoAuthContext } from "@/types/agents-types";
 import { isOperationsAdmin, isOperationsCommercial } from "@/utils/operations-access";
 
 import { mapGrowerDocsToPayload } from "./growers";

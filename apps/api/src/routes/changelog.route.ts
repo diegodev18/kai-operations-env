@@ -11,7 +11,7 @@ import {
   postChangelogUpload,
 } from "@/controllers/changelog.controller";
 
-const changelogRouter = new Hono();
+export const changelogRouter = new Hono();
 
 changelogRouter.get("/:project/entries/:entryId", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
@@ -76,5 +76,4 @@ changelogRouter.post("/:project/upload", async (c) => {
   return postChangelogUpload(c, ctx.authCtx, project);
 });
 
-export default changelogRouter;
 export { listChangelogProjects } from "@/controllers/changelog.controller";

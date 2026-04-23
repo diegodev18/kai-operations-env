@@ -5,10 +5,8 @@
 import type { Firestore } from "firebase-admin/firestore";
 
 import { getFirestore } from "@/lib/firestore";
-import type { AgentDocument } from "@/types/agents";
-
-import type { GrowerPayload } from "./growers";
-import type { TechLeadPayload } from "./techLeads";
+import type { AgentDocument } from "@/types/agents-types";
+import type { GrowerPayload, TechLeadPayload } from "@/types/agent-collaborators";
 import { fetchGrowersForAgent } from "./growers";
 import { fetchTechLeadsForAgent } from "./techLeads";
 import { parseAgentDoc } from "./parseAgentDoc";

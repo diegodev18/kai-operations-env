@@ -11,48 +11,46 @@ import {
 } from "@/controllers/agent-testing-data.controller";
 import { resolveAgentsAuthContext } from "@/routes/agents-auth";
 
-const router = new Hono();
+export const agentTestingDataRouter = new Hono();
 
-router.get("/:agentId/testing/data", async (c) => {
+agentTestingDataRouter.get("/:agentId/testing/data", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   return listTestingDataCollections(ctx.authCtx, c);
 });
 
-router.get("/:agentId/testing/data/:collection", async (c) => {
+agentTestingDataRouter.get("/:agentId/testing/data/:collection", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   return listTestingDataDocuments(ctx.authCtx, c);
 });
 
-router.get("/:agentId/testing/data/:collection/subcollections", async (c) => {
+agentTestingDataRouter.get("/:agentId/testing/data/:collection/subcollections", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   return listTestingDataSubcollections(ctx.authCtx, c);
 });
 
-router.get("/:agentId/testing/data/:collection/:docId", async (c) => {
+agentTestingDataRouter.get("/:agentId/testing/data/:collection/:docId", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   return getTestingDataDocument(ctx.authCtx, c);
 });
 
-router.post("/:agentId/testing/data/:collection", async (c) => {
+agentTestingDataRouter.post("/:agentId/testing/data/:collection", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   return createTestingDataDocument(ctx.authCtx, c);
 });
 
-router.patch("/:agentId/testing/data/:collection/:docId", async (c) => {
+agentTestingDataRouter.patch("/:agentId/testing/data/:collection/:docId", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   return updateTestingDataDocument(ctx.authCtx, c);
 });
 
-router.delete("/:agentId/testing/data/:collection/:docId", async (c) => {
+agentTestingDataRouter.delete("/:agentId/testing/data/:collection/:docId", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   return deleteTestingDataDocument(ctx.authCtx, c);
 });
-
-export default router;

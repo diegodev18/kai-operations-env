@@ -6,7 +6,7 @@ import { dirname, join } from "path";
 import { z } from "zod";
 
 import logger from "@/lib/logger";
-import type { AgentsInfoAuthContext } from "@/types/agents";
+import type { AgentsInfoAuthContext } from "@/types/agents-types";
 
 const MODEL = "gemini-2.5-pro";
 

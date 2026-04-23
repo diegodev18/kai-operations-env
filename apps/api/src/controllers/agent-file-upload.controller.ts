@@ -1,7 +1,7 @@
 import type { Context } from "hono";
 import admin from "firebase-admin";
 
-import type { AgentsInfoAuthContext } from "@/types/agents";
+import type { AgentsInfoAuthContext } from "@/types/agents-types";
 import { resolveAgentWriteDatabase, userCanAccessAgent } from "@/utils/agents";
 import { FIREBASE_APP_NAME } from "@/config";
 

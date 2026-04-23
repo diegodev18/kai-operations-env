@@ -1,18 +1,18 @@
 import { Hono } from "hono";
 
-import agentsRouter from "@/routes/agents.route";
-import agentTestingDataRouter from "@/routes/agent-testing-data.route";
-import agentsTestingRouter from "@/routes/agents-testing.route";
-import builderSavedCompaniesRouter from "@/routes/builder-saved-companies.route";
-import blogRouter from "@/routes/blog.route";
-import changelogRouter from "@/routes/changelog.route";
-import databaseRouter from "@/routes/database.route";
-import favoritesRouter from "@/routes/favorites.route";
-import healthRouter from "@/routes/health.route";
-import organizationRouter from "@/routes/organization.route";
-import promptRouter from "@/routes/prompt.route";
+import { agentsRouter } from "@/routes/agents";
+import { agentTestingDataRouter } from "@/routes/agent-testing-data.route";
+import { agentsTestingRouter } from "@/routes/agents-testing.route";
+import { builderSavedCompaniesRouter } from "@/routes/builder-saved-companies.route";
+import { blogRouter } from "@/routes/blog.route";
+import { changelogRouter } from "@/routes/changelog.route";
+import { databaseRouter } from "@/routes/database.route";
+import { favoritesRouter } from "@/routes/favorites.route";
+import { healthRouter } from "@/routes/health.route";
+import { organizationRouter } from "@/routes/organization.route";
+import { promptRouter } from "@/routes/prompt.route";
 
-const api = new Hono();
+export const api = new Hono();
 
 api.route("/blog", blogRouter);
 api.route("/changelogs", changelogRouter);
@@ -25,5 +25,3 @@ api.route("/favorites", favoritesRouter);
 api.route("/builder/saved-companies", builderSavedCompaniesRouter);
 api.route("/organization", organizationRouter);
 api.route("/prompt", promptRouter);
-
-export default api;

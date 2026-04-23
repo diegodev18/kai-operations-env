@@ -2,8 +2,6 @@ import { Hono } from "hono";
 
 import { simulateAgentsTesting } from "@/controllers/agents-testing.controller";
 
-const router = new Hono();
+export const agentsTestingRouter = new Hono();
 
-router.post("/simulate", simulateAgentsTesting);
-
-export default router;
+agentsTestingRouter.post("/simulate", simulateAgentsTesting);

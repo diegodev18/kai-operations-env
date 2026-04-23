@@ -19,7 +19,7 @@ import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { fetchBlogPost, hideBlogPost, type BlogPost } from "@/services/blog-api";
-import { useAuth } from "@/hooks/auth";
+import { useAuth } from "@/hooks";
 
 function formatDate(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString("es-ES", {

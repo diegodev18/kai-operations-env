@@ -5,8 +5,7 @@ import Link from "next/link";
 import { getProjectById, canEditChangelogEntry, type DbChangelogEntry } from "../changelog-data";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/auth";
-import { useUserRole } from "@/hooks/useUserRole";
+import { useAuth, useUserRole } from "@/hooks";
 import {
   ArrowLeftIcon,
   HomeIcon,

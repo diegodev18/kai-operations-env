@@ -3,9 +3,9 @@ import { Hono } from "hono";
 import { getAvailableModels, promptChat } from "@/controllers/prompt.controller";
 import { auth } from "@/lib/auth";
 
-const router = new Hono();
+export const promptRouter = new Hono();
 
-router.get("/models", async (c) => {
+promptRouter.get("/models", async (c) => {
   const session = await auth.api.getSession({
     headers: c.req.raw.headers,
   });
@@ -18,6 +18,4 @@ router.get("/models", async (c) => {
   return c.json({ models });
 });
 
-router.post("/chat", promptChat);
-
-export default router;
+promptRouter.post("/chat", promptChat);

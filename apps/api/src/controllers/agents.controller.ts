@@ -9,7 +9,7 @@ import type {
   AgentDocument,
   AgentsInfoAuthContext,
   LightAgent,
-} from "@/types/agents";
+} from "@/types/agents-types";
 import type { PrefetchedAgentData } from "@/utils/agents/agentSearchMatch";
 import {
   agentMatchesGrowersSearchQuery,
@@ -160,6 +160,8 @@ async function buildLightAgentWithDeployment(
     ...parsed,
     growers,
     techLeads,
+    inProduction: true,
+    inCommercial: hasTestingData,
     enabled,
     injectCommandsInPrompt:
       agentData?.injectCommandsInPrompt === true ||

@@ -2,8 +2,6 @@ import { Hono } from "hono";
 
 import { getHealth } from "@/controllers/health.controller";
 
-const router = new Hono();
+export const healthRouter = new Hono();
 
-router.get("/", getHealth);
-
-export default router;
+healthRouter.get("/", getHealth);

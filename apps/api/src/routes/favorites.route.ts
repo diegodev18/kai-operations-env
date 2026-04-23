@@ -4,10 +4,10 @@ import { db } from "@/db/client";
 import { userFavoriteAgents } from "@/db/schema/auth";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/lib/auth";
-import { resolveSessionUserRole } from "@/utils/sessionUser";
+import { resolveSessionUserRole } from "@/utils/session-user";
 import { nanoid } from "nanoid";
 
-const favoritesRouter = new Hono();
+export const favoritesRouter = new Hono();
 
 async function getSessionUser(c: Context) {
   const session = await auth.api.getSession({ headers: c.req.raw.headers });
@@ -84,5 +84,3 @@ favoritesRouter.delete("/:agentId", async (c) => {
 
   return c.json({ message: "Removed from favorites" });
 });
-
-export default favoritesRouter;

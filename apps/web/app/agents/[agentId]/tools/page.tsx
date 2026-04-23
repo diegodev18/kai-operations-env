@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { AgentToolsPanel } from "@/components/agent-tools-panel";
+import { AgentToolsPanel } from "@/components/agents";
 
 export default function AgentToolsPage() {
   const params = useParams();

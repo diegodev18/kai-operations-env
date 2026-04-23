@@ -1,4 +1,4 @@
-import type { AgentsInfoAuthContext } from "@/types/agents";
+import type { AgentsInfoAuthContext } from "@/types/agents-types";
 
 import { userCanEditAgent } from "./agentAccess";
 

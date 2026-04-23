@@ -29,12 +29,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createBlogPost } from "@/services/blog-api";
-import { BLOG_TAGS } from "@/lib/blog-tags";
+import { BLOG_TAGS } from "@/consts/blog-tags";
 import {
   generateMarkdown,
   type LessonFields,
-} from "@/lib/lesson-markdown";
-import { useAuth } from "@/hooks/auth";
+} from "@/lib/blog/lesson-markdown";
+import { useAuth } from "@/hooks";
 
 const SECTIONS: {
   key: keyof LessonFields;

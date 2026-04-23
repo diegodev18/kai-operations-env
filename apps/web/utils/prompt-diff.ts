@@ -1,5 +1,5 @@
 import { diffLines, diffWordsWithSpace, type Change } from "diff";
-import type { DiffLine, WordSegment } from "@/types/prompt-diff";
+import type { DiffLine, WordSegment } from "@/types";
 
 export function computeDiffLines(oldText: string, newText: string): DiffLine[] {
   const changes: Change[] = diffLines(oldText, newText);

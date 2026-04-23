@@ -5,8 +5,8 @@ import type {
   EditorProperty,
   EditorState,
   SchemaType,
-} from "@/types/parameter-schema";
-import { SCHEMA_TYPES } from "@/types/parameter-schema";
+} from "@/types";
+import { SCHEMA_TYPES } from "@/types";
 
 /** Filas sin nombre aún: se serializan con esta prefijo para que el estado round-tripe al padre. */
 export const DRAFT_PROPERTY_KEY_PREFIX = "__draft_";

@@ -33,7 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAuth } from "@/hooks/auth";
+import { useAuth } from "@/hooks";
 import {
   copyOrganizationInvitationLink,
   createOrganizationInvitation,
@@ -53,7 +53,7 @@ import {
   DEFAULT_WHATSAPP_LADA,
   parseStoredPhoneForEditor,
   WHATSAPP_LADA_OPTIONS,
-} from "@/lib/whatsapp-phone-format";
+} from "@/lib/phone/whatsapp-phone-format";
 
 export default function OrganizationPage() {
   const router = useRouter();

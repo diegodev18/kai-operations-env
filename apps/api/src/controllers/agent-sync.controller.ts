@@ -2,7 +2,7 @@ import type { Context } from "hono";
 import { z } from "zod";
 
 import { getFirestore } from "@/lib/firestore";
-import type { AgentsInfoAuthContext } from "@/types/agents";
+import type { AgentsInfoAuthContext } from "@/types/agents-types";
 import { appendImplementationActivityEntry } from "@/services/implementation-activity.service";
 import {
   extractFirestoreIndexUrl,

@@ -3,31 +3,17 @@ import { Hono } from "hono";
 import admin from "firebase-admin";
 import { getFirestore, FieldValue, Timestamp } from "@/lib/firestore";
 import { auth } from "@/lib/auth";
-import { resolveSessionUserRole } from "@/utils/sessionUser";
+import { resolveSessionUserRole } from "@/utils/session-user";
 import { FIREBASE_APP_NAME } from "@/config";
 import { nanoid } from "nanoid";
 
-const blogRouter = new Hono();
+import type { BlogPost } from "@/types/blog-types";
+
+export const blogRouter = new Hono();
 
 const LESSONS_COLLECTION = "backOffice/blog/lessons";
 const ACTUALITY_COLLECTION = "backOffice/blog/actuality";
 const STORAGE_BUCKET = "kai-project-26879.appspot.com";
-
-interface BlogPost {
-  id: string;
-  title: string;
-  content: string;
-  authorId: string;
-  authorName: string;
-  authorMention: string;
-  tags: string[];
-  images: string[];
-  mentions: string[];
-  isHidden: boolean;
-  type?: string;
-  createdAt: number;
-  updatedAt: number;
-}
 
 type PostType = "lessons" | "actuality";
 
@@ -573,5 +559,3 @@ blogRouter.post("/upload", async (c) => {
     return c.json({ error: "Error al subir la imagen" }, 500);
   }
 });
-
-export default blogRouter;
