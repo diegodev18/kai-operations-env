@@ -151,12 +151,19 @@ export async function listTestingDataSubcollections(authCtx: AgentsInfoAuthConte
   }
 
   try {
-    const db = getFirestore();
-    const parentRef = db.collection("agent_configurations").doc(agentId).collection("testing").doc("data").collection(collection);
-    
-    const collections = await parentRef.listCollections();
-    const collectionNames = collections.map((col) => col.id);
+    const testingDataRef = getTestingDataRef(agentId);
+    const colRef = testingDataRef.collection(collection);
+    const snapshot = await colRef.limit(50).get();
 
+    const nameSet = new Set<string>();
+    const subcolLists = await Promise.all(snapshot.docs.map((d) => d.ref.listCollections()));
+    for (const cols of subcolLists) {
+      for (const sub of cols) {
+        nameSet.add(sub.id);
+      }
+    }
+
+    const collectionNames = [...nameSet].sort((a, b) => a.localeCompare(b));
     return c.json({ collections: collectionNames });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

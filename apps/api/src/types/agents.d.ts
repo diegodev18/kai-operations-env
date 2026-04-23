@@ -47,6 +47,10 @@ export interface LightAgent {
   version?: string;
   /** Rutas MCP: `testing/data` vs producción (`firestore_data_mode` en raíz). */
   firestoreDataMode: "auto" | "testing" | "production";
+  /** Existe documento raíz `agent_configurations/{id}` (despliegue producción). */
+  inProduction?: boolean;
+  /** Existe documento `testing/data` (entorno comercial / datos de prueba). */
+  inCommercial?: boolean;
   /** Datos de cobranza del agente. */
   billing?: AgentBilling;
   /** El agente es favorito del usuario actual. */

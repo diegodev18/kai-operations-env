@@ -160,6 +160,8 @@ async function buildLightAgentWithDeployment(
     ...parsed,
     growers,
     techLeads,
+    inProduction: true,
+    inCommercial: hasTestingData,
     enabled,
     injectCommandsInPrompt:
       agentData?.injectCommandsInPrompt === true ||
