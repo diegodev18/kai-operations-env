@@ -505,8 +505,7 @@ function ConversationCard({
               }
             }}
             rows={3}
-            className="resize-none text-sm data-[locked=true]:cursor-not-allowed data-[locked=true]:opacity-80"
-            data-locked={isPromptLocked ? "true" : "false"}
+            className={`resize-none text-sm ${isPromptLocked ? "cursor-not-allowed opacity-80" : ""}`}
           />
           <div className="flex gap-2">
             {conversation.isSending ? (
