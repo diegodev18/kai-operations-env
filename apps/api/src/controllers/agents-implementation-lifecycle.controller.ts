@@ -67,6 +67,12 @@ function parseInputDate(value: unknown): string | null | undefined {
   return d.toISOString();
 }
 
+function sameValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a == null && b == null) return true;
+  return false;
+}
+
 function computeDaysSince(iso: string | null): number {
   if (!iso) return 0;
   const t = new Date(iso).getTime();
@@ -462,6 +468,11 @@ export async function patchImplementationLifecycle(
     const previousAuto = isServerStatus(current.autoServerStatus)
       ? current.autoServerStatus
       : null;
+    const currentSoldAt = toIsoOrNull(current.soldAt);
+    const currentNextMeetingAt = toIsoOrNull(current.nextMeetingAt);
+    const currentServerOverride = isServerStatus(current.serverStatusOverride)
+      ? current.serverStatusOverride
+      : null;
     const previousCommercial = isCommercialStatus(current.commercialStatus)
       ? current.commercialStatus
       : "building";
@@ -484,15 +495,27 @@ export async function patchImplementationLifecycle(
       patch.commercialStateChangedAt =
         toIsoOrNull(current.createdAt) ?? createdAtFallback ?? new Date().toISOString();
     }
-    if (payload.soldAt !== undefined) patch.soldAt = soldAt;
-    if (payload.nextMeetingAt !== undefined) patch.nextMeetingAt = nextMeetingAt;
+    if (payload.soldAt !== undefined && !sameValue(currentSoldAt, soldAt)) {
+      patch.soldAt = soldAt;
+    }
+    if (
+      payload.nextMeetingAt !== undefined &&
+      !sameValue(currentNextMeetingAt, nextMeetingAt)
+    ) {
+      patch.nextMeetingAt = nextMeetingAt;
+    }
     if (commercialStatusRaw !== undefined) {
-      patch.commercialStatus = commercialStatusRaw;
-      if (commercialStatusRaw !== previousCommercial) {
+      if (!sameValue(previousCommercial, commercialStatusRaw)) {
+        patch.commercialStatus = commercialStatusRaw;
         patch.commercialStateChangedAt = new Date().toISOString();
       }
     }
-    if (overrideRaw !== undefined) patch.serverStatusOverride = overrideRaw;
+    if (
+      overrideRaw !== undefined &&
+      !sameValue(currentServerOverride, overrideRaw)
+    ) {
+      patch.serverStatusOverride = overrideRaw;
+    }
 
     if (previousAuto !== autoStatus.status) {
       patch.autoServerStatus = autoStatus.status;
@@ -502,21 +525,29 @@ export async function patchImplementationLifecycle(
       }
     }
     const actorEmail = authCtx.userEmail?.toLowerCase().trim() ?? null;
-    patch.updatedBy = actorEmail;
-    patch.updatedFrom = updatedFrom;
-    patch.reasonCode = reasonCode;
-    patch.updatedAt = FieldValue.serverTimestamp();
-
-    await lifecycleRef.set(patch, { merge: true });
+    const hasBusinessChanges =
+      "soldAt" in patch ||
+      "nextMeetingAt" in patch ||
+      "commercialStatus" in patch ||
+      "serverStatusOverride" in patch ||
+      "autoServerStatus" in patch ||
+      "deliveredAt" in patch;
+    if (hasBusinessChanges) {
+      patch.updatedBy = actorEmail;
+      patch.updatedFrom = updatedFrom;
+      patch.reasonCode = reasonCode;
+      patch.updatedAt = FieldValue.serverTimestamp();
+      await lifecycleRef.set(patch, { merge: true });
+    }
     const logTasks: Promise<void>[] = [];
-    if (payload.soldAt !== undefined) {
+    if ("soldAt" in patch) {
       logTasks.push(
         appendLifecycleArtifacts(
           db,
           agentId,
           actorEmail,
           "soldAt",
-          toIsoOrNull(current.soldAt),
+          currentSoldAt,
           patch.soldAt,
           updatedFrom,
           reasonCode,
@@ -524,14 +555,14 @@ export async function patchImplementationLifecycle(
         ),
       );
     }
-    if (payload.nextMeetingAt !== undefined) {
+    if ("nextMeetingAt" in patch) {
       logTasks.push(
         appendLifecycleArtifacts(
           db,
           agentId,
           actorEmail,
           "nextMeetingAt",
-          toIsoOrNull(current.nextMeetingAt),
+          currentNextMeetingAt,
           patch.nextMeetingAt,
           updatedFrom,
           reasonCode,
@@ -539,7 +570,7 @@ export async function patchImplementationLifecycle(
         ),
       );
     }
-    if (commercialStatusRaw !== undefined) {
+    if ("commercialStatus" in patch) {
       logTasks.push(
         appendLifecycleArtifacts(
           db,
@@ -556,17 +587,15 @@ export async function patchImplementationLifecycle(
         ),
       );
     }
-    if (overrideRaw !== undefined) {
+    if ("serverStatusOverride" in patch) {
       logTasks.push(
         appendLifecycleArtifacts(
           db,
           agentId,
           actorEmail,
           "serverStatusOverride",
-          isServerStatus(current.serverStatusOverride)
-            ? current.serverStatusOverride
-            : null,
-          overrideRaw,
+          currentServerOverride,
+          patch.serverStatusOverride,
           updatedFrom,
           reasonCode,
           idempotencyKey ? `${idempotencyKey}:serverStatusOverride` : null,
