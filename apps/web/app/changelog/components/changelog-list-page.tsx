@@ -2,35 +2,35 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
-import { getProjectById, type DbChangelogEntry, canEditChangelogEntry } from "../changelog-data";
+import {
+  getProjectById,
+  getAtlasVersions,
+  type DbChangelogEntry,
+  type ProjectId,
+} from "../changelog-data";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useAuth, useUserRole } from "@/hooks";
-import { ArrowLeftIcon, HomeIcon, PlusIcon, PencilIcon, EyeOffIcon, EyeIcon } from "lucide-react";
+import { useUserRole } from "@/hooks";
+import { ArrowLeftIcon, EyeIcon, EyeOffIcon, PencilIcon, PlusIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import NewChangelogForm from "./new-changelog-form";
+import { OperationsShell } from "@/components/operations";
 
 interface ChangelogListPageProps {
-  projectId: "panel" | "tools" | "agents";
+  projectId: ProjectId;
 }
 
 export function ChangelogListPage({ projectId }: ChangelogListPageProps) {
   const project = getProjectById(projectId);
-  const { session } = useAuth();
   const { isAdmin } = useUserRole();
+  const isFirebaseProject = projectId !== "atlas";
+  const firebaseProjectId = isFirebaseProject ? (projectId as Exclude<ProjectId, "atlas">) : null;
   const [search, setSearch] = useState("");
   const [entries, setEntries] = useState<DbChangelogEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(isFirebaseProject);
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   const [formEntryId, setFormEntryId] = useState<string | undefined>(undefined);
   const [togglingId, setTogglingId] = useState<string | null>(null);
-
-  const sessionUser = session?.user
-    ? {
-        id: session.user.id,
-        email: (session.user as { email?: string }).email,
-      }
-    : null;
 
   async function toggleEntryHidden(entry: DbChangelogEntry) {
     setTogglingId(entry.id);
@@ -55,6 +55,10 @@ export function ChangelogListPage({ projectId }: ChangelogListPageProps) {
   }
 
   const fetchEntries = useCallback(async () => {
+    if (!isFirebaseProject) {
+      setLoading(false);
+      return;
+    }
     try {
       const res = await fetch(`/api/changelogs/${projectId}`, { cache: "no-store" });
       if (res.ok) {
@@ -66,16 +70,29 @@ export function ChangelogListPage({ projectId }: ChangelogListPageProps) {
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  }, [isFirebaseProject, projectId]);
 
   useEffect(() => {
     fetchEntries();
   }, [fetchEntries]);
 
+  const atlasEntries = useMemo(() => {
+    if (projectId !== "atlas") return [];
+    return getAtlasVersions().map(({ version, entry }) => ({
+      id: version,
+      version,
+      implementationDate: entry.date,
+      description: entry.description,
+      changes: entry.changes,
+      hidden: false,
+    }));
+  }, [projectId]);
+
   const filteredEntries = useMemo(() => {
-    if (!search.trim()) return entries;
+    const sourceEntries = isFirebaseProject ? entries : atlasEntries;
+    if (!search.trim()) return sourceEntries;
     const query = search.toLowerCase();
-    return entries.filter((entry) => {
+    return sourceEntries.filter((entry) => {
       if (entry.version.toLowerCase().includes(query)) return true;
       if (entry.description.toLowerCase().includes(query)) return true;
       const allChanges = [
@@ -87,26 +104,44 @@ export function ChangelogListPage({ projectId }: ChangelogListPageProps) {
       ];
       return allChanges.some((c) => c.toLowerCase().includes(query));
     });
-  }, [entries, search]);
+  }, [atlasEntries, entries, isFirebaseProject, search]);
+
+  const tableRows = useMemo(() => {
+    return filteredEntries.map((entry) => ({
+      ...entry,
+      href: `/changelog/${projectId}/${entry.version}`,
+      formattedDate: new Date(entry.implementationDate).toLocaleDateString("es-ES", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      }),
+    }));
+  }, [filteredEntries, projectId]);
 
   return (
-    <div className="min-h-screen bg-background p-8">
-      <div className="mx-auto max-w-4xl">
-        <header className="mb-12 flex items-center justify-between">
+    <OperationsShell
+      breadcrumb={[
+        { label: "Operaciones", href: "/" },
+        { label: "Changelog", href: "/changelog" },
+        { label: project?.name ?? "Proyecto" },
+      ]}
+    >
+      <div className="mx-auto w-full max-w-6xl p-6">
+        <header className="mb-8 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="font-heading text-4xl font-bold tracking-tight text-foreground">
+            <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">
               {project?.name} Changelog
             </h1>
-            <p className="mt-2 text-muted-foreground">{project?.description}</p>
+            <p className="mt-1 text-muted-foreground">{project?.description}</p>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" asChild>
-              <Link href="/">
-                <HomeIcon className="mr-1 size-4" />
-                Home
+              <Link href="/changelog">
+                <ArrowLeftIcon className="mr-2 size-4" />
+                Proyectos
               </Link>
             </Button>
-            {isAdmin && (
+            {isFirebaseProject && isAdmin && (
               <Button onClick={() => setFormDialogOpen(true)} size="sm">
                 <PlusIcon className="mr-1 size-4" />
                 Nueva entrada
@@ -115,65 +150,89 @@ export function ChangelogListPage({ projectId }: ChangelogListPageProps) {
           </div>
         </header>
 
-        <div className="mb-8">
+        <div className="mb-6">
           <Input
-            placeholder="Buscar por versión, descripción o cambios..."
+            type="search"
+            placeholder="Buscar versiones o cambios..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full"
+            className="max-w-sm"
           />
         </div>
 
         {loading ? (
-          <p>Cargando...</p>
+          <div className="h-72 animate-pulse rounded-lg bg-muted" />
         ) : (
-          <div className="space-y-6">
-            {filteredEntries.length === 0 ? (
-              <p className="text-center text-muted-foreground">No se encontraron entradas</p>
-            ) : (
-              filteredEntries.map((entry) => (
-                <div key={entry.id} className="rounded-lg border p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <Link href={`/changelog/${projectId}/${entry.version}`}>
-                        <h2 className="font-semibold hover:underline">v{entry.version}</h2>
+          <div className="overflow-hidden rounded-lg border border-border">
+            <table className="w-full">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Version</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Date</th>
+                  <th className="hidden px-4 py-3 text-left text-sm font-medium text-muted-foreground md:table-cell">
+                    Description
+                  </th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Details</th>
+                  {isFirebaseProject && isAdmin ? (
+                    <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Admin</th>
+                  ) : null}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {tableRows.map((entry) => (
+                  <tr key={entry.id} className="transition-colors hover:bg-muted/30">
+                    <td className="px-4 py-4">
+                      <Link href={entry.href} className="font-mono text-sm font-medium text-foreground hover:underline">
+                        v{entry.version}
                       </Link>
-                      <p className="mt-1 text-sm text-muted-foreground">{entry.implementationDate}</p>
-                      <p className="mt-2">{entry.description}</p>
-                    </div>
-                    {isAdmin && (
-                      <div className="ml-4 flex items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setFormEntryId(entry.id);
-                            setFormDialogOpen(true);
-                          }}
-                          disabled={togglingId === entry.id}
-                        >
-                          <PencilIcon className="size-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => void toggleEntryHidden(entry)}
-                          disabled={togglingId === entry.id}
-                        >
-                          {entry.hidden ? (
-                            <EyeIcon className="size-4" />
-                          ) : (
-                            <EyeOffIcon className="size-4" />
-                          )}
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))
-            )}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-muted-foreground">{entry.formattedDate}</td>
+                    <td className="hidden px-4 py-4 text-sm text-muted-foreground md:table-cell">{entry.description}</td>
+                    <td className="px-4 py-4 text-right">
+                      <Link
+                        href={entry.href}
+                        className="inline-flex items-center justify-center rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                      >
+                        View
+                      </Link>
+                    </td>
+                    {isFirebaseProject && isAdmin ? (
+                      <td className="px-4 py-4">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setFormEntryId(entry.id);
+                              setFormDialogOpen(true);
+                            }}
+                            disabled={togglingId === entry.id}
+                          >
+                            <PencilIcon className="size-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => void toggleEntryHidden(entry)}
+                            disabled={togglingId === entry.id}
+                          >
+                            {entry.hidden ? <EyeIcon className="size-4" /> : <EyeOffIcon className="size-4" />}
+                          </Button>
+                        </div>
+                      </td>
+                    ) : null}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
+
+        {!loading && tableRows.length === 0 ? (
+          <p className="mt-8 text-center text-muted-foreground">
+            No se encontraron versiones que coincidan con &quot;{search}&quot;.
+          </p>
+        ) : null}
 
         <Dialog open={formDialogOpen} onOpenChange={setFormDialogOpen}>
           <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
@@ -182,9 +241,9 @@ export function ChangelogListPage({ projectId }: ChangelogListPageProps) {
                 {formEntryId ? "Editar entrada" : "Nueva entrada"} - {project?.name}
               </DialogTitle>
             </DialogHeader>
-            {project && (
+            {project && firebaseProjectId && (
               <NewChangelogForm
-                projectId={projectId}
+                projectId={firebaseProjectId}
                 entryId={formEntryId}
                 onClose={() => {
                   setFormDialogOpen(false);
@@ -196,6 +255,6 @@ export function ChangelogListPage({ projectId }: ChangelogListPageProps) {
           </DialogContent>
         </Dialog>
       </div>
-    </div>
+    </OperationsShell>
   );
 }
