@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 
-import { agentsRouter } from "@/routes/agents.route";
+import { agentsRouter } from "@/routes/agents";
 import { agentTestingDataRouter } from "@/routes/agent-testing-data.route";
 import { agentsTestingRouter } from "@/routes/agents-testing.route";
 import { builderSavedCompaniesRouter } from "@/routes/builder-saved-companies.route";

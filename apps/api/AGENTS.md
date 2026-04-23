@@ -44,6 +44,8 @@ Añadir un endpoint nuevo: casi siempre un método nuevo en el router correspond
 
 Los archivos en **`routes/`** exportan el router Hono con **nombre** (`export const blogRouter`, `export const agentsRouter`, etc.). El agregador [`routes/index.ts`](src/routes/index.ts) exporta **`export const api`** y compone las rutas con imports nombrados. [`app.ts`](src/app.ts) usa `import { api } from "@/routes"`.
 
+Routers grandes (p. ej. agentes): dividir en **`routes/<dominio>/`** con funciones `register*Routes(r: Hono)` y un [`routes/agents/index.ts`](src/routes/agents/index.ts) que instancia el router y llama a los registros **en el mismo orden** que antes (rutas fijas y `drafts` antes de `/:agentId`).
+
 Al añadir un router nuevo: `export const miRouter = new Hono();` … y en `index.ts` importar `{ miRouter }` y registrar `api.route("/mi-prefix", miRouter)`.
 
 ## Controladores grandes (anti‑patrón y remedio)

@@ -1,30 +1,6 @@
-import { Hono } from "hono";
+import type { Hono } from "hono";
 
-import {
-  deleteDraftPropertyItem,
-  getAgentDraft,
-  postDraftSystemPromptRegenerate,
-  getDraftPropertyItems,
-  getDraftPendingTasks,
-  getDraftTechnicalPropertiesBundle,
-  getToolsCatalog,
-  patchDraftPropertyItem,
-  patchDraftPendingTask,
-  patchDraftTechnicalPropertyDocument,
-  patchAgentDraft,
-  postDraftPropertyItem,
-  postDraftPendingTask,
-  postAgentDraft,
-} from "@/controllers/agent-drafts";
-import { postAgentBuilderChat } from "@/controllers/agent-builder-chat.controller";
-import { postAgentFlowQuestions } from "@/controllers/agent-flow-questions.controller";
-import { postAgentRecommendTools } from "@/controllers/agent-recommend-tools.controller";
-import { postAgentToolFlowsMarkdown } from "@/controllers/agent-tool-flows-markdown.controller";
-import {
-  getAgentsInfo,
-  assignAgentToUser,
-  getAssignedAgentForUser,
-} from "@/controllers/agents.controller";
+import { assignAgentToUser } from "@/controllers/agents.controller";
 import {
   getAgentById,
   getAgentBuilderForm,
@@ -82,186 +58,11 @@ import {
 import { uploadAgentFile } from "@/controllers/agent-file-upload.controller";
 import { resolveAgentsAuthContext } from "@/routes/agents-auth";
 
-export const agentsRouter = new Hono();
+import { isReservedAgentPathSegment } from "./reserved";
 
-/** Evita que `drafts`, `info`, etc. se interpreten como ID de agente. */
-function isReservedAgentPathSegment(id: string): boolean {
-  return id === "drafts" || id === "info" || id === "tools-catalog";
-}
+export function registerAgentsByAgentRoutes(r: Hono) {
 
-agentsRouter.get("/info", async (c) => {
-  const ctx = await resolveAgentsAuthContext(c);
-  if (!ctx.ok) return ctx.response;
-  return await getAgentsInfo(c, ctx.authCtx);
-});
-
-agentsRouter.get("/assigned-to-user", async (c) => {
-  const ctx = await resolveAgentsAuthContext(c);
-  if (!ctx.ok) return ctx.response;
-  return getAssignedAgentForUser(c, ctx.authCtx);
-});
-
-agentsRouter.get("/tools-catalog", async (c) => {
-  const ctx = await resolveAgentsAuthContext(c);
-  if (!ctx.ok) return ctx.response;
-  return getToolsCatalog(c, ctx.authCtx);
-});
-
-agentsRouter.post("/builder/chat", async (c) => {
-  const ctx = await resolveAgentsAuthContext(c);
-  if (!ctx.ok) return ctx.response;
-  return postAgentBuilderChat(c, ctx.authCtx);
-});
-
-agentsRouter.post("/builder/recommend-tools", async (c) => {
-  const ctx = await resolveAgentsAuthContext(c);
-  if (!ctx.ok) return ctx.response;
-  return postAgentRecommendTools(c, ctx.authCtx);
-});
-
-agentsRouter.post("/builder/tool-flows-markdown", async (c) => {
-  const ctx = await resolveAgentsAuthContext(c);
-  if (!ctx.ok) return ctx.response;
-  return postAgentToolFlowsMarkdown(c, ctx.authCtx);
-});
-
-agentsRouter.post("/builder/flow-questions", async (c) => {
-  const ctx = await resolveAgentsAuthContext(c);
-  if (!ctx.ok) return ctx.response;
-  return postAgentFlowQuestions(c, ctx.authCtx);
-});
-
-agentsRouter.post("/drafts", async (c) => {
-  const ctx = await resolveAgentsAuthContext(c);
-  if (!ctx.ok) return ctx.response;
-  return postAgentDraft(c, ctx.authCtx);
-});
-
-agentsRouter.get("/drafts/:draftId", async (c) => {
-  const ctx = await resolveAgentsAuthContext(c);
-  if (!ctx.ok) return ctx.response;
-  const draftId = c.req.param("draftId")?.trim() ?? "";
-  if (!draftId) return c.json({ error: "Borrador no encontrado" }, 404);
-  return getAgentDraft(c, ctx.authCtx, draftId);
-});
-
-agentsRouter.patch("/drafts/:draftId", async (c) => {
-  const ctx = await resolveAgentsAuthContext(c);
-  if (!ctx.ok) return ctx.response;
-  const draftId = c.req.param("draftId")?.trim() ?? "";
-  if (!draftId) return c.json({ error: "Borrador no encontrado" }, 404);
-  return patchAgentDraft(c, ctx.authCtx, draftId);
-});
-
-agentsRouter.post(
-  "/drafts/:draftId/system-prompt/regenerate",
-  async (c) => {
-    const ctx = await resolveAgentsAuthContext(c);
-    if (!ctx.ok) return ctx.response;
-    const draftId = c.req.param("draftId")?.trim() ?? "";
-    if (!draftId) return c.json({ error: "Borrador no encontrado" }, 404);
-    return postDraftSystemPromptRegenerate(c, ctx.authCtx, draftId);
-  },
-);
-
-agentsRouter.get("/drafts/:draftId/technical-properties", async (c) => {
-  const ctx = await resolveAgentsAuthContext(c);
-  if (!ctx.ok) return ctx.response;
-  const draftId = c.req.param("draftId")?.trim() ?? "";
-  if (!draftId) return c.json({ error: "Borrador no encontrado" }, 404);
-  return getDraftTechnicalPropertiesBundle(c, ctx.authCtx, draftId);
-});
-
-agentsRouter.patch("/drafts/:draftId/properties/:documentId", async (c) => {
-  const ctx = await resolveAgentsAuthContext(c);
-  if (!ctx.ok) return ctx.response;
-  const draftId = c.req.param("draftId")?.trim() ?? "";
-  const documentId = c.req.param("documentId")?.trim() ?? "";
-  if (!draftId || !documentId) {
-    return c.json({ error: "Borrador o documento no encontrado" }, 404);
-  }
-  return patchDraftTechnicalPropertyDocument(
-    c,
-    ctx.authCtx,
-    draftId,
-    documentId,
-  );
-});
-
-agentsRouter.get("/drafts/:draftId/tasks", async (c) => {
-  const ctx = await resolveAgentsAuthContext(c);
-  if (!ctx.ok) return ctx.response;
-  const draftId = c.req.param("draftId")?.trim() ?? "";
-  if (!draftId) return c.json({ error: "Borrador no encontrado" }, 404);
-  return getDraftPendingTasks(c, ctx.authCtx, draftId);
-});
-
-agentsRouter.post("/drafts/:draftId/tasks", async (c) => {
-  const ctx = await resolveAgentsAuthContext(c);
-  if (!ctx.ok) return ctx.response;
-  const draftId = c.req.param("draftId")?.trim() ?? "";
-  if (!draftId) return c.json({ error: "Borrador no encontrado" }, 404);
-  return postDraftPendingTask(c, ctx.authCtx, draftId);
-});
-
-agentsRouter.patch("/drafts/:draftId/tasks/:taskId", async (c) => {
-  const ctx = await resolveAgentsAuthContext(c);
-  if (!ctx.ok) return ctx.response;
-  const draftId = c.req.param("draftId")?.trim() ?? "";
-  const taskId = c.req.param("taskId")?.trim() ?? "";
-  if (!draftId || !taskId) return c.json({ error: "Tarea no encontrada" }, 404);
-  return patchDraftPendingTask(c, ctx.authCtx, draftId, taskId);
-});
-
-agentsRouter.get("/drafts/:draftId/properties/:documentId/items", async (c) => {
-  const ctx = await resolveAgentsAuthContext(c);
-  if (!ctx.ok) return ctx.response;
-  const draftId = c.req.param("draftId")?.trim() ?? "";
-  const documentId = c.req.param("documentId")?.trim() ?? "";
-  if (!draftId || !documentId) return c.json({ error: "Recurso no encontrado" }, 404);
-  return getDraftPropertyItems(c, ctx.authCtx, draftId, documentId);
-});
-
-agentsRouter.post("/drafts/:draftId/properties/:documentId/items", async (c) => {
-  const ctx = await resolveAgentsAuthContext(c);
-  if (!ctx.ok) return ctx.response;
-  const draftId = c.req.param("draftId")?.trim() ?? "";
-  const documentId = c.req.param("documentId")?.trim() ?? "";
-  if (!draftId || !documentId) return c.json({ error: "Recurso no encontrado" }, 404);
-  return postDraftPropertyItem(c, ctx.authCtx, draftId, documentId);
-});
-
-agentsRouter.patch(
-  "/drafts/:draftId/properties/:documentId/items/:itemId",
-  async (c) => {
-    const ctx = await resolveAgentsAuthContext(c);
-    if (!ctx.ok) return ctx.response;
-    const draftId = c.req.param("draftId")?.trim() ?? "";
-    const documentId = c.req.param("documentId")?.trim() ?? "";
-    const itemId = c.req.param("itemId")?.trim() ?? "";
-    if (!draftId || !documentId || !itemId) {
-      return c.json({ error: "Recurso no encontrado" }, 404);
-    }
-    return patchDraftPropertyItem(c, ctx.authCtx, draftId, documentId, itemId);
-  },
-);
-
-agentsRouter.delete(
-  "/drafts/:draftId/properties/:documentId/items/:itemId",
-  async (c) => {
-    const ctx = await resolveAgentsAuthContext(c);
-    if (!ctx.ok) return ctx.response;
-    const draftId = c.req.param("draftId")?.trim() ?? "";
-    const documentId = c.req.param("documentId")?.trim() ?? "";
-    const itemId = c.req.param("itemId")?.trim() ?? "";
-    if (!draftId || !documentId || !itemId) {
-      return c.json({ error: "Recurso no encontrado" }, 404);
-    }
-    return deleteDraftPropertyItem(c, ctx.authCtx, draftId, documentId, itemId);
-  },
-);
-
-agentsRouter.get("/:agentId/properties", async (c) => {
+r.get("/:agentId/properties", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -271,7 +72,7 @@ agentsRouter.get("/:agentId/properties", async (c) => {
   return getAgentProperties(c, ctx.authCtx, agentId);
 });
 
-agentsRouter.get("/:agentId/builder-form", async (c) => {
+r.get("/:agentId/builder-form", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -281,7 +82,7 @@ agentsRouter.get("/:agentId/builder-form", async (c) => {
   return getAgentBuilderForm(c, ctx.authCtx, agentId);
 });
 
-agentsRouter.patch("/:agentId/properties/:documentId", async (c) => {
+r.patch("/:agentId/properties/:documentId", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -292,7 +93,7 @@ agentsRouter.patch("/:agentId/properties/:documentId", async (c) => {
   return updateAgentPropertyDocument(c, ctx.authCtx, agentId, documentId);
 });
 
-agentsRouter.get("/:agentId/tools", async (c) => {
+r.get("/:agentId/tools", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -302,7 +103,7 @@ agentsRouter.get("/:agentId/tools", async (c) => {
   return getAgentTools(c, ctx.authCtx, agentId);
 });
 
-agentsRouter.post("/:agentId/tools", async (c) => {
+r.post("/:agentId/tools", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -312,7 +113,7 @@ agentsRouter.post("/:agentId/tools", async (c) => {
   return createAgentTool(c, ctx.authCtx, agentId);
 });
 
-agentsRouter.patch("/:agentId/tools/:toolId", async (c) => {
+r.patch("/:agentId/tools/:toolId", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -323,7 +124,7 @@ agentsRouter.patch("/:agentId/tools/:toolId", async (c) => {
   return updateAgentTool(c, ctx.authCtx, agentId, toolId);
 });
 
-agentsRouter.delete("/:agentId/tools/:toolId", async (c) => {
+r.delete("/:agentId/tools/:toolId", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -334,7 +135,7 @@ agentsRouter.delete("/:agentId/tools/:toolId", async (c) => {
   return deleteAgentTool(c, ctx.authCtx, agentId, toolId);
 });
 
-agentsRouter.patch("/:agentId/prompt", async (c) => {
+r.patch("/:agentId/prompt", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -344,7 +145,7 @@ agentsRouter.patch("/:agentId/prompt", async (c) => {
   return updateAgentPrompt(c, ctx.authCtx, agentId);
 });
 
-agentsRouter.get("/:agentId/production-prompt", async (c) => {
+r.get("/:agentId/production-prompt", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -354,7 +155,7 @@ agentsRouter.get("/:agentId/production-prompt", async (c) => {
   return getProductionPrompt(c, ctx.authCtx, agentId);
 });
 
-agentsRouter.post("/:agentId/promote-prompt-to-production", async (c) => {
+r.post("/:agentId/promote-prompt-to-production", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -364,7 +165,7 @@ agentsRouter.post("/:agentId/promote-prompt-to-production", async (c) => {
   return promotePromptToProduction(c, ctx.authCtx, agentId);
 });
 
-agentsRouter.post("/:agentId/system-prompt/regenerate", async (c) => {
+r.post("/:agentId/system-prompt/regenerate", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -374,7 +175,7 @@ agentsRouter.post("/:agentId/system-prompt/regenerate", async (c) => {
   return postAgentSystemPromptRegenerate(c, ctx.authCtx, agentId);
 });
 
-agentsRouter.get("/:agentId/testing/properties", async (c) => {
+r.get("/:agentId/testing/properties", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -384,7 +185,7 @@ agentsRouter.get("/:agentId/testing/properties", async (c) => {
   return getTestingProperties(c, ctx.authCtx, agentId);
 });
 
-agentsRouter.patch("/:agentId/testing/properties/:documentId", async (c) => {
+r.patch("/:agentId/testing/properties/:documentId", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -395,7 +196,7 @@ agentsRouter.patch("/:agentId/testing/properties/:documentId", async (c) => {
   return updateTestingPropertyDocument(c, ctx.authCtx, agentId, documentId);
 });
 
-agentsRouter.post("/:agentId/sync-from-production", async (c) => {
+r.post("/:agentId/sync-from-production", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -405,7 +206,7 @@ agentsRouter.post("/:agentId/sync-from-production", async (c) => {
   return postSyncFromProduction(c, ctx.authCtx, agentId);
 });
 
-agentsRouter.post("/:agentId/promote-to-production", async (c) => {
+r.post("/:agentId/promote-to-production", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -415,7 +216,7 @@ agentsRouter.post("/:agentId/promote-to-production", async (c) => {
   return postPromoteToProduction(c, ctx.authCtx, agentId);
 });
 
-agentsRouter.get("/:agentId/testing/diff", async (c) => {
+r.get("/:agentId/testing/diff", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -425,7 +226,7 @@ agentsRouter.get("/:agentId/testing/diff", async (c) => {
   return getTestingDiff(c, ctx.authCtx, agentId);
 });
 
-agentsRouter.patch("/:agentId", async (c) => {
+r.patch("/:agentId", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -435,7 +236,7 @@ agentsRouter.patch("/:agentId", async (c) => {
   return patchAgent(c, ctx.authCtx, agentId);
 });
 
-agentsRouter.post("/:agentId/operations-archive", async (c) => {
+r.post("/:agentId/operations-archive", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -445,7 +246,7 @@ agentsRouter.post("/:agentId/operations-archive", async (c) => {
   return postAgentOperationsArchive(c, ctx.authCtx, agentId);
 });
 
-agentsRouter.get("/:agentId", async (c) => {
+r.get("/:agentId", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -455,7 +256,7 @@ agentsRouter.get("/:agentId", async (c) => {
   return getAgentById(c, ctx.authCtx, agentId);
 });
 
-agentsRouter.get("/:agentId/growers", async (c) => {
+r.get("/:agentId/growers", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim();
@@ -465,7 +266,7 @@ agentsRouter.get("/:agentId/growers", async (c) => {
   return getAgentGrowers(c, ctx.authCtx, agentId);
 });
 
-agentsRouter.post("/:agentId/growers", async (c) => {
+r.post("/:agentId/growers", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim();
@@ -475,7 +276,7 @@ agentsRouter.post("/:agentId/growers", async (c) => {
   return postAgentGrower(c, ctx.authCtx, agentId);
 });
 
-agentsRouter.delete("/:agentId/growers/:growerEmail", async (c) => {
+r.delete("/:agentId/growers/:growerEmail", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim();
@@ -491,7 +292,7 @@ agentsRouter.delete("/:agentId/growers/:growerEmail", async (c) => {
   return deleteAgentGrower(c, ctx.authCtx, agentId, growerEmail);
 });
 
-agentsRouter.get("/:agentId/techLeads", async (c) => {
+r.get("/:agentId/techLeads", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim();
@@ -501,7 +302,7 @@ agentsRouter.get("/:agentId/techLeads", async (c) => {
   return getAgentTechLeads(c, ctx.authCtx, agentId);
 });
 
-agentsRouter.post("/:agentId/techLeads", async (c) => {
+r.post("/:agentId/techLeads", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim();
@@ -511,7 +312,7 @@ agentsRouter.post("/:agentId/techLeads", async (c) => {
   return postAgentTechLead(c, ctx.authCtx, agentId);
 });
 
-agentsRouter.delete("/:agentId/techLeads/:techLeadEmail", async (c) => {
+r.delete("/:agentId/techLeads/:techLeadEmail", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim();
@@ -527,7 +328,7 @@ agentsRouter.delete("/:agentId/techLeads/:techLeadEmail", async (c) => {
   return deleteAgentTechLead(c, ctx.authCtx, agentId, techLeadEmail);
 });
 
-agentsRouter.get("/:agentId/whatsapp-integration-status", async (c) => {
+r.get("/:agentId/whatsapp-integration-status", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -537,7 +338,7 @@ agentsRouter.get("/:agentId/whatsapp-integration-status", async (c) => {
   return getWhatsappIntegrationStatus(c, ctx.authCtx, agentId);
 });
 
-agentsRouter.get("/:agentId/implementation-tasks", async (c) => {
+r.get("/:agentId/implementation-tasks", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -547,7 +348,7 @@ agentsRouter.get("/:agentId/implementation-tasks", async (c) => {
   return getImplementationTasks(c, ctx.authCtx, agentId);
 });
 
-agentsRouter.post("/:agentId/implementation-tasks", async (c) => {
+r.post("/:agentId/implementation-tasks", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -557,7 +358,7 @@ agentsRouter.post("/:agentId/implementation-tasks", async (c) => {
   return createImplementationTask(c, ctx.authCtx, agentId);
 });
 
-agentsRouter.patch("/:agentId/implementation-tasks/:taskId", async (c) => {
+r.patch("/:agentId/implementation-tasks/:taskId", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -568,7 +369,7 @@ agentsRouter.patch("/:agentId/implementation-tasks/:taskId", async (c) => {
   return patchImplementationTask(c, ctx.authCtx, agentId, taskId);
 });
 
-agentsRouter.get("/:agentId/implementation-activity", async (c) => {
+r.get("/:agentId/implementation-activity", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -578,7 +379,7 @@ agentsRouter.get("/:agentId/implementation-activity", async (c) => {
   return getImplementationActivity(c, ctx.authCtx, agentId);
 });
 
-agentsRouter.post("/:agentId/implementation-activity", async (c) => {
+r.post("/:agentId/implementation-activity", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -588,7 +389,7 @@ agentsRouter.post("/:agentId/implementation-activity", async (c) => {
   return createImplementationActivityComment(c, ctx.authCtx, agentId);
 });
 
-agentsRouter.patch("/:agentId/implementation-activity/:entryId", async (c) => {
+r.patch("/:agentId/implementation-activity/:entryId", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -604,7 +405,7 @@ agentsRouter.patch("/:agentId/implementation-activity/:entryId", async (c) => {
   );
 });
 
-agentsRouter.post("/:agentId/assign-to-user", async (c) => {
+r.post("/:agentId/assign-to-user", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -614,7 +415,7 @@ agentsRouter.post("/:agentId/assign-to-user", async (c) => {
   return assignAgentToUser(c, ctx.authCtx, agentId);
 });
 
-agentsRouter.get("/:agentId/billing", async (c) => {
+r.get("/:agentId/billing", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -624,7 +425,7 @@ agentsRouter.get("/:agentId/billing", async (c) => {
   return getAgentBilling(c, ctx.authCtx, agentId);
 });
 
-agentsRouter.patch("/:agentId/billing", async (c) => {
+r.patch("/:agentId/billing", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -634,7 +435,7 @@ agentsRouter.patch("/:agentId/billing", async (c) => {
   return patchAgentBillingConfig(c, ctx.authCtx, agentId);
 });
 
-agentsRouter.post("/:agentId/billing/payments", async (c) => {
+r.post("/:agentId/billing/payments", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -644,7 +445,7 @@ agentsRouter.post("/:agentId/billing/payments", async (c) => {
   return createPaymentRecord(c, ctx.authCtx, agentId);
 });
 
-agentsRouter.delete("/:agentId/billing/payments/:paymentId", async (c) => {
+r.delete("/:agentId/billing/payments/:paymentId", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -655,7 +456,7 @@ agentsRouter.delete("/:agentId/billing/payments/:paymentId", async (c) => {
   return deletePaymentRecord(c, ctx.authCtx, agentId, paymentId);
 });
 
-agentsRouter.post("/:agentId/files/upload", async (c) => {
+r.post("/:agentId/files/upload", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);
   if (!ctx.ok) return ctx.response;
   const agentId = c.req.param("agentId")?.trim() ?? "";
@@ -664,3 +465,4 @@ agentsRouter.post("/:agentId/files/upload", async (c) => {
   }
   return uploadAgentFile(c, ctx.authCtx, agentId);
 });
+}
