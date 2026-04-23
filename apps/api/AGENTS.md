@@ -25,9 +25,9 @@ Verificación rápida: `GET /` y `GET /health` en el puerto configurado ([`confi
 | **`routes/`** | Definición de rutas Hono: método, path, orden. Resolver auth con helpers (p. ej. [`agents-auth.ts`](src/routes/agents-auth.ts)) y delegar al **controller**. | Lógica de negocio larga, acceso directo masivo a Firestore sin pasar por un controlador/servicio claro. |
 | **`controllers/`** | Solo **handlers de rutas** (funciones que reciben `Context` y devuelven `Response`): validar input, permisos, orquestar Firestore/servicios, `ApiErrors` / [`lib/api-error.ts`](src/lib/api-error.ts). La lógica auxiliar vive en **`utils/`** (o `services/`). | Helpers de dominio dentro de `controllers/`; monolitos de miles de líneas (ver más abajo). |
 | **`services/`** | Jobs o flujos reutilizables (p. ej. generación de system prompt, sync). | Endpoints HTTP; eso es `routes` + `controllers`. |
-| **`lib/`** | Infra transversal: auth, Firestore client, logger, errores API. | Clientes HTTP a APIs externas de producto si merecen otro sitio; criterio: si es solo para un dominio, valorar `services/`. |
-| **`utils/`** | Helpers puros o compartidos (validación Zod, errores Firestore, serialización, authz de lectura Firestore). Agrupar por dominio en subcarpetas (p. ej. [`utils/agent-drafts/`](src/utils/agent-drafts/) para borradores). | Duplicar tipos e interfaces que deberían vivir en `types/`. |
-| **`constants/`** | Contratos y valores fijos del dominio (propiedades builder, defaults Firestore, etc.). | Lógica condicional pesada (mejor `utils/` o `services/`). |
+| **`lib/`** | Infra transversal: auth, Firestore client, logger, errores API. Archivos **kebab-case** (p. ej. [`organization-members.ts`](src/lib/organization-members.ts)). | Clientes HTTP a APIs externas de producto si merecen otro sitio; criterio: si es solo para un dominio, valorar `services/`. |
+| **`utils/`** | Helpers puros o compartidos (validación Zod, errores Firestore, serialización, authz de lectura Firestore). Subcarpetas por dominio (p. ej. [`utils/agent-drafts/`](src/utils/agent-drafts/)); archivos sueltos en **kebab-case** (p. ej. [`session-user.ts`](src/utils/session-user.ts), [`invitation-token.ts`](src/utils/invitation-token.ts)). | Duplicar tipos e interfaces que deberían vivir en `types/`. |
+| **`constants/`** | Contratos y valores fijos del dominio (propiedades builder, defaults Firestore, etc.). Archivos **kebab-case** (p. ej. [`agent-property-defaults.ts`](src/constants/agent-property-defaults.ts)). | Lógica condicional pesada (mejor `utils/` o `services/`). |
 | **`db/`** | Cliente Drizzle y esquemas SQL. | Reglas de negocio de agentes. |
 | **`src/types/`** | Tipos e interfaces compartidos (`export type` / `export interface`) en **`.ts`**, un archivo por dominio cuando crezca el volumen; barrel [`src/types/index.ts`](src/types/index.ts) para reexportar lo público. Importar con `@/types/...` o `@/types`. | Definiciones propias en `.d.ts` aquí; tipos de contrato HTTP duplicados en controllers/rutas. |
 
@@ -38,6 +38,12 @@ Flujo típico: `routes/*.route.ts` → función en `controllers/*.controller.ts`
 - Los shapes compartidos (DTOs, payloads, respuestas reutilizables) viven en **`src/types/*.ts`** con nombres de archivo en **kebab-case** (p. ej. `agents-types.ts`, `agent-collaborators.ts`). `utils/`, `controllers/` y `routes/` importan desde `@/types/...` o desde el barrel `@/types`.
 - **`types` no debe depender de `utils/`** (evitar ciclos): si un tipo estaba en `utils` y lo usan varios sitios, muévelo a `types/` y haz que `utils` importe desde `@/types/...`.
 - Reservar **`.d.ts`** solo para casos excepcionales (p. ej. `declare module` / augmentación global), no como ubicación principal de tipos de negocio.
+
+## Nombres de archivo en `lib/`, `utils/` y `constants/`
+
+- Los módulos **`.ts`** en estas carpetas usan **kebab-case** (palabras en minúsculas separadas por `-`), igual que en **`src/types/`**.
+- Evitar nombres en **camelCase** para archivos nuevos (p. ej. usar `session-user.ts`, no `sessionUser.ts`; `organization-members.ts`, no `organizationMembers.ts`).
+- Los imports siguen el alias `@/*` → `src/*`: `@/lib/organization-members`, `@/utils/session-user`, `@/constants/agent-property-defaults`.
 
 ## `routes/` vs `controllers/`
 

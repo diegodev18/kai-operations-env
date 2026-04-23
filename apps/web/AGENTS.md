@@ -144,6 +144,7 @@ Use the right folder so HTTP clients, constants, and shared helpers do not drift
 ### 1. `types/` ([`apps/web/types/`](apps/web/types))
 
 - All domain and API contract types (even if only one module uses them today). Prefer **`import type { … } from "@/types"`** (barrel [`types/index.ts`](types/index.ts)). Imports profundos (`@/types/agents/agents-api`, etc.) solo si necesitas evitar el barrel.
+- **API del monorepo:** en [`apps/api`](../api) los contratos compartidos viven en `src/types/` con archivos **kebab-case** y barrel [`apps/api/src/types/index.ts`](../api/src/types/index.ts); capas `lib/`, `utils/` y `constants/` de la API siguen la misma convención de nombres. Ver [`apps/api/AGENTS.md`](../api/AGENTS.md).
 - `lib/`, `services/`, `hooks/`, and components should not grow large `interface` / `type` blocks; keep shapes here.
 - Literales del editor de schema (`SCHEMA_TYPES`, `EMPTY_SCHEMA`, `SchemaType`) viven en [`consts/parameter-schema.ts`](consts/parameter-schema.ts) y se reexportan desde `@/types` por comodidad.
 
