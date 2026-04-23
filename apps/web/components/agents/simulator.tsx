@@ -613,6 +613,7 @@ export function AgentSimulator({
   );
   const skipNextPersistRef = useRef(true);
   const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const conversationsRef = useRef<ConversationState[]>([createEmptyConversation()]);
 
   const buildBody = useCallback(
     (prompt: string): SimulateBody | null => {
@@ -699,6 +700,10 @@ export function AgentSimulator({
   }, [agentId, conversations, isHistoryLoading]);
 
   useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
+
+  useEffect(() => {
     return () => {
       Object.values(abortRef.current).forEach((controller) => controller.abort());
       abortRef.current = {};
@@ -707,7 +712,7 @@ export function AgentSimulator({
 
   const sendRequest = useCallback(
     async (convId: string) => {
-      const conv = conversations.find((c) => c.id === convId);
+      const conv = conversationsRef.current.find((c) => c.id === convId);
       if (!conv) return;
 
       const body = buildBody(conv.prompt);
@@ -807,7 +812,33 @@ export function AgentSimulator({
         toast.error(message);
       }
     },
-    [conversations, buildBody, stream]
+    [buildBody, stream]
+  );
+
+  const executeConversation = useCallback(
+    (convId: string) => {
+      const current = conversationsRef.current.find((c) => c.id === convId);
+      if (!current || current.isSending) return;
+      const hasPreviousResult =
+        current.streamEvents.length > 0 || Boolean(current.error);
+
+      if (!hasPreviousResult) {
+        void sendRequest(convId);
+        return;
+      }
+
+      const nextConversation: ConversationState = {
+        ...createEmptyConversation(),
+        prompt: current.prompt,
+      };
+      setConversations((prev) => {
+        const next = [...prev, nextConversation];
+        conversationsRef.current = next;
+        return next;
+      });
+      void sendRequest(nextConversation.id);
+    },
+    [sendRequest],
   );
 
   const stopRequest = useCallback((convId: string) => {
@@ -1126,7 +1157,7 @@ export function AgentSimulator({
             <ConversationCard
               index={index}
               conversation={conv}
-              onSend={() => sendRequest(conv.id)}
+              onSend={() => executeConversation(conv.id)}
               onStop={() => stopRequest(conv.id)}
               onClose={() => closeConversation(conv.id)}
               onReset={() => resetConversation(conv.id)}
