@@ -82,7 +82,7 @@ import {
 import { uploadAgentFile } from "@/controllers/agent-file-upload.controller";
 import { resolveAgentsAuthContext } from "@/routes/agents-auth";
 
-const agentsRouter = new Hono();
+export const agentsRouter = new Hono();
 
 /** Evita que `drafts`, `info`, etc. se interpreten como ID de agente. */
 function isReservedAgentPathSegment(id: string): boolean {
@@ -664,5 +664,3 @@ agentsRouter.post("/:agentId/files/upload", async (c) => {
   }
   return uploadAgentFile(c, ctx.authCtx, agentId);
 });
-
-export default agentsRouter;

@@ -40,11 +40,11 @@ Flujo típico: `routes/*.route.ts` → función en `controllers/*.controller.ts`
 
 Añadir un endpoint nuevo: casi siempre un método nuevo en el router correspondiente **más** una función exportada en el controlador del dominio (o un controlador nuevo si el dominio no existe).
 
-## Exportaciones (`export default` en routers)
+## Exportaciones (routers con nombre)
 
-Hoy los archivos en **`routes/`** y el agregador [`routes/index.ts`](src/routes/index.ts) usan **`export default`** del router Hono (patrón habitual en tutoriales Hono). [`app.ts`](src/app.ts) importa `import api from "@/routes"`.
+Los archivos en **`routes/`** exportan el router Hono con **nombre** (`export const blogRouter`, `export const agentsRouter`, etc.). El agregador [`routes/index.ts`](src/routes/index.ts) exporta **`export const api`** y compone las rutas con imports nombrados. [`app.ts`](src/app.ts) usa `import { api } from "@/routes"`.
 
-Si en el futuro se unifica con el criterio de `apps/web` (named exports en módulos de producto), habría que cambiar routers + `index` + `app.ts` de forma mecánica; hasta entonces, **mantener consistencia interna**: nuevos routers pueden seguir el mismo patrón `export default` para no mezclar estilos dentro de `routes/`.
+Al añadir un router nuevo: `export const miRouter = new Hono();` … y en `index.ts` importar `{ miRouter }` y registrar `api.route("/mi-prefix", miRouter)`.
 
 ## Controladores grandes (anti‑patrón y remedio)
 

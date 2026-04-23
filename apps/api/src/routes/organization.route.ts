@@ -19,7 +19,7 @@ import { auth } from "@/lib/auth";
 import { isOperationsAdmin } from "@/utils/operations-access";
 import { resolveSessionUserRole } from "@/utils/sessionUser";
 
-const organizationRouter = new Hono();
+export const organizationRouter = new Hono();
 
 organizationRouter.get("/invitation-preview", (c) => getInvitationPreview(c));
 
@@ -145,5 +145,3 @@ organizationRouter.delete("/invitations/:invitationId", async (c) => {
   }
   return deleteOrganizationInvitation(c);
 });
-
-export default organizationRouter;

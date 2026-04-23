@@ -7,7 +7,7 @@ import { resolveSessionUserRole } from "@/utils/sessionUser";
 import { FIREBASE_APP_NAME } from "@/config";
 import { nanoid } from "nanoid";
 
-const blogRouter = new Hono();
+export const blogRouter = new Hono();
 
 const LESSONS_COLLECTION = "backOffice/blog/lessons";
 const ACTUALITY_COLLECTION = "backOffice/blog/actuality";
@@ -573,5 +573,3 @@ blogRouter.post("/upload", async (c) => {
     return c.json({ error: "Error al subir la imagen" }, 500);
   }
 });
-
-export default blogRouter;

@@ -23,7 +23,7 @@ Este repositorio agrupa varias apps y herramientas.
 |------|-------------|
 | `routes/` | Solo wiring Hono + auth; delegar en controllers. |
 | `controllers/` | Handlers HTTP; si crece demasiado, carpeta + `index.ts` con reexports. |
-| `export default` (routers) | Patrón actual en `routes/`; ver `apps/api/AGENTS.md` antes de cambiar. |
+| Routers `routes/` | **`export const nombreRouter`**; `export const api` en `index.ts`; `import { api }` en `app.ts`. |
 | Verificación | `bunx tsc -p apps/api/tsconfig.json --noEmit` en `apps/api/`. |
 
 Otras carpetas en la raíz del monorepo pueden tener sus propias notas (`README`, `CLAUDE.md`, etc.); para código web y API usa los `AGENTS.md` de cada app.
