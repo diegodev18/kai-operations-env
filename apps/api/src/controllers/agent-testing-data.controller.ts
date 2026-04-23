@@ -4,43 +4,32 @@ import admin from "firebase-admin";
 
 import { getFirestore } from "@/lib/firestore";
 import type { AgentsInfoAuthContext } from "@/types/agents";
+import type {
+  SerializedFirestoreGeoPoint,
+  SerializedFirestoreTimestamp,
+  TestingDataDocumentBody,
+} from "@/types/testing-data";
 import { userCanEditAgent } from "@/utils/agents/agentAccess";
 
-interface DocumentBody {
-  data: Record<string, unknown>;
-  merge?: boolean;
-  docId?: string;
-}
-
-interface SerializedTimestamp {
-  _seconds: number;
-  _nanoseconds: number;
-}
-
-interface SerializedGeoPoint {
-  _latitude: number;
-  _longitude: number;
-}
-
-function isSerializedTimestamp(value: unknown): value is SerializedTimestamp {
+function isSerializedTimestamp(value: unknown): value is SerializedFirestoreTimestamp {
   return (
     typeof value === "object" &&
     value !== null &&
     "_seconds" in value &&
     "_nanoseconds" in value &&
-    typeof (value as SerializedTimestamp)._seconds === "number" &&
-    typeof (value as SerializedTimestamp)._nanoseconds === "number"
+    typeof (value as SerializedFirestoreTimestamp)._seconds === "number" &&
+    typeof (value as SerializedFirestoreTimestamp)._nanoseconds === "number"
   );
 }
 
-function isSerializedGeoPoint(value: unknown): value is SerializedGeoPoint {
+function isSerializedGeoPoint(value: unknown): value is SerializedFirestoreGeoPoint {
   return (
     typeof value === "object" &&
     value !== null &&
     "_latitude" in value &&
     "_longitude" in value &&
-    typeof (value as SerializedGeoPoint)._latitude === "number" &&
-    typeof (value as SerializedGeoPoint)._longitude === "number"
+    typeof (value as SerializedFirestoreGeoPoint)._latitude === "number" &&
+    typeof (value as SerializedFirestoreGeoPoint)._longitude === "number"
   );
 }
 
@@ -247,9 +236,9 @@ export async function createTestingDataDocument(authCtx: AgentsInfoAuthContext, 
     return c.json({ error: "No tienes acceso a este agente" }, 403);
   }
 
-  let body: DocumentBody;
+  let body: TestingDataDocumentBody;
   try {
-    body = await c.req.json<DocumentBody>();
+    body = await c.req.json<TestingDataDocumentBody>();
   } catch {
     return c.json({ error: "Body JSON inválido" }, 400);
   }
@@ -308,9 +297,9 @@ export async function updateTestingDataDocument(authCtx: AgentsInfoAuthContext, 
     return c.json({ error: "No tienes acceso a este agente" }, 403);
   }
 
-  let body: DocumentBody;
+  let body: TestingDataDocumentBody;
   try {
-    body = await c.req.json<DocumentBody>();
+    body = await c.req.json<TestingDataDocumentBody>();
   } catch {
     return c.json({ error: "Body JSON inválido" }, 400);
   }

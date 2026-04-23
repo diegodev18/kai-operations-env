@@ -6,8 +6,27 @@ import admin from "firebase-admin";
 import { auth } from "@/lib/auth";
 import { getFirestoreForEnvironment } from "@/lib/firestore";
 import logger from "@/lib/logger";
+import type {
+  ActualizarDocumentoBody,
+  DuplicacionLog,
+  DuplicarBody,
+  GetDocumentosBody,
+  GetDocumentosItem,
+  ResultadosSubida,
+  SubirBody,
+} from "@/types/database-admin";
 import { isOperationsAdmin } from "@/utils/operations-access";
 import { resolveSessionUserRole } from "@/utils/sessionUser";
+
+export type {
+  ActualizarDocumentoBody,
+  DuplicacionLog,
+  DuplicarBody,
+  GetDocumentosBody,
+  GetDocumentosItem,
+  ResultadosSubida,
+  SubirBody,
+} from "@/types/database-admin";
 
 export async function requireAdmin(c: Context) {
   const session = await auth.api.getSession({ headers: c.req.raw.headers });
@@ -24,60 +43,6 @@ export const MAX_DUPLICAR_COLECCION = 500;
 export const MAX_LOG_DOCUMENTOS_EN_RESPUESTA = 400;
 
 export const MAX_ITEMS_GET_DOCUMENTOS = 15;
-
-export interface ActualizarDocumentoBody {
-  datosActualizados: Record<string, unknown>;
-  opciones?: { merge?: boolean };
-  rutaDocumento: string;
-}
-
-export interface DuplicacionLog {
-  documentos: { error?: string; estado: string; id: string; razon?: string }[];
-  errores: { documento?: string; error: string; ruta?: string }[];
-  operacion: string;
-  proyectoDestino: string;
-  proyectoOrigen: string;
-  resumen: { exitosos: number; fallidos: number; omitidos: number; total: number };
-  rutaDestino: string;
-  rutaOrigen: string;
-  timestamp: string;
-}
-
-export interface DuplicarBody {
-  opciones?: { excluirColecciones?: string[]; recursivo?: boolean; sobrescribir?: boolean };
-  proyectoDestino: string;
-  proyectoOrigen: string;
-  rutaDestino: string;
-  rutaOrigen: string;
-}
-
-export interface ResultadosSubida {
-  documentos: {
-    error?: string;
-    estado: "exitoso" | "fallido" | "omitido";
-    id: string;
-    nombre: string;
-  }[];
-  errores: { documento: string; error: string }[];
-  exitosos: number;
-  fallidos: number;
-  omitidos: number;
-}
-
-export interface SubirBody {
-  datos: Record<string, unknown> | unknown[];
-  opciones?: { merge?: boolean; sobrescribir?: boolean };
-  rutaColeccion: string;
-}
-
-export interface GetDocumentosItem {
-  environment: "production" | "testing";
-  rutaDocumento: string;
-}
-
-export interface GetDocumentosBody {
-  items: GetDocumentosItem[];
-}
 
 export function buildPayload(documento: unknown): Record<string, unknown> {
   let payload: Record<string, unknown>;

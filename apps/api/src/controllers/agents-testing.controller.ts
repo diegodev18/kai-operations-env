@@ -3,17 +3,10 @@ import type { Context } from "hono";
 import { KAI_AGENTS_TESTING_URL } from "@/config";
 import logger, { formatError } from "@/lib/logger";
 import { resolveAgentsAuthContext } from "@/routes/agents-auth";
+import type { AgentsTestingSimulateBody } from "@/types/agents-testing";
 import { userCanAccessAgent } from "@/utils/agents";
 
-interface SimulateBody {
-  agent?: unknown;
-  config?: { AGENT_DOC_ID?: string };
-  enableTools?: boolean;
-  stream?: boolean;
-  whatsappBody?: unknown;
-}
-
-function isAgentModeBody(body: SimulateBody): boolean {
+function isAgentModeBody(body: AgentsTestingSimulateBody): boolean {
   const config = body.config;
   const agent = body.agent;
   if (typeof config !== "object" || config == null) return false;
@@ -35,9 +28,9 @@ export const simulateAgentsTesting = async (c: Context) => {
     );
   }
 
-  let body: SimulateBody;
+  let body: AgentsTestingSimulateBody;
   try {
-    body = (await c.req.json()) as SimulateBody;
+    body = (await c.req.json()) as AgentsTestingSimulateBody;
   } catch {
     return c.json({ error: "JSON inválido" }, 400);
   }

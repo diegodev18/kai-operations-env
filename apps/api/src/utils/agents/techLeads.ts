@@ -3,10 +3,7 @@ import type {
   QueryDocumentSnapshot,
 } from "firebase-admin/firestore";
 
-export type TechLeadPayload = {
-  name: string;
-  email: string;
-};
+import type { TechLeadPayload } from "@/types/collaborators";
 
 function emailFromTechLeadData(data: Record<string, unknown>): string {
   const tryKeys = [
