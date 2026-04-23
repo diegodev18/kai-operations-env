@@ -34,7 +34,7 @@ import {
 
 const SECTIONS = [
   { suffix: "tasks", label: "Tareas" },
-  { suffix: "fechas-estado", label: "Fechas y estado" },
+  { suffix: "dates-statuses", label: "Fechas y estado" },
   { suffix: "simulator", label: "Simulador" },
   { suffix: "tools", label: "Tools" },
   { suffix: "prompt-design", label: "Diseño de prompt" },
