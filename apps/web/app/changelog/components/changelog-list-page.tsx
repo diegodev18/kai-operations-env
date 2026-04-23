@@ -108,7 +108,11 @@ export function ChangelogListPage({ projectId }: ChangelogListPageProps) {
 
   const tableRows = useMemo(() => {
     return filteredEntries.map((entry) => ({
-      ...entry,
+      sourceEntry: isFirebaseProject ? (entry as DbChangelogEntry) : null,
+      id: entry.id,
+      version: entry.version,
+      description: entry.description,
+      hidden: entry.hidden ?? false,
       href: `/changelog/${projectId}/${entry.version}`,
       formattedDate: new Date(entry.implementationDate).toLocaleDateString("es-ES", {
         year: "numeric",
@@ -116,7 +120,7 @@ export function ChangelogListPage({ projectId }: ChangelogListPageProps) {
         day: "numeric",
       }),
     }));
-  }, [filteredEntries, projectId]);
+  }, [filteredEntries, isFirebaseProject, projectId]);
 
   return (
     <OperationsShell
@@ -213,7 +217,11 @@ export function ChangelogListPage({ projectId }: ChangelogListPageProps) {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => void toggleEntryHidden(entry)}
+                            onClick={() => {
+                              if (entry.sourceEntry) {
+                                void toggleEntryHidden(entry.sourceEntry);
+                              }
+                            }}
                             disabled={togglingId === entry.id}
                           >
                             {entry.hidden ? <EyeIcon className="size-4" /> : <EyeOffIcon className="size-4" />}
