@@ -3,13 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
@@ -108,7 +102,8 @@ function getMessageContent(data: unknown): string {
   if (typeof data === "object" && data !== null && "content" in data) {
     const content = (data as { content?: unknown }).content;
     if (typeof content === "string") return content;
-    if (Array.isArray(content)) return content.map((item) => String(item)).join("\n");
+    if (Array.isArray(content))
+      return content.map((item) => String(item)).join("\n");
   }
   return JSON.stringify(data, null, 2);
 }
@@ -116,7 +111,8 @@ function getMessageContent(data: unknown): string {
 function formatValue(value: unknown): string {
   if (value === null || value === undefined) return "—";
   if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (typeof value === "number" || typeof value === "boolean")
+    return String(value);
   return JSON.stringify(value, null, 2);
 }
 
@@ -129,16 +125,23 @@ function ToolCallsBlock({ functionCalls }: { functionCalls: unknown[] }) {
           args?: Record<string, unknown>;
           response?: unknown;
         };
-        const name = typeof item?.name === "string" ? item.name : `Tool ${index + 1}`;
+        const name =
+          typeof item?.name === "string" ? item.name : `Tool ${index + 1}`;
         const args =
-          item?.args && typeof item.args === "object" && !Array.isArray(item.args)
+          item?.args &&
+          typeof item.args === "object" &&
+          !Array.isArray(item.args)
             ? item.args
             : {};
         const argEntries = Object.entries(args);
-        const hasResponse = item?.response !== undefined && item?.response !== null;
+        const hasResponse =
+          item?.response !== undefined && item?.response !== null;
 
         return (
-          <div key={index} className="rounded-lg border border-border/70 bg-card/70">
+          <div
+            key={index}
+            className="rounded-lg border border-border/70 bg-card/70"
+          >
             <div className="border-b border-border/60 px-3 py-2 text-xs font-medium text-foreground/90">
               {name.replace(/_/g, " ")}
             </div>
@@ -150,7 +153,9 @@ function ToolCallsBlock({ functionCalls }: { functionCalls: unknown[] }) {
                       key={key}
                       className="grid grid-cols-[120px_1fr] gap-2 border-b border-border/50 px-2.5 py-2 text-xs last:border-b-0"
                     >
-                      <div className="text-muted-foreground">{key.replace(/_/g, " ")}</div>
+                      <div className="text-muted-foreground">
+                        {key.replace(/_/g, " ")}
+                      </div>
                       <div className="whitespace-pre-wrap break-words text-foreground/90">
                         {formatValue(value)}
                       </div>
@@ -225,7 +230,8 @@ function ResultEventCard({ event }: { event: SSEEvent }) {
 
   if (event.type === "done") {
     const conversationAnalysis =
-      typeof event.conversationAnalysis === "object" && event.conversationAnalysis !== null
+      typeof event.conversationAnalysis === "object" &&
+      event.conversationAnalysis !== null
         ? (event.conversationAnalysis as { summary?: unknown; notes?: unknown })
         : null;
     const summary =
@@ -254,8 +260,13 @@ function ResultEventCard({ event }: { event: SSEEvent }) {
         ? (event.analisis as { summary?: unknown; notes?: unknown })
         : null;
     const summary =
-      analysis && typeof analysis.summary === "string" ? analysis.summary : undefined;
-    const notes = analysis && typeof analysis.notes === "string" ? analysis.notes : undefined;
+      analysis && typeof analysis.summary === "string"
+        ? analysis.summary
+        : undefined;
+    const notes =
+      analysis && typeof analysis.notes === "string"
+        ? analysis.notes
+        : undefined;
 
     return (
       <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5">
@@ -279,7 +290,8 @@ function ResultEventCard({ event }: { event: SSEEvent }) {
   const role = event.data.role === "user" ? "user" : "assistant";
   const content = getMessageContent(event.data);
   const hasFunctionCalls =
-    Array.isArray(event.data.functionCalls) && event.data.functionCalls.length > 0;
+    Array.isArray(event.data.functionCalls) &&
+    event.data.functionCalls.length > 0;
 
   return (
     <div className="rounded-lg border border-border/70 bg-muted/15 px-3 py-2.5">
@@ -361,7 +373,8 @@ function inflateConversationFromStorage(
     error: conversation.error,
     isSending: false,
     currentTurn: null,
-    closedAt: typeof conversation.closedAt === "string" ? conversation.closedAt : null,
+    closedAt:
+      typeof conversation.closedAt === "string" ? conversation.closedAt : null,
   };
 }
 
@@ -473,14 +486,18 @@ function ConversationCard({
                 </Tooltip>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>¿Eliminar esta conversación?</AlertDialogTitle>
+                    <AlertDialogTitle>
+                      ¿Eliminar esta conversación?
+                    </AlertDialogTitle>
                     <AlertDialogDescription>
                       Esta acción eliminará la conversación de forma permanente.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={onRemove}>Eliminar</AlertDialogAction>
+                    <AlertDialogAction onClick={onRemove}>
+                      Eliminar
+                    </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
@@ -499,7 +516,11 @@ function ConversationCard({
               onUpdatePrompt(e.target.value);
             }}
             onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !conversation.isSending) {
+              if (
+                e.key === "Enter" &&
+                (e.metaKey || e.ctrlKey) &&
+                !conversation.isSending
+              ) {
                 e.preventDefault();
                 onSend();
               }
@@ -555,11 +576,17 @@ function ConversationCard({
         >
           {conversation.error && (
             <div className="mb-3 rounded-md bg-destructive/10 p-3 text-destructive">
-              <p className="whitespace-pre-wrap text-sm">{conversation.error}</p>
+              <p className="whitespace-pre-wrap text-sm">
+                {conversation.error}
+              </p>
             </div>
           )}
-          {conversation.streamEvents.length === 0 && !conversation.error && !conversation.isSending ? (
-            <p className="text-sm text-muted-foreground">Aún no hay resultados.</p>
+          {conversation.streamEvents.length === 0 &&
+          !conversation.error &&
+          !conversation.isSending ? (
+            <p className="text-sm text-muted-foreground">
+              Aún no hay resultados.
+            </p>
           ) : (
             <ul className="space-y-3">
               {conversation.streamEvents.map((ev, i) => (
@@ -586,18 +613,17 @@ function ConversationCard({
   );
 }
 
-export function AgentSimulator({
-  agentId,
-}: {
-  agentId: string;
-}) {
+export function AgentSimulator({ agentId }: { agentId: string }) {
   const savedParams = useMemo(() => loadParams(), []);
-  const [messageLimit, setMessageLimit] = useState<string>(savedParams.messageLimit);
-  const [simulatorMode, setSimulatorMode] =
-    useState<SimulatorMode>(savedParams.simulatorMode);
+  const [messageLimit, setMessageLimit] = useState<string>(
+    savedParams.messageLimit,
+  );
+  const [simulatorMode, setSimulatorMode] = useState<SimulatorMode>(
+    savedParams.simulatorMode,
+  );
   const [stream, setStream] = useState(savedParams.stream);
   const [testMode, setTestMode] = useState(savedParams.testMode);
-  const [isHistoryLoading, setIsHistoryLoading] = useState(true);
+  const [loadedAgentId, setLoadedAgentId] = useState<string | null>(null);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -608,16 +634,23 @@ export function AgentSimulator({
     createEmptyConversation(),
   ]);
   const historyConversations = useMemo(
-    () => conversations.filter((conversation) => isConversationMeaningful(conversation)),
+    () =>
+      conversations.filter((conversation) =>
+        isConversationMeaningful(conversation),
+      ),
     [conversations],
   );
   const visibleConversations = useMemo(
-    () => conversations.filter((conversation) => conversation.closedAt === null),
+    () =>
+      conversations.filter((conversation) => conversation.closedAt === null),
     [conversations],
   );
   const skipNextPersistRef = useRef(true);
   const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const conversationsRef = useRef<ConversationState[]>([createEmptyConversation()]);
+  const conversationsRef = useRef<ConversationState[]>([
+    createEmptyConversation(),
+  ]);
+  const isHistoryLoading = loadedAgentId !== agentId;
 
   const buildBody = useCallback(
     (prompt: string): SimulateBody | null => {
@@ -643,7 +676,7 @@ export function AgentSimulator({
         testingMode: testMode,
       };
     },
-    [agentId, messageLimit, simulatorMode, stream, testMode]
+    [agentId, messageLimit, simulatorMode, stream, testMode],
   );
 
   const abortRef = useRef<Record<string, AbortController>>({});
@@ -651,7 +684,6 @@ export function AgentSimulator({
   useEffect(() => {
     let cancelled = false;
     skipNextPersistRef.current = true;
-    setIsHistoryLoading(true);
 
     (async () => {
       const data = await fetchSimulatorState(agentId);
@@ -667,7 +699,7 @@ export function AgentSimulator({
       } else {
         setConversations([createEmptyConversation()]);
       }
-      setIsHistoryLoading(false);
+      setLoadedAgentId(agentId);
     })();
 
     return () => {
@@ -709,7 +741,9 @@ export function AgentSimulator({
 
   useEffect(() => {
     return () => {
-      Object.values(abortRef.current).forEach((controller) => controller.abort());
+      Object.values(abortRef.current).forEach((controller) =>
+        controller.abort(),
+      );
       abortRef.current = {};
     };
   }, []);
@@ -727,8 +761,16 @@ export function AgentSimulator({
 
       setConversations((prev) =>
         prev.map((c) =>
-          c.id === convId ? { ...c, error: null, streamEvents: [], isSending: true, currentTurn: "user" } : c
-        )
+          c.id === convId
+            ? {
+                ...c,
+                error: null,
+                streamEvents: [],
+                isSending: true,
+                currentTurn: "user",
+              }
+            : c,
+        ),
       );
 
       try {
@@ -738,11 +780,12 @@ export function AgentSimulator({
         );
         if (!response.ok) {
           const errBody = await response.json().catch(() => ({}));
-          const msg = (errBody as { error?: string }).error ?? response.statusText;
+          const msg =
+            (errBody as { error?: string }).error ?? response.statusText;
           setConversations((prev) =>
             prev.map((c) =>
-              c.id === convId ? { ...c, error: msg, isSending: false } : c
-            )
+              c.id === convId ? { ...c, error: msg, isSending: false } : c,
+            ),
           );
           toast.error(msg);
           return;
@@ -758,13 +801,19 @@ export function AgentSimulator({
               setConversations((prev) =>
                 prev.map((c) =>
                   c.id === convId
-                    ? { ...c, streamEvents: [...c.streamEvents, ev], currentTurn: newTurn ?? c.currentTurn }
-                    : c
-                )
+                    ? {
+                        ...c,
+                        streamEvents: [...c.streamEvents, ev],
+                        currentTurn: newTurn ?? c.currentTurn,
+                      }
+                    : c,
+                ),
               );
             });
             setConversations((prev) =>
-              prev.map((c) => (c.id === convId ? { ...c, isSending: false } : c))
+              prev.map((c) =>
+                c.id === convId ? { ...c, isSending: false } : c,
+              ),
             );
             return;
           }
@@ -775,12 +824,15 @@ export function AgentSimulator({
                 ? {
                     ...c,
                     streamEvents: [
-                      { type: "message", data: { content: JSON.stringify(data) } },
+                      {
+                        type: "message",
+                        data: { content: JSON.stringify(data) },
+                      },
                     ],
                     isSending: false,
                   }
-                : c
-            )
+                : c,
+            ),
           );
           return;
         }
@@ -791,32 +843,33 @@ export function AgentSimulator({
               ? {
                   ...c,
                   streamEvents: [
-                    { type: "message", data: { content: JSON.stringify(data) } },
+                    {
+                      type: "message",
+                      data: { content: JSON.stringify(data) },
+                    },
                   ],
                   isSending: false,
                 }
-              : c
-          )
+              : c,
+          ),
         );
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") {
           setConversations((prev) =>
-            prev.map((c) =>
-              c.id === convId ? { ...c, isSending: false } : c
-            )
+            prev.map((c) => (c.id === convId ? { ...c, isSending: false } : c)),
           );
           return;
         }
         const message = e instanceof Error ? e.message : "Error de red";
         setConversations((prev) =>
           prev.map((c) =>
-            c.id === convId ? { ...c, error: message, isSending: false } : c
-          )
+            c.id === convId ? { ...c, error: message, isSending: false } : c,
+          ),
         );
         toast.error(message);
       }
     },
-    [buildBody, stream]
+    [buildBody, stream],
   );
 
   const executeConversation = useCallback(
@@ -856,10 +909,8 @@ export function AgentSimulator({
   const resetConversation = useCallback((convId: string) => {
     setConversations((prev) =>
       prev.map((c) =>
-        c.id === convId
-          ? { ...c, streamEvents: [], error: null }
-          : c
-      )
+        c.id === convId ? { ...c, streamEvents: [], error: null } : c,
+      ),
     );
   }, []);
 
@@ -905,10 +956,7 @@ export function AgentSimulator({
   }, []);
 
   const addConversation = () => {
-    setConversations((prev) => [
-      ...prev,
-      createEmptyConversation(),
-    ]);
+    setConversations((prev) => [...prev, createEmptyConversation()]);
   };
 
   const clearAllHistory = useCallback(async () => {
@@ -929,7 +977,10 @@ export function AgentSimulator({
       <div className="flex items-center justify-between py-2">
         <h2 className="text-lg font-semibold">Simulador de Agente</h2>
         <div className="flex items-center gap-2">
-          <Dialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen}>
+          <Dialog
+            open={isHistoryDialogOpen}
+            onOpenChange={setIsHistoryDialogOpen}
+          >
             <Tooltip>
               <TooltipTrigger asChild>
                 <DialogTrigger asChild>
@@ -952,9 +1003,13 @@ export function AgentSimulator({
               <div className="space-y-3">
                 <div className="max-h-[380px] space-y-2 overflow-y-auto rounded-md border border-border/60 p-2">
                   {isHistoryLoading ? (
-                    <p className="text-sm text-muted-foreground">Cargando historial...</p>
+                    <p className="text-sm text-muted-foreground">
+                      Cargando historial...
+                    </p>
                   ) : historyConversations.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No hay conversaciones guardadas.</p>
+                    <p className="text-sm text-muted-foreground">
+                      No hay conversaciones guardadas.
+                    </p>
                   ) : (
                     historyConversations.map((conversation, index) => (
                       <div
@@ -972,7 +1027,8 @@ export function AgentSimulator({
                             Eventos: {conversation.streamEvents.length}
                           </p>
                           <p className="text-[11px] text-muted-foreground">
-                            Estado: {conversation.closedAt ? "Cerrada" : "Activa"}
+                            Estado:{" "}
+                            {conversation.closedAt ? "Cerrada" : "Activa"}
                           </p>
                         </div>
                         <div className="flex items-center gap-1">
@@ -981,7 +1037,9 @@ export function AgentSimulator({
                               type="button"
                               variant="outline"
                               size="sm"
-                              onClick={() => reopenConversation(conversation.id)}
+                              onClick={() =>
+                                reopenConversation(conversation.id)
+                              }
                               disabled={isHistoryLoading}
                             >
                               Abrir
@@ -1002,15 +1060,20 @@ export function AgentSimulator({
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>¿Eliminar esta conversación?</AlertDialogTitle>
+                                <AlertDialogTitle>
+                                  ¿Eliminar esta conversación?
+                                </AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Esta acción eliminará la conversación del historial.
+                                  Esta acción eliminará la conversación del
+                                  historial.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
                                 <AlertDialogAction
-                                  onClick={() => removeConversation(conversation.id)}
+                                  onClick={() =>
+                                    removeConversation(conversation.id)
+                                  }
                                 >
                                   Eliminar
                                 </AlertDialogAction>
@@ -1029,16 +1092,21 @@ export function AgentSimulator({
                         type="button"
                         variant="destructive"
                         size="sm"
-                        disabled={isHistoryLoading || historyConversations.length === 0}
+                        disabled={
+                          isHistoryLoading || historyConversations.length === 0
+                        }
                       >
                         Eliminar todo el historial
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>¿Eliminar todo el historial?</AlertDialogTitle>
+                        <AlertDialogTitle>
+                          ¿Eliminar todo el historial?
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
-                          Esta acción borrará todas las conversaciones guardadas de este simulador para tu usuario.
+                          Esta acción borrará todas las conversaciones guardadas
+                          de este simulador para tu usuario.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
@@ -1076,7 +1144,8 @@ export function AgentSimulator({
               <DialogHeader>
                 <DialogTitle>Parámetros de simulación</DialogTitle>
                 <DialogDescription>
-                  Configura cómo quieres hacer la prueba. Estos parámetros se aplican a todas las conversaciones.
+                  Configura cómo quieres hacer la prueba. Estos parámetros se
+                  aplican a todas las conversaciones.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-2">
@@ -1090,29 +1159,39 @@ export function AgentSimulator({
                     max={MESSAGE_LIMIT_MAX}
                     step={1}
                     value={[Number(messageLimit)]}
-                    onValueChange={(v: number[]) => setMessageLimit(String(v[0]))}
+                    onValueChange={(v: number[]) =>
+                      setMessageLimit(String(v[0]))
+                    }
                   />
                   <p className="text-xs text-muted-foreground">
-                    Desliza para ajustar la duración de la conversación. Recomendado: 10–20 para conversaciones completas.
+                    Desliza para ajustar la duración de la conversación.
+                    Recomendado: 10–20 para conversaciones completas.
                   </p>
                 </div>
                 <div className="space-y-1">
                   <Label>Tipo de simulación</Label>
                   <Select
                     value={simulatorMode}
-                    onValueChange={(v: string) => setSimulatorMode(v as SimulatorMode)}
+                    onValueChange={(v: string) =>
+                      setSimulatorMode(v as SimulatorMode)
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="questions_only">Solo preguntas</SelectItem>
-                      <SelectItem value="full">Conversación completa</SelectItem>
+                      <SelectItem value="questions_only">
+                        Solo preguntas
+                      </SelectItem>
+                      <SelectItem value="full">
+                        Conversación completa
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    "Solo preguntas" hace una prueba breve. "Conversación completa"
-                    intenta una prueba más amplia.
+                    &quot;Solo preguntas&quot; hace una prueba breve.
+                    &quot;Conversación completa&quot; intenta una prueba más
+                    amplia.
                   </p>
                 </div>
                 <label className="flex items-center gap-2 text-sm">
@@ -1124,7 +1203,8 @@ export function AgentSimulator({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="cursor-help">
-                        Ver respuestas en tiempo real (se muestran a medida que van llegando)
+                        Ver respuestas en tiempo real (se muestran a medida que
+                        van llegando)
                       </span>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -1141,7 +1221,8 @@ export function AgentSimulator({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="cursor-help">
-                        Modo de prueba segura (evita acciones reales y usa entorno de prueba)
+                        Modo de prueba segura (evita acciones reales y usa
+                        entorno de prueba)
                       </span>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -1175,7 +1256,7 @@ export function AgentSimulator({
               }
               onUpdatePrompt={(prompt) =>
                 setConversations((prev) =>
-                  prev.map((c) => (c.id === conv.id ? { ...c, prompt } : c))
+                  prev.map((c) => (c.id === conv.id ? { ...c, prompt } : c)),
                 )
               }
             />
