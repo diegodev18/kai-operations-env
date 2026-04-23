@@ -23,6 +23,7 @@ import type {
   AgentImplementationLifecycle,
   AgentCommercialStatus,
   AgentServerStatus,
+  LifecycleUpdatedFrom,
 } from "@/types";
 import { normalizeAgentStatus } from "@/services/agents/normalize";
 
@@ -767,6 +768,8 @@ export async function patchImplementationLifecycle(
     nextMeetingAt?: string | null;
     commercialStatus?: AgentCommercialStatus;
     serverStatusOverride?: AgentServerStatus | null;
+    updatedFrom?: LifecycleUpdatedFrom;
+    reasonCode?: string | null;
   },
 ): Promise<
   | { ok: true; lifecycle: AgentImplementationLifecycle }

@@ -77,6 +77,10 @@ export interface Agent {
     serverStatus: "active" | "disabled" | "no_connected_number";
     serverStatusAuto: "active" | "disabled" | "no_connected_number";
     serverStatusOverride: "active" | "disabled" | "no_connected_number" | null;
+    updatedBy: string | null;
+    updatedFrom: "manual" | "automation" | "sync";
+    reasonCode: string | null;
+    updatedAt: string | null;
   };
 }
 

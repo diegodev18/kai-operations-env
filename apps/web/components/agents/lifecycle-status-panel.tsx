@@ -10,6 +10,12 @@ import type {
   AgentServerStatus,
 } from "@/types";
 import {
+  COMMERCIAL_STATUS_LABELS_ES,
+  COMMERCIAL_STATUS_OPTIONS,
+  SERVER_STATUS_LABELS_ES,
+  SERVER_STATUS_OPTIONS,
+} from "@/consts/agent-lifecycle";
+import {
   fetchImplementationLifecycle,
   patchImplementationLifecycle,
 } from "@/services/agents-api";
@@ -23,20 +29,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-const COMMERCIAL_STATUS_LABELS: Record<AgentCommercialStatus, string> = {
-  building: "Construyendo",
-  internal_test: "Prueba interna",
-  client_test: "Prueba con cliente",
-  iterating: "Iterando",
-  delivered: "Entregado",
-};
-
-const SERVER_STATUS_LABELS: Record<AgentServerStatus, string> = {
-  active: "Activo",
-  disabled: "Desactivado",
-  no_connected_number: "Sin número conectado",
-};
 
 function toDateInputValue(value: string | null): string {
   if (!value) return "";
@@ -71,6 +63,7 @@ export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
   const [serverStatusOverride, setServerStatusOverride] = useState<
     AgentServerStatus | "auto"
   >("auto");
+  const [reasonCode, setReasonCode] = useState("");
 
   const hydrateForm = useCallback((next: AgentImplementationLifecycle) => {
     setData(next);
@@ -78,6 +71,7 @@ export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
     setNextMeetingAtInput(toDateInputValue(next.nextMeetingAt));
     setCommercialStatus(next.commercialStatus);
     setServerStatusOverride(next.serverStatusOverride ?? "auto");
+    setReasonCode(next.reasonCode ?? "");
   }, []);
 
   const load = useCallback(async () => {
@@ -116,9 +110,17 @@ export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
       toIsoFromDateInput(nextMeetingAtInput) !== data.nextMeetingAt ||
       commercialStatus !== data.commercialStatus ||
       (serverStatusOverride === "auto" ? null : serverStatusOverride) !==
-        data.serverStatusOverride
+        data.serverStatusOverride ||
+      reasonCode.trim() !== (data.reasonCode ?? "")
     );
-  }, [commercialStatus, data, nextMeetingAtInput, serverStatusOverride, soldAtInput]);
+  }, [
+    commercialStatus,
+    data,
+    nextMeetingAtInput,
+    reasonCode,
+    serverStatusOverride,
+    soldAtInput,
+  ]);
 
   const onSave = useCallback(async () => {
     if (!data || !hasChanges) return;
@@ -130,6 +132,8 @@ export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
         commercialStatus,
         serverStatusOverride:
           serverStatusOverride === "auto" ? null : serverStatusOverride,
+        updatedFrom: "manual",
+        reasonCode: reasonCode.trim() || null,
       });
       if (!result.ok) {
         toast.error(result.error);
@@ -149,6 +153,7 @@ export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
     nextMeetingAtInput,
     serverStatusOverride,
     soldAtInput,
+    reasonCode,
   ]);
 
   if (loading) {
@@ -205,7 +210,7 @@ export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
           <Label htmlFor="serverStatusAuto">Estatus servidor (automático)</Label>
           <Input
             id="serverStatusAuto"
-            value={SERVER_STATUS_LABELS[data.serverStatusAuto]}
+            value={SERVER_STATUS_LABELS_ES[data.serverStatusAuto]}
             readOnly
           />
         </div>
@@ -222,11 +227,11 @@ export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="auto">Automático</SelectItem>
-              <SelectItem value="active">Activo</SelectItem>
-              <SelectItem value="disabled">Desactivado</SelectItem>
-              <SelectItem value="no_connected_number">
-                Sin número conectado
-              </SelectItem>
+              {SERVER_STATUS_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.labelEs}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -242,11 +247,11 @@ export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="building">Construyendo</SelectItem>
-              <SelectItem value="internal_test">Prueba interna</SelectItem>
-              <SelectItem value="client_test">Prueba con cliente</SelectItem>
-              <SelectItem value="iterating">Iterando</SelectItem>
-              <SelectItem value="delivered">Entregado</SelectItem>
+              {COMMERCIAL_STATUS_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.labelEs}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -254,9 +259,49 @@ export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
           <Label htmlFor="serverStatusEffective">Estatus servidor efectivo</Label>
           <Input
             id="serverStatusEffective"
-            value={SERVER_STATUS_LABELS[data.serverStatus]}
+            value={SERVER_STATUS_LABELS_ES[data.serverStatus]}
             readOnly
           />
+        </div>
+        <div className="space-y-2 md:col-span-2">
+          <Label htmlFor="reasonCode">Razón del cambio</Label>
+          <Input
+            id="reasonCode"
+            value={reasonCode}
+            onChange={(e) => setReasonCode(e.target.value)}
+            placeholder="Ej. solicitud_cliente, seguimiento_semanal"
+          />
+          <p className="text-xs text-muted-foreground">
+            Se guarda como metadato para trazabilidad en bitácora.
+          </p>
+        </div>
+      </section>
+
+      <section className="rounded-lg border p-4">
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Última actualización
+        </h3>
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="space-y-1">
+            <Label>Actualizado por</Label>
+            <Input value={data.updatedBy ?? "Sistema"} readOnly />
+          </div>
+          <div className="space-y-1">
+            <Label>Origen</Label>
+            <Input value={data.updatedFrom} readOnly />
+          </div>
+          <div className="space-y-1">
+            <Label>Razón</Label>
+            <Input value={data.reasonCode ?? "—"} readOnly />
+          </div>
+          <div className="space-y-1">
+            <Label>Fecha</Label>
+            <Input value={formatDateTime(data.updatedAt)} readOnly />
+          </div>
+          <div className="space-y-1">
+            <Label>Estatus comercial actual</Label>
+            <Input value={COMMERCIAL_STATUS_LABELS_ES[data.commercialStatus]} readOnly />
+          </div>
         </div>
       </section>
 

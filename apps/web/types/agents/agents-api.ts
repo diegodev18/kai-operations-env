@@ -64,6 +64,8 @@ export type AgentServerStatus =
   | "disabled"
   | "no_connected_number";
 
+export type LifecycleUpdatedFrom = "manual" | "automation" | "sync";
+
 export type AgentImplementationLifecycle = {
   createdAt: string | null;
   soldAt: string | null;
@@ -73,6 +75,10 @@ export type AgentImplementationLifecycle = {
   serverStatus: AgentServerStatus;
   serverStatusAuto: AgentServerStatus;
   serverStatusOverride: AgentServerStatus | null;
+  updatedBy: string | null;
+  updatedFrom: LifecycleUpdatedFrom;
+  reasonCode: string | null;
+  updatedAt: string | null;
 };
 
 /** Respuesta de GET .../whatsapp-integration-status (sin datos sensibles). */

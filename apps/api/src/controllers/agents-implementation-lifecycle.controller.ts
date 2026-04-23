@@ -2,6 +2,13 @@ import type { Context } from "hono";
 import type { Firestore } from "firebase-admin/firestore";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 
+import {
+  isCommercialStatus,
+  isLifecycleUpdatedFrom,
+  isServerStatus,
+  type LifecycleUpdatedFrom,
+  type ServerStatus,
+} from "@/constants/implementation-lifecycle";
 import type { AgentsInfoAuthContext } from "@/types/agents-types";
 import { resolveAgentWriteDatabase, userCanAccessAgent, userCanEditAgent } from "@/utils/agents";
 import {
@@ -13,23 +20,6 @@ import {
   appendImplementationActivityEntry,
 } from "@/services/implementation-activity.service";
 
-const COMMERCIAL_STATUS_VALUES = [
-  "building",
-  "internal_test",
-  "client_test",
-  "iterating",
-  "delivered",
-] as const;
-
-const SERVER_STATUS_VALUES = [
-  "active",
-  "disabled",
-  "no_connected_number",
-] as const;
-
-type CommercialStatus = (typeof COMMERCIAL_STATUS_VALUES)[number];
-type ServerStatus = (typeof SERVER_STATUS_VALUES)[number];
-
 type LifecycleDoc = {
   createdAt?: unknown;
   soldAt?: unknown;
@@ -38,16 +28,11 @@ type LifecycleDoc = {
   commercialStatus?: unknown;
   serverStatusOverride?: unknown;
   autoServerStatus?: unknown;
+  updatedBy?: unknown;
+  updatedFrom?: unknown;
+  reasonCode?: unknown;
   updatedAt?: unknown;
 };
-
-function isCommercialStatus(value: unknown): value is CommercialStatus {
-  return typeof value === "string" && COMMERCIAL_STATUS_VALUES.includes(value as CommercialStatus);
-}
-
-function isServerStatus(value: unknown): value is ServerStatus {
-  return typeof value === "string" && SERVER_STATUS_VALUES.includes(value as ServerStatus);
-}
 
 function toIsoOrNull(value: unknown): string | null {
   if (value == null) return null;
@@ -94,6 +79,18 @@ function normalizeLifecycleForResponse(
     ? raw?.serverStatusOverride
     : null;
   const effectiveServerStatus = serverStatusOverride ?? serverStatusAuto;
+  const updatedBy =
+    typeof raw?.updatedBy === "string" && raw.updatedBy.trim().length > 0
+      ? raw.updatedBy.trim().toLowerCase()
+      : null;
+  const updatedFrom = isLifecycleUpdatedFrom(raw?.updatedFrom)
+    ? raw.updatedFrom
+    : "automation";
+  const reasonCode =
+    typeof raw?.reasonCode === "string" && raw.reasonCode.trim().length > 0
+      ? raw.reasonCode.trim()
+      : null;
+  const updatedAt = toIsoOrNull(raw?.updatedAt);
   return {
     createdAt,
     soldAt,
@@ -103,6 +100,10 @@ function normalizeLifecycleForResponse(
     serverStatusAuto,
     serverStatusOverride,
     serverStatus: effectiveServerStatus,
+    updatedBy,
+    updatedFrom,
+    reasonCode,
+    updatedAt,
   };
 }
 
@@ -174,6 +175,8 @@ async function appendLifecycleChangeLog(
   field: string,
   prevValue: unknown,
   nextValue: unknown,
+  updatedFrom: LifecycleUpdatedFrom,
+  reasonCode: string | null,
 ) {
   const prevDisplay = prevValue == null ? "vacío" : String(prevValue);
   const nextDisplay = nextValue == null ? "vacío" : String(nextValue);
@@ -186,6 +189,8 @@ async function appendLifecycleChangeLog(
       field,
       previous: prevValue ?? null,
       next: nextValue ?? null,
+      updatedFrom,
+      reasonCode,
     },
   });
 }
@@ -237,6 +242,9 @@ export async function getImplementationLifecycle(
     }
 
     if (Object.keys(patch).length > 0) {
+      patch.updatedBy = null;
+      patch.updatedFrom = "automation";
+      patch.reasonCode = "auto_status_recalc";
       patch.updatedAt = FieldValue.serverTimestamp();
       await lifecycleRef.set(patch, { merge: true });
       const actorEmail = authCtx.userEmail?.toLowerCase().trim() ?? null;
@@ -248,6 +256,8 @@ export async function getImplementationLifecycle(
           "serverStatusAuto",
           previousAuto,
           autoStatus.status,
+          "automation",
+          "auto_status_recalc",
         );
       }
       if ("deliveredAt" in patch) {
@@ -258,6 +268,8 @@ export async function getImplementationLifecycle(
           "deliveredAt",
           toIsoOrNull(current.deliveredAt),
           patch.deliveredAt,
+          "automation",
+          "auto_status_recalc",
         );
       }
     }
@@ -336,6 +348,27 @@ export async function patchImplementationLifecycle(
       );
     }
 
+    const updatedFromRaw = payload.updatedFrom;
+    const updatedFrom: LifecycleUpdatedFrom =
+      updatedFromRaw === undefined
+        ? "manual"
+        : isLifecycleUpdatedFrom(updatedFromRaw)
+          ? updatedFromRaw
+          : ("manual" as const);
+    if (updatedFromRaw !== undefined && !isLifecycleUpdatedFrom(updatedFromRaw)) {
+      return c.json(
+        {
+          error: "updatedFrom inválido. Usa: manual, automation o sync",
+        },
+        400,
+      );
+    }
+    const reasonCodeRaw = payload.reasonCode;
+    const reasonCode =
+      typeof reasonCodeRaw === "string" && reasonCodeRaw.trim().length > 0
+        ? reasonCodeRaw.trim().slice(0, 120)
+        : null;
+
     const { db, hasTestingData, inProduction } = await resolveAgentWriteDatabase(agentId);
     if (!hasTestingData && !inProduction) {
       return c.json({ error: "Agente no encontrado" }, 404);
@@ -375,11 +408,13 @@ export async function patchImplementationLifecycle(
         patch.deliveredAt = new Date().toISOString();
       }
     }
+    const actorEmail = authCtx.userEmail?.toLowerCase().trim() ?? null;
+    patch.updatedBy = actorEmail;
+    patch.updatedFrom = updatedFrom;
+    patch.reasonCode = reasonCode;
     patch.updatedAt = FieldValue.serverTimestamp();
 
     await lifecycleRef.set(patch, { merge: true });
-
-    const actorEmail = authCtx.userEmail?.toLowerCase().trim() ?? null;
     const logTasks: Promise<void>[] = [];
     if (payload.soldAt !== undefined) {
       logTasks.push(
@@ -390,6 +425,8 @@ export async function patchImplementationLifecycle(
           "soldAt",
           toIsoOrNull(current.soldAt),
           patch.soldAt,
+          updatedFrom,
+          reasonCode,
         ),
       );
     }
@@ -402,6 +439,8 @@ export async function patchImplementationLifecycle(
           "nextMeetingAt",
           toIsoOrNull(current.nextMeetingAt),
           patch.nextMeetingAt,
+          updatedFrom,
+          reasonCode,
         ),
       );
     }
@@ -416,6 +455,8 @@ export async function patchImplementationLifecycle(
             ? current.commercialStatus
             : "building",
           commercialStatusRaw,
+          updatedFrom,
+          reasonCode,
         ),
       );
     }
@@ -430,6 +471,8 @@ export async function patchImplementationLifecycle(
             ? current.serverStatusOverride
             : null,
           overrideRaw,
+          updatedFrom,
+          reasonCode,
         ),
       );
     }
@@ -442,6 +485,8 @@ export async function patchImplementationLifecycle(
           "serverStatusAuto",
           previousAuto,
           autoStatus.status,
+          "automation",
+          "auto_status_recalc",
         ),
       );
     }
@@ -454,6 +499,8 @@ export async function patchImplementationLifecycle(
           "deliveredAt",
           toIsoOrNull(current.deliveredAt),
           patch.deliveredAt,
+          "automation",
+          "auto_status_recalc",
         ),
       );
     }
