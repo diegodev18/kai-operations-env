@@ -452,21 +452,36 @@ function ConversationCard({
               </Tooltip>
             )}
             {canRemove && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={onRemove}
-                    className="rounded-md p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                    aria-label="Eliminar conversación"
-                  >
-                    <Trash2Icon className="h-4 w-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Eliminar conversación</p>
-                </TooltipContent>
-              </Tooltip>
+              <AlertDialog>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <AlertDialogTrigger asChild>
+                      <button
+                        type="button"
+                        className="rounded-md p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        aria-label="Eliminar conversación"
+                      >
+                        <Trash2Icon className="h-4 w-4" />
+                      </button>
+                    </AlertDialogTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Eliminar conversación</p>
+                  </TooltipContent>
+                </Tooltip>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>¿Eliminar esta conversación?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Esta acción eliminará la conversación de forma permanente.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={onRemove}>Eliminar</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
           </div>
         </div>
@@ -841,6 +856,19 @@ export function AgentSimulator({
     );
   }, []);
 
+  const reopenConversation = useCallback((convId: string) => {
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === convId
+          ? {
+              ...c,
+              closedAt: null,
+            }
+          : c,
+      ),
+    );
+  }, []);
+
   const addConversation = () => {
     setConversations((prev) => [
       ...prev,
@@ -912,16 +940,49 @@ export function AgentSimulator({
                             Estado: {conversation.closedAt ? "Cerrada" : "Activa"}
                           </p>
                         </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="text-muted-foreground hover:text-destructive"
-                          onClick={() => removeConversation(conversation.id)}
-                          disabled={isHistoryLoading}
-                        >
-                          <Trash2Icon className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          {conversation.closedAt && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => reopenConversation(conversation.id)}
+                              disabled={isHistoryLoading}
+                            >
+                              Abrir
+                            </Button>
+                          )}
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="text-muted-foreground hover:text-destructive"
+                                disabled={isHistoryLoading}
+                                aria-label="Eliminar conversación del historial"
+                              >
+                                <Trash2Icon className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>¿Eliminar esta conversación?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Esta acción eliminará la conversación del historial.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => removeConversation(conversation.id)}
+                                >
+                                  Eliminar
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </div>
                     ))
                   )}
