@@ -39,6 +39,10 @@ import {
   getImplementationActivity,
   patchImplementationActivityCommentVisibility,
 } from "@/controllers/agents-implementation-activity.controller";
+import {
+  getImplementationLifecycle,
+  patchImplementationLifecycle,
+} from "@/controllers/agents-implementation-lifecycle.controller";
 import { getWhatsappIntegrationStatus } from "@/controllers/agents-whatsapp-integration.controller";
 import {
   postPromoteToProduction,
@@ -403,6 +407,26 @@ r.patch("/:agentId/implementation-activity/:entryId", async (c) => {
     agentId,
     entryId,
   );
+});
+
+r.get("/:agentId/implementation-lifecycle", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return getImplementationLifecycle(c, ctx.authCtx, agentId);
+});
+
+r.patch("/:agentId/implementation-lifecycle", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return patchImplementationLifecycle(c, ctx.authCtx, agentId);
 });
 
 r.post("/:agentId/assign-to-user", async (c) => {

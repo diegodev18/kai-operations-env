@@ -52,6 +52,29 @@ export type ImplementationActivityEntry = {
   metadata?: Record<string, unknown>;
 };
 
+export type AgentCommercialStatus =
+  | "building"
+  | "internal_test"
+  | "client_test"
+  | "iterating"
+  | "delivered";
+
+export type AgentServerStatus =
+  | "active"
+  | "disabled"
+  | "no_connected_number";
+
+export type AgentImplementationLifecycle = {
+  createdAt: string | null;
+  soldAt: string | null;
+  deliveredAt: string | null;
+  nextMeetingAt: string | null;
+  commercialStatus: AgentCommercialStatus;
+  serverStatus: AgentServerStatus;
+  serverStatusAuto: AgentServerStatus;
+  serverStatusOverride: AgentServerStatus | null;
+};
+
 /** Respuesta de GET .../whatsapp-integration-status (sin datos sensibles). */
 export type WhatsappIntegrationStatusItem = {
   id: string;

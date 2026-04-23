@@ -20,6 +20,9 @@ import type {
   SavedBuilderCompany,
   AgentBuilderFormResponse,
   DraftPropertyItem,
+  AgentImplementationLifecycle,
+  AgentCommercialStatus,
+  AgentServerStatus,
 } from "@/types";
 import { normalizeAgentStatus } from "@/services/agents/normalize";
 
@@ -729,10 +732,68 @@ export async function fetchAgentById(agentId: string): Promise<Agent | null> {
           : (j.primary_source ?? j.primarySource) === "commercial"
             ? "commercial"
             : undefined,
+      lifecycle:
+        j.lifecycle != null && typeof j.lifecycle === "object"
+          ? (j.lifecycle as Agent["lifecycle"])
+          : undefined,
     } as Agent;
   } catch {
     return null;
   }
+}
+
+export async function fetchImplementationLifecycle(
+  agentId: string,
+): Promise<AgentImplementationLifecycle | null> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/implementation-lifecycle`,
+    {
+      credentials: "include",
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) return null;
+  try {
+    return (await res.json()) as AgentImplementationLifecycle;
+  } catch {
+    return null;
+  }
+}
+
+export async function patchImplementationLifecycle(
+  agentId: string,
+  body: {
+    soldAt?: string | null;
+    nextMeetingAt?: string | null;
+    commercialStatus?: AgentCommercialStatus;
+    serverStatusOverride?: AgentServerStatus | null;
+  },
+): Promise<
+  | { ok: true; lifecycle: AgentImplementationLifecycle }
+  | { ok: false; error: string }
+> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/implementation-lifecycle`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    },
+  );
+  let data: { error?: string } & Partial<AgentImplementationLifecycle> = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    return { ok: false, error: "Respuesta inválida del servidor" };
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: data.error ?? "No se pudo actualizar fechas y estado",
+    };
+  }
+  return { ok: true, lifecycle: data as AgentImplementationLifecycle };
 }
 
 export async function fetchAgentBuilderForm(

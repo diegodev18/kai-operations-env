@@ -62,6 +62,22 @@ export interface Agent {
   isFavorite?: boolean;
   /** Estado del agente en Operations. */
   status?: "active" | "archived";
+  /** Fechas y estado de implementación (`implementation/lifecycle`). */
+  lifecycle?: {
+    createdAt: string | null;
+    soldAt: string | null;
+    deliveredAt: string | null;
+    nextMeetingAt: string | null;
+    commercialStatus:
+      | "building"
+      | "internal_test"
+      | "client_test"
+      | "iterating"
+      | "delivered";
+    serverStatus: "active" | "disabled" | "no_connected_number";
+    serverStatusAuto: "active" | "disabled" | "no_connected_number";
+    serverStatusOverride: "active" | "disabled" | "no_connected_number" | null;
+  };
 }
 
 export interface AgentWithOperations extends Agent {

@@ -17,7 +17,8 @@ export type ImplementationActivityAction =
   | "tool_enabled"
   | "tool_updated"
   | "billing_config_updated"
-  | "promoted_to_production";
+  | "promoted_to_production"
+  | "lifecycle_updated";
 
 const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
   allowedTags: [
