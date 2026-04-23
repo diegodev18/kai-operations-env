@@ -1,7 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2Icon } from "lucide-react";
+import {
+  ActivityIcon,
+  CalendarClockIcon,
+  Loader2Icon,
+  UserCircle2Icon,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import type {
@@ -29,6 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 function toDateInputValue(value: string | null): string {
   if (!value) return "";
@@ -49,7 +55,10 @@ function formatDateTime(value: string | null): string {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" });
+  return date.toLocaleString("es-MX", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
 }
 
 export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
@@ -135,7 +144,8 @@ export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
         updatedFrom: "manual",
         reasonCode: reasonCode.trim() || null,
         idempotencyKey:
-          typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          typeof crypto !== "undefined" &&
+          typeof crypto.randomUUID === "function"
             ? crypto.randomUUID()
             : `${Date.now()}-${agentId}`,
       });
@@ -211,7 +221,9 @@ export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
 
       <section className="grid gap-4 rounded-lg border p-4 md:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="serverStatusAuto">Estatus servidor (automático)</Label>
+          <Label htmlFor="serverStatusAuto">
+            Estatus servidor (automático)
+          </Label>
           <Input
             id="serverStatusAuto"
             value={SERVER_STATUS_LABELS_ES[data.serverStatusAuto]}
@@ -219,7 +231,9 @@ export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="serverStatusOverride">Override de estatus servidor</Label>
+          <Label htmlFor="serverStatusOverride">
+            Override de estatus servidor
+          </Label>
           <Select
             value={serverStatusOverride}
             onValueChange={(value) =>
@@ -260,7 +274,9 @@ export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
           </Select>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="serverStatusEffective">Estatus servidor efectivo</Label>
+          <Label htmlFor="serverStatusEffective">
+            Estatus servidor efectivo
+          </Label>
           <Input
             id="serverStatusEffective"
             value={SERVER_STATUS_LABELS_ES[data.serverStatus]}
@@ -281,44 +297,120 @@ export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
         </div>
       </section>
 
-      <section className="rounded-lg border p-4">
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Última actualización
+      <section className="space-y-2 rounded-lg border p-3">
+        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Resumen
         </h3>
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="space-y-1">
-            <Label>Actualizado por</Label>
-            <Input value={data.updatedBy ?? "Sistema"} readOnly />
-          </div>
-          <div className="space-y-1">
-            <Label>Origen</Label>
-            <Input value={data.updatedFrom} readOnly />
-          </div>
-          <div className="space-y-1">
-            <Label>Razón</Label>
-            <Input value={data.reasonCode ?? "—"} readOnly />
-          </div>
-          <div className="space-y-1">
-            <Label>Fecha</Label>
-            <Input value={formatDateTime(data.updatedAt)} readOnly />
-          </div>
-          <div className="space-y-1">
-            <Label>Estatus comercial actual</Label>
-            <Input value={COMMERCIAL_STATUS_LABELS_ES[data.commercialStatus]} readOnly />
-          </div>
-          <div className="space-y-1">
-            <Label>Días en estado comercial</Label>
-            <Input value={String(data.daysInCommercialState)} readOnly />
-          </div>
-          <div className="space-y-1">
-            <Label>Días en estado servidor</Label>
-            <Input value={String(data.daysInServerState)} readOnly />
-          </div>
+        <div className="relative space-y-2.5 pl-4">
+          <div className="pointer-events-none absolute left-2 top-2 bottom-2 w-px bg-border" />
+
+          <Card className="relative gap-0!">
+            <span className="absolute -left-5 top-4 flex size-6 items-center justify-center rounded-full border bg-muted ring-2 ring-background">
+              <CalendarClockIcon className="size-3 text-muted-foreground" />
+            </span>
+            <CardHeader className="pb-0 pt-2.5">
+              <CardTitle className="text-xs">Fechas clave</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-1.5 pt-1 text-xs sm:grid-cols-2">
+              <p>
+                <span className="text-muted-foreground">Creación:</span>{" "}
+                {formatDateTime(data.createdAt)}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Venta:</span>{" "}
+                {formatDateTime(data.soldAt)}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Entrega:</span>{" "}
+                {formatDateTime(data.deliveredAt)}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Próxima reunión:</span>{" "}
+                {formatDateTime(data.nextMeetingAt)}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="relative gap-0!">
+            <span className="absolute -left-5 top-4 flex size-6 items-center justify-center rounded-full border bg-muted ring-2 ring-background">
+              <ActivityIcon className="size-3 text-muted-foreground" />
+            </span>
+            <CardHeader className="pb-0 pt-2.5">
+              <CardTitle className="text-xs">Estados y permanencia</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-1.5 pt-1 text-xs sm:grid-cols-2">
+              <p>
+                <span className="text-muted-foreground">Comercial:</span>{" "}
+                {COMMERCIAL_STATUS_LABELS_ES[data.commercialStatus]}
+              </p>
+              <p>
+                <span className="text-muted-foreground">
+                  Servidor (efectivo):
+                </span>{" "}
+                {SERVER_STATUS_LABELS_ES[data.serverStatus]}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Servidor (auto):</span>{" "}
+                {SERVER_STATUS_LABELS_ES[data.serverStatusAuto]}
+              </p>
+              <p>
+                <span className="text-muted-foreground">
+                  Servidor (override):
+                </span>{" "}
+                {data.serverStatusOverride
+                  ? SERVER_STATUS_LABELS_ES[data.serverStatusOverride]
+                  : "Automático"}
+              </p>
+              <p>
+                <span className="text-muted-foreground">
+                  Días en estado comercial:
+                </span>{" "}
+                {data.daysInCommercialState}
+              </p>
+              <p>
+                <span className="text-muted-foreground">
+                  Días en estado servidor:
+                </span>{" "}
+                {data.daysInServerState}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="relative gap-0!">
+            <span className="absolute -left-5 top-4 flex size-6 items-center justify-center rounded-full border bg-muted ring-2 ring-background">
+              <UserCircle2Icon className="size-3 text-muted-foreground" />
+            </span>
+            <CardHeader className="pb-0 pt-2.5">
+              <CardTitle className="text-xs">Última actualización</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-1.5 pt-1 text-xs sm:grid-cols-2">
+              <p>
+                <span className="text-muted-foreground">Actor:</span>{" "}
+                {data.updatedBy ?? "Sistema"}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Origen:</span>{" "}
+                {data.updatedFrom}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Razón:</span>{" "}
+                {data.reasonCode ?? "—"}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Fecha:</span>{" "}
+                {formatDateTime(data.updatedAt)}
+              </p>
+            </CardContent>
+          </Card>
         </div>
       </section>
 
       <div className="flex justify-end">
-        <Button type="button" onClick={() => void onSave()} disabled={saving || !hasChanges}>
+        <Button
+          type="button"
+          onClick={() => void onSave()}
+          disabled={saving || !hasChanges}
+        >
           {saving ? (
             <>
               <Loader2Icon className="mr-2 size-4 animate-spin" />
