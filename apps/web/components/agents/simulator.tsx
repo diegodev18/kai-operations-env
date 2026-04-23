@@ -405,6 +405,7 @@ function ConversationCard({
   onRemove,
   canRemove,
   canClose,
+  isPromptLocked,
   onUpdatePrompt,
 }: {
   index: number;
@@ -416,6 +417,7 @@ function ConversationCard({
   onRemove: () => void;
   canRemove: boolean;
   canClose: boolean;
+  isPromptLocked: boolean;
   onUpdatePrompt: (prompt: string) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -491,7 +493,9 @@ function ConversationCard({
           <Textarea
             placeholder="Instrucción para esta prueba (opcional)"
             value={conversation.prompt}
+            readOnly={isPromptLocked}
             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+              if (isPromptLocked) return;
               onUpdatePrompt(e.target.value);
             }}
             onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -501,7 +505,8 @@ function ConversationCard({
               }
             }}
             rows={3}
-            className="resize-none text-sm"
+            className="resize-none text-sm data-[locked=true]:cursor-not-allowed data-[locked=true]:opacity-80"
+            data-locked={isPromptLocked ? "true" : "false"}
           />
           <div className="flex gap-2">
             {conversation.isSending ? (
@@ -1164,6 +1169,11 @@ export function AgentSimulator({
               onRemove={() => removeConversation(conv.id)}
               canRemove={visibleConversations.length > 1}
               canClose={true}
+              isPromptLocked={
+                conv.streamEvents.length > 0 ||
+                Boolean(conv.error) ||
+                conv.closedAt !== null
+              }
               onUpdatePrompt={(prompt) =>
                 setConversations((prev) =>
                   prev.map((c) => (c.id === conv.id ? { ...c, prompt } : c))
