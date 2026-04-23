@@ -142,18 +142,26 @@ export async function listTestingDataSubcollections(authCtx: AgentsInfoAuthConte
   try {
     const testingDataRef = getTestingDataRef(agentId);
     const colRef = testingDataRef.collection(collection);
-    const snapshot = await colRef.limit(50).get();
+    /** Referencias sin leer datos del documento; incluye “missing docs” con subcolecciones. */
+    const docRefs = await colRef.listDocuments();
 
     const nameSet = new Set<string>();
-    const subcolLists = await Promise.all(snapshot.docs.map((d) => d.ref.listCollections()));
-    for (const cols of subcolLists) {
-      for (const sub of cols) {
-        nameSet.add(sub.id);
+    const chunkSize = 100;
+    for (let i = 0; i < docRefs.length; i += chunkSize) {
+      const chunk = docRefs.slice(i, i + chunkSize);
+      const subcolLists = await Promise.all(chunk.map((d) => d.listCollections()));
+      for (const cols of subcolLists) {
+        for (const sub of cols) {
+          nameSet.add(sub.id);
+        }
       }
     }
 
     const collectionNames = [...nameSet].sort((a, b) => a.localeCompare(b));
-    return c.json({ collections: collectionNames });
+    return c.json({
+      collections: collectionNames,
+      documentsScanned: docRefs.length,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return c.json({ error: "Error listando subcolecciones", details: message }, 500);

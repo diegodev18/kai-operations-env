@@ -1756,6 +1756,8 @@ export async function uploadAgentFile(
 
 export interface TestingDataCollection {
   collections: string[];
+  /** Cuántas refs de documento se consideraron al unir subcolecciones (`listDocuments` en API). */
+  documentsScanned?: number;
 }
 
 export interface TestingDataDocument {
