@@ -248,6 +248,7 @@ export const changelogData: Record<string, ChangelogEntry> = {
       changed: [
         "Las secciones del editor ahora se presentan como cards con títulos más orientados a intención de uso (conversación, acceso, runtime, validación, etc.) en lugar de nombres puramente técnicos.",
         "La barra inferior queda enfocada en acciones de cambios: bajar, subir y guardar; el apagado/encendido y descarte se movieron al bloque de estado.",
+        "`configuration-editor.tsx` se comenzó a dividir en módulos dedicados para constantes, helpers, labels, lista de cambios locales, navegación, estado, equipo y barra de acciones.",
       ],
       improved: [
         "Lectura más clara del panel y menor mezcla entre acciones operativas, sincronización y edición de campos.",

@@ -9,11 +9,9 @@ import {
   updateTestingPropertyDocument,
 } from "@/hooks";
 import { useTestingDiff } from "@/hooks";
-import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -34,20 +32,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import {
   Loader2Icon,
-  CloudDownloadIcon,
-  FileEditIcon,
-  PlusIcon,
-  PowerIcon,
-  PowerOffIcon,
-  RocketIcon,
-  RotateCcwIcon,
 } from "lucide-react";
-import {
-  PROPERTY_DESCRIPTIONS,
-  PROPERTY_TITLES,
-} from "@/consts/form-builder/property-descriptions";
 import { cn } from "@/lib/utils";
-import { formatFirestoreValue } from "@/utils/firestore-value-format";
 import {
   type AgentGrowerRow,
   type AgentTechLeadRow,
@@ -72,230 +58,22 @@ import {
   ConfirmTextDialog,
   OrgUserPickerDialog,
 } from "@/components/shared";
-
-const DOCUMENT_IDS: PropertyDocumentId[] = [
-  "agent",
-  "ai",
-  "answer",
-  "response",
-  "time",
-  "prompt",
-  "memory",
-  "mcp",
-  "limitation",
-];
-
-const DEFAULT_LLM_MODEL = "gemini-2.5-flash";
-
-const AGENT_LLM_MODELS = [
-  "gemini-2.5-flash",
-  "gemini-2.5-pro",
-  "gemini-3-flash-preview",
-  "gemini-3.1-flash-lite-preview",
-] as const;
-
-/** Default temperature by model family when not set in properties. gemini-3* → 0.25, gemini-2.5* → 0.05. */
-function getDefaultTemperatureForModel(model: string): number {
-  if (/gemini-3/i.test(model)) return 0.25;
-  if (/gemini-2\.5/i.test(model)) return 0.05;
-  return 0.05;
-}
-
-const DOCUMENT_LABELS: Record<PropertyDocumentId, string> = {
-  agent: "Conversación y comportamiento",
-  ai: "IA y razonamiento",
-  answer: "Mensajes",
-  response: "Cadencia de respuesta",
-  time: "Horarios y pausas",
-  prompt: "Herramientas del agente",
-  memory: "Memoria",
-  mcp: "Revisión de respuestas",
-  limitation: "Acceso y seguridad",
-};
-
-function FieldLabel({
-  id,
-  docId,
-  fieldKey,
-  children,
-}: {
-  id: string;
-  docId: string;
-  fieldKey: string;
-  children?: ReactNode;
-}) {
-  const title =
-    PROPERTY_TITLES[docId]?.[fieldKey] ??
-    PROPERTY_TITLES[docId]?.[fieldKey.replace(".", "_")] ??
-    children;
-  const desc =
-    PROPERTY_DESCRIPTIONS[docId]?.[fieldKey] ??
-    PROPERTY_DESCRIPTIONS[docId]?.[fieldKey.replace(".", "_")];
-  return (
-    <div className="space-y-1">
-      <Label htmlFor={id}>{title}</Label>
-      {desc && (
-        <p className="text-xs text-muted-foreground font-normal">{desc}</p>
-      )}
-    </div>
-  );
-}
-
-function SettingsSection({
-  id,
-  title,
-  description,
-  badge,
-  children,
-  className,
-}: {
-  id: string;
-  title: string;
-  description: string;
-  badge?: ReactNode;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <section
-      id={id}
-      className={cn(
-        "scroll-mt-24 rounded-2xl border bg-card/70 p-4 shadow-sm",
-        className,
-      )}
-    >
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div className="min-w-0 space-y-1">
-          <h3 className="text-sm font-semibold tracking-tight text-foreground">
-            {title}
-          </h3>
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            {description}
-          </p>
-        </div>
-        {badge}
-      </div>
-      <div className="space-y-3">{children}</div>
-    </section>
-  );
-}
-
-function payloadsEqual(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
-  return valueEquals(deepSortKeys(a), deepSortKeys(b));
-}
-
-function deepSortKeys(obj: unknown): unknown {
-  if (obj === null || typeof obj !== "object") return obj;
-  if (Array.isArray(obj)) return obj.map(deepSortKeys);
-  const sorted: Record<string, unknown> = {};
-  Object.keys(obj as object).sort().forEach((key) => {
-    sorted[key] = deepSortKeys((obj as Record<string, unknown>)[key]);
-  });
-  return sorted;
-}
-
-function valueEquals(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
-  if (a === null || b === null) return a === b;
-  if (typeof a !== typeof b) return false;
-
-  if (Array.isArray(a) && Array.isArray(b)) {
-    if (a.length !== b.length) return false;
-    return a.every((item, i) => valueEquals(item, b[i]));
-  }
-
-  if (typeof a === "object" && typeof b === "object") {
-    if (a === null || b === null) return a === b;
-    const keysA = Object.keys(a as object);
-    const keysB = Object.keys(b as object);
-    if (keysA.length !== keysB.length) return false;
-    return keysA.every((key) =>
-      valueEquals(
-        (a as Record<string, unknown>)[key],
-        (b as Record<string, unknown>)[key],
-      ),
-    );
-  }
-
-  return JSON.stringify(a) === JSON.stringify(b);
-}
-
-function getPendingDocumentIds(
-  formState: AgentPropertiesResponse,
-  originalData: AgentPropertiesResponse | null
-): PropertyDocumentId[] {
-  if (!originalData) return [];
-  return DOCUMENT_IDS.filter((docId) => {
-    const payloadForm = buildPayloadForDocument(docId, formState);
-    const payloadOriginal = buildPayloadForDocument(docId, originalData);
-    return !payloadsEqual(payloadForm, payloadOriginal);
-  });
-}
-function PendingLocalChangesList({
-  formState,
-  originalData,
-  onRevertDoc,
-}: {
-  formState: AgentPropertiesResponse;
-  originalData: AgentPropertiesResponse;
-  onRevertDoc?: (docId: PropertyDocumentId) => void;
-}) {
-  const pendingIds = useMemo(
-    () => getPendingDocumentIds(formState, originalData),
-    [formState, originalData],
-  );
-
-  if (pendingIds.length === 0) return null;
-
-  return (
-    <div className="max-h-[min(60vh,24rem)] space-y-3 overflow-y-auto rounded-md border bg-muted/30 px-3 py-2">
-      {pendingIds.map((docId) => {
-        const fieldPaths = getChangedFieldPathsForDocument(docId, formState, originalData);
-        const formPayload = buildPayloadForDocument(docId, formState) as Record<string, unknown>;
-        const origPayload = buildPayloadForDocument(docId, originalData) as Record<string, unknown>;
-        return (
-          <div key={docId} className="space-y-1.5 border-b border-border/60 pb-3 last:border-0 last:pb-0">
-            <div className="flex items-center justify-between gap-2 text-sm font-medium text-foreground">
-              <div className="flex min-w-0 items-center gap-2">
-                <FileEditIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                <span className="truncate">{DOCUMENT_LABELS[docId]}</span>
-                <span className="shrink-0 text-xs font-normal text-muted-foreground">
-                  ({fieldPaths.length} cambio{fieldPaths.length === 1 ? "" : "s"})
-                </span>
-              </div>
-              {onRevertDoc ? (
-                <button
-                  type="button"
-                  onClick={() => onRevertDoc(docId)}
-                  className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
-                  title={`Restablecer "${DOCUMENT_LABELS[docId]}" a su valor original`}
-                >
-                  <RotateCcwIcon className="h-3.5 w-3.5" />
-                </button>
-              ) : null}
-            </div>
-            <ul className="space-y-1.5 pl-1">
-              {fieldPaths.map((path) => {
-                const beforeVal = getValueAtPath(origPayload, path);
-                const afterVal = getValueAtPath(formPayload, path);
-                return (
-                  <li key={path} className="text-xs">
-                    <code className="break-all font-mono text-foreground">{path}</code>
-                    <div className="mt-0.5 max-h-24 overflow-y-auto rounded bg-background/50 px-1.5 py-1 font-mono text-[11px] leading-snug text-muted-foreground">
-                      <span className="opacity-80">{formatFirestoreValue(beforeVal)}</span>
-                      <span className="mx-1 text-foreground/50">→</span>
-                      <span>{formatFirestoreValue(afterVal)}</span>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
+import {
+  AGENT_LLM_MODELS,
+  DEFAULT_LLM_MODEL,
+  DOCUMENT_LABELS,
+  getDefaultTemperatureForModel,
+} from "./configuration-editor/constants";
+import { FieldLabel } from "./configuration-editor/field-label";
+import {
+  buildPartialPayloadForDocument,
+  getPendingDocumentIds,
+} from "./configuration-editor/helpers";
+import { ConfigurationActionsBar } from "./configuration-editor/actions-bar";
+import { PendingLocalChangesList } from "./configuration-editor/pending-local-changes-list";
+import { ConfigurationSectionNav } from "./configuration-editor/section-nav";
+import { StatusSection } from "./configuration-editor/status-section";
+import { TeamSection } from "./configuration-editor/team-section";
 
 export function AgentConfigurationEditor({
   agentId,
@@ -904,85 +682,18 @@ export function AgentConfigurationEditor({
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto">
             <div className="grid gap-6 px-1 pb-6 lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-start">
-              <aside className="hidden lg:sticky lg:top-4 lg:block">
-                <nav className="space-y-1 rounded-2xl border bg-card/70 p-2 text-sm">
-                  {visibleSectionNav.map((section) => (
-                    <a
-                      key={section.id}
-                      href={`#${section.id}`}
-                      className="block rounded-xl px-3 py-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                    >
-                      {section.label}
-                    </a>
-                  ))}
-                </nav>
-              </aside>
+              <ConfigurationSectionNav sections={visibleSectionNav} />
               <div className="min-w-0 space-y-6">
-                <SettingsSection
-                  id="status"
-                  title="Estado del agente"
-                  description="Consulta si el agente está activo, si tiene cambios por guardar y si hay diferencias con la versión publicada."
-                  badge={
-                    <Badge variant={isEnabled ? "secondary" : "destructive"}>
-                      {isEnabled ? "Encendido" : "Apagado"}
-                    </Badge>
-                  }
-                >
-                  <div className="grid gap-3 md:grid-cols-3">
-                    <div className="rounded-xl border bg-background/70 p-3">
-                      <p className="text-xs text-muted-foreground">Versión</p>
-                      <p className="mt-1 text-sm font-medium">{agentVersion}</p>
-                    </div>
-                    <div className="rounded-xl border bg-background/70 p-3">
-                      <p className="text-xs text-muted-foreground">Cambios locales</p>
-                      <p className="mt-1 text-sm font-medium">
-                        {pendingDocIds.length === 0
-                          ? "Sin cambios"
-                          : `${pendingDocIds.length} documento${pendingDocIds.length === 1 ? "" : "s"}`}
-                      </p>
-                    </div>
-                    <div className="rounded-xl border bg-background/70 p-3">
-                      <p className="text-xs text-muted-foreground">Pruebas vs producción</p>
-                      <p className="mt-1 text-sm font-medium">
-                        {hasTestingProductionDiff ? "Con diferencias" : "Sin diferencias"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 border-t pt-3">
-                    <Button
-                      type="button"
-                      variant={isEnabled ? "outline" : "default"}
-                      size="sm"
-                      onClick={handleToggleClick}
-                      disabled={saving}
-                      className="w-fit shrink-0"
-                    >
-                      {saving ? (
-                        <Loader2Icon className="h-4 w-4 animate-spin" />
-                      ) : isEnabled ? (
-                        <>
-                          <PowerOffIcon className="mr-1.5 h-4 w-4" />
-                          Apagar agente
-                        </>
-                      ) : (
-                        <>
-                          <PowerIcon className="mr-1.5 h-4 w-4" />
-                          Encender agente
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleDiscardChanges}
-                      disabled={!data || !hasLocalChanges || saving}
-                    >
-                      <RotateCcwIcon className="mr-1.5 h-4 w-4" />
-                      Descartar cambios
-                    </Button>
-                  </div>
-                </SettingsSection>
+                <StatusSection
+                  isEnabled={isEnabled}
+                  agentVersion={agentVersion}
+                  pendingDocumentsCount={pendingDocIds.length}
+                  hasTestingProductionDiff={hasTestingProductionDiff}
+                  saving={saving}
+                  canDiscard={!!data && hasLocalChanges}
+                  onToggleEnabled={handleToggleClick}
+                  onDiscardChanges={handleDiscardChanges}
+                />
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 xl:items-start">
           <div className="min-w-0 space-y-6">
               {/* Agent */}
@@ -1647,122 +1358,28 @@ export function AgentConfigurationEditor({
               )}
           </div>
         </div>
-                <SettingsSection
-                  id="team"
-                  title="Equipo"
-                  description="Define quién puede operar o revisar esta configuración."
-                >
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div className="rounded-xl border bg-background/70 p-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium">Growers</p>
-                          <p className="text-xs text-muted-foreground">
-                            Personas que pueden apoyar con la operación del agente.
-                          </p>
-                        </div>
-                        <Badge variant="outline">{dialogGrowers.length}</Badge>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsGrowersDialogOpen(true)}
-                        disabled={saving}
-                        className="mt-3 w-full justify-start"
-                      >
-                        <PlusIcon className="mr-1.5 h-4 w-4" />
-                        Gestionar growers
-                      </Button>
-                    </div>
-                    {showAllSections && (
-                      <div className="rounded-xl border bg-background/70 p-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="space-y-1">
-                            <p className="text-sm font-medium">Tech leads</p>
-                            <p className="text-xs text-muted-foreground">
-                              Personas que pueden revisar y ajustar toda la configuración.
-                            </p>
-                          </div>
-                          <Badge variant="outline">{dialogTechLeads.length}</Badge>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setIsTechLeadsDialogOpen(true)}
-                          disabled={saving}
-                          className="mt-3 w-full justify-start"
-                        >
-                          <PlusIcon className="mr-1.5 h-4 w-4" />
-                          Gestionar tech leads
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </SettingsSection>
+                <TeamSection
+                  growersCount={dialogGrowers.length}
+                  techLeadsCount={dialogTechLeads.length}
+                  showTechLeads={showAllSections}
+                  saving={saving}
+                  onManageGrowers={() => setIsGrowersDialogOpen(true)}
+                  onManageTechLeads={() => setIsTechLeadsDialogOpen(true)}
+                />
               </div>
             </div>
           </div>
-          <div
-            className="shrink-0 flex flex-col gap-4 border-t border-border bg-background/95 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:flex-row sm:items-end sm:justify-between"
-            role="toolbar"
-            aria-label="Acciones de configuración"
-          >
-            <div className="min-w-0 flex-1 space-y-1">
-              <p className="text-sm font-medium">Cambios de configuración</p>
-              <p className="text-xs text-muted-foreground">
-                {hasLocalChanges
-                  ? `${pendingDocIds.length} documento${pendingDocIds.length === 1 ? "" : "s"} con cambios locales`
-                  : "No hay cambios locales pendientes."}
-              </p>
-            </div>
-            <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                title={
-                  canTransfer
-                    ? "Traer la configuración publicada a pruebas"
-                    : "No hay diferencias entre pruebas y producción"
-                }
-                className="gap-1.5 w-full sm:w-auto"
-                onClick={openPullDialog}
-                disabled={!canTransfer || saving || syncingFromProd}
-              >
-                <CloudDownloadIcon className="size-4" />
-                Bajar cambios
-              </Button>
-              <Button
-                type="button"
-                variant="default"
-                size="sm"
-                className="gap-1.5 w-full sm:w-auto"
-                onClick={openPromoteDialog}
-                disabled={saving || !canTransfer || !data}
-                title={
-                  canTransfer
-                    ? "Publicar los cambios guardados en pruebas"
-                    : "No hay diferencias entre pruebas y producción"
-                }
-              >
-                <RocketIcon className="size-4" />
-                Subir cambios
-              </Button>
-              <Button
-                type="button"
-                variant="default"
-                size="sm"
-                onClick={() => setLocalPendingDialogOpen(true)}
-                disabled={saving || !data || !hasLocalChanges}
-                title="Ver el detalle de cambios pendientes y guardar en pruebas"
-                className="w-full shrink-0 sm:w-auto"
-              >
-                Guardar cambios
-              </Button>
-            </div>
-          </div>
+          <ConfigurationActionsBar
+            hasLocalChanges={hasLocalChanges}
+            pendingDocumentsCount={pendingDocIds.length}
+            canTransfer={canTransfer}
+            saving={saving}
+            syncingFromProd={syncingFromProd}
+            hasData={!!data}
+            onOpenPull={openPullDialog}
+            onOpenPromote={openPromoteDialog}
+            onOpenLocalChanges={() => setLocalPendingDialogOpen(true)}
+          />
           <PromoteDiffDialog
             open={promoteDialogOpen}
             onOpenChange={setPromoteDialogOpen}
@@ -1896,167 +1513,4 @@ export function AgentConfigurationEditor({
       ) : null}
     </div>
   );
-}
-function buildPayloadForDocument(
-  documentId: PropertyDocumentId,
-  formState: AgentPropertiesResponse
-): Record<string, unknown> {
-  switch (documentId) {
-    case "agent": {
-      const agent = formState.agent ?? {};
-      const rawMax = agent.maxFunctionCalls ?? 4;
-      const maxFunctionCalls = Math.min(
-        8,
-        Math.max(1, Number.isFinite(rawMax) ? rawMax : 4),
-      );
-      return {
-        enabled: agent.enabled !== false,
-        isAuthEnable: agent.isAuthEnable,
-        injectCommandsInPrompt: agent.injectCommandsInPrompt,
-        isMemoryEnable: agent.isMemoryEnable,
-        isMultiMessageEnable: agent.isMultiMessageEnable,
-        isMultiMessageResponseEnable: agent.isMultiMessageResponseEnable,
-        maxFunctionCalls,
-        omitFirstEchoes: agent.omitFirstEchoes,
-        isValidatorAgentEnable: agent.isValidatorAgentEnable ?? false,
-        excludedNumbers: agent.excludedNumbers ?? [],
-      };
-    }
-    case "answer":
-      return { notSupport: formState.answer?.notSupport ?? "" };
-    case "ai": {
-      const thinking = formState.ai?.thinking;
-      const aiModel = formState.ai?.model ?? DEFAULT_LLM_MODEL;
-      const aiTemp =
-        formState.ai?.temperature !== undefined &&
-        formState.ai?.temperature !== null
-          ? Number(formState.ai.temperature)
-          : getDefaultTemperatureForModel(aiModel);
-      return {
-        model: aiModel,
-        temperature: Number.isFinite(aiTemp) ? aiTemp : getDefaultTemperatureForModel(aiModel),
-        thinking: {
-          budget: thinking?.budget,
-          includeThoughts: thinking?.includeThoughts ?? false,
-          level: thinking?.level ?? "",
-        },
-      };
-    }
-    case "response": {
-      const response = formState.response ?? {};
-      const maxResponseLinesEnabled =
-        response.maxResponseLinesEnabled ?? false;
-      const maxResponseLines =
-        response.maxResponseLines ?? 50;
-      return {
-        maxResponseLinesEnabled,
-        maxResponseLines: maxResponseLinesEnabled ? maxResponseLines : undefined,
-        waitTime: response.waitTime ?? 3,
-      };
-    }
-    case "time":
-      return {
-        zone: formState.time?.zone ?? "America/Mexico_City",
-        echoesWaitMinutes: formState.time?.echoesWaitMinutes ?? 480,
-      };
-    case "prompt": {
-      const prompt = formState.prompt ?? {};
-      return {
-        isMultiFunctionCallingEnable: prompt.isMultiFunctionCallingEnable,
-      };
-    }
-    case "memory":
-      return { limit: formState.memory?.limit ?? 15 };
-    case "mcp":
-      return { maxRetries: formState.mcp?.maxRetries ?? 1 };
-    case "limitation": {
-      const lim = formState.limitation;
-      return {
-        userLimitation: lim?.userLimitation ?? false,
-        allowedUsers: Array.isArray(lim?.allowedUsers) ? lim.allowedUsers : [],
-      };
-    }
-    default:
-      return {};
-  }
-}
-
-/**
- * Builds a payload with only the top-level keys that differ from originalData.
- * Used so we only write changed fields; unchanged ones stay unset and the agent keeps defaults.
- */
-function buildPartialPayloadForDocument(
-  documentId: PropertyDocumentId,
-  formState: AgentPropertiesResponse,
-  originalData: AgentPropertiesResponse | null
-): Record<string, unknown> {
-  if (!originalData) return buildPayloadForDocument(documentId, formState);
-  const fullForm = buildPayloadForDocument(documentId, formState);
-  const fullOriginal = buildPayloadForDocument(documentId, originalData);
-  const result: Record<string, unknown> = {};
-  for (const key of Object.keys(fullForm)) {
-    if (!valueEquals(fullForm[key], fullOriginal[key])) {
-      result[key] = fullForm[key];
-    }
-  }
-  return result;
-}
-
-function getValueAtPath(root: Record<string, unknown>, path: string): unknown {
-  if (!path) return undefined;
-  const parts = path.split(".");
-  let cur: unknown = root;
-  for (const p of parts) {
-    if (cur === null || cur === undefined || typeof cur !== "object" || Array.isArray(cur)) {
-      return undefined;
-    }
-    cur = (cur as Record<string, unknown>)[p];
-  }
-  return cur;
-}
-
-/** Rutas tipo `maxFunctionCalls` o `thinking.level` donde difiere el payload respecto al original. */
-function collectChangedLeafPaths(
-  formVal: unknown,
-  origVal: unknown,
-  basePath: string,
-): string[] {
-  if (valueEquals(formVal, origVal)) return [];
-
-  const bothPlainObjects =
-    formVal !== null &&
-    origVal !== null &&
-    typeof formVal === "object" &&
-    typeof origVal === "object" &&
-    !Array.isArray(formVal) &&
-    !Array.isArray(origVal);
-
-  if (bothPlainObjects) {
-    const fo = formVal as Record<string, unknown>;
-    const oo = origVal as Record<string, unknown>;
-    const keys = new Set([...Object.keys(fo), ...Object.keys(oo)]);
-    const out: string[] = [];
-    for (const k of keys) {
-      const nextPath = basePath ? `${basePath}.${k}` : k;
-      out.push(...collectChangedLeafPaths(fo[k], oo[k], nextPath));
-    }
-    return out.length > 0 ? out : [basePath];
-  }
-
-  return [basePath];
-}
-
-function getChangedFieldPathsForDocument(
-  documentId: PropertyDocumentId,
-  formState: AgentPropertiesResponse,
-  originalData: AgentPropertiesResponse,
-): string[] {
-  const fullForm = buildPayloadForDocument(documentId, formState) as Record<string, unknown>;
-  const fullOriginal = buildPayloadForDocument(documentId, originalData) as Record<string, unknown>;
-  const paths: string[] = [];
-  const keys = new Set([...Object.keys(fullForm), ...Object.keys(fullOriginal)]);
-  for (const key of keys) {
-    paths.push(...collectChangedLeafPaths(fullForm[key], fullOriginal[key], key));
-  }
-  return [...new Set(paths)].sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
 }
