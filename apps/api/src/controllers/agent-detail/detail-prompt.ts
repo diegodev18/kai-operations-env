@@ -12,6 +12,14 @@ import type { AgentsInfoAuthContext } from "@/types/agents-types";
 import { resolveAgentWriteDatabase } from "@/utils/agents";
 import { handleFirestoreError, requireAgentAccess } from "@/utils/agent-detail/access";
 
+function normalizeConfirmInput(input: string): string {
+  return input
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 export async function postAgentSystemPromptRegenerate(
   c: Context,
   authCtx: AgentsInfoAuthContext,
@@ -143,6 +151,18 @@ export async function promotePromptToProduction(
   }
 
   const authData = (body as { auth?: unknown }).auth;
+  const confirmationInput =
+    body != null &&
+    typeof (body as { confirmation_agent_name?: unknown }).confirmation_agent_name ===
+      "string"
+      ? (body as { confirmation_agent_name: string }).confirmation_agent_name
+      : null;
+  const expectedTestingPrompt =
+    body != null &&
+    typeof (body as { expected_testing_prompt?: unknown }).expected_testing_prompt ===
+      "string"
+      ? (body as { expected_testing_prompt: string }).expected_testing_prompt
+      : null;
   const hasAuth =
     authData != null &&
     typeof authData === "object" &&
@@ -151,12 +171,76 @@ export async function promotePromptToProduction(
     typeof (authData as { unauth?: unknown }).unauth === "string";
 
   try {
+    if (confirmationInput == null || normalizeConfirmInput(confirmationInput) !== "confirmar") {
+      return c.json(
+        {
+          code: "INVALID_CONFIRMATION",
+          error: "Debes escribir CONFIRMAR para continuar.",
+        },
+        400,
+      );
+    }
+
     const prod = getFirestore();
     const docRef = prod.collection("agent_configurations").doc(agentId);
-    const snap = await docRef.get();
+    const [snap, promptPropSnap, testingPromptSnap] = await Promise.all([
+      docRef.get(),
+      docRef.collection("properties").doc("prompt").get(),
+      docRef.collection("testing").doc("data").collection("properties").doc("prompt").get(),
+    ]);
 
     if (!snap.exists) {
       return ApiErrors.notFound(c, "El agente no existe en producción");
+    }
+
+    const agentData = snap.data() ?? {};
+    const mcp = agentData.mcp_configuration as Record<string, unknown> | undefined;
+    const systemPrompt = typeof mcp?.system_prompt === "string" ? mcp.system_prompt : "";
+    const productionPromptData = promptPropSnap.exists ? promptPropSnap.data() : undefined;
+    const productionBase =
+      typeof productionPromptData?.base === "string" && productionPromptData.base.trim().length > 0
+        ? productionPromptData.base
+        : systemPrompt;
+
+    const testingPromptData = testingPromptSnap.exists ? testingPromptSnap.data() : undefined;
+    const testingBase =
+      typeof testingPromptData?.base === "string"
+        ? testingPromptData.base
+        : "";
+
+    if (expectedTestingPrompt != null && expectedTestingPrompt !== testingBase) {
+      return c.json(
+        {
+          code: "TESTING_SNAPSHOT_MISMATCH",
+          error:
+            "El prompt de testing cambió antes de promover. Recarga y vuelve a intentar.",
+        },
+        409,
+      );
+    }
+
+    const authFromProdRaw = productionPromptData?.auth as Record<string, unknown> | undefined;
+    const productionAuthAuth =
+      typeof authFromProdRaw?.auth === "string" ? authFromProdRaw.auth : "";
+    const productionAuthUnauth =
+      typeof authFromProdRaw?.unauth === "string" ? authFromProdRaw.unauth : "";
+    const incomingAuthAuth =
+      hasAuth ? (authData as { auth: string }).auth : productionAuthAuth;
+    const incomingAuthUnauth =
+      hasAuth ? (authData as { unauth: string }).unauth : productionAuthUnauth;
+
+    const baseDiffers = productionBase !== prompt;
+    const authDiffers =
+      incomingAuthAuth !== productionAuthAuth ||
+      incomingAuthUnauth !== productionAuthUnauth;
+    if (!baseDiffers && !authDiffers) {
+      return c.json(
+        {
+          code: "NO_DIFF_TO_TRANSFER",
+          error: "No hay diferencias entre testing y producción para promover.",
+        },
+        409,
+      );
     }
 
     const promptPropRef = docRef.collection("properties").doc("prompt");

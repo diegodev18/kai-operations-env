@@ -111,6 +111,18 @@ function isAllowedImageType(type: string): boolean {
   return ALLOWED_IMAGE_TYPES.includes(type);
 }
 
+function normalizePrompt(value: string | undefined): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeConfirmInput(input: string): string {
+  return input
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 function fileToImageData(file: File): Promise<ChatMessageImage | null> {
   if (!isAllowedImageType(file.type) || file.size > MAX_IMAGE_BYTES) {
     return Promise.resolve(null);
@@ -294,6 +306,11 @@ export function AgentPromptDesigner({
     useState(false);
   const [promoting, setPromoting] = useState(false);
   const [pullingProductionBase, setPullingProductionBase] = useState(false);
+  const [isPushDialogOpen, setIsPushDialogOpen] = useState(false);
+  const [isPullDialogOpen, setIsPullDialogOpen] = useState(false);
+  const [pushConfirmText, setPushConfirmText] = useState("");
+  const [pullConfirmText, setPullConfirmText] = useState("");
+  const bootstrapAttemptedRef = useRef(false);
 
   const { models: promptModels, isLoading: modelsLoading } = usePromptModels();
   const isAuthEnabled = propertiesData?.agent?.isAuthEnable === true;
@@ -408,6 +425,47 @@ export function AgentPromptDesigner({
   ]);
 
   useEffect(() => {
+    if (!agentId || !agent) return;
+    if (propertiesLoading || testingPropertiesLoading || loadingProductionPrompt) return;
+    if (bootstrapAttemptedRef.current) return;
+
+    const mcpPrompt = normalizePrompt(agent.prompt);
+    if (!mcpPrompt) return;
+
+    const testingBase = normalizePrompt(testingPropertiesData?.prompt?.base);
+    const productionBase = normalizePrompt(productionPrompt?.prompt);
+
+    if (testingBase || productionBase) return;
+
+    bootstrapAttemptedRef.current = true;
+    void (async () => {
+      const [savedProd, savedTesting] = await Promise.all([
+        updateAgentPropertyDocument(agentId, "prompt", { base: mcpPrompt }),
+        updateTestingPropertyDocument(agentId, "prompt", { base: mcpPrompt }),
+      ]);
+      if (!savedProd || !savedTesting) {
+        bootstrapAttemptedRef.current = false;
+        return;
+      }
+      setSavedPrompt(mcpPrompt);
+      setEditingPrompt(mcpPrompt);
+      setDiffViewRequested(false);
+      void Promise.all([refetchTestingProperties(), refetchProductionPrompt()]);
+      toast.success("Prompt base inicializado en producción y testing.");
+    })();
+  }, [
+    agentId,
+    agent,
+    propertiesLoading,
+    testingPropertiesLoading,
+    loadingProductionPrompt,
+    testingPropertiesData,
+    productionPrompt,
+    refetchTestingProperties,
+    refetchProductionPrompt,
+  ]);
+
+  useEffect(() => {
     if (!isAuthEnabled || !effectiveProperties?.prompt) return;
     const auth = effectiveProperties.prompt.auth?.auth ?? "";
     const unauth = effectiveProperties.prompt.auth?.unauth ?? "";
@@ -439,6 +497,8 @@ export function AgentPromptDesigner({
     (isAuthEnabled &&
       (editingAuthPrompt !== savedAuthPrompt ||
         editingUnauthPrompt !== savedUnauthPrompt));
+
+  const hasLocalChanges = hasChanges;
 
   const editorViewMode = hasChanges && diffViewRequested ? "diff" : "edit";
 
@@ -508,35 +568,31 @@ export function AgentPromptDesigner({
 
   const savedTestingDiffersFromProduction = useMemo(() => {
     if (!productionPrompt) return false;
-    const baseDiffers = savedPrompt !== productionPrompt.prompt;
-    if (isAuthEnabled && productionPrompt.auth) {
-      const authDiffers = savedAuthPrompt !== productionPrompt.auth.auth;
-      const unauthDiffers = savedUnauthPrompt !== productionPrompt.auth.unauth;
+    const baseDiffers =
+      normalizePrompt(savedPrompt) !== normalizePrompt(productionPrompt.prompt);
+    if (isAuthEnabled) {
+      const authDiffers =
+        normalizePrompt(savedAuthPrompt) !==
+        normalizePrompt(productionPrompt.auth?.auth ?? "");
+      const unauthDiffers =
+        normalizePrompt(savedUnauthPrompt) !==
+        normalizePrompt(productionPrompt.auth?.unauth ?? "");
       return baseDiffers || authDiffers || unauthDiffers;
     }
     return baseDiffers;
   }, [savedPrompt, savedAuthPrompt, savedUnauthPrompt, productionPrompt, isAuthEnabled]);
 
   /** El base guardado en pruebas ya es el mismo que en producción (solo base, no auth). */
-  const testingBaseMatchesProduction = useMemo(
-    () =>
-      productionPrompt != null &&
-      savedPrompt === productionPrompt.prompt,
-    [savedPrompt, productionPrompt],
-  );
+  const hasTestingProductionDiff = savedTestingDiffersFromProduction;
+  const canSave = hasLocalChanges;
+  const canTransfer = hasTestingProductionDiff;
 
   const [isPromoteDialogOpen, setIsPromoteDialogOpen] = useState(false);
   const [promoteIncludeAuth, setPromoteIncludeAuth] = useState(true);
   const [promoteIncludeUnauth, setPromoteIncludeUnauth] = useState(true);
 
-  const handlePullProductionBaseToTesting = async () => {
-    if (pullingProductionBase || promptAndChatLocked) return;
-    if (editingPrompt !== savedPrompt) {
-      const ok = window.confirm(
-        "Hay cambios sin guardar en el prompt principal. ¿Reemplazarlos por el texto que está en producción y guardarlo en pruebas?",
-      );
-      if (!ok) return;
-    }
+  const executePullProductionBaseToTesting = async () => {
+    if (pullingProductionBase || promptAndChatLocked || !canTransfer) return;
     setPullingProductionBase(true);
     try {
       const snap = await fetchProductionPromptSnapshot(agentId);
@@ -549,7 +605,7 @@ export function AgentPromptDesigner({
         toast.error("En producción el prompt principal está vacío.");
         return;
       }
-      if (savedPrompt === base && editingPrompt === base) {
+      if (normalizePrompt(savedPrompt) === normalizePrompt(base)) {
         toast.info("El prompt en pruebas ya es el mismo que en producción.");
         return;
       }
@@ -564,19 +620,23 @@ export function AgentPromptDesigner({
       void refetchTestingProperties();
       void refetchProductionPrompt();
       toast.success("Listo: el texto de producción quedó guardado en pruebas.");
+      setIsPullDialogOpen(false);
+      setPullConfirmText("");
     } finally {
       setPullingProductionBase(false);
     }
   };
 
   const handlePromoteToProduction = async () => {
-    if (!savedTestingDiffersFromProduction) return;
+    if (!canTransfer) return;
 
     let authDiffers = false;
     let unauthDiffers = false;
     if (isAuthEnabled && productionPrompt?.auth) {
-      authDiffers = editingAuthPrompt !== productionPrompt.auth.auth;
-      unauthDiffers = editingUnauthPrompt !== productionPrompt.auth.unauth;
+      authDiffers =
+        normalizePrompt(savedAuthPrompt) !== normalizePrompt(productionPrompt.auth.auth);
+      unauthDiffers =
+        normalizePrompt(savedUnauthPrompt) !== normalizePrompt(productionPrompt.auth.unauth);
     }
 
     if (authDiffers || unauthDiffers) {
@@ -595,18 +655,26 @@ export function AgentPromptDesigner({
     setPromoting(true);
     try {
       const payload: { prompt: string; auth?: { auth: string; unauth: string } } = {
-        prompt: editingPrompt,
+        prompt: savedPrompt,
       };
       
       // Si decidimos incluir auth, lo enviamos todo al API (actualiza el documento auth entero)
       if (isAuthEnabled && (includeAuth || includeUnauth || !productionPrompt?.auth)) {
         payload.auth = {
-          auth: includeAuth ? editingAuthPrompt : (productionPrompt?.auth?.auth ?? editingAuthPrompt),
-          unauth: includeUnauth ? editingUnauthPrompt : (productionPrompt?.auth?.unauth ?? editingUnauthPrompt),
+          auth: includeAuth
+            ? savedAuthPrompt
+            : (productionPrompt?.auth?.auth ?? savedAuthPrompt),
+          unauth: includeUnauth
+            ? savedUnauthPrompt
+            : (productionPrompt?.auth?.unauth ?? savedUnauthPrompt),
         };
       }
 
-      const ok = await promotePromptApi(agentId, payload);
+      const ok = await promotePromptApi(agentId, {
+        ...payload,
+        confirmation_agent_name: "CONFIRMAR",
+        expected_testing_prompt: savedPrompt,
+      });
       if (ok) {
         const syncBody: Record<string, unknown> = { base: payload.prompt };
         if (payload.auth != null) {
@@ -632,15 +700,17 @@ export function AgentPromptDesigner({
             "Producción actualizada, pero no se pudo sincronizar el borrador en testing. Guarda de nuevo el prompt.",
           );
         } else {
-          setSavedPrompt(editingPrompt);
+          setSavedPrompt(payload.prompt);
           if (isAuthEnabled) {
-            setSavedAuthPrompt(editingAuthPrompt);
-            setSavedUnauthPrompt(editingUnauthPrompt);
+            setSavedAuthPrompt(payload.auth?.auth ?? savedAuthPrompt);
+            setSavedUnauthPrompt(payload.auth?.unauth ?? savedUnauthPrompt);
           }
           void refetchTestingProperties();
           toast.success("Prompt subido a producción 🚀");
         }
         setIsPromoteDialogOpen(false);
+        setIsPushDialogOpen(false);
+        setPushConfirmText("");
         await refetchProductionPrompt();
       }
     } finally {
@@ -926,6 +996,93 @@ export function AgentPromptDesigner({
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        <Dialog
+          open={isPushDialogOpen}
+          onOpenChange={(open) => {
+            setIsPushDialogOpen(open);
+            if (!open) setPushConfirmText("");
+          }}
+        >
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Subir cambios a producción</DialogTitle>
+              <DialogDescription>
+                Revisa el diff de testing a producción y escribe CONFIRMAR para continuar.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="max-h-[45vh] overflow-auto rounded border">
+              <PromptDiffView oldText={productionPrompt?.prompt ?? ""} newText={savedPrompt} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="push-confirm">Confirmación</Label>
+              <Textarea
+                id="push-confirm"
+                value={pushConfirmText}
+                onChange={(event) => setPushConfirmText(event.target.value)}
+                placeholder="CONFIRMAR"
+                rows={1}
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsPushDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => void handlePromoteToProduction()}
+                disabled={normalizeConfirmInput(pushConfirmText) !== "confirmar" || promoting}
+              >
+                {promoting ? <Loader2Icon className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Confirmar y subir
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        <Dialog
+          open={isPullDialogOpen}
+          onOpenChange={(open) => {
+            setIsPullDialogOpen(open);
+            if (!open) setPullConfirmText("");
+          }}
+        >
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Bajar cambios desde producción</DialogTitle>
+              <DialogDescription>
+                Revisa el diff de producción a testing y escribe CONFIRMAR para continuar.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="max-h-[45vh] overflow-auto rounded border">
+              <PromptDiffView oldText={savedPrompt} newText={productionPrompt?.prompt ?? ""} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="pull-confirm">Confirmación</Label>
+              <Textarea
+                id="pull-confirm"
+                value={pullConfirmText}
+                onChange={(event) => setPullConfirmText(event.target.value)}
+                placeholder="CONFIRMAR"
+                rows={1}
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsPullDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => void executePullProductionBaseToTesting()}
+                disabled={
+                  normalizeConfirmInput(pullConfirmText) !== "confirmar" ||
+                  pullingProductionBase
+                }
+              >
+                {pullingProductionBase ? (
+                  <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                Confirmar y bajar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         <div className="flex-1 min-w-0 flex flex-col min-h-0">
           <div className="flex-1 min-h-0 flex flex-col p-3 gap-4 overflow-hidden bg-background">
           <div className="flex-[3] min-h-0 flex flex-col gap-2 overflow-hidden">
@@ -1085,16 +1242,16 @@ export function AgentPromptDesigner({
               <TooltipTrigger asChild>
                 <Button
                   type="button"
-                  variant="outline"
-                  onClick={() => void handlePullProductionBaseToTesting()}
+                  variant={canTransfer ? "default" : "outline"}
+                  onClick={() => setIsPullDialogOpen(true)}
                   disabled={
                     pullingProductionBase ||
                     promptAndChatLocked ||
                     loadingProductionPrompt ||
-                    testingBaseMatchesProduction
+                    !canTransfer
                   }
                   className={
-                    testingBaseMatchesProduction || loadingProductionPrompt
+                    !canTransfer || loadingProductionPrompt
                       ? "opacity-50"
                       : ""
                   }
@@ -1112,9 +1269,13 @@ export function AgentPromptDesigner({
                   ? "No disponible mientras el editor esté bloqueado."
                   : loadingProductionPrompt
                     ? "Cargando el prompt de producción…"
-                    : testingBaseMatchesProduction
-                      ? "El prompt guardado en pruebas ya es el mismo que en producción."
-                      : "Copia el prompt principal de producción a pruebas (sustituye el guardado en Testing)."}
+                    : !canTransfer && canSave
+                      ? "Guarda primero para crear diferencias entre testing y producción."
+                      : !canTransfer
+                        ? "No hay diferencias entre testing y producción."
+                        : hasLocalChanges
+                          ? "Tienes cambios locales sin guardar; al bajar cambios se usará el snapshot guardado en testing."
+                          : "Copia el prompt principal de producción a pruebas (sustituye el guardado en testing)."}
               </TooltipContent>
             </Tooltip>
             <div className="ml-auto flex flex-wrap justify-end gap-2">
@@ -1167,7 +1328,7 @@ export function AgentPromptDesigner({
                 <TooltipTrigger asChild>
                   <Button
                     onClick={handleSave}
-                    disabled={!hasChanges || isSaving || promptAndChatLocked}
+                    disabled={!canSave || isSaving || promptAndChatLocked}
                   >
                     {isSaving ? (
                       <Loader2Icon className="w-4 h-4 animate-spin mr-2" />
@@ -1182,20 +1343,20 @@ export function AgentPromptDesigner({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    onClick={handlePromoteToProduction}
+                    onClick={() => setIsPushDialogOpen(true)}
                     disabled={
-                      !savedTestingDiffersFromProduction ||
+                      !canTransfer ||
                       promoting ||
                       promptAndChatLocked ||
                       loadingProductionPrompt
                     }
                     className={
-                      !savedTestingDiffersFromProduction || loadingProductionPrompt
+                      !canTransfer || loadingProductionPrompt
                         ? "opacity-50"
                         : ""
                     }
                     variant={
-                      savedTestingDiffersFromProduction && !loadingProductionPrompt
+                      canTransfer && !loadingProductionPrompt
                         ? "default"
                         : "outline"
                     }
@@ -1209,11 +1370,13 @@ export function AgentPromptDesigner({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  {!hasChanges
-                    ? "Guarda primero los cambios en Testing para poder subir a producción. Esto los hará visibles para los usuarios."
-                    : !savedTestingDiffersFromProduction
-                      ? "Guarda los cambios para que difieran de producción y puedas subir. Esto los hará visibles para los usuarios."
-                      : "Sube los cambios guardados en Testing a producción. Esto los hará visibles para los usuarios."}
+                  {!canTransfer && canSave
+                    ? "Guarda primero para crear diferencia entre testing y producción."
+                    : !canTransfer
+                      ? "No hay diferencias entre testing y producción para subir."
+                      : hasLocalChanges
+                        ? "Tienes cambios locales sin guardar; al subir se usará el snapshot guardado en testing."
+                        : "Sube los cambios guardados en testing a producción. Esto los hará visibles para los usuarios."}
                 </TooltipContent>
               </Tooltip>
             </div>

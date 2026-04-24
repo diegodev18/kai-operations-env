@@ -1,6 +1,6 @@
 import type { PropertyDocumentId } from "@/types";
 import { toast } from "sonner";
-import { patchAgentPropertyDoc } from "@/services/agents-api";
+import { patchAgentPropertyDoc, patchTestingPropertyDoc } from "@/services/agents-api";
 
 export async function updateAgentPropertyDocument(
   agentId: string,
@@ -20,7 +20,7 @@ export async function updateTestingPropertyDocument(
   documentId: PropertyDocumentId,
   body: Record<string, unknown>,
 ): Promise<boolean> {
-  const result = await patchAgentPropertyDoc(agentId, documentId, body);
+  const result = await patchTestingPropertyDoc(agentId, documentId, body);
   if (!result.ok) {
     toast.error(result.error ?? "Error al guardar en testing");
     return false;

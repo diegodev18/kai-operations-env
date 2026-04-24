@@ -31,6 +31,7 @@ export {
   toggleFavorite,
   fetchAgentProperties,
   patchAgentPropertyDoc,
+  patchTestingPropertyDoc,
   fetchTestingProperties,
   fetchAgentsPage,
 } from "./list-and-properties";

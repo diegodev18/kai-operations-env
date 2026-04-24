@@ -65,6 +65,25 @@ export async function patchAgentPropertyDoc(
   return { ok: false, error: data.error ?? "No se pudo guardar la propiedad" };
 }
 
+export async function patchTestingPropertyDoc(
+  agentId: string,
+  docId: string,
+  payload: Record<string, unknown>,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const res = await fetch(
+    `${AGENTS_BASE}/${encodeURIComponent(agentId)}/testing/properties/${encodeURIComponent(docId)}`,
+    {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+  );
+  if (res.ok) return { ok: true };
+  const data = (await res.json().catch(() => ({}))) as { error?: string };
+  return { ok: false, error: data.error ?? "No se pudo guardar la propiedad de testing" };
+}
+
 export async function fetchTestingProperties(
   agentId: string,
 ): Promise<Record<string, unknown> | null> {

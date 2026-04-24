@@ -35,7 +35,12 @@ export async function updateAgentPrompt(params: {
 
 export async function promotePromptToProduction(
   agentId: string,
-  payload: { prompt: string; auth?: { auth: string; unauth: string } },
+  payload: {
+    prompt: string;
+    auth?: { auth: string; unauth: string };
+    confirmation_agent_name: string;
+    expected_testing_prompt?: string;
+  },
 ): Promise<boolean> {
   try {
     const response = await fetch(
