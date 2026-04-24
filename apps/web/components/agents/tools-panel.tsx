@@ -34,10 +34,10 @@ import { ParameterSchemaEditor } from "@/components/agents/parameter-schema-edit
 import { parametersSchemaForApi } from "@/utils/parameter-schema-editor";
 import { ToolsCatalogSearchList } from "@/components/agents/tools-catalog-search-list";
 import { PromoteDiffDialog } from "@/components/prompt";
+import { ToolsPullFromProductionDialog } from "@/components/agents/tools-pull-from-production-dialog";
 import { SyncFromCatalogDialog } from "@/components/agents/sync-from-catalog-dialog";
 import {
   fetchAgentById,
-  postAgentSyncFromProduction,
   fetchAgentProperties,
   patchAgentPropertyDoc,
 } from "@/services/agents-api";
@@ -167,6 +167,7 @@ function ToolsPanel({ agentId }: { agentId: string }) {
   const [deleteTool, setDeleteTool] = useState<AgentTool | null>(null);
   const [togglingToolId, setTogglingToolId] = useState<string | null>(null);
   const [syncingFromProd, setSyncingFromProd] = useState(false);
+  const [pullDialogOpen, setPullDialogOpen] = useState(false);
   const [promoteDialogOpen, setPromoteDialogOpen] = useState(false);
   const [agentNameForConfirm, setAgentNameForConfirm] = useState("");
   const { data: diffData, isLoading: isDiffLoading, refetch: refetchDiff } = useTestingDiff(agentId);
@@ -187,32 +188,18 @@ function ToolsPanel({ agentId }: { agentId: string }) {
     return () => { cancelled = true; };
   }, [agentId]);
 
-  const handleSyncFromProduction = useCallback(async () => {
-    if (!agentId) return;
-    setSyncingFromProd(true);
-    try {
-      const r = await postAgentSyncFromProduction(agentId);
-      if (r.ok) {
-        toast.success("Datos actualizados en testing (desde producción)");
-        await refetch();
-        refetchDiff();
-      } else {
-        toast.error(r.error);
-      }
-    } finally {
-      setSyncingFromProd(false);
-    }
-  }, [agentId, refetch, refetchDiff]);
-
   const handlePromoteSuccess = useCallback(async () => {
     await refetch();
     refetchDiff();
   }, [refetch, refetchDiff]);
 
-  const toolsDiff = useMemo(() => 
-    (diffData || []).filter(d => d.collection === "tools"), 
-  [diffData]);
-  const hasToolsChanges = toolsDiff.length > 0;
+  const toolsDiff = useMemo(
+    () => (diffData || []).filter((d) => d.collection === "tools"),
+    [diffData],
+  );
+  const hasTestingProductionDiff = toolsDiff.length > 0;
+  const hasLocalDialogChanges = addOpen || editTool !== null;
+  const canTransfer = hasTestingProductionDiff && !isDiffLoading;
 
   const handleToggleEnabled = useCallback(
     async (tool: AgentTool, newEnabled: boolean) => {
@@ -227,14 +214,20 @@ function ToolsPanel({ agentId }: { agentId: string }) {
           toast.success(
             newEnabled ? "Tool habilitada" : "Tool deshabilitada"
           );
-          refetch();
+          void refetch();
+          refetchDiff();
         }
       } finally {
         setTogglingToolId(null);
       }
     },
-    [agentId, refetch]
+    [agentId, refetch, refetchDiff]
   );
+
+  const afterToolsMutation = useCallback(() => {
+    void refetch();
+    refetchDiff();
+  }, [refetch, refetchDiff]);
 
   const mid = Math.ceil(tools.length / 2);
   const leftTools = tools.slice(0, mid);
@@ -310,7 +303,7 @@ function ToolsPanel({ agentId }: { agentId: string }) {
         onOpenChange={setAddOpen}
         onSuccess={() => {
           setAddOpen(false);
-          refetch();
+          afterToolsMutation();
         }}
       />
 
@@ -322,7 +315,7 @@ function ToolsPanel({ agentId }: { agentId: string }) {
           onOpenChange={(o) => !o && setEditTool(null)}
           onSuccess={() => {
             setEditTool(null);
-            refetch();
+            afterToolsMutation();
           }}
         />
       )}
@@ -335,35 +328,70 @@ function ToolsPanel({ agentId }: { agentId: string }) {
           onOpenChange={(o) => !o && setDeleteTool(null)}
           onSuccess={() => {
             setDeleteTool(null);
-            refetch();
+            afterToolsMutation();
           }}
         />
       )}
 
-      <div className="shrink-0 flex justify-between gap-2 border-t pt-4">
-        <Button
-          variant="outline"
-          onClick={handleSyncFromProduction}
-          disabled={syncingFromProd}
+      {hasLocalDialogChanges && hasTestingProductionDiff ? (
+        <div
+          className="shrink-0 rounded-md border border-sky-500/30 bg-sky-500/5 px-3 py-2 text-xs text-muted-foreground"
+          role="status"
         >
-          {syncingFromProd ? (
-            <Loader2Icon className="w-4 h-4 mr-2 animate-spin" />
-          ) : (
-            <CloudDownloadIcon className="w-4 h-4 mr-2" />
-          )}
-          Sincronizar desde producción
+          Tienes un diálogo de tool abierto y también hay diferencias testing/producción.
+          <strong className="text-foreground"> Subir</strong> y{" "}
+          <strong className="text-foreground">Bajar</strong> operan sobre el snapshot{" "}
+          <strong className="text-foreground">ya guardado</strong> en testing, no sobre el borrador del
+          diálogo.
+        </div>
+      ) : null}
+
+      <div className="shrink-0 flex flex-wrap justify-between gap-2 border-t pt-4">
+        <Button
+          type="button"
+          variant="outline"
+          title={
+            canTransfer
+              ? "Copiar properties, tools y colaboradores desde producción hacia testing"
+              : "No hay diferencias de tools entre testing y producción"
+          }
+          onClick={() => {
+            refetchDiff();
+            setPullDialogOpen(true);
+          }}
+          disabled={!canTransfer || syncingFromProd}
+        >
+          <CloudDownloadIcon className="w-4 h-4 mr-2" />
+          Bajar cambios
         </Button>
         <Button
+          type="button"
+          title={
+            canTransfer
+              ? "Promover a producción solo los campos de tools que elijas (estado guardado en testing)"
+              : "No hay diferencias de tools entre testing y producción"
+          }
           onClick={() => {
             refetchDiff();
             setPromoteDialogOpen(true);
           }}
-          disabled={!hasToolsChanges || isDiffLoading}
+          disabled={!canTransfer || isDiffLoading}
         >
           <RocketIcon className="w-4 h-4 mr-2" />
-          Subir a producción
+          Subir cambios
         </Button>
       </div>
+
+      <ToolsPullFromProductionDialog
+        open={pullDialogOpen}
+        onOpenChange={setPullDialogOpen}
+        diff={toolsDiff}
+        isLoading={isDiffLoading}
+        agentId={agentId}
+        syncing={syncingFromProd}
+        onSyncingChange={setSyncingFromProd}
+        onSuccess={handlePromoteSuccess}
+      />
 
       <PromoteDiffDialog
         open={promoteDialogOpen}
@@ -373,6 +401,16 @@ function ToolsPanel({ agentId }: { agentId: string }) {
         agentId={agentId}
         agentNameForConfirm={agentNameForConfirm}
         onSuccess={handlePromoteSuccess}
+        dialogTitle="Subir cambios (tools)"
+        dialogDescription={
+          <>
+            Solo se promueven los campos de <span className="font-medium text-foreground">tools</span>{" "}
+            que selecciones desde el estado <span className="font-medium text-foreground">guardado</span>{" "}
+            en testing (no incluye borradores abiertos en diálogos). Escribe{" "}
+            <span className="font-medium text-foreground">CONFIRMAR</span> para continuar.
+          </>
+        }
+        contentClassName="max-h-[min(90vh,48rem)] overflow-y-auto sm:max-w-3xl"
       />
     </div>
   );

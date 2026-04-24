@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -54,16 +60,23 @@ export function PromoteDiffDialog({
   diff,
   isLoading,
   agentId,
-  agentNameForConfirm,
+  agentNameForConfirm: _agentNameForConfirm,
   onSuccess,
+  dialogTitle = "Subir cambios a producción",
+  dialogDescription,
+  contentClassName = "max-h-[min(90vh,48rem)] overflow-y-auto sm:max-w-2xl",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   diff: TestingDiffItem[];
   isLoading?: boolean;
   agentId: string;
+  /** Kept for API compatibility; confirmation uses CONFIRMAR. */
   agentNameForConfirm: string;
   onSuccess?: () => void;
+  dialogTitle?: string;
+  dialogDescription?: ReactNode;
+  contentClassName?: string;
 }) {
   const [confirmName, setConfirmName] = useState("");
   const [promoting, setPromoting] = useState(false);
@@ -215,16 +228,20 @@ export function PromoteDiffDialog({
     }
   }, [agentId, selectedFields, confirmName, onSuccess, handleOpenChange]);
 
+  const defaultDescription = (
+    <>
+      Selecciona los campos que deseas promover desde testing a producción. Escribe{" "}
+      <span className="font-medium text-foreground">CONFIRMAR</span> para continuar.
+    </>
+  );
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-h-[min(90vh,48rem)] overflow-y-auto sm:max-w-2xl" showClose>
+      <DialogContent className={contentClassName} showClose>
         <DialogHeader>
-          <DialogTitle>Subir a producción</DialogTitle>
+          <DialogTitle>{dialogTitle}</DialogTitle>
           <DialogDescription>
-            Selecciona los campos que deseas promover desde testing a producción.
-            Escribe{" "}
-            <span className="font-medium text-foreground">CONFIRMAR</span> para
-            continuar.
+            {dialogDescription ?? defaultDescription}
           </DialogDescription>
         </DialogHeader>
 
