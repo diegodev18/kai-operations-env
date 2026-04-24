@@ -20,8 +20,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -1003,7 +1003,10 @@ export function AgentPromptDesigner({
             if (!open) setPushConfirmText("");
           }}
         >
-          <DialogContent className="max-w-3xl">
+          <DialogContent
+            className="sm:max-w-none"
+            style={{ width: "min(92vw, 980px)", maxWidth: "min(92vw, 980px)" }}
+          >
             <DialogHeader>
               <DialogTitle>Subir cambios a producción</DialogTitle>
               <DialogDescription>
@@ -1015,12 +1018,12 @@ export function AgentPromptDesigner({
             </div>
             <div className="space-y-2">
               <Label htmlFor="push-confirm">Confirmación</Label>
-              <Textarea
+              <Input
                 id="push-confirm"
                 value={pushConfirmText}
                 onChange={(event) => setPushConfirmText(event.target.value)}
                 placeholder="CONFIRMAR"
-                rows={1}
+                className="h-10"
               />
             </div>
             <DialogFooter>
@@ -1044,7 +1047,10 @@ export function AgentPromptDesigner({
             if (!open) setPullConfirmText("");
           }}
         >
-          <DialogContent className="max-w-3xl">
+          <DialogContent
+            className="sm:max-w-none"
+            style={{ width: "min(92vw, 980px)", maxWidth: "min(92vw, 980px)" }}
+          >
             <DialogHeader>
               <DialogTitle>Bajar cambios desde producción</DialogTitle>
               <DialogDescription>
@@ -1056,12 +1062,12 @@ export function AgentPromptDesigner({
             </div>
             <div className="space-y-2">
               <Label htmlFor="pull-confirm">Confirmación</Label>
-              <Textarea
+              <Input
                 id="pull-confirm"
                 value={pullConfirmText}
                 onChange={(event) => setPullConfirmText(event.target.value)}
                 placeholder="CONFIRMAR"
-                rows={1}
+                className="h-10"
               />
             </div>
             <DialogFooter>
