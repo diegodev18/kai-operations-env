@@ -1,9 +1,9 @@
 "use client";
 
 import { Fragment, useMemo } from "react";
-import { Loader2Icon } from "lucide-react";
 
 import { useBuilderFormReadonlyData } from "@/hooks";
+import { PanelError, PanelLoading } from "@/components/agents/panel-states";
 import { FORM_SECTIONS, STAGE_TYPES } from "@/consts/form-builder/constants";
 import type {
   AgentFlowQuestion,
@@ -303,7 +303,7 @@ function sectionsInOrder(ids: FormSectionId[]): FormSection[] {
 }
 
 export function AgentBuilderFormReadonly({ agentId }: { agentId: string }) {
-  const { loading, error, payload, catalog } = useBuilderFormReadonlyData(agentId);
+  const { loading, error, payload, catalog, refetch } = useBuilderFormReadonlyData(agentId);
 
   const toolNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -315,18 +315,14 @@ export function AgentBuilderFormReadonly({ agentId }: { agentId: string }) {
     return map;
   }, [catalog]);
 
-  if (loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
-        <Loader2Icon className="size-5 animate-spin" />
-        <span className="text-sm">Cargando formulario…</span>
-      </div>
-    );
-  }
+  if (loading) return <PanelLoading />;
 
   if (error || !payload) {
     return (
-      <p className="text-sm text-destructive">{error ?? "Sin datos."}</p>
+      <PanelError
+        message={error ?? "No se pudieron cargar los datos del formulario."}
+        onRetry={refetch}
+      />
     );
   }
 

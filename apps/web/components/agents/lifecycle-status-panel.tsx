@@ -7,6 +7,7 @@ import {
   Loader2Icon,
   UserCircle2Icon,
 } from "lucide-react";
+import { PanelError, PanelLoading } from "@/components/agents/panel-states";
 import { toast } from "sonner";
 
 import type {
@@ -170,19 +171,14 @@ export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
     reasonCode,
   ]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-16">
-        <Loader2Icon className="size-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+  if (loading) return <PanelLoading />;
 
   if (!data) {
     return (
-      <p className="text-sm text-muted-foreground">
-        No fue posible cargar la información de fechas y estado.
-      </p>
+      <PanelError
+        message="No fue posible cargar la información de fechas y estado."
+        onRetry={load}
+      />
     );
   }
 

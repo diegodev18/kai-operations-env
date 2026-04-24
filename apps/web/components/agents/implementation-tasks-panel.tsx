@@ -14,6 +14,7 @@ import {
   ChevronRightIcon,
   UserCircleIcon,
 } from "lucide-react";
+import { PanelError, PanelLoading } from "@/components/agents/panel-states";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -163,6 +164,7 @@ export function AgentImplementationTasksPanel({
   tasksRef.current = tasks;
   const [growers, setGrowers] = useState<AgentGrowerRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [savingCreate, setSavingCreate] = useState(false);
   const [savingTaskId, setSavingTaskId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
@@ -192,22 +194,20 @@ export function AgentImplementationTasksPanel({
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const [tasksRes, growersRes] = await Promise.all([
         fetchImplementationTasks(agentId),
         fetchAgentGrowers(agentId),
       ]);
-      if (tasksRes == null) {
-        toast.error("No se pudieron cargar las tareas");
-      } else {
-        setTasks(Array.isArray(tasksRes.tasks) ? tasksRes.tasks : []);
+      if (tasksRes == null || growersRes == null) {
+        setLoadError("No se pudieron cargar las tareas. Verifica tu conexión e intenta de nuevo.");
+        return;
       }
-      if (growersRes == null) {
-        toast.error("No se pudieron cargar los growers del agente");
-        setGrowers([]);
-      } else {
-        setGrowers(Array.isArray(growersRes.growers) ? growersRes.growers : []);
-      }
+      setTasks(Array.isArray(tasksRes.tasks) ? tasksRes.tasks : []);
+      setGrowers(Array.isArray(growersRes.growers) ? growersRes.growers : []);
+    } catch {
+      setLoadError("Error inesperado al cargar las tareas.");
     } finally {
       setLoading(false);
     }
@@ -592,12 +592,10 @@ export function AgentImplementationTasksPanel({
     [agentId, repDraft],
   );
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-16">
-        <Loader2Icon className="size-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+  if (loading) return <PanelLoading />;
+
+  if (loadError) {
+    return <PanelError message={loadError} onRetry={() => void loadData()} />;
   }
 
   return (

@@ -51,6 +51,7 @@ import {
   RocketIcon,
   RefreshCwIcon,
 } from "lucide-react";
+import { PanelError, PanelLoading } from "@/components/agents/panel-states";
 
 const TOOL_TYPES: { value: AgentToolType; label: string }[] = [
   { value: "custom", label: "Custom" },
@@ -172,9 +173,6 @@ function ToolsPanel({ agentId }: { agentId: string }) {
   const [agentNameForConfirm, setAgentNameForConfirm] = useState("");
   const { data: diffData, isLoading: isDiffLoading, refetch: refetchDiff } = useTestingDiff(agentId);
 
-  useEffect(() => {
-    if (toolsLoadError) toast.error(toolsLoadError);
-  }, [toolsLoadError]);
 
   useEffect(() => {
     if (!agentId) return;
@@ -245,9 +243,12 @@ function ToolsPanel({ agentId }: { agentId: string }) {
         </div>
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2Icon className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
+          <PanelLoading />
+        ) : toolsLoadError ? (
+          <PanelError
+            message={toolsLoadError}
+            onRetry={() => void refetch()}
+          />
         ) : tools.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
             Este agente no tiene tools. Haz clic en &quot;Agregar tool&quot; para

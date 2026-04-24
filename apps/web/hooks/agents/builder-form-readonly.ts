@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { fetchAgentBuilderForm, fetchToolsCatalog } from "@/services/agents-api";
 import type { AgentBuilderFormResponse, ToolsCatalogItem } from "@/types";
@@ -13,38 +13,33 @@ export function useBuilderFormReadonlyData(agentId: string) {
   const [payload, setPayload] = useState<AgentBuilderFormResponse | null>(null);
   const [catalog, setCatalog] = useState<ToolsCatalogItem[] | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!agentId) return;
-    let cancelled = false;
     setLoading(true);
     setError(null);
-    void (async () => {
-      try {
-        const [formRes, tools] = await Promise.all([
-          fetchAgentBuilderForm(agentId),
-          fetchToolsCatalog(),
-        ]);
-        if (cancelled) return;
-        if (!formRes) {
-          setError("No se pudo cargar el formulario del agente.");
-          setPayload(null);
-        } else {
-          setPayload(formRes);
-        }
-        setCatalog(tools ?? []);
-      } catch {
-        if (!cancelled) {
-          setError("Error al cargar el formulario.");
-          setPayload(null);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
+    try {
+      const [formRes, tools] = await Promise.all([
+        fetchAgentBuilderForm(agentId),
+        fetchToolsCatalog(),
+      ]);
+      if (!formRes) {
+        setError("No se pudo cargar el formulario del agente.");
+        setPayload(null);
+      } else {
+        setPayload(formRes);
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
+      setCatalog(tools ?? []);
+    } catch {
+      setError("Error al cargar el formulario.");
+      setPayload(null);
+    } finally {
+      setLoading(false);
+    }
   }, [agentId]);
 
-  return { loading, error, payload, catalog };
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return { loading, error, payload, catalog, refetch: load };
 }
