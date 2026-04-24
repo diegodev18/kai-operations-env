@@ -13,6 +13,14 @@ import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -25,8 +33,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import {
   Loader2Icon,
-  ChevronDownIcon,
-  ChevronRightIcon,
   CloudDownloadIcon,
   FileEditIcon,
   PlusIcon,
@@ -52,7 +58,6 @@ import {
   patchAgent,
   postAgentGrower,
   postAgentTechLead,
-  postAgentSyncFromProduction,
   deleteAgentTechLead,
 } from "@/services/agents-api";
 import {
@@ -62,6 +67,7 @@ import {
 } from "@/services/organization-api";
 import { AGENT_VERSIONS } from "@/consts/agent-versions";
 import { PromoteDiffDialog } from "@/components/prompt";
+import { ToolsPullFromProductionDialog } from "@/components/agents/tools-pull-from-production-dialog";
 import {
   ConfirmTextDialog,
   OrgUserPickerDialog,
@@ -195,70 +201,45 @@ function getPendingDocumentIds(
     return !payloadsEqual(payloadForm, payloadOriginal);
   });
 }
-function PendingChangesPanel({
+function PendingLocalChangesList({
   formState,
   originalData,
-  className,
   onRevertDoc,
 }: {
   formState: AgentPropertiesResponse;
   originalData: AgentPropertiesResponse;
-  className?: string;
   onRevertDoc?: (docId: PropertyDocumentId) => void;
 }) {
-  const [expanded, setExpanded] = useState(true);
   const pendingIds = useMemo(
     () => getPendingDocumentIds(formState, originalData),
-    [formState, originalData]
+    [formState, originalData],
   );
 
   if (pendingIds.length === 0) return null;
 
   return (
-    <div className={cn("space-y-2", className)}>
-      <button
-        type="button"
-        onClick={() => setExpanded((e) => !e)}
-        className="flex items-center gap-2 w-full text-left text-sm text-muted-foreground hover:text-foreground transition-colors"
-        aria-expanded={expanded}
-      >
-        {expanded ? (
-          <ChevronDownIcon className="w-4 h-4 shrink-0" />
-        ) : (
-          <ChevronRightIcon className="w-4 h-4 shrink-0" />
-        )}
-        <span className="font-medium">
-          {pendingIds.length} {pendingIds.length === 1 ? "documento" : "documentos"} con cambios
-        </span>
-      </button>
-      {expanded && (
-        <div className="rounded-md border bg-muted/30 py-2 px-3 space-y-1.5 max-h-32 overflow-y-auto">
-          {pendingIds.map((docId) => (
-            <div
-              key={docId}
-              className="flex items-center justify-between gap-2 text-sm text-foreground"
+    <div className="max-h-[min(60vh,24rem)] space-y-1.5 overflow-y-auto rounded-md border bg-muted/30 px-3 py-2">
+      {pendingIds.map((docId) => (
+        <div
+          key={docId}
+          className="flex items-center justify-between gap-2 text-sm text-foreground"
+        >
+          <div className="flex min-w-0 items-center gap-2">
+            <FileEditIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <span className="truncate">{DOCUMENT_LABELS[docId]}</span>
+          </div>
+          {onRevertDoc ? (
+            <button
+              type="button"
+              onClick={() => onRevertDoc(docId)}
+              className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+              title={`Restablecer "${DOCUMENT_LABELS[docId]}" a su valor original`}
             >
-              <div className="flex items-center gap-2 min-w-0">
-                <FileEditIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                <span className="truncate">{DOCUMENT_LABELS[docId]}</span>
-              </div>
-              {onRevertDoc ? (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRevertDoc(docId);
-                  }}
-                  className="shrink-0 p-1 rounded hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
-                  title={`Restablecer "${DOCUMENT_LABELS[docId]}" a su valor original`}
-                >
-                  <RotateCcwIcon className="w-3.5 h-3.5" />
-                </button>
-              ) : null}
-            </div>
-          ))}
+              <RotateCcwIcon className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
         </div>
-      )}
+      ))}
     </div>
   );
 }
@@ -295,6 +276,8 @@ export function AgentConfigurationEditor({
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [promoteDialogOpen, setPromoteDialogOpen] = useState(false);
+  const [pullDialogOpen, setPullDialogOpen] = useState(false);
+  const [localPendingDialogOpen, setLocalPendingDialogOpen] = useState(false);
   const [syncingFromProd, setSyncingFromProd] = useState(false);
   const [agentVersion, setAgentVersion] = useState<string>("production");
   const [savingVersion, setSavingVersion] = useState(false);
@@ -526,10 +509,10 @@ export function AgentConfigurationEditor({
     [agentId, firestoreDataMode, onAgentUpdated],
   );
 
-  const handleSave = useCallback(async () => {
-    if (!agentId || !formState || !data) return;
+  const handleSave = useCallback(async (): Promise<boolean> => {
+    if (!agentId || !formState || !data) return false;
     const idsToSave = getPendingDocumentIds(formState, data);
-    if (idsToSave.length === 0 && !pendingVersionRef.current) return;
+    if (idsToSave.length === 0 && !pendingVersionRef.current) return false;
     setSaving(true);
     try {
       if (pendingVersionRef.current) {
@@ -549,13 +532,16 @@ export function AgentConfigurationEditor({
       }
       if (ok) {
         toast.success("Cambios guardados");
-        refetch();
+        await refetch();
+        refetchDiff();
         await onAgentUpdated?.();
+        return true;
       }
+      return false;
     } finally {
       setSaving(false);
     }
-  }, [agentId, formState, data, refetch, onAgentUpdated, handleVersionChange]);
+  }, [agentId, formState, data, refetch, refetchDiff, onAgentUpdated, handleVersionChange]);
 
   const isEnabled = formState?.agent.enabled !== false;
 
@@ -593,6 +579,9 @@ export function AgentConfigurationEditor({
     () => (diffData || []).filter((d) => d.collection === "properties"),
     [diffData]
   );
+
+  const hasTestingProductionDiff = propertiesDiff.length > 0;
+  const canTransfer = hasTestingProductionDiff && !isDiffLoading;
 
   const handleDiscardChanges = useCallback(() => {
     if (!data) return;
@@ -812,26 +801,10 @@ export function AgentConfigurationEditor({
 
   const growerPickerLoading = orgUsersLoading || dialogGrowersLoading;
 
-  const handleSyncFromProduction = useCallback(async () => {
-    if (!agentId) return;
-    setSyncingFromProd(true);
-    try {
-      const r = await postAgentSyncFromProduction(agentId);
-      if (r.ok) {
-        toast.success(
-          "Datos actualizados en testing (desde producción)",
-        );
-        await refetch();
-        refetchDiff();
-        onAgentUpdated?.();
-        window.dispatchEvent(new Event("kai-agent-deployment-changed"));
-      } else {
-        toast.error(r.error);
-      }
-    } finally {
-      setSyncingFromProd(false);
-    }
-  }, [agentId, refetch, refetchDiff, onAgentUpdated]);
+  const openPullDialog = useCallback(() => {
+    refetchDiff();
+    setPullDialogOpen(true);
+  }, [refetchDiff]);
 
   const openPromoteDialog = useCallback(() => {
     refetchDiff();
@@ -883,7 +856,30 @@ export function AgentConfigurationEditor({
         </div>
       ) : formState ? (
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="relative min-h-0 flex-1 overflow-y-auto">
+            {hasLocalChanges ? (
+              <div className="pointer-events-none absolute right-2 top-2 z-20 sm:right-3 sm:top-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setLocalPendingDialogOpen(true)}
+                  className="pointer-events-auto gap-1.5 border-border/80 bg-background/90 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80"
+                >
+                  <FileEditIcon className="size-4 shrink-0" />
+                  <span className="max-w-[11rem] truncate sm:max-w-[14rem]">
+                    {pendingDocIds.length > 0 ? (
+                      <>
+                        {pendingDocIds.length}{" "}
+                        {pendingDocIds.length === 1 ? "documento" : "documentos"} sin guardar
+                      </>
+                    ) : (
+                      "Cambios sin guardar"
+                    )}
+                  </span>
+                </Button>
+              </div>
+            ) : null}
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:gap-0 lg:items-start">
           <div className="min-w-0 space-y-12 lg:pr-8">
               {/* Agent */}
@@ -1610,20 +1606,12 @@ export function AgentConfigurationEditor({
                 variant="ghost"
                 size="sm"
                 onClick={handleDiscardChanges}
-                disabled={!data || propertiesDiff.length === 0 || saving}
+                disabled={!data || !hasLocalChanges || saving}
                 className="w-fit shrink-0"
               >
                 <RotateCcwIcon className="mr-1.5 h-4 w-4" />
                 Descartar cambios
               </Button>
-              {data ? (
-                <PendingChangesPanel
-                  formState={formState}
-                  originalData={data}
-                  className="min-w-0 flex-1"
-                  onRevertDoc={handleRevertDoc}
-                />
-              ) : null}
             </div>
             <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
               {data && propertiesDiff.length === 0 ? (
@@ -1638,19 +1626,38 @@ export function AgentConfigurationEditor({
                   {propertiesDiff.length} {propertiesDiff.length === 1 ? "cambio" : "cambios"} pendiente{propertiesDiff.length === 1 ? "" : "s"}
                 </span>
               ) : null}
-              {data && propertiesDiff.length > 0 ? (
-                <Button
-                  type="button"
-                  variant="default"
-                  size="sm"
-                  className="gap-1.5 w-full sm:w-auto"
-                  onClick={openPromoteDialog}
-                  disabled={saving}
-                >
-                  <RocketIcon className="size-4" />
-                  Subir a producción
-                </Button>
-              ) : null}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                title={
+                  canTransfer
+                    ? "Copiar properties, tools y colaboradores desde producción hacia testing"
+                    : "No hay diferencias de properties entre testing y producción"
+                }
+                className="gap-1.5 w-full sm:w-auto"
+                onClick={openPullDialog}
+                disabled={!canTransfer || saving || syncingFromProd}
+              >
+                <CloudDownloadIcon className="size-4" />
+                Bajar cambios
+              </Button>
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                className="gap-1.5 w-full sm:w-auto"
+                onClick={openPromoteDialog}
+                disabled={saving || !canTransfer || !data}
+                title={
+                  canTransfer
+                    ? "Promover a producción los campos seleccionados (estado guardado en testing)"
+                    : "No hay diferencias de properties entre testing y producción"
+                }
+              >
+                <RocketIcon className="size-4" />
+                Subir cambios
+              </Button>
               <Button
                 type="button"
                 onClick={handleSave}
@@ -1680,7 +1687,83 @@ export function AgentConfigurationEditor({
             agentId={agentId}
             agentNameForConfirm={agentNameForConfirm}
             onSuccess={handlePromoteSuccess}
+            dialogTitle="Subir cambios (propiedades)"
+            dialogDescription={
+              <>
+                Solo se promueven los campos de{" "}
+                <span className="font-medium text-foreground">properties</span> que selecciones desde el
+                estado <span className="font-medium text-foreground">guardado</span> en testing (no incluye
+                cambios sin guardar en el formulario). Escribe{" "}
+                <span className="font-medium text-foreground">CONFIRMAR</span> para continuar.
+              </>
+            }
+            contentClassName="max-h-[min(90vh,48rem)] overflow-y-auto sm:max-w-3xl"
           />
+          <ToolsPullFromProductionDialog
+            open={pullDialogOpen}
+            onOpenChange={setPullDialogOpen}
+            diff={propertiesDiff}
+            isLoading={isDiffLoading}
+            agentId={agentId}
+            syncing={syncingFromProd}
+            onSyncingChange={setSyncingFromProd}
+            onSuccess={handlePromoteSuccess}
+            diffPreviewLabel="properties"
+          />
+          <Dialog open={localPendingDialogOpen} onOpenChange={setLocalPendingDialogOpen}>
+            <DialogContent className="sm:max-w-md" showClose>
+              <DialogHeader>
+                <DialogTitle>Cambios pendientes de guardar</DialogTitle>
+                <DialogDescription>
+                  Estos cambios están solo en tu sesión. Pulsa Guardar para persistirlos en testing.
+                </DialogDescription>
+              </DialogHeader>
+              {data ? (
+                <>
+                  <PendingLocalChangesList
+                    formState={formState}
+                    originalData={data}
+                    onRevertDoc={handleRevertDoc}
+                  />
+                  {pendingDocIds.length === 0 && hasLocalChanges ? (
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      También hay otros cambios pendientes (por ejemplo la versión del agente). Pulsa
+                      Guardar para aplicarlos.
+                    </p>
+                  ) : null}
+                </>
+              ) : null}
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setLocalPendingDialogOpen(false)}
+                  disabled={saving}
+                >
+                  Cerrar
+                </Button>
+                <Button
+                  type="button"
+                  disabled={!hasLocalChanges || saving || !data}
+                  onClick={() =>
+                    void (async () => {
+                      const ok = await handleSave();
+                      if (ok) setLocalPendingDialogOpen(false);
+                    })()
+                  }
+                >
+                  {saving ? (
+                    <>
+                      <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                      Guardando…
+                    </>
+                  ) : (
+                    "Guardar cambios"
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           <ConfirmTextDialog
             open={isDisableDialogOpen}
             onOpenChange={handleDisableDialogOpenChange}

@@ -45,7 +45,7 @@ const groupKey = (collection: string, documentId: string) =>
 
 /**
  * Preview + confirm pull: full sync from production → testing (properties, tools, collaborators).
- * `diff` should be tools-only rows for display in the tools panel.
+ * Pass only the diff rows you want to preview (e.g. tools-only or properties-only).
  */
 export function ToolsPullFromProductionDialog({
   open,
@@ -56,6 +56,7 @@ export function ToolsPullFromProductionDialog({
   syncing,
   onSyncingChange,
   onSuccess,
+  diffPreviewLabel = "tools",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -65,6 +66,8 @@ export function ToolsPullFromProductionDialog({
   syncing: boolean;
   onSyncingChange: (syncing: boolean) => void;
   onSuccess?: () => void;
+  /** Shown in empty-state and preview intro (e.g. "tools", "properties"). */
+  diffPreviewLabel?: string;
 }) {
   const [confirmText, setConfirmText] = useState("");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -160,13 +163,15 @@ export function ToolsPullFromProductionDialog({
           </div>
         ) : diff.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted-foreground">
-            No hay diferencias de tools entre testing y producción. No es necesario bajar cambios.
+            No hay diferencias de {diffPreviewLabel} entre testing y producción. No es necesario bajar
+            cambios.
           </p>
         ) : (
           <div className="space-y-3 py-2">
             <p className="text-xs text-muted-foreground">
-              Vista previa de diferencias en <span className="font-medium">tools</span> (origen:
-              producción → destino: testing tras la sincronización).
+              Vista previa de diferencias en{" "}
+              <span className="font-medium">{diffPreviewLabel}</span> (origen: producción → destino:
+              testing tras la sincronización).
             </p>
             <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
               {groupedData.map((group) => {
