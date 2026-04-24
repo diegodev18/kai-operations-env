@@ -40,14 +40,13 @@ import {
   PowerOffIcon,
   RocketIcon,
   RotateCcwIcon,
-  CheckIcon,
-  AlertTriangleIcon,
 } from "lucide-react";
 import {
   PROPERTY_DESCRIPTIONS,
   PROPERTY_TITLES,
 } from "@/consts/form-builder/property-descriptions";
 import { cn } from "@/lib/utils";
+import { formatFirestoreValue } from "@/utils/firestore-value-format";
 import {
   type AgentGrowerRow,
   type AgentTechLeadRow,
@@ -218,28 +217,51 @@ function PendingLocalChangesList({
   if (pendingIds.length === 0) return null;
 
   return (
-    <div className="max-h-[min(60vh,24rem)] space-y-1.5 overflow-y-auto rounded-md border bg-muted/30 px-3 py-2">
-      {pendingIds.map((docId) => (
-        <div
-          key={docId}
-          className="flex items-center justify-between gap-2 text-sm text-foreground"
-        >
-          <div className="flex min-w-0 items-center gap-2">
-            <FileEditIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            <span className="truncate">{DOCUMENT_LABELS[docId]}</span>
+    <div className="max-h-[min(60vh,24rem)] space-y-3 overflow-y-auto rounded-md border bg-muted/30 px-3 py-2">
+      {pendingIds.map((docId) => {
+        const fieldPaths = getChangedFieldPathsForDocument(docId, formState, originalData);
+        const formPayload = buildPayloadForDocument(docId, formState) as Record<string, unknown>;
+        const origPayload = buildPayloadForDocument(docId, originalData) as Record<string, unknown>;
+        return (
+          <div key={docId} className="space-y-1.5 border-b border-border/60 pb-3 last:border-0 last:pb-0">
+            <div className="flex items-center justify-between gap-2 text-sm font-medium text-foreground">
+              <div className="flex min-w-0 items-center gap-2">
+                <FileEditIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <span className="truncate">{DOCUMENT_LABELS[docId]}</span>
+                <span className="shrink-0 text-xs font-normal text-muted-foreground">
+                  ({fieldPaths.length} campo{fieldPaths.length === 1 ? "" : "s"})
+                </span>
+              </div>
+              {onRevertDoc ? (
+                <button
+                  type="button"
+                  onClick={() => onRevertDoc(docId)}
+                  className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+                  title={`Restablecer "${DOCUMENT_LABELS[docId]}" a su valor original`}
+                >
+                  <RotateCcwIcon className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
+            </div>
+            <ul className="space-y-1.5 pl-1">
+              {fieldPaths.map((path) => {
+                const beforeVal = getValueAtPath(origPayload, path);
+                const afterVal = getValueAtPath(formPayload, path);
+                return (
+                  <li key={path} className="text-xs">
+                    <code className="break-all font-mono text-foreground">{path}</code>
+                    <div className="mt-0.5 max-h-24 overflow-y-auto rounded bg-background/50 px-1.5 py-1 font-mono text-[11px] leading-snug text-muted-foreground">
+                      <span className="opacity-80">{formatFirestoreValue(beforeVal)}</span>
+                      <span className="mx-1 text-foreground/50">→</span>
+                      <span>{formatFirestoreValue(afterVal)}</span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
-          {onRevertDoc ? (
-            <button
-              type="button"
-              onClick={() => onRevertDoc(docId)}
-              className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
-              title={`Restablecer "${DOCUMENT_LABELS[docId]}" a su valor original`}
-            >
-              <RotateCcwIcon className="h-3.5 w-3.5" />
-            </button>
-          ) : null}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -856,30 +878,7 @@ export function AgentConfigurationEditor({
         </div>
       ) : formState ? (
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="relative min-h-0 flex-1 overflow-y-auto">
-            {hasLocalChanges ? (
-              <div className="pointer-events-none absolute right-2 top-2 z-20 sm:right-3 sm:top-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setLocalPendingDialogOpen(true)}
-                  className="pointer-events-auto gap-1.5 border-border/80 bg-background/90 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80"
-                >
-                  <FileEditIcon className="size-4 shrink-0" />
-                  <span className="max-w-[11rem] truncate sm:max-w-[14rem]">
-                    {pendingDocIds.length > 0 ? (
-                      <>
-                        {pendingDocIds.length}{" "}
-                        {pendingDocIds.length === 1 ? "documento" : "documentos"} sin guardar
-                      </>
-                    ) : (
-                      "Cambios sin guardar"
-                    )}
-                  </span>
-                </Button>
-              </div>
-            ) : null}
+          <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:gap-0 lg:items-start">
           <div className="min-w-0 space-y-12 lg:pr-8">
               {/* Agent */}
@@ -1614,18 +1613,6 @@ export function AgentConfigurationEditor({
               </Button>
             </div>
             <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
-              {data && propertiesDiff.length === 0 ? (
-                <span className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400 sm:mr-2">
-                  <CheckIcon className="size-3.5" />
-                  Sincronizado
-                </span>
-              ) : null}
-              {propertiesDiff.length > 0 ? (
-                <span className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 sm:mr-2">
-                  <AlertTriangleIcon className="size-3.5" />
-                  {propertiesDiff.length} {propertiesDiff.length === 1 ? "cambio" : "cambios"} pendiente{propertiesDiff.length === 1 ? "" : "s"}
-                </span>
-              ) : null}
               <Button
                 type="button"
                 variant="outline"
@@ -1660,22 +1647,14 @@ export function AgentConfigurationEditor({
               </Button>
               <Button
                 type="button"
-                onClick={handleSave}
-                disabled={
-                  saving ||
-                  !data ||
-                  !hasLocalChanges
-                }
+                variant="default"
+                size="sm"
+                onClick={() => setLocalPendingDialogOpen(true)}
+                disabled={saving || !data || !hasLocalChanges}
+                title="Ver el detalle de cambios pendientes y guardar en testing"
                 className="w-full shrink-0 sm:w-auto"
               >
-                {saving ? (
-                  <>
-                    <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
-                    Guardando…
-                  </>
-                ) : (
-                  "Guardar cambios"
-                )}
+                Guardar cambios
               </Button>
             </div>
           </div>
@@ -1711,7 +1690,7 @@ export function AgentConfigurationEditor({
             diffPreviewLabel="properties"
           />
           <Dialog open={localPendingDialogOpen} onOpenChange={setLocalPendingDialogOpen}>
-            <DialogContent className="sm:max-w-md" showClose>
+            <DialogContent className="max-h-[min(90vh,36rem)] sm:max-w-xl" showClose>
               <DialogHeader>
                 <DialogTitle>Cambios pendientes de guardar</DialogTitle>
                 <DialogDescription>
@@ -1924,4 +1903,63 @@ function buildPartialPayloadForDocument(
     }
   }
   return result;
+}
+
+function getValueAtPath(root: Record<string, unknown>, path: string): unknown {
+  if (!path) return undefined;
+  const parts = path.split(".");
+  let cur: unknown = root;
+  for (const p of parts) {
+    if (cur === null || cur === undefined || typeof cur !== "object" || Array.isArray(cur)) {
+      return undefined;
+    }
+    cur = (cur as Record<string, unknown>)[p];
+  }
+  return cur;
+}
+
+/** Rutas tipo `maxFunctionCalls` o `thinking.level` donde difiere el payload respecto al original. */
+function collectChangedLeafPaths(
+  formVal: unknown,
+  origVal: unknown,
+  basePath: string,
+): string[] {
+  if (valueEquals(formVal, origVal)) return [];
+
+  const bothPlainObjects =
+    formVal !== null &&
+    origVal !== null &&
+    typeof formVal === "object" &&
+    typeof origVal === "object" &&
+    !Array.isArray(formVal) &&
+    !Array.isArray(origVal);
+
+  if (bothPlainObjects) {
+    const fo = formVal as Record<string, unknown>;
+    const oo = origVal as Record<string, unknown>;
+    const keys = new Set([...Object.keys(fo), ...Object.keys(oo)]);
+    const out: string[] = [];
+    for (const k of keys) {
+      const nextPath = basePath ? `${basePath}.${k}` : k;
+      out.push(...collectChangedLeafPaths(fo[k], oo[k], nextPath));
+    }
+    return out.length > 0 ? out : [basePath];
+  }
+
+  return [basePath];
+}
+
+function getChangedFieldPathsForDocument(
+  documentId: PropertyDocumentId,
+  formState: AgentPropertiesResponse,
+  originalData: AgentPropertiesResponse,
+): string[] {
+  const fullForm = buildPayloadForDocument(documentId, formState) as Record<string, unknown>;
+  const fullOriginal = buildPayloadForDocument(documentId, originalData) as Record<string, unknown>;
+  const paths: string[] = [];
+  const keys = new Set([...Object.keys(fullForm), ...Object.keys(fullOriginal)]);
+  for (const key of keys) {
+    paths.push(...collectChangedLeafPaths(fullForm[key], fullOriginal[key], key));
+  }
+  return [...new Set(paths)].sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
 }
