@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -9,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { FieldEditor } from "./field-editor";
 import type { DocField } from "./types";
-import { docToFields, fieldsToDoc, getValueType, coerceNestedArrayFromSavePayload } from "./helpers";
+import { docToFields, fieldsToDoc, getValueType, coerceNestedArrayFromSavePayload, arrayToFields } from "./helpers";
 
 export function NestedDialog({
   isOpen,
@@ -38,6 +39,38 @@ export function NestedDialog({
     isArray: boolean;
   } | null>(null);
 
+  const [viewMode, setViewMode] = useState<"fields" | "json">("fields");
+  const [jsonText, setJsonText] = useState("");
+  const [jsonParseError, setJsonParseError] = useState<string | null>(null);
+
+  const fieldsToJsonValue = (): unknown =>
+    isArray ? nestedFields.map((f) => f.value) : fieldsToDoc(nestedFields);
+
+  const switchToJson = () => {
+    setJsonText(JSON.stringify(fieldsToJsonValue(), null, 2));
+    setJsonParseError(null);
+    setViewMode("json");
+  };
+
+  const switchToFields = () => {
+    try {
+      const parsed = JSON.parse(jsonText);
+      if (isArray) {
+        if (!Array.isArray(parsed)) throw new Error("Se esperaba un array");
+        setNestedFields(arrayToFields(parsed));
+      } else {
+        if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+          throw new Error("Se esperaba un objeto");
+        }
+        setNestedFields(docToFields(parsed as Record<string, unknown>));
+      }
+      setJsonParseError(null);
+      setViewMode("fields");
+    } catch (e) {
+      setJsonParseError(e instanceof Error ? e.message : "JSON inválido");
+    }
+  };
+
   const handleEditNested = (key: string, value: unknown) => {
     if (typeof value !== "object" || value === null) return;
     if (Array.isArray(value)) {
@@ -53,6 +86,24 @@ export function NestedDialog({
   };
 
   const handleSave = () => {
+    if (viewMode === "json") {
+      try {
+        const parsed = JSON.parse(jsonText);
+        if (isArray) {
+          if (!Array.isArray(parsed)) throw new Error("Se esperaba un array");
+          onSave({ _array: parsed.map((v, i) => ({ key: String(i), value: v, type: getValueType(v) })).map((f) => f.value) });
+        } else {
+          if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+            throw new Error("Se esperaba un objeto");
+          }
+          onSave(parsed as Record<string, unknown>);
+        }
+        onClose();
+      } catch (e) {
+        setJsonParseError(e instanceof Error ? e.message : "JSON inválido");
+      }
+      return;
+    }
     if (isArray) {
       onSave({ _array: nestedFields.map((f) => f.value) });
     } else {
@@ -65,16 +116,50 @@ export function NestedDialog({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{isArray ? "Editar array" : "Editar objeto"}</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle>{isArray ? "Editar array" : "Editar objeto"}</DialogTitle>
+            <div className="flex rounded-md border text-sm">
+              <button
+                type="button"
+                onClick={() => viewMode === "json" ? switchToFields() : undefined}
+                className={`px-3 py-1 rounded-l-md transition-colors ${viewMode === "fields" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+              >
+                Fields
+              </button>
+              <button
+                type="button"
+                onClick={() => viewMode === "fields" ? switchToJson() : undefined}
+                className={`px-3 py-1 rounded-r-md transition-colors ${viewMode === "json" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+              >
+                JSON
+              </button>
+            </div>
+          </div>
         </DialogHeader>
-        <div className="max-h-[60vh] space-y-2 overflow-y-auto">
-          <FieldEditor
-            fields={nestedFields}
-            onChange={setNestedFields}
-            onEditNested={handleEditNested}
-            mode={isArray ? "array" : "object"}
-          />
-        </div>
+
+        {viewMode === "fields" ? (
+          <div className="max-h-[60vh] space-y-2 overflow-y-auto">
+            <FieldEditor
+              fields={nestedFields}
+              onChange={setNestedFields}
+              onEditNested={handleEditNested}
+              mode={isArray ? "array" : "object"}
+            />
+          </div>
+        ) : (
+          <div className="space-y-1">
+            <Textarea
+              value={jsonText}
+              onChange={(e) => { setJsonText(e.target.value); setJsonParseError(null); }}
+              className="min-h-[320px] font-mono text-sm"
+              spellCheck={false}
+            />
+            {jsonParseError && (
+              <p className="text-xs text-destructive">{jsonParseError}</p>
+            )}
+          </div>
+        )}
+
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
           <Button onClick={handleSave}>Guardar</Button>
