@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   CheckCircleIcon,
@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/tooltip";
 import { AgentActivitySheet } from "@/components/agents";
 import { UserMenu } from "@/components/shared";
-import { useAuth } from "@/hooks";
+import { useAgentIdParam, useAuth } from "@/hooks";
 import { cn } from "@/lib/utils";
 import {
   assignAgentToUser,
@@ -126,9 +126,8 @@ export default function AgentDetailLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const params = useParams();
+  const agentId = useAgentIdParam();
   const pathname = usePathname();
-  const agentId = typeof params.agentId === "string" ? params.agentId : "";
   const { session, isPending: authPending, signOut } = useAuth();
 
   const [headerNames, setHeaderNames] = useState<{
@@ -196,7 +195,7 @@ export default function AgentDetailLayout({
           setFavoriteAgentIds(new Set(data.favorites ?? []));
         }
       } catch {
-        // ignore
+        toast.error("Error al cargar favoritos");
       }
     };
     void loadFavorites();

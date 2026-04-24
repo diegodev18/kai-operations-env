@@ -1,17 +1,12 @@
 "use client";
 
-import { useParams } from "next/navigation";
-import { AgentSimulator } from "@/components/agents";
+import { AgentMissingFallback, AgentSimulator } from "@/components/agents";
+import { useAgentIdParam } from "@/hooks";
 
 export default function AgentSimulatorPage() {
-  const params = useParams();
-  const agentId = typeof params.agentId === "string" ? params.agentId : "";
+  const agentId = useAgentIdParam();
 
-  if (!agentId) {
-    return (
-      <p className="text-sm text-muted-foreground">Agente no especificado.</p>
-    );
-  }
+  if (!agentId) return <AgentMissingFallback />;
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">

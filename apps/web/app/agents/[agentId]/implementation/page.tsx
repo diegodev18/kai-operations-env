@@ -1,22 +1,10 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useParams } from "next/navigation";
-
-import { AgentImplementationTasksPanel } from "@/components/agents";
-
-export default function AgentImplementationPage() {
-  const params = useParams();
-  const agentId = typeof params.agentId === "string" ? params.agentId : "";
-
-  if (!agentId) {
-    return (
-      <p className="text-sm text-muted-foreground">Agente no especificado.</p>
-    );
-  }
-
-  return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
-      <AgentImplementationTasksPanel agentId={agentId} />
-    </div>
-  );
+export default async function AgentImplementationPage({
+  params,
+}: {
+  params: Promise<{ agentId: string }>;
+}) {
+  const { agentId } = await params;
+  redirect(`/agents/${encodeURIComponent(agentId)}/tasks`);
 }

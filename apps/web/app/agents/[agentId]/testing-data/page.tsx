@@ -1,7 +1,9 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { AgentMissingFallback } from "@/components/agents";
+import { useAgentIdParam } from "@/hooks";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -566,9 +568,8 @@ function CollectionTreeItem({
 }
 
 export default function TestingDataPage() {
-  const params = useParams();
+  const agentId = useAgentIdParam();
   const router = useRouter();
-  const agentId = typeof params.agentId === "string" ? params.agentId : "";
 
   const [collectionTree, setCollectionTree] = useState<CollectionNode[]>([]);
   const [breadcrumbs, setBreadcrumbs] = useState<string[]>([]);
@@ -916,9 +917,7 @@ export default function TestingDataPage() {
     setNestedDialog(null);
   };
 
-  if (!agentId) {
-    return <p className="text-sm text-muted-foreground">Agente no especificado.</p>;
-  }
+  if (!agentId) return <AgentMissingFallback />;
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
