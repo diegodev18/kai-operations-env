@@ -10,7 +10,7 @@ import {
 } from "@/hooks";
 import { useTestingDiff } from "@/hooks";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -307,7 +307,6 @@ export function AgentConfigurationEditor({
     "auto" | "testing" | "production"
   >("auto");
   const [savingFirestoreDataMode, setSavingFirestoreDataMode] = useState(false);
-  const pendingVersionRef = useRef<string | null>(null);
   const { data: diffData, isLoading: isDiffLoading, refetch: refetchDiff } = useTestingDiff(agentId);
 
   useEffect(() => {
@@ -534,13 +533,9 @@ export function AgentConfigurationEditor({
   const handleSave = useCallback(async (): Promise<boolean> => {
     if (!agentId || !formState || !data) return false;
     const idsToSave = getPendingDocumentIds(formState, data);
-    if (idsToSave.length === 0 && !pendingVersionRef.current) return false;
+    if (idsToSave.length === 0) return false;
     setSaving(true);
     try {
-      if (pendingVersionRef.current) {
-        await handleVersionChange(pendingVersionRef.current);
-        pendingVersionRef.current = null;
-      }
       let ok = true;
       for (const docId of idsToSave) {
         const payload = buildPartialPayloadForDocument(docId, formState, data);
@@ -563,7 +558,7 @@ export function AgentConfigurationEditor({
     } finally {
       setSaving(false);
     }
-  }, [agentId, formState, data, refetch, refetchDiff, onAgentUpdated, handleVersionChange]);
+  }, [agentId, formState, data, refetch, refetchDiff, onAgentUpdated]);
 
   const isEnabled = formState?.agent.enabled !== false;
 
@@ -595,7 +590,7 @@ export function AgentConfigurationEditor({
     [formState, data]
   );
 
-  const hasLocalChanges = pendingDocIds.length > 0 || !!pendingVersionRef.current;
+  const hasLocalChanges = pendingDocIds.length > 0;
 
   const propertiesDiff = useMemo(
     () => (diffData || []).filter((d) => d.collection === "properties"),
@@ -840,19 +835,6 @@ export function AgentConfigurationEditor({
     window.dispatchEvent(new Event("kai-agent-deployment-changed"));
   }, [refetch, refetchDiff, onAgentUpdated]);
 
-  useEffect(() => {
-    const model = formState?.ai?.model;
-    if (!model || agentVersion === "2.0.0") {
-      pendingVersionRef.current = null;
-      return;
-    }
-    if (/gemini-3/i.test(model)) {
-      pendingVersionRef.current = "2.0.0";
-    }
-  }, [formState?.ai?.model, agentVersion]);
-
-  const displayVersion = pendingVersionRef.current ?? agentVersion;
-
   if (!agentId) return null;
 
   const isAdmin = userRole === "admin";
@@ -977,9 +959,8 @@ export function AgentConfigurationEditor({
                       </p>
                     </div>
                     <Select
-                      value={displayVersion}
+                      value={agentVersion}
                       onValueChange={(value) => {
-                        pendingVersionRef.current = null;
                         handleVersionChange(value);
                       }}
                       disabled={savingVersion}
@@ -1704,12 +1685,6 @@ export function AgentConfigurationEditor({
                     originalData={data}
                     onRevertDoc={handleRevertDoc}
                   />
-                  {pendingDocIds.length === 0 && hasLocalChanges ? (
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      También hay otros cambios pendientes (por ejemplo la versión del agente). Pulsa
-                      Guardar para aplicarlos.
-                    </p>
-                  ) : null}
                 </>
               ) : null}
               <DialogFooter>
