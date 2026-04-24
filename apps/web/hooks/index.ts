@@ -14,7 +14,10 @@ export {
 export { useToolsCatalog } from "./agents/tools/tools-catalog";
 
 export { useAgentProperties } from "./agents/properties/agent-properties";
-export { useTestingProperties } from "./agents/properties/testing-properties";
+export {
+  useTestingProperties,
+  type RefetchTestingPropertiesOptions,
+} from "./agents/properties/testing-properties";
 export {
   updateAgentPropertyDocument,
   updateTestingPropertyDocument,

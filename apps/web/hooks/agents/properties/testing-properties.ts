@@ -6,6 +6,16 @@ import {
 } from "@/services/agents-api";
 import { usePropertiesBase } from "./properties-base";
 
+export type RefetchTestingPropertiesOptions = {
+  /** Si false, no intenta `postAgentSyncFromProduction` cuando no hay JSON. Default true. */
+  autoSync?: boolean;
+  /**
+   * Si true, no vacía `data` ni pone `isLoading` en la carga inicial del fetch
+   * (útil tras guardar para refrescar sin “reset” visual de toda la vista).
+   */
+  silent?: boolean;
+};
+
 export function useTestingProperties(agentId: string | null) {
   const {
     data,
@@ -19,14 +29,22 @@ export function useTestingProperties(agentId: string | null) {
   const [didAutoSync, setDidAutoSync] = useState(false);
 
   const fetchProperties = useCallback(
-    async (autoSync = true) => {
+    async (options?: boolean | RefetchTestingPropertiesOptions) => {
+      const resolved =
+        typeof options === "boolean" ? { autoSync: options } : (options ?? {});
+      const autoSync = resolved.autoSync !== false;
+      const silent = resolved.silent === true;
+
       if (!agentId) {
         setDidAutoSync(false);
         resetWhenNoAgent();
         return;
       }
-      setIsLoading(true);
-      setData(null);
+
+      if (!silent) {
+        setIsLoading(true);
+        setData(null);
+      }
       setError(null);
       setDidAutoSync(false);
       try {
@@ -56,7 +74,9 @@ export function useTestingProperties(agentId: string | null) {
       } catch {
         setError("Error al cargar propiedades de testing");
       } finally {
-        setIsLoading(false);
+        if (!silent) {
+          setIsLoading(false);
+        }
       }
     },
     [agentId, resetWhenNoAgent, setData, setError, setIsLoading],

@@ -554,7 +554,7 @@ export function AgentConfigurationEditor({
       }
       if (ok) {
         toast.success("Cambios guardados");
-        await refetch();
+        await refetch({ silent: true });
         refetchDiff();
         await onAgentUpdated?.();
         return true;
@@ -579,7 +579,7 @@ export function AgentConfigurationEditor({
       );
       if (success) {
         update("agent", (prev) => ({ ...prev, enabled: newEnabled }));
-        refetch();
+        void refetch({ silent: true });
         await onAgentUpdated?.();
         toast.success(newEnabled ? "Agente encendido" : "Agente apagado");
         return true;
@@ -834,7 +834,7 @@ export function AgentConfigurationEditor({
   }, [refetchDiff]);
 
   const handlePromoteSuccess = useCallback(async () => {
-    await refetch();
+    await refetch({ silent: true });
     refetchDiff();
     onAgentUpdated?.();
     window.dispatchEvent(new Event("kai-agent-deployment-changed"));

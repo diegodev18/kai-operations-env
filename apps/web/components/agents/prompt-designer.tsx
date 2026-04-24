@@ -450,7 +450,10 @@ export function AgentPromptDesigner({
       setSavedPrompt(mcpPrompt);
       setEditingPrompt(mcpPrompt);
       setDiffViewRequested(false);
-      void Promise.all([refetchTestingProperties(), refetchProductionPrompt()]);
+      void Promise.all([
+        refetchTestingProperties({ silent: true }),
+        refetchProductionPrompt(),
+      ]);
       toast.success("Prompt base inicializado en producción y testing.");
     })();
   }, [
@@ -562,7 +565,7 @@ export function AgentPromptDesigner({
     setIsSaving(false);
     if (ok) {
       setDiffViewRequested(false);
-      void refetchTestingProperties();
+      void refetchTestingProperties({ silent: true });
     }
   };
 
@@ -617,7 +620,7 @@ export function AgentPromptDesigner({
       setSavedPrompt(base);
       setDiffViewRequested(false);
       setBaseMarkdownRemount((n) => n + 1);
-      void refetchTestingProperties();
+      void refetchTestingProperties({ silent: true });
       void refetchProductionPrompt();
       toast.success("Listo: el texto de producción quedó guardado en pruebas.");
       setIsPullDialogOpen(false);
@@ -705,7 +708,7 @@ export function AgentPromptDesigner({
             setSavedAuthPrompt(payload.auth?.auth ?? savedAuthPrompt);
             setSavedUnauthPrompt(payload.auth?.unauth ?? savedUnauthPrompt);
           }
-          void refetchTestingProperties();
+          void refetchTestingProperties({ silent: true });
           toast.success("Prompt subido a producción 🚀");
         }
         setIsPromoteDialogOpen(false);
