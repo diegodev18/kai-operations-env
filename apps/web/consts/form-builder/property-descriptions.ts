@@ -5,13 +5,13 @@
 export const PROPERTY_TITLES: Record<string, Record<string, string>> = {
   agent: {
     isAuthEnable: "Usar mensajes distintos si el usuario está identificado",
-    injectCommandsInPrompt: "Inyectar comandos en el prompt",
+    injectCommandsInPrompt: "Permitir respuestas rápidas configuradas",
     isMemoryEnable: "Activar memoria del usuario entre conversaciones",
     isMultiMessageEnable: "Permitir varias respuestas en un solo mensaje",
     isMultiMessageResponseEnable: "Esperar unos segundos antes de responder (agrupar mensajes)",
-    maxFunctionCalls: "Máximo de llamadas a herramientas por turno (1–8)",
-    omitFirstEchoes: "Ignorar el primer mensaje de tipo eco (ej. WhatsApp)",
-    isValidatorAgentEnable: "Activar agente validador",
+    maxFunctionCalls: "Máximo de acciones que puede hacer por respuesta (1–8)",
+    omitFirstEchoes: "Ignorar el primer mensaje enviado por el negocio",
+    isValidatorAgentEnable: "Revisar la respuesta antes de enviarla",
     excludedNumbers: "Números de WhatsApp excluidos (uno por línea)",
   },
   limitation: {
@@ -19,11 +19,11 @@ export const PROPERTY_TITLES: Record<string, Record<string, string>> = {
     allowedUsers: "Números permitidos (uno por línea)",
   },
   ai: {
-    model: "Modelo de Vertex AI",
-    temperature: "Temperatura del LLM (0–1)",
-    "thinking.budget": "Presupuesto de thinking (tokens)",
-    "thinking.includeThoughts": "Incluir pensamientos (thinking) en la respuesta",
-    "thinking.level": "Nivel de thinking del modelo",
+    model: "Modelo de IA",
+    temperature: "Creatividad de las respuestas (0–1)",
+    "thinking.budget": "Tiempo de razonamiento interno",
+    "thinking.includeThoughts": "Mostrar razonamiento interno",
+    "thinking.level": "Nivel de razonamiento",
   },
   answer: {
     notSupport: "Mensaje cuando el usuario envía algo no soportado (audio, video, etc.)",
@@ -35,21 +35,21 @@ export const PROPERTY_TITLES: Record<string, Record<string, string>> = {
   },
   time: {
     zone: "Zona horaria del agente",
-    echoesWaitMinutes: "Tiempo de bloqueo por ecos (minutos)",
+    echoesWaitMinutes: "Tiempo de pausa tras detectar atención manual (minutos)",
   },
   prompt: {
     "auth.auth": "Texto extra cuando el usuario está identificado",
     "auth.unauth": "Texto extra cuando el usuario no está identificado",
     isMultiFunctionCallingEnable: "Permitir uso de herramientas por el agente",
-    model: "Modelo de Vertex AI",
-    temperature: "Temperatura del LLM (0–1)",
+    model: "Modelo de IA",
+    temperature: "Creatividad de las respuestas (0–1)",
   },
   memory: {
     limit: "Cantidad máxima de recuerdos a cargar",
   },
   mcp: {
-    maxRetries: "Máximo de reintentos si el validador marca la respuesta como inválida",
-    toolsMcpEndpoint: "Endpoint del servicio MCP",
+    maxRetries: "Máximo de intentos si una respuesta no pasa la revisión",
+    toolsMcpEndpoint: "Ambiente donde se ejecutan las herramientas",
   },
 };
 
@@ -60,79 +60,79 @@ export const PROPERTY_TITLES: Record<string, Record<string, string>> = {
 export const PROPERTY_DESCRIPTIONS: Record<string, Record<string, string>> = {
   agent: {
     isAuthEnable:
-      "Si está en true, se usan prompts distintos según si el usuario está autenticado o no. Las cadenas vienen del documento prompt (auth.auth y auth.unauth).",
+      "Actívalo si quieres que el agente use un mensaje distinto para personas identificadas y no identificadas.",
     injectCommandsInPrompt:
-      "Si está activado, se cargan los comandos del documento properties/commands y se inyectan en el system prompt: triggers e instrucción de usar la herramienta send_command para enviar los mensajes predefinidos.",
+      "Actívalo si el agente debe poder usar respuestas rápidas o mensajes ya configurados para ciertos casos.",
     isMemoryEnable:
-      "Si está en true, se activa la memoria dinámica: se cargan datos previos del usuario desde Firestore y se inyectan en el system prompt. El límite de ítems se toma del documento memory (campo limit).",
+      "Actívalo para que el agente recuerde información útil de conversaciones anteriores con la misma persona.",
     isMultiMessageEnable:
-      "Si está en true, el modelo puede devolver varios mensajes en una sola respuesta (formato JSON array).",
+      "Permite que el agente divida una respuesta larga en varios mensajes más naturales.",
     isMultiMessageResponseEnable:
-      "Si está en true, se activa el debouncing: al llegar un mensaje se espera waitTime segundos antes de procesar; si en ese tiempo llega otro mensaje del mismo usuario, solo se responde al último.",
+      "Hace que el agente espere un momento antes de responder para juntar varios mensajes seguidos del usuario.",
     maxFunctionCalls:
-      "Número máximo de llamadas a herramientas por turno en el bucle MCP. Valor entre 1 y 8; por defecto 4. Limita cuántas veces puede usar herramientas el modelo en una misma respuesta.",
+      "Limita cuántas acciones puede intentar el agente antes de enviar una respuesta. Útil para evitar respuestas lentas o demasiado complejas.",
     omitFirstEchoes:
-      "Si está en true, el primer mensaje de tipo echo del usuario no se procesa. Útil para no contar el primer eco de WhatsApp como mensaje real.",
+      "Evita que el agente responda a un primer mensaje que en realidad fue enviado desde el negocio.",
     isValidatorAgentEnable:
-      "Si está en true, se activa el agente validador. El backend usa además el documento mcp (campo maxRetries) para el máximo de reintentos si el validador marca la respuesta como inválida.",
+      "Activa una revisión automática para mejorar la calidad de la respuesta antes de enviarla al usuario.",
     excludedNumbers:
-      "Lista de números de WhatsApp (IDs) que quedan excluidos del agente: no se procesan sus mensajes ni se envía respuesta. Un número por línea.",
+      "Agrega aquí los números que el agente debe ignorar. Un número por línea.",
   },
   limitation: {
     userLimitation:
-      "Si está activado, solo se atienden los números listados en «Números permitidos». Deben coincidir con el formato guardado en el usuario (phoneNumber), p. ej. sin +.",
+      "Actívalo si el agente solo debe responder a una lista específica de números.",
     allowedUsers:
-      "Lista blanca: un número por línea. Solo aplica si «Solo responder a números de la lista permitida» está activo. Quien no esté en la lista recibe error y el agente no responde.",
+      "Escribe los números que sí pueden hablar con el agente. Un número por línea.",
   },
   ai: {
     model:
-      "Modelo de Vertex AI / Gemini usado para las respuestas del agente (p. ej. gemini-2.5-flash). Fuente de verdad para el runtime.",
+      "Elige qué modelo de IA usará el agente para responder.",
     temperature:
-      "Temperatura del LLM (0–1). Valores más altos dan respuestas más variadas; más bajos más deterministas. Fuente de verdad para el runtime.",
+      "Valores bajos hacen respuestas más consistentes; valores altos hacen respuestas más variadas.",
     "thinking.includeThoughts":
-      "Si está en true, el modelo devuelve los pensamientos en la respuesta. Si está en false, no los devuelve (pero se puede usar level o budget para más razonamiento interno).",
+      "Muestra información adicional sobre cómo la IA llegó a su respuesta. Normalmente se deja apagado.",
     "thinking.level":
-      "Nivel de thinking del modelo (minimal, low, medium, high). Puede usarse con includeThoughts en false para más razonamiento interno sin exponer pensamientos.",
+      "Define cuánto debe razonar la IA antes de responder. Niveles altos pueden tardar más.",
     "thinking.budget":
-      'Presupuesto en tokens: 0 = desactivado, -1 = automático, número positivo = tokens. Controla cuánto puede "pensar" el modelo internamente.',
+      "Controla cuánto espacio se le da a la IA para razonar antes de responder. Déjalo en automático si no necesitas ajustarlo.",
   },
   answer: {
     notSupport:
-      "Mensaje que se envía al usuario cuando manda un tipo de mensaje no soportado (por ejemplo audio, video). Se usa cuando message.type === unsupported.",
+      "Mensaje que se envía cuando el usuario manda algo que el agente no puede atender, como ciertos audios, videos o archivos.",
   },
   response: {
     maxResponseLinesEnabled:
-      "Si está activado, la respuesta de texto al usuario se trunca a un máximo de líneas. Por defecto desactivado.",
+      "Actívalo si quieres evitar que el agente envíe respuestas demasiado largas.",
     maxResponseLines:
-      "Número máximo de renglones a enviar en cada mensaje. Solo aplica si el límite está activado. Si no se indica, se usa 50.",
+      "Cantidad máxima de líneas que puede tener una respuesta cuando el límite está activo.",
     waitTime:
-      "Segundos que se esperan antes de procesar el mensaje cuando está activo el debouncing. En ese intervalo se agrupan mensajes del mismo usuario.",
+      "Tiempo que el agente espera antes de responder para juntar mensajes seguidos de la misma persona.",
   },
   time: {
-    zone: "Zona horaria (IANA) usada para formatear la fecha actual que se inyecta en el system prompt del LLM.",
+    zone: "Zona horaria que usará el agente para entender fechas, horarios y mensajes relacionados con tiempo.",
     echoesWaitMinutes:
-      "Minutos que el usuario queda bloqueado del modelo al recibir un mensaje tipo eco (ej. mensaje propio detectado). Por defecto 480 (8 horas).",
+      "Tiempo que el agente espera antes de volver a responder cuando detecta que una persona del equipo ya atendió la conversación.",
   },
   prompt: {
     "auth.auth":
-      "Texto que se inyecta en el system prompt cuando el usuario está autenticado. Solo se usa si isAuthEnable es true.",
+      "Mensaje adicional que el agente usa cuando la persona ya está identificada.",
     "auth.unauth":
-      "Texto que se inyecta en el system prompt cuando el usuario no está autenticado. Solo se usa si isAuthEnable es true.",
+      "Mensaje adicional que el agente usa cuando la persona todavía no está identificada.",
     isMultiFunctionCallingEnable:
-      "Si está en false, no se incluye en el system prompt la instrucción de FUNCTION CALLING (múltiples llamadas a herramientas). Útil para agentes que no usan tools.",
+      "Actívalo si el agente necesita usar herramientas para completar tareas, consultar información o hacer acciones.",
     model:
-      "Modelo de Vertex AI / Gemini usado para las respuestas del agente (p. ej. gemini-2.5-flash).",
+      "Elige qué modelo de IA usará el agente para responder.",
     temperature:
-      "Temperatura del LLM (0–1). Valores más altos dan respuestas más variadas; más bajos más deterministas.",
+      "Valores bajos hacen respuestas más consistentes; valores altos hacen respuestas más variadas.",
   },
   memory: {
     limit:
-      "Número máximo de ítems de memoria a cargar cuando isMemoryEnable es true.",
+      "Cantidad máxima de recuerdos que el agente puede usar al responder.",
   },
   mcp: {
     maxRetries:
-      "Solo se usa cuando el agente validador está activo. Número máximo de reintentos si el validador marca la respuesta del LLM como inválida (por defecto 1).",
+      "Solo se usa cuando la revisión automática está activa. Define cuántas veces puede intentar mejorar una respuesta antes de enviarla.",
     toolsMcpEndpoint:
-      "URL del servidor MCP que ejecuta las herramientas. Usa 'default' para el valor de la variable de entorno, 'production' para el endpoint de producción, o 'testing' para el de testing.",
+      "Elige si las herramientas del agente deben trabajar con el ambiente habitual, con pruebas o con producción.",
   },
 };

@@ -198,7 +198,7 @@ export function PromoteDiffDialog({
 
   const handlePromote = useCallback(async () => {
     if (selectedFields.length === 0) {
-      toast.error("Selecciona al menos un campo");
+      toast.error("Selecciona al menos un cambio");
       return;
     }
     if (normalizeConfirmInput(confirmName) !== "confirmar") {
@@ -212,14 +212,14 @@ export function PromoteDiffDialog({
         confirmation_agent_name: confirmName.trim(),
       });
       if (r.ok) {
-        toast.success("Campos promovidos a producción");
+        toast.success("Cambios publicados en producción");
         handleOpenChange(false);
         onSuccess?.();
       } else {
         toast.error(r.error);
       }
     } catch {
-      toast.error("Error al promover a producción");
+      toast.error("No se pudieron publicar los cambios");
     } finally {
       setPromoting(false);
     }
@@ -227,7 +227,7 @@ export function PromoteDiffDialog({
 
   const defaultDescription = (
     <>
-      Selecciona los campos que deseas promover desde testing a producción. Escribe{" "}
+      Selecciona los cambios que quieres publicar desde pruebas hacia producción. Escribe{" "}
       <span className="font-medium text-foreground">CONFIRMAR</span> para continuar.
     </>
   );
@@ -249,13 +249,13 @@ export function PromoteDiffDialog({
           </div>
         ) : diff.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted-foreground">
-            No hay diferencias entre testing y producción.
+            No hay diferencias entre pruebas y producción.
           </p>
         ) : (
           <div className="space-y-3 py-2">
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">
-                {selectedCount} de {totalFields} campos seleccionados
+                {selectedCount} de {totalFields} cambios seleccionados
               </span>
               <div className="flex gap-2">
                 <button
@@ -346,7 +346,7 @@ export function PromoteDiffDialog({
                             </div>
                             <div className="col-span-4 text-xs">
                               <div className="text-muted-foreground mb-0.5">
-                                Testing:
+                                Pruebas:
                               </div>
                               <div className="bg-green-50/50 dark:bg-green-950/20 rounded px-1.5 py-0.5 font-mono text-xs break-words max-h-16 overflow-y-auto">
                                 {formatFirestoreValue(field.testingValue)}
@@ -403,10 +403,10 @@ export function PromoteDiffDialog({
             {promoting ? (
               <>
                 <Loader2Icon className="mr-2 size-4 animate-spin" />
-                Promoviendo…
+                Publicando…
               </>
             ) : (
-              `Promover ${selectedCount} campo${selectedCount === 1 ? "" : "s"}`
+              `Publicar ${selectedCount} cambio${selectedCount === 1 ? "" : "s"}`
             )}
           </Button>
         </DialogFooter>

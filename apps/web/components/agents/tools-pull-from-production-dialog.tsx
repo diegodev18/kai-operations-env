@@ -56,7 +56,7 @@ export function ToolsPullFromProductionDialog({
   syncing,
   onSyncingChange,
   onSuccess,
-  diffPreviewLabel = "tools",
+  diffPreviewLabel = "herramientas",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -126,7 +126,7 @@ export function ToolsPullFromProductionDialog({
     try {
       const r = await postAgentSyncFromProduction(agentId);
       if (r.ok) {
-        toast.success("Testing actualizado desde producción");
+        toast.success("Ambiente de pruebas actualizado con la configuración publicada");
         handleOpenChange(false);
         onSuccess?.();
       } else {
@@ -148,10 +148,7 @@ export function ToolsPullFromProductionDialog({
         <DialogHeader>
           <DialogTitle>Bajar cambios desde producción</DialogTitle>
           <DialogDescription>
-            Se copiarán <span className="font-medium text-foreground">properties</span>,{" "}
-            <span className="font-medium text-foreground">tools</span> y{" "}
-            <span className="font-medium text-foreground">colaboradores</span> desde producción
-            hacia testing (merge). Escribe{" "}
+            Se copiará la configuración publicada hacia el ambiente de pruebas. Escribe{" "}
             <span className="font-medium text-foreground">CONFIRMAR</span> para continuar.
           </DialogDescription>
         </DialogHeader>
@@ -163,15 +160,13 @@ export function ToolsPullFromProductionDialog({
           </div>
         ) : diff.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted-foreground">
-            No hay diferencias de {diffPreviewLabel} entre testing y producción. No es necesario bajar
-            cambios.
+            No hay diferencias de {diffPreviewLabel} entre pruebas y producción. No es necesario bajar cambios.
           </p>
         ) : (
           <div className="space-y-3 py-2">
             <p className="text-xs text-muted-foreground">
-              Vista previa de diferencias en{" "}
-              <span className="font-medium">{diffPreviewLabel}</span> (origen: producción → destino:
-              testing tras la sincronización).
+              Vista previa de lo que cambiará en{" "}
+              <span className="font-medium">{diffPreviewLabel}</span> al traer la versión publicada a pruebas.
             </p>
             <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
               {groupedData.map((group) => {
@@ -195,7 +190,7 @@ export function ToolsPullFromProductionDialog({
                         {group.collection} / {group.documentId}
                       </span>
                       <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                        {group.fields.length} campo{group.fields.length === 1 ? "" : "s"}
+                        {group.fields.length} cambio{group.fields.length === 1 ? "" : "s"}
                       </span>
                     </div>
                     {isExpanded && (
@@ -209,13 +204,13 @@ export function ToolsPullFromProductionDialog({
                               {field.fieldKey}
                             </div>
                             <div className="col-span-12 text-xs sm:col-span-5">
-                              <div className="mb-0.5 text-muted-foreground">Producción (origen)</div>
+                              <div className="mb-0.5 text-muted-foreground">Producción</div>
                               <div className="max-h-20 overflow-y-auto rounded bg-amber-50/50 px-1.5 py-0.5 font-mono text-xs break-words dark:bg-amber-950/20">
                                 {formatFirestoreValue(field.productionValue)}
                               </div>
                             </div>
                             <div className="col-span-12 text-xs sm:col-span-5">
-                              <div className="mb-0.5 text-muted-foreground">Testing (ahora)</div>
+                              <div className="mb-0.5 text-muted-foreground">Pruebas ahora</div>
                               <div className="max-h-20 overflow-y-auto rounded bg-green-50/50 px-1.5 py-0.5 font-mono text-xs break-words dark:bg-green-950/20">
                                 {formatFirestoreValue(field.testingValue)}
                               </div>
@@ -264,10 +259,10 @@ export function ToolsPullFromProductionDialog({
             {syncing ? (
               <>
                 <Loader2Icon className="mr-2 size-4 animate-spin" />
-                Sincronizando…
+                Actualizando…
               </>
             ) : (
-              "Bajar a testing"
+              "Bajar a pruebas"
             )}
           </Button>
         </DialogFooter>

@@ -13,6 +13,7 @@ import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -70,7 +71,6 @@ import { ToolsPullFromProductionDialog } from "@/components/agents/tools-pull-fr
 import {
   ConfirmTextDialog,
   OrgUserPickerDialog,
-  type OrgUser,
 } from "@/components/shared";
 
 const DOCUMENT_IDS: PropertyDocumentId[] = [
@@ -102,15 +102,15 @@ function getDefaultTemperatureForModel(model: string): number {
 }
 
 const DOCUMENT_LABELS: Record<PropertyDocumentId, string> = {
-  agent: "Comportamiento general",
-  ai: "AI (thinking)",
-  answer: "Mensajes predefinidos",
-  response: "Tiempo de espera",
-  time: "Zona horaria",
-  prompt: "Prompts y LLM",
+  agent: "Conversación y comportamiento",
+  ai: "IA y razonamiento",
+  answer: "Mensajes",
+  response: "Cadencia de respuesta",
+  time: "Horarios y pausas",
+  prompt: "Herramientas del agente",
   memory: "Memoria",
-  mcp: "Validador (MCP)",
-  limitation: "Acceso (lista blanca)",
+  mcp: "Revisión de respuestas",
+  limitation: "Acceso y seguridad",
 };
 
 function FieldLabel({
@@ -138,6 +138,45 @@ function FieldLabel({
         <p className="text-xs text-muted-foreground font-normal">{desc}</p>
       )}
     </div>
+  );
+}
+
+function SettingsSection({
+  id,
+  title,
+  description,
+  badge,
+  children,
+  className,
+}: {
+  id: string;
+  title: string;
+  description: string;
+  badge?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section
+      id={id}
+      className={cn(
+        "scroll-mt-24 rounded-2xl border bg-card/70 p-4 shadow-sm",
+        className,
+      )}
+    >
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div className="min-w-0 space-y-1">
+          <h3 className="text-sm font-semibold tracking-tight text-foreground">
+            {title}
+          </h3>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            {description}
+          </p>
+        </div>
+        {badge}
+      </div>
+      <div className="space-y-3">{children}</div>
+    </section>
   );
 }
 
@@ -181,14 +220,6 @@ function valueEquals(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-function normalizeConfirmInput(input: string): string {
-  return input
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
 function getPendingDocumentIds(
   formState: AgentPropertiesResponse,
   originalData: AgentPropertiesResponse | null
@@ -229,7 +260,7 @@ function PendingLocalChangesList({
                 <FileEditIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 <span className="truncate">{DOCUMENT_LABELS[docId]}</span>
                 <span className="shrink-0 text-xs font-normal text-muted-foreground">
-                  ({fieldPaths.length} campo{fieldPaths.length === 1 ? "" : "s"})
+                  ({fieldPaths.length} cambio{fieldPaths.length === 1 ? "" : "s"})
                 </span>
               </div>
               {onRevertDoc ? (
@@ -518,7 +549,7 @@ export function AgentConfigurationEditor({
         const r = await patchAgent(agentId, { firestoreDataMode: value });
         if (r.ok) {
           setFirestoreDataMode(value);
-          toast.success("Modo de datos MCP actualizado");
+          toast.success("Uso de datos actualizado");
           await onAgentUpdated?.();
         } else {
           toast.error(r.error);
@@ -847,6 +878,17 @@ export function AgentConfigurationEditor({
 
   const showAllSections = isTechLead;
   const showGrowerSections = !isTechLead && (isGrower || isAdmin);
+  const canSeeOperationalSettings = showAllSections || showGrowerSections;
+  const visibleSectionNav = [
+    { id: "status", label: "Estado", visible: true },
+    { id: "conversation", label: "Conversación", visible: canSeeOperationalSettings },
+    { id: "ai", label: "IA", visible: showAllSections },
+    { id: "memory", label: "Memoria", visible: canSeeOperationalSettings },
+    { id: "access", label: "Acceso", visible: canSeeOperationalSettings },
+    { id: "validation", label: "Validación", visible: canSeeOperationalSettings },
+    { id: "runtime", label: "Horarios", visible: showAllSections },
+    { id: "team", label: "Equipo", visible: true },
+  ].filter((section) => section.visible);
 
   return (
     <div
@@ -861,10 +903,90 @@ export function AgentConfigurationEditor({
       ) : formState ? (
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:gap-0 lg:items-start">
-          <div className="min-w-0 space-y-12 lg:pr-8">
+            <div className="grid gap-6 px-1 pb-6 lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-start">
+              <aside className="hidden lg:sticky lg:top-4 lg:block">
+                <nav className="space-y-1 rounded-2xl border bg-card/70 p-2 text-sm">
+                  {visibleSectionNav.map((section) => (
+                    <a
+                      key={section.id}
+                      href={`#${section.id}`}
+                      className="block rounded-xl px-3 py-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    >
+                      {section.label}
+                    </a>
+                  ))}
+                </nav>
+              </aside>
+              <div className="min-w-0 space-y-6">
+                <SettingsSection
+                  id="status"
+                  title="Estado del agente"
+                  description="Consulta si el agente está activo, si tiene cambios por guardar y si hay diferencias con la versión publicada."
+                  badge={
+                    <Badge variant={isEnabled ? "secondary" : "destructive"}>
+                      {isEnabled ? "Encendido" : "Apagado"}
+                    </Badge>
+                  }
+                >
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <div className="rounded-xl border bg-background/70 p-3">
+                      <p className="text-xs text-muted-foreground">Versión</p>
+                      <p className="mt-1 text-sm font-medium">{agentVersion}</p>
+                    </div>
+                    <div className="rounded-xl border bg-background/70 p-3">
+                      <p className="text-xs text-muted-foreground">Cambios locales</p>
+                      <p className="mt-1 text-sm font-medium">
+                        {pendingDocIds.length === 0
+                          ? "Sin cambios"
+                          : `${pendingDocIds.length} documento${pendingDocIds.length === 1 ? "" : "s"}`}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border bg-background/70 p-3">
+                      <p className="text-xs text-muted-foreground">Pruebas vs producción</p>
+                      <p className="mt-1 text-sm font-medium">
+                        {hasTestingProductionDiff ? "Con diferencias" : "Sin diferencias"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 border-t pt-3">
+                    <Button
+                      type="button"
+                      variant={isEnabled ? "outline" : "default"}
+                      size="sm"
+                      onClick={handleToggleClick}
+                      disabled={saving}
+                      className="w-fit shrink-0"
+                    >
+                      {saving ? (
+                        <Loader2Icon className="h-4 w-4 animate-spin" />
+                      ) : isEnabled ? (
+                        <>
+                          <PowerOffIcon className="mr-1.5 h-4 w-4" />
+                          Apagar agente
+                        </>
+                      ) : (
+                        <>
+                          <PowerIcon className="mr-1.5 h-4 w-4" />
+                          Encender agente
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleDiscardChanges}
+                      disabled={!data || !hasLocalChanges || saving}
+                    >
+                      <RotateCcwIcon className="mr-1.5 h-4 w-4" />
+                      Descartar cambios
+                    </Button>
+                  </div>
+                </SettingsSection>
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 xl:items-start">
+          <div className="min-w-0 space-y-6">
               {/* Agent */}
-              <section className="space-y-4">
+              <section id="conversation" className="scroll-mt-24 space-y-4 rounded-2xl border bg-card/70 p-4 shadow-sm">
                 <h3 className="text-sm font-semibold tracking-tight text-foreground">
                   {DOCUMENT_LABELS.agent}
                 </h3>
@@ -986,14 +1108,10 @@ export function AgentConfigurationEditor({
                     <div className="space-y-2">
                       <div className="space-y-1">
                         <Label htmlFor="agent-firestore-data-mode">
-                          Datos MCP (producción vs prueba)
+                          Datos que usará el agente
                         </Label>
                         <p className="text-xs text-muted-foreground font-normal">
-                          Define si MCP-KAI-AGENTS y tools MCP leen{" "}
-                          <code className="rounded bg-muted px-1">properties</code> /{" "}
-                          <code className="rounded bg-muted px-1">tools</code> de
-                          producción o de{" "}
-                          <code className="rounded bg-muted px-1">testing/data</code>.
+                          Elige si el agente debe trabajar con datos de prueba, datos reales o decidirlo automáticamente.
                         </p>
                       </div>
                       <Select
@@ -1016,7 +1134,7 @@ export function AgentConfigurationEditor({
                             <div className="flex flex-col gap-0.5">
                               <span>Automático (número de negocio de prueba)</span>
                               <span className="text-xs text-muted-foreground font-normal">
-                                Solo números en lista de prueba usan datos de testing.
+                                Los números de prueba usan datos de prueba; los demás usan datos reales.
                               </span>
                             </div>
                           </SelectItem>
@@ -1024,7 +1142,7 @@ export function AgentConfigurationEditor({
                             <div className="flex flex-col gap-0.5">
                               <span>Siempre datos de prueba</span>
                               <span className="text-xs text-muted-foreground font-normal">
-                                Siempre rutas bajo testing/data.
+                                Útil para revisar cambios sin afectar conversaciones reales.
                               </span>
                             </div>
                           </SelectItem>
@@ -1032,7 +1150,7 @@ export function AgentConfigurationEditor({
                             <div className="flex flex-col gap-0.5">
                               <span>Siempre producción</span>
                               <span className="text-xs text-muted-foreground font-normal">
-                                Nunca testing/data, aunque el número sea de prueba.
+                                Úsalo cuando quieras que todos vean el comportamiento publicado.
                               </span>
                             </div>
                           </SelectItem>
@@ -1047,7 +1165,7 @@ export function AgentConfigurationEditor({
 
               {/* Limitación: lista blanca (MCP-KAI-AGENTS properties/limitation) */}
               {(showAllSections || showGrowerSections) && (
-              <section className="space-y-4">
+              <section id="access" className="scroll-mt-24 space-y-4 rounded-2xl border bg-card/70 p-4 shadow-sm">
                 <h3 className="text-sm font-semibold tracking-tight text-foreground">
                   {DOCUMENT_LABELS.limitation}
                 </h3>
@@ -1089,7 +1207,7 @@ export function AgentConfigurationEditor({
                             .filter(Boolean),
                         }))
                       }
-                      placeholder="Un número por línea (mismo formato que phoneNumber en Firestore)"
+                      placeholder="Un número por línea"
                       rows={4}
                       className="font-mono text-sm"
                     />
@@ -1100,7 +1218,7 @@ export function AgentConfigurationEditor({
 
               {/* Answer */}
               {(showAllSections || showGrowerSections) && (
-              <section className="space-y-4">
+              <section className="space-y-4 rounded-2xl border bg-card/70 p-4 shadow-sm">
                 <h3 className="text-sm font-semibold tracking-tight text-foreground">
                   {DOCUMENT_LABELS.answer}
                 </h3>
@@ -1123,7 +1241,7 @@ export function AgentConfigurationEditor({
 
               {/* AI (thinking) - model and temperature are source of truth here */}
               {showAllSections && (
-              <section className="space-y-4">
+              <section id="ai" className="scroll-mt-24 space-y-4 rounded-2xl border bg-card/70 p-4 shadow-sm">
                 <h3 className="text-sm font-semibold tracking-tight text-foreground">
                   {DOCUMENT_LABELS.ai}
                 </h3>
@@ -1295,10 +1413,10 @@ export function AgentConfigurationEditor({
                           },
                         }));
                       }}
-                      placeholder="-1 = automático, 0 = desactivado, &gt;0 = tokens"
+                      placeholder="-1 = automático, 0 = apagado, número positivo = más razonamiento"
                     />
                     <p className="text-xs text-muted-foreground">
-                      0 = desactivado, -1 = automático, número positivo = tokens
+                      0 = apagado, -1 = automático, número positivo = más espacio para razonar
                     </p>
                   </div>
                 </div>
@@ -1307,7 +1425,7 @@ export function AgentConfigurationEditor({
 
               {/* Response */}
               {(showAllSections || showGrowerSections) && (
-              <section className="space-y-4">
+              <section className="space-y-4 rounded-2xl border bg-card/70 p-4 shadow-sm">
                 <h3 className="text-sm font-semibold tracking-tight text-foreground">
                   {DOCUMENT_LABELS.response}
                 </h3>
@@ -1377,7 +1495,7 @@ export function AgentConfigurationEditor({
           <div className="min-w-0 space-y-12 border-t border-border pt-12 lg:border-t-0 lg:border-l lg:border-border lg:pt-0 lg:pl-8">
               {/* Time */}
               {showAllSections && (
-              <section className="space-y-4">
+              <section id="runtime" className="scroll-mt-24 space-y-4 rounded-2xl border bg-card/70 p-4 shadow-sm">
                 <h3 className="text-sm font-semibold tracking-tight text-foreground">
                   {DOCUMENT_LABELS.time}
                 </h3>
@@ -1412,7 +1530,7 @@ export function AgentConfigurationEditor({
 
               {/* Prompt */}
               {showAllSections && (
-              <section className="space-y-4">
+              <section className="space-y-4 rounded-2xl border bg-card/70 p-4 shadow-sm">
                 <h3 className="text-sm font-semibold tracking-tight text-foreground">
                   {DOCUMENT_LABELS.prompt}
                 </h3>
@@ -1442,7 +1560,7 @@ export function AgentConfigurationEditor({
 
               {/* Memory */}
               {(showAllSections || showGrowerSections) && (
-              <section className="space-y-4">
+              <section id="memory" className="scroll-mt-24 space-y-4 rounded-2xl border bg-card/70 p-4 shadow-sm">
                 <h3 className="text-sm font-semibold tracking-tight text-foreground">
                   {DOCUMENT_LABELS.memory}
                 </h3>
@@ -1467,8 +1585,9 @@ export function AgentConfigurationEditor({
               {/* MCP (Validador) - solo editable si isValidatorAgentEnable está activo */}
               {(showAllSections || showGrowerSections) && (
               <section
+                id="validation"
                 className={cn(
-                  "space-y-4",
+                  "scroll-mt-24 space-y-4 rounded-2xl border bg-card/70 p-4 shadow-sm",
                   !formState.agent.isValidatorAgentEnable && "opacity-60",
                 )}
               >
@@ -1514,12 +1633,12 @@ export function AgentConfigurationEditor({
                       }
                     >
                       <SelectTrigger id="mcp-toolsMcpEndpoint" className="w-full">
-                        <SelectValue placeholder="Selecciona el endpoint" />
+                        <SelectValue placeholder="Selecciona el ambiente" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="default">Default (variable de entorno)</SelectItem>
-                        <SelectItem value="production">Producción</SelectItem>
-                        <SelectItem value="testing">Testing</SelectItem>
+                        <SelectItem value="default">Automático</SelectItem>
+                        <SelectItem value="production">Datos reales</SelectItem>
+                        <SelectItem value="testing">Datos de prueba</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1528,70 +1647,75 @@ export function AgentConfigurationEditor({
               )}
           </div>
         </div>
+                <SettingsSection
+                  id="team"
+                  title="Equipo"
+                  description="Define quién puede operar o revisar esta configuración."
+                >
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="rounded-xl border bg-background/70 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium">Growers</p>
+                          <p className="text-xs text-muted-foreground">
+                            Personas que pueden apoyar con la operación del agente.
+                          </p>
+                        </div>
+                        <Badge variant="outline">{dialogGrowers.length}</Badge>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsGrowersDialogOpen(true)}
+                        disabled={saving}
+                        className="mt-3 w-full justify-start"
+                      >
+                        <PlusIcon className="mr-1.5 h-4 w-4" />
+                        Gestionar growers
+                      </Button>
+                    </div>
+                    {showAllSections && (
+                      <div className="rounded-xl border bg-background/70 p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium">Tech leads</p>
+                            <p className="text-xs text-muted-foreground">
+                              Personas que pueden revisar y ajustar toda la configuración.
+                            </p>
+                          </div>
+                          <Badge variant="outline">{dialogTechLeads.length}</Badge>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsTechLeadsDialogOpen(true)}
+                          disabled={saving}
+                          className="mt-3 w-full justify-start"
+                        >
+                          <PlusIcon className="mr-1.5 h-4 w-4" />
+                          Gestionar tech leads
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </SettingsSection>
+              </div>
+            </div>
           </div>
           <div
             className="shrink-0 flex flex-col gap-4 border-t border-border bg-background/95 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:flex-row sm:items-end sm:justify-between"
             role="toolbar"
             aria-label="Acciones de configuración"
           >
-            <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-              <Button
-                type="button"
-                variant={isEnabled ? "outline" : "default"}
-                size="sm"
-                onClick={handleToggleClick}
-                disabled={saving}
-                className="w-fit shrink-0"
-              >
-                {saving ? (
-                  <Loader2Icon className="h-4 w-4 animate-spin" />
-                ) : isEnabled ? (
-                  <>
-                    <PowerOffIcon className="mr-1.5 h-4 w-4" />
-                    Apagar agente
-                  </>
-                ) : (
-                  <>
-                    <PowerIcon className="mr-1.5 h-4 w-4" />
-                    Encender agente
-                  </>
-                )}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setIsGrowersDialogOpen(true)}
-                disabled={saving}
-                className="w-fit shrink-0"
-              >
-                <PlusIcon className="mr-1.5 h-4 w-4" />
-                Gestionar growers
-              </Button>
-              {showAllSections && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsTechLeadsDialogOpen(true)}
-                  disabled={saving}
-                  className="w-fit shrink-0"
-                >
-                  <PlusIcon className="mr-1.5 h-4 w-4" />
-                  Gestionar tech leads
-                </Button>
-              )}
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={handleDiscardChanges}
-                disabled={!data || !hasLocalChanges || saving}
-                className="w-fit shrink-0"
-              >
-                <RotateCcwIcon className="mr-1.5 h-4 w-4" />
-                Descartar cambios
-              </Button>
+            <div className="min-w-0 flex-1 space-y-1">
+              <p className="text-sm font-medium">Cambios de configuración</p>
+              <p className="text-xs text-muted-foreground">
+                {hasLocalChanges
+                  ? `${pendingDocIds.length} documento${pendingDocIds.length === 1 ? "" : "s"} con cambios locales`
+                  : "No hay cambios locales pendientes."}
+              </p>
             </div>
             <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
               <Button
@@ -1600,8 +1724,8 @@ export function AgentConfigurationEditor({
                 size="sm"
                 title={
                   canTransfer
-                    ? "Copiar properties, tools y colaboradores desde producción hacia testing"
-                    : "No hay diferencias de properties entre testing y producción"
+                    ? "Traer la configuración publicada a pruebas"
+                    : "No hay diferencias entre pruebas y producción"
                 }
                 className="gap-1.5 w-full sm:w-auto"
                 onClick={openPullDialog}
@@ -1619,8 +1743,8 @@ export function AgentConfigurationEditor({
                 disabled={saving || !canTransfer || !data}
                 title={
                   canTransfer
-                    ? "Promover a producción los campos seleccionados (estado guardado en testing)"
-                    : "No hay diferencias de properties entre testing y producción"
+                    ? "Publicar los cambios guardados en pruebas"
+                    : "No hay diferencias entre pruebas y producción"
                 }
               >
                 <RocketIcon className="size-4" />
@@ -1632,7 +1756,7 @@ export function AgentConfigurationEditor({
                 size="sm"
                 onClick={() => setLocalPendingDialogOpen(true)}
                 disabled={saving || !data || !hasLocalChanges}
-                title="Ver el detalle de cambios pendientes y guardar en testing"
+                title="Ver el detalle de cambios pendientes y guardar en pruebas"
                 className="w-full shrink-0 sm:w-auto"
               >
                 Guardar cambios
@@ -1647,13 +1771,11 @@ export function AgentConfigurationEditor({
             agentId={agentId}
             agentNameForConfirm={agentNameForConfirm}
             onSuccess={handlePromoteSuccess}
-            dialogTitle="Subir cambios (propiedades)"
+            dialogTitle="Subir cambios de configuración"
             dialogDescription={
               <>
-                Solo se promueven los campos de{" "}
-                <span className="font-medium text-foreground">properties</span> que selecciones desde el
-                estado <span className="font-medium text-foreground">guardado</span> en testing (no incluye
-                cambios sin guardar en el formulario). Escribe{" "}
+                Solo se publican los cambios de configuración que selecciones desde lo que ya está
+                guardado en pruebas. No incluye cambios que todavía no guardaste en este formulario. Escribe{" "}
                 <span className="font-medium text-foreground">CONFIRMAR</span> para continuar.
               </>
             }
@@ -1668,14 +1790,14 @@ export function AgentConfigurationEditor({
             syncing={syncingFromProd}
             onSyncingChange={setSyncingFromProd}
             onSuccess={handlePromoteSuccess}
-            diffPreviewLabel="properties"
+            diffPreviewLabel="configuración"
           />
           <Dialog open={localPendingDialogOpen} onOpenChange={setLocalPendingDialogOpen}>
             <DialogContent className="max-h-[min(90vh,36rem)] sm:max-w-xl" showClose>
               <DialogHeader>
                 <DialogTitle>Cambios pendientes de guardar</DialogTitle>
                 <DialogDescription>
-                  Estos cambios están solo en tu sesión. Pulsa Guardar para persistirlos en testing.
+                  Estos cambios todavía no están guardados. Pulsa Guardar para aplicarlos en pruebas.
                 </DialogDescription>
               </DialogHeader>
               {data ? (
@@ -1738,7 +1860,7 @@ export function AgentConfigurationEditor({
               if (!open) setAddingGrowerUserId(null);
             }}
             title="Gestionar growers"
-            description="Los usuarios de la organización aparecen con un tick si ya son growers; marca para añadir o desmarca para quitar (nombre y correo de su cuenta)."
+            description="Marca a las personas que podrán apoyar con la operación del agente. Desmarca a quien quieras quitar."
             users={sortedOrgUsers}
             isLoading={growerPickerLoading}
             checkIsAssigned={checkIsGrower}
@@ -1753,7 +1875,7 @@ export function AgentConfigurationEditor({
               if (!open) setAddingTechLeadUserId(null);
             }}
             title="Gestionar tech leads"
-            description="Los usuarios de la organización aparecen con un tick si ya son tech leads; marca para añadir o desmarca para quitar. Un usuario no puede ser grower y tech lead a la vez."
+            description="Marca a las personas que podrán revisar y ajustar toda la configuración. Una persona no puede estar en ambos grupos al mismo tiempo."
             users={sortedOrgUsers}
             isLoading={dialogTechLeadsLoading}
             checkIsAssigned={checkIsTechLead}

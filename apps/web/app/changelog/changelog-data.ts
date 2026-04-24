@@ -235,6 +235,26 @@ export const changelogData: Record<string, ChangelogEntry> = {
       ],
     },
   },
+  "2.5.7": {
+    date: "2026-04-24",
+    description:
+      "Atlas: reorganización visual del editor de configuración del agente",
+    changes: {
+      added: [
+        "Resumen superior de estado del agente con versión, cambios locales y diferencias entre testing y producción.",
+        "Navegación lateral sticky para saltar entre Estado, Conversación, IA, Memoria, Acceso, Validación, Runtime y Equipo.",
+        "Sección dedicada de Equipo para gestionar growers y tech leads fuera de la barra de acciones de guardado.",
+      ],
+      changed: [
+        "Las secciones del editor ahora se presentan como cards con títulos más orientados a intención de uso (conversación, acceso, runtime, validación, etc.) en lugar de nombres puramente técnicos.",
+        "La barra inferior queda enfocada en acciones de cambios: bajar, subir y guardar; el apagado/encendido y descarte se movieron al bloque de estado.",
+      ],
+      improved: [
+        "Lectura más clara del panel y menor mezcla entre acciones operativas, sincronización y edición de campos.",
+        "Descripciones del editor reescritas en lenguaje no técnico para facilitar su uso por equipos operativos.",
+      ],
+    },
+  },
   "2.4.24": {
     date: "2026-04-21",
     description:
