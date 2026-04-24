@@ -33,6 +33,7 @@ export {
   promotePromptToProduction,
 } from "./agents/prompt/agent-prompt.actions";
 
+export { useTestingData } from "./agents/testing-data";
 export { useTestingDiff } from "./agents/testing/testing-diff";
 export type { TestingDiffItem } from "./agents/testing/testing-diff";
 

@@ -12,3 +12,4 @@ export { AgentLifecycleStatusPanel } from "./lifecycle-status-panel";
 export { AgentPromptDesigner } from "./prompt-designer";
 export { AgentSimulator } from "./simulator";
 export { AgentToolsPanel } from "./tools-panel";
+export { TestingDataPanel } from "./testing-data";
