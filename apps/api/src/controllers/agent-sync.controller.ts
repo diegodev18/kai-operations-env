@@ -1,5 +1,6 @@
 import type { Context } from "hono";
 import { z } from "zod";
+import { Timestamp } from "firebase-admin/firestore";
 
 import { getFirestore } from "@/lib/firestore";
 import type { AgentsInfoAuthContext } from "@/types/agents-types";
@@ -124,6 +125,34 @@ function sanitizeToolDocForProduction(
     out[k] = v;
   }
   return out;
+}
+
+function isSerializedTimestamp(value: unknown): value is {
+  _seconds: number;
+  _nanoseconds?: number;
+} {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const typed = value as Record<string, unknown>;
+  return typeof typed._seconds === "number";
+}
+
+/** Rebuild Firestore-native types from serialized payload values sent by the diff UI. */
+function reviveFirestoreValue(value: unknown): unknown {
+  if (isSerializedTimestamp(value)) {
+    const nanos = typeof value._nanoseconds === "number" ? value._nanoseconds : 0;
+    return new Timestamp(value._seconds, nanos);
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => reviveFirestoreValue(item));
+  }
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = reviveFirestoreValue(v);
+    }
+    return out;
+  }
+  return value;
 }
 
 export async function postPromoteToProduction(
@@ -256,26 +285,27 @@ export async function postPromoteToProduction(
     }
 
     for (const field of parsed.data.fields) {
+      const fieldValue = reviveFirestoreValue(field.value);
       if (field.collection === "properties") {
         const prodDocRef = agentRef.collection("properties").doc(field.documentId);
-        await prodDocRef.set({ [field.fieldKey]: field.value }, { merge: true });
+        await prodDocRef.set({ [field.fieldKey]: fieldValue }, { merge: true });
 
         if (
           field.documentId === "prompt" &&
           field.fieldKey === "base" &&
-          typeof field.value === "string"
+          typeof fieldValue === "string"
         ) {
           await agentRef.update({
-            "mcp_configuration.system_prompt": field.value,
+            "mcp_configuration.system_prompt": fieldValue,
           });
         }
       } else if (field.collection === "tools") {
         if (field.fieldKey === "__exists") continue;
         const prodToolRef = agentRef.collection("tools").doc(field.documentId);
-        await prodToolRef.set({ [field.fieldKey]: field.value }, { merge: true });
+        await prodToolRef.set({ [field.fieldKey]: fieldValue }, { merge: true });
       } else if (field.collection === "collaborators") {
         const prodGrowerRef = agentRef.collection("growers").doc(field.documentId);
-        await prodGrowerRef.set({ [field.fieldKey]: field.value }, { merge: true });
+        await prodGrowerRef.set({ [field.fieldKey]: fieldValue }, { merge: true });
       }
     }
 

@@ -28,6 +28,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { TestingDiffItem } from "@/hooks";
 import { postPromoteToProduction } from "@/services/agents-api";
+import { formatFirestoreValue } from "@/utils/firestore-value-format";
 
 type GroupedDiff = {
   collection: string;
@@ -40,11 +41,6 @@ type GroupedDiff = {
   }[];
 };
 
-function formatValue(value: unknown): string {
-  if (value === undefined || value === null) return "—";
-  if (typeof value === "object") return JSON.stringify(value, null, 2);
-  return String(value);
-}
 
 function normalizeConfirmInput(input: string): string {
   return input
@@ -60,7 +56,7 @@ export function PromoteDiffDialog({
   diff,
   isLoading,
   agentId,
-  agentNameForConfirm: _agentNameForConfirm,
+  agentNameForConfirm,
   onSuccess,
   dialogTitle = "Subir cambios a producción",
   dialogDescription,
@@ -78,6 +74,7 @@ export function PromoteDiffDialog({
   dialogDescription?: ReactNode;
   contentClassName?: string;
 }) {
+  void agentNameForConfirm;
   const [confirmName, setConfirmName] = useState("");
   const [promoting, setPromoting] = useState(false);
   const [groupedData, setGroupedData] = useState<GroupedDiff[]>([]);
@@ -221,7 +218,7 @@ export function PromoteDiffDialog({
       } else {
         toast.error(r.error);
       }
-    } catch (e) {
+    } catch {
       toast.error("Error al promover a producción");
     } finally {
       setPromoting(false);
@@ -352,7 +349,7 @@ export function PromoteDiffDialog({
                                 Testing:
                               </div>
                               <div className="bg-green-50/50 dark:bg-green-950/20 rounded px-1.5 py-0.5 font-mono text-xs break-words max-h-16 overflow-y-auto">
-                                {formatValue(field.testingValue)}
+                                {formatFirestoreValue(field.testingValue)}
                               </div>
                             </div>
                             <div className="col-span-4 text-xs">
@@ -360,7 +357,7 @@ export function PromoteDiffDialog({
                                 Producción:
                               </div>
                               <div className="bg-amber-50/50 dark:bg-amber-950/20 rounded px-1.5 py-0.5 font-mono text-xs break-words max-h-16 overflow-y-auto">
-                                {formatValue(field.productionValue)}
+                                {formatFirestoreValue(field.productionValue)}
                               </div>
                             </div>
                           </div>

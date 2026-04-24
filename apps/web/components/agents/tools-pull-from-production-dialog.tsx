@@ -20,12 +20,7 @@ import {
 } from "lucide-react";
 import type { TestingDiffItem } from "@/hooks";
 import { postAgentSyncFromProduction } from "@/services/agents-api";
-
-function formatValue(value: unknown): string {
-  if (value === undefined || value === null) return "—";
-  if (typeof value === "object") return JSON.stringify(value, null, 2);
-  return String(value);
-}
+import { formatFirestoreValue } from "@/utils/firestore-value-format";
 
 function normalizeConfirmInput(input: string): string {
   return input
@@ -211,13 +206,13 @@ export function ToolsPullFromProductionDialog({
                             <div className="col-span-12 text-xs sm:col-span-5">
                               <div className="mb-0.5 text-muted-foreground">Producción (origen)</div>
                               <div className="max-h-20 overflow-y-auto rounded bg-amber-50/50 px-1.5 py-0.5 font-mono text-xs break-words dark:bg-amber-950/20">
-                                {formatValue(field.productionValue)}
+                                {formatFirestoreValue(field.productionValue)}
                               </div>
                             </div>
                             <div className="col-span-12 text-xs sm:col-span-5">
                               <div className="mb-0.5 text-muted-foreground">Testing (ahora)</div>
                               <div className="max-h-20 overflow-y-auto rounded bg-green-50/50 px-1.5 py-0.5 font-mono text-xs break-words dark:bg-green-950/20">
-                                {formatValue(field.testingValue)}
+                                {formatFirestoreValue(field.testingValue)}
                               </div>
                             </div>
                           </div>
