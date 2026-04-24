@@ -197,6 +197,44 @@ export const changelogData: Record<string, ChangelogEntry> = {
       ],
     },
   },
+  "2.5.5": {
+    date: "2026-04-24",
+    description:
+      "Atlas: formato unificado de valores Firestore en diffs y sincronización testing↔producción más fiable",
+    changes: {
+      added: [
+        "`apps/web/utils/firestore-value-format.ts`: utilidad para mostrar valores Firestore (p. ej. timestamps serializados) de forma coherente en comparaciones de UI.",
+      ],
+      changed: [
+        "`PromoteDiffDialog` y `ToolsPullFromProductionDialog` usan el formateo compartido para valores “antes / después” en vistas de diff.",
+        "`apps/api/src/controllers/agent-sync.controller.ts`: revived de tipos nativos de Firestore desde payloads serializados para mantener integridad al sincronizar datos del agente.",
+      ],
+      improved: [
+        "Menos duplicación y lectura más clara al comparar valores entre testing y producción.",
+      ],
+    },
+  },
+  "2.5.6": {
+    date: "2026-04-24",
+    description:
+      "Atlas: editor de configuración del agente — cambios locales, bajar properties, guardado sin “reset” y versión desacoplada del modelo",
+    changes: {
+      added: [
+        "En `configuration-editor`: flujo para revisar cambios locales antes de guardar, `PendingLocalChangesList` y diálogo de resumen integrado en el editor.",
+        "Bajar **properties** de producción a testing con `ToolsPullFromProductionDialog` y vista previa de diff alineada a properties (`diffPreviewLabel`).",
+        "`useTestingProperties`: `refetch` acepta opciones (`silent`, `autoSync`) vía `RefetchTestingPropertiesOptions`; export del tipo en el barrel `@/hooks`.",
+      ],
+      changed: [
+        "`PendingLocalChangesList`: listado por documento y campo con rutas tipo `thinking.level` y valores antes/después usando `formatFirestoreValue`.",
+        "`configuration-editor` y `prompt-designer` llaman `refetch({ silent: true })` tras guardar, promover, pull o bootstrap de prompt para actualizar datos sin vaciar el estado ni activar el loading global del hook.",
+        "La **versión del agente** solo cambia desde el selector explícito; se eliminó la vinculación automática al modelo de IA (p. ej. Gemini 3 → `2.0.0` pendiente al guardar).",
+        "Simplificación del manejo de “cambios pendientes” y del guardado (sin ref intermedia de versión pendiente).",
+      ],
+      improved: [
+        "UX al persistir configuración y prompts: menos parpadeo y sin sensación de recarga completa al refrescar properties de testing.",
+      ],
+    },
+  },
   "2.4.24": {
     date: "2026-04-21",
     description:
