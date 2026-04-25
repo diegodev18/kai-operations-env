@@ -12,6 +12,7 @@ import {
   PencilIcon,
   PlusIcon,
   SearchIcon,
+  Table2Icon,
   UploadIcon,
 } from "lucide-react";
 
@@ -189,6 +190,18 @@ export function OperationsShell(props: {
                 >
                   <FolderOpenIcon className="size-4" />
                   Document explorer
+                </Link>
+                <div className="my-2 border-t" />
+                <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Esquemas
+                </div>
+                <Link
+                  href="/dynamic-tables"
+                  className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <Table2Icon className="size-4" />
+                  Tablas dinámicas
                 </Link>
               </>
             )}

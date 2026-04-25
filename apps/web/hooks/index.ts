@@ -37,6 +37,9 @@ export { useTestingData } from "./agents/testing-data";
 export { useTestingDiff } from "./agents/testing/testing-diff";
 export type { TestingDiffItem } from "./agents/testing/testing-diff";
 
+export { useDynamicTableSchemasList } from "./dynamic-tables/dynamic-table-schemas-list";
+export { useDynamicTableSchemaDetail } from "./dynamic-tables/dynamic-table-schema-detail";
+
 export { usePromptChat, isChatStatusMessage } from "./chat/prompt-chat";
 export { usePromptModels } from "./chat/prompt-models";
 export type {

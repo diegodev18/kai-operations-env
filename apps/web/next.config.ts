@@ -36,6 +36,10 @@ const nextConfig: NextConfig = {
         destination: `${API_INTERNAL_URL}/api/database/:path*`,
       },
       {
+        source: "/api/dynamic-table-schemas/:path*",
+        destination: `${API_INTERNAL_URL}/api/dynamic-table-schemas/:path*`,
+      },
+      {
         source: "/api/blog/:path*",
         destination: `${API_INTERNAL_URL}/api/blog/:path*`,
       },

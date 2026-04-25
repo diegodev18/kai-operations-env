@@ -7,6 +7,7 @@ import { builderSavedCompaniesRouter } from "@/routes/builder-saved-companies.ro
 import { blogRouter } from "@/routes/blog.route";
 import { changelogRouter } from "@/routes/changelog.route";
 import { databaseRouter } from "@/routes/database.route";
+import { dynamicTableSchemasRouter } from "@/routes/dynamic-table-schemas.route";
 import { favoritesRouter } from "@/routes/favorites.route";
 import { healthRouter } from "@/routes/health.route";
 import { organizationRouter } from "@/routes/organization.route";
@@ -17,6 +18,7 @@ export const api = new Hono();
 api.route("/blog", blogRouter);
 api.route("/changelogs", changelogRouter);
 api.route("/database", databaseRouter);
+api.route("/dynamic-table-schemas", dynamicTableSchemasRouter);
 api.route("/health", healthRouter);
 api.route("/agents", agentsRouter);
 api.route("/agents-testing", agentsTestingRouter);
