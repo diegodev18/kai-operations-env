@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2Icon } from "lucide-react";
 import {
   fetchAgentById,
   postAgentSystemPromptRegenerate,
@@ -26,6 +25,7 @@ import { PromptDesignerEditors } from "./prompt-designer/prompt-designer-editors
 import { PromptDesignerToolbar } from "./prompt-designer/prompt-designer-toolbar";
 import { PromptDesignerChatSidebar } from "./prompt-designer/prompt-designer-chat-sidebar";
 import { normalizeConfirmInput } from "./prompt-designer/helpers";
+import { PromptDesignerLoadingSkeleton } from "./prompt-designer/prompt-designer-loading-skeleton";
 
 function isSystemPromptGenerationInProgress(
   status: string | undefined,
@@ -40,6 +40,7 @@ export function AgentPromptDesigner({
   agentId: string;
   agentName?: string;
 }) {
+  const [hasMounted, setHasMounted] = useState(false);
   const [agent, setAgent] = useState<Agent | null>(null);
   const [loadingAgent, setLoadingAgent] = useState(true);
   const {
@@ -66,6 +67,10 @@ export function AgentPromptDesigner({
   const effectiveProperties = hasTestingData
     ? testingPropertiesData
     : propertiesData;
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   useEffect(() => {
     if (propertiesError) toast.error(propertiesError);
@@ -438,13 +443,15 @@ export function AgentPromptDesigner({
   const effectiveRejected: Set<number> =
     showSuggestion && !hasMulti ? rejectedSuggestionHunkIds : new Set<number>();
 
-  if (loadingAgent) {
-    return (
-      <div className="flex items-center gap-2 text-muted-foreground py-12">
-        <Loader2Icon className="h-5 w-5 animate-spin" />
-        Cargando agente…
-      </div>
-    );
+  const showInitialSkeleton =
+    !hasMounted ||
+    loadingAgent ||
+    propertiesLoading ||
+    testingPropertiesLoading ||
+    loadingProductionPrompt;
+
+  if (showInitialSkeleton) {
+    return <PromptDesignerLoadingSkeleton />;
   }
 
   return (
