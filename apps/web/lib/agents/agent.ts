@@ -60,6 +60,8 @@ export interface Agent {
   version?: string;
   /** Rutas de datos MCP: automático, siempre testing/data o siempre producción. */
   firestoreDataMode?: "auto" | "testing" | "production";
+  /** IDs de esquemas de tablas dinámicas permitidos (doc raíz del agente). */
+  allowedSchemasIds?: string[];
   /** El agente es favorito del usuario actual (desde el backend). */
   isFavorite?: boolean;
   /** Listado ligero: estatus comercial + fecha estimada. */

@@ -1,20 +1,50 @@
 import type { Context } from "hono";
+import type { DocumentReference } from "firebase-admin/firestore";
+import { z } from "zod";
 
 import { ApiErrors } from "@/lib/api-error";
 import {
   PROPERTY_DOC_IDS,
   type PropertyDocId,
 } from "@/constants/agent-property-defaults";
-import { getFirestore } from "@/lib/firestore";
+import { getFirestore, getFirestoreForEnvironment } from "@/lib/firestore";
+import type { FirestoreEnvironment } from "@/lib/firestore";
 import {
   FIRESTORE_DATA_MODES,
   isFirestoreDataMode,
 } from "@/constants/firestore-data-mode";
 import { appendImplementationActivityEntry } from "@/services/implementation-activity.service";
 import type { AgentsInfoAuthContext } from "@/types/agents-types";
-import { resolveAgentWriteDatabase, userCanEditAgent } from "@/utils/agents";
-import { isOperationsAdmin } from "@/utils/operations-access";
 import { handleFirestoreError, requireAgentAccess } from "@/utils/agent-detail/access";
+import {
+  resolveAgentWriteDatabase,
+  userCanEditAgent,
+} from "@/utils/agents";
+import { isOperationsAdmin } from "@/utils/operations-access";
+
+const DYNAMIC_TABLE_SCHEMAS_COLLECTION = "dynamic_table_schemas";
+const ALLOWED_SCHEMAS_SUBCOLLECTION = "allowedSchemas";
+
+const patchAllowedDynamicTableSchemasBodySchema = z.object({
+  schemaIds: z.array(z.string().min(1, "schemaId no puede estar vacío")),
+});
+
+function parseAllowedSchemasEnvironmentHeader(c: Context): FirestoreEnvironment | null {
+  const raw = (c.req.header("X-Environment") ?? "testing").trim().toLowerCase();
+  if (raw === "testing" || raw === "production") return raw;
+  return null;
+}
+
+function dedupeSchemaIdsPreserveOrder(ids: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const id of ids) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
 
 export async function updateAgentPropertyDocument(
   c: Context,
@@ -174,6 +204,114 @@ export async function patchAgent(
   } catch (error) {
     const r = handleFirestoreError(c, error, "[agents/:id PATCH]");
     return r ?? c.json({ error: "Error al actualizar agente" }, 500);
+  }
+}
+
+/**
+ * Sincroniza `allowedSchemasIds` en el doc raíz y la subcolección `allowedSchemas`.
+ * Valida IDs contra `dynamic_table_schemas` del proyecto indicado por `X-Environment`.
+ */
+export async function patchAgentAllowedDynamicTableSchemas(
+  c: Context,
+  authCtx: AgentsInfoAuthContext,
+  agentId: string,
+) {
+  const denied = await requireAgentAccess(c, authCtx, agentId);
+  if (denied) return denied;
+
+  const canEdit = await userCanEditAgent(authCtx, agentId);
+  if (!canEdit) {
+    return c.json({ error: "No tienes permisos para editar este agente" }, 403);
+  }
+
+  const env = parseAllowedSchemasEnvironmentHeader(c);
+  if (!env) {
+    return ApiErrors.validation(c, "X-Environment debe ser testing o production");
+  }
+
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return ApiErrors.validation(c, "JSON inválido");
+  }
+
+  const parsed = patchAllowedDynamicTableSchemasBodySchema.safeParse(body);
+  if (!parsed.success) {
+    const msg = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
+    return ApiErrors.validation(c, msg);
+  }
+
+  const schemaIds = dedupeSchemaIdsPreserveOrder(parsed.data.schemaIds);
+
+  try {
+    const envDb = getFirestoreForEnvironment(env);
+    const validation = await Promise.all(
+      schemaIds.map(async (id) => {
+        const snap = await envDb.collection(DYNAMIC_TABLE_SCHEMAS_COLLECTION).doc(id).get();
+        return { id, exists: snap.exists };
+      }),
+    );
+    const missing = validation.filter((v) => !v.exists).map((v) => v.id);
+    if (missing.length > 0) {
+      return ApiErrors.validation(
+        c,
+        `Esquemas no encontrados en ${env}: ${missing.join(", ")}`,
+      );
+    }
+
+    const { db: database, hasTestingData, inProduction } =
+      await resolveAgentWriteDatabase(agentId);
+    if (!hasTestingData && !inProduction) {
+      return ApiErrors.notFound(c, "Agente no encontrado");
+    }
+
+    const agentRef = database.collection("agent_configurations").doc(agentId);
+    const allowedRef = agentRef.collection(ALLOWED_SCHEMAS_SUBCOLLECTION);
+    const existingSnap = await allowedRef.get();
+    const existingIds = new Set(existingSnap.docs.map((d) => d.id));
+    const targetSet = new Set(schemaIds);
+    const toDelete = [...existingIds].filter((id) => !targetSet.has(id));
+
+    const BATCH_MAX = 450;
+    type BatchOp =
+      | { type: "update"; ref: DocumentReference; data: Record<string, unknown> }
+      | { type: "set"; ref: DocumentReference; data: Record<string, unknown> }
+      | { type: "delete"; ref: DocumentReference };
+
+    const ops: BatchOp[] = [
+      {
+        type: "update",
+        ref: agentRef,
+        data: { allowedSchemasIds: schemaIds },
+      },
+    ];
+    for (const id of schemaIds) {
+      ops.push({
+        type: "set",
+        ref: allowedRef.doc(id),
+        data: { schemaId: id, schemaName: id, type: "global" },
+      });
+    }
+    for (const id of toDelete) {
+      ops.push({ type: "delete", ref: allowedRef.doc(id) });
+    }
+
+    for (let i = 0; i < ops.length; i += BATCH_MAX) {
+      const slice = ops.slice(i, i + BATCH_MAX);
+      const batch = database.batch();
+      for (const op of slice) {
+        if (op.type === "update") batch.update(op.ref, op.data);
+        else if (op.type === "set") batch.set(op.ref, op.data);
+        else batch.delete(op.ref);
+      }
+      await batch.commit();
+    }
+
+    return c.json({ success: true, allowedSchemasIds: schemaIds });
+  } catch (error) {
+    const r = handleFirestoreError(c, error, "[agents/:id/allowed-dynamic-table-schemas PATCH]");
+    return r ?? c.json({ error: "Error al guardar esquemas permitidos" }, 500);
   }
 }
 

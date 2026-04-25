@@ -42,10 +42,14 @@ import {
   fetchAgentGrowers,
   fetchAgentTechLeads,
   patchAgent,
+  patchAgentAllowedDynamicTableSchemas,
   postAgentGrower,
   postAgentTechLead,
   deleteAgentTechLead,
 } from "@/services/agents-api";
+import { fetchDynamicTableSchemas } from "@/services/dynamic-table-schemas-api";
+import { useEnvironment } from "@/contexts/EnvironmentContext";
+import type { DynamicTableSchemaDocument } from "@/types/dynamic-table-schema";
 import {
   fetchOrganizationMe,
   fetchOrganizationUsers,
@@ -117,6 +121,12 @@ export function AgentConfigurationEditor({
   >("auto");
   const [savingFirestoreDataMode, setSavingFirestoreDataMode] = useState(false);
   const { data: diffData, isLoading: isDiffLoading, refetch: refetchDiff } = useTestingDiff(agentId);
+  const { environment } = useEnvironment();
+  const [availableSchemas, setAvailableSchemas] = useState<DynamicTableSchemaDocument[]>([]);
+  const [schemasLoading, setSchemasLoading] = useState(false);
+  const [schemasListError, setSchemasListError] = useState<string | null>(null);
+  const [selectedAllowedSchemaIds, setSelectedAllowedSchemaIds] = useState<string[]>([]);
+  const [savingAllowedSchemas, setSavingAllowedSchemas] = useState(false);
 
   useEffect(() => {
     if (testingPropertiesError) toast.error(testingPropertiesError);
@@ -174,11 +184,34 @@ export function AgentConfigurationEditor({
         setAgentVersion(agent.version);
       }
       setFirestoreDataMode(agent?.firestoreDataMode ?? "auto");
+      const ids = agent?.allowedSchemasIds ?? [];
+      setSelectedAllowedSchemaIds(ids);
     })();
     return () => {
       cancelled = true;
     };
   }, [agentId]);
+
+  useEffect(() => {
+    if (!agentId) return;
+    let cancelled = false;
+    setSchemasLoading(true);
+    setSchemasListError(null);
+    void (async () => {
+      const res = await fetchDynamicTableSchemas(environment);
+      if (cancelled) return;
+      setSchemasLoading(false);
+      if (res.ok) {
+        setAvailableSchemas(res.schemas);
+      } else {
+        setAvailableSchemas([]);
+        setSchemasListError(res.error);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [agentId, environment]);
 
   useEffect(() => {
     if (!isGrowersDialogOpen || !agentId) {
@@ -644,6 +677,27 @@ export function AgentConfigurationEditor({
     window.dispatchEvent(new Event("kai-agent-deployment-changed"));
   }, [refetch, refetchDiff, onAgentUpdated]);
 
+  const handleSaveAllowedSchemas = useCallback(async () => {
+    if (!agentId) return;
+    setSavingAllowedSchemas(true);
+    try {
+      const res = await patchAgentAllowedDynamicTableSchemas(
+        agentId,
+        { schemaIds: selectedAllowedSchemaIds },
+        environment,
+      );
+      if (res.ok) {
+        setSelectedAllowedSchemaIds(res.allowedSchemasIds);
+        toast.success("Esquemas guardados");
+        await onAgentUpdated?.();
+      } else {
+        toast.error(res.error);
+      }
+    } finally {
+      setSavingAllowedSchemas(false);
+    }
+  }, [agentId, selectedAllowedSchemaIds, environment, onAgentUpdated]);
+
   if (!agentId) return null;
 
   const isAdmin = userRole === "admin";
@@ -664,6 +718,11 @@ export function AgentConfigurationEditor({
     { id: "memory", label: "Memoria", visible: canSeeOperationalSettings },
     { id: "access", label: "Acceso", visible: canSeeOperationalSettings },
     { id: "validation", label: "Validación", visible: canSeeOperationalSettings },
+    {
+      id: "dynamic-table-schemas",
+      label: "Tablas dinámicas",
+      visible: canSeeOperationalSettings,
+    },
     { id: "runtime", label: "Horarios", visible: showAllSections },
     { id: "team", label: "Equipo", visible: true },
   ].filter((section) => section.visible);
@@ -1355,6 +1414,89 @@ export function AgentConfigurationEditor({
                   </div>
                 )}
               </section>
+              )}
+
+              {/* Esquemas de tablas dinámicas (después de Revisión de respuestas) */}
+              {canSeeOperationalSettings && (
+                <section
+                  id="dynamic-table-schemas"
+                  className="scroll-mt-24 space-y-4 rounded-2xl border bg-card/70 p-4 shadow-sm"
+                >
+                  <h3 className="text-sm font-semibold tracking-tight text-foreground">
+                    Esquemas de tablas dinámicas
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    La lista de esquemas depende del ambiente seleccionado en la barra superior (
+                    {environment === "production" ? "producción" : "testing"}). Solo se pueden asignar
+                    esquemas que existan en ese ambiente.
+                  </p>
+                  {schemasListError ? (
+                    <p className="text-sm text-destructive">{schemasListError}</p>
+                  ) : schemasLoading ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2Icon className="size-4 animate-spin" />
+                      Cargando esquemas…
+                    </div>
+                  ) : availableSchemas.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No hay esquemas en este ambiente. Créalos en Base de datos → Esquemas.
+                    </p>
+                  ) : (
+                    <ul className="max-h-64 space-y-2 overflow-y-auto pr-1">
+                      {availableSchemas.map((schema) => {
+                        const checked = selectedAllowedSchemaIds.includes(schema.schemaId);
+                        return (
+                          <li key={schema.schemaId} className="flex items-start gap-2">
+                            <input
+                              type="checkbox"
+                              id={`allowed-schema-${schema.schemaId}`}
+                              checked={checked}
+                              onChange={(e) => {
+                                const on = e.target.checked;
+                                setSelectedAllowedSchemaIds((prev) =>
+                                  on
+                                    ? prev.includes(schema.schemaId)
+                                      ? prev
+                                      : [...prev, schema.schemaId]
+                                    : prev.filter((id) => id !== schema.schemaId),
+                                );
+                              }}
+                              className="mt-0.5 h-4 w-4 rounded border-input"
+                            />
+                            <label
+                              htmlFor={`allowed-schema-${schema.schemaId}`}
+                              className="cursor-pointer text-sm leading-snug"
+                            >
+                              <span className="font-medium">{schema.label}</span>
+                              <span className="ml-2 font-mono text-xs text-muted-foreground">
+                                {schema.schemaId}
+                              </span>
+                            </label>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                  <div className="border-t border-border pt-4">
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => void handleSaveAllowedSchemas()}
+                        disabled={savingAllowedSchemas || schemasLoading}
+                      >
+                        {savingAllowedSchemas ? (
+                          <>
+                            <Loader2Icon className="mr-2 size-4 animate-spin" />
+                            Guardando…
+                          </>
+                        ) : (
+                          "Guardar esquemas"
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </section>
               )}
           </div>
         </div>

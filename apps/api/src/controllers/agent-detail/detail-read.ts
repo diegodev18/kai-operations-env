@@ -7,6 +7,7 @@ import { getFirestore } from "@/lib/firestore";
 import type { AgentsInfoAuthContext } from "@/types/agents-types";
 import {
   getAgentDeploymentFlags,
+  normalizeAllowedSchemasIdsFromAgentRoot,
   parseAgentDoc,
   resolveAgentWriteDatabase,
 } from "@/utils/agents";
@@ -53,8 +54,11 @@ export async function getAgentById(
     const agentData = agentPropSnap.exists ? agentPropSnap.data() : undefined;
     const enabled = (agentData?.enabled as boolean | undefined) !== false;
     const status = normalizeAgentStatus(snapshot.data()?.status);
+    const rootData = snapshot.data() as Record<string, unknown> | undefined;
+    const allowedSchemasIds = normalizeAllowedSchemasIdsFromAgentRoot(rootData);
     return c.json({
       ...agent,
+      allowedSchemasIds,
       enabled,
       status,
       in_commercial: flags.hasTestingData,

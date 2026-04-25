@@ -28,6 +28,12 @@ import type {
 } from "@/types";
 import { normalizeAgentStatus } from "@/services/agents/normalize";
 
+function normalizeAllowedSchemasIdsFromAgentJson(j: Record<string, unknown>): string[] {
+  const raw = j.allowedSchemasIds ?? j.allowed_schemas_ids;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((x): x is string => typeof x === "string" && x.trim() !== "");
+}
+
 export async function postAgentGrower(
   agentId: string,
   body: { email: string; name?: string },
@@ -728,6 +734,7 @@ export async function fetchAgentById(agentId: string): Promise<Agent | null> {
       inProduction: Boolean(j.in_production ?? j.inProduction),
       status: normalizeAgentStatus(j.status),
       firestoreDataMode,
+      allowedSchemasIds: normalizeAllowedSchemasIdsFromAgentJson(j),
       primarySource:
         (j.primary_source ?? j.primarySource) === "production"
           ? "production"
@@ -879,6 +886,49 @@ export async function patchAgent(
     };
   }
   if (data.ok || data.success) return { ok: true };
+  return { ok: false, error: "Respuesta inválida del servidor" };
+}
+
+/** Sincroniza `allowedSchemasIds` y subcolección `allowedSchemas` (validación contra esquemas del ambiente). */
+export async function patchAgentAllowedDynamicTableSchemas(
+  agentId: string,
+  body: { schemaIds: string[] },
+  environment: "testing" | "production",
+): Promise<
+  | { ok: true; allowedSchemasIds: string[] }
+  | { ok: false; error: string }
+> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/allowed-dynamic-table-schemas`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Environment": environment,
+      },
+      credentials: "include",
+      body: JSON.stringify(body),
+    },
+  );
+  let data: {
+    success?: boolean;
+    allowedSchemasIds?: string[];
+    error?: string;
+  } = {};
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    /* empty */
+  }
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: typeof data.error === "string" ? data.error : "No se pudieron guardar los esquemas",
+    };
+  }
+  if (data.success && Array.isArray(data.allowedSchemasIds)) {
+    return { ok: true, allowedSchemasIds: data.allowedSchemasIds };
+  }
   return { ok: false, error: "Respuesta inválida del servidor" };
 }
 

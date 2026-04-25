@@ -6,6 +6,7 @@ import {
   getAgentBuilderForm,
   getAgentProperties,
   patchAgent,
+  patchAgentAllowedDynamicTableSchemas,
   postAgentOperationsArchive,
   postAgentSystemPromptRegenerate,
   updateAgentPrompt,
@@ -233,6 +234,16 @@ r.get("/:agentId/testing/diff", async (c) => {
     return c.json({ error: "Agente no encontrado" }, 404);
   }
   return getTestingDiff(c, ctx.authCtx, agentId);
+});
+
+r.patch("/:agentId/allowed-dynamic-table-schemas", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return patchAgentAllowedDynamicTableSchemas(c, ctx.authCtx, agentId);
 });
 
 r.patch("/:agentId", async (c) => {

@@ -18,6 +18,7 @@ export {
   parseAgentDocFromData,
   type ParsedAgentDoc,
 } from "./parseAgentDoc";
+export { normalizeAllowedSchemasIdsFromAgentRoot } from "./allowed-schemas-ids";
 export {
   parseBillingDoc,
   parsePaymentRecordDoc,

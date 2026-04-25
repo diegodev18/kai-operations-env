@@ -12,6 +12,7 @@ export {
 export {
   updateAgentPropertyDocument,
   patchAgent,
+  patchAgentAllowedDynamicTableSchemas,
   postAgentOperationsArchive,
 } from "./detail-write";
 export type {
