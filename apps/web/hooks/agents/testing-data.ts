@@ -24,7 +24,8 @@ export function useTestingData(agentId: string) {
   const [collectionTree, setCollectionTree] = useState<CollectionNode[]>([]);
   const [breadcrumbs, setBreadcrumbs] = useState<string[]>([]);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(false);
+  /** Evita un frame con árbol vacío antes del primer `loadCollectionTree` (useEffect). */
+  const [loading, setLoading] = useState(() => Boolean(agentId));
 
   const [documents, setDocuments] = useState<TestingDataDocument[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<TestingDataDocument | null>(null);

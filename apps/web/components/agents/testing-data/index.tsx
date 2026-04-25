@@ -32,6 +32,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useTestingData } from "@/hooks";
 import { CollectionTreeItem } from "./collection-tree";
+import { CollectionsTreeSkeleton } from "./collections-tree-skeleton";
+import { DocumentsTableSkeleton } from "./documents-table-skeleton";
 import { FieldEditor } from "./field-editor";
 import { NestedDialog } from "./nested-dialog";
 import { generateRandomDocId } from "./helpers";
@@ -129,9 +131,14 @@ export function TestingDataPanel({ agentId }: { agentId: string }) {
             </div>
           </div>
 
-          <div role="tree" className="flex-1 overflow-y-auto rounded-md border p-2" aria-label="Árbol de colecciones">
+          <div
+            role="tree"
+            className="flex-1 overflow-y-auto rounded-md border p-2"
+            aria-label="Árbol de colecciones"
+            aria-busy={loading}
+          >
             {loading ? (
-              <p className="text-sm text-muted-foreground">Cargando...</p>
+              <CollectionsTreeSkeleton rows={6} />
             ) : collectionTree.length === 0 ? (
               <p className="text-sm text-muted-foreground">No hay colecciones</p>
             ) : (
@@ -179,15 +186,16 @@ export function TestingDataPanel({ agentId }: { agentId: string }) {
             </div>
           )}
 
-          <div className="flex-1 min-h-0 overflow-hidden rounded-md border">
+          <div
+            className="flex-1 min-h-0 overflow-hidden rounded-md border"
+            aria-busy={breadcrumbs.length > 0 ? loadingDocs : undefined}
+          >
             {breadcrumbs.length === 0 ? (
               <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
                 Selecciona una colección
               </div>
             ) : loadingDocs ? (
-              <div className="flex h-full items-center justify-center">
-                <Loader2Icon className="size-6 animate-spin text-muted-foreground" />
-              </div>
+              <DocumentsTableSkeleton rows={8} />
             ) : documents.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
                 <FileIcon className="size-8" aria-hidden />
