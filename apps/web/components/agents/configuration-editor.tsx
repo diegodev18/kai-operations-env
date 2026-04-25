@@ -779,7 +779,7 @@ export function AgentConfigurationEditor({
                   onToggleEnabled={handleToggleClick}
                   onDiscardChanges={handleDiscardChanges}
                 />
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 xl:items-start">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 xl:items-stretch">
           <div className="min-w-0 space-y-6">
               {/* Agent */}
               <section id="conversation" className="scroll-mt-24 space-y-4 rounded-2xl border bg-card/70 p-4 shadow-sm">
@@ -1288,7 +1288,7 @@ export function AgentConfigurationEditor({
               </section>
               )}
           </div>
-          <div className="min-w-0 space-y-12 border-t border-border pt-12 lg:border-t-0 lg:border-l lg:border-border lg:pt-0 lg:pl-8">
+          <div className="min-w-0 space-y-6 border-t border-border pt-12 lg:border-t-0 lg:border-l lg:border-border lg:pt-0 lg:pl-8">
               {/* Time */}
               {showAllSections && (
               <section id="runtime" className="scroll-mt-24 space-y-4 rounded-2xl border bg-card/70 p-4 shadow-sm">
