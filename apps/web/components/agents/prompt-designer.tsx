@@ -1,16 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -23,30 +14,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
   ArrowDownToLineIcon,
-  ArrowUpIcon,
   CheckIcon,
-  FileTextIcon,
-  ImageIcon,
-  ListChecksIcon,
   Loader2Icon,
-  RotateCcwIcon,
   RocketIcon,
-  ShieldCheckIcon,
-  SparklesIcon,
-  TerminalIcon,
   XIcon,
 } from "lucide-react";
 import {
@@ -55,14 +31,8 @@ import {
 } from "@/services/agents-api";
 import { toast } from "sonner";
 import type { Agent } from "@/lib/agents/agent";
-import {
-  useAgentProperties,
-  updateAgentPropertyDocument,
-} from "@/hooks";
-import {
-  useTestingProperties,
-  updateTestingPropertyDocument,
-} from "@/hooks";
+import { useAgentProperties, updateAgentPropertyDocument } from "@/hooks";
+import { useTestingProperties, updateTestingPropertyDocument } from "@/hooks";
 import { useAgentTools } from "@/hooks";
 import {
   useProductionPrompt,
@@ -72,8 +42,6 @@ import {
 import {
   usePromptChat,
   usePromptModels,
-  isChatStatusMessage,
-  type ChatMessage,
   type ChatMessageImage,
   type ChatMessagePdf,
   type PromptModelId,
@@ -84,7 +52,6 @@ import {
   PromptDiffView,
   PromptMarkdownEditor,
   PromptMarkdownViewToggle,
-  type PromptChatPanelProps,
 } from "@/components/prompt";
 import {
   buildTextWithRevertedHunks,
@@ -93,17 +60,20 @@ import {
 
 const PROMPT_STORAGE_KEY = "operations-prompt-designer";
 
-const OPTIMIZE =
-  "Optimiza este prompt: hazlo más claro, consistente y efectivo, sin cambiar su intención. Devuelve el prompt completo optimizado.";
-const FIX_CONTRADICTIONS =
-  "Revisa este prompt y corrige contradicciones, ambiguedades y conflictos entre instrucciones. Devuelve una version consolidada y coherente, manteniendo la intencion original.";
 const MAX_CHAT_IMAGES = 4;
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
-const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const ALLOWED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+];
 const PDF_MIME_TYPE = "application/pdf";
 const MAX_PDF_BYTES = 20 * 1024 * 1024;
 
-function isSystemPromptGenerationInProgress(status: string | undefined): boolean {
+function isSystemPromptGenerationInProgress(
+  status: string | undefined,
+): boolean {
   return status === "pending" || status === "generating";
 }
 
@@ -177,33 +147,6 @@ function fileToPdfData(file: File): Promise<PendingPdf | null> {
   });
 }
 
-const chatMarkdownComponents: import("react-markdown").Components = {
-  p: ({ children }) => (
-    <p className="mb-1 last:mb-0 text-xs break-words">{children}</p>
-  ),
-  code: ({ className, children, ...props }) => {
-    const isBlock = className != null;
-    if (isBlock) {
-      return (
-        <code
-          className="block bg-muted rounded p-2 overflow-x-auto text-xs break-words font-mono"
-          {...props}
-        >
-          {children}
-        </code>
-      );
-    }
-    return (
-      <code
-        className="bg-muted px-1 rounded font-mono text-xs break-words"
-        {...props}
-      >
-        {children}
-      </code>
-    );
-  },
-};
-
 export function AgentPromptDesigner({
   agentId,
   agentName,
@@ -234,7 +177,9 @@ export function AgentPromptDesigner({
   } = useProductionPrompt(agentId);
 
   const hasTestingData = testingPropertiesData != null;
-  const effectiveProperties = hasTestingData ? testingPropertiesData : propertiesData;
+  const effectiveProperties = hasTestingData
+    ? testingPropertiesData
+    : propertiesData;
 
   useEffect(() => {
     if (propertiesError) toast.error(propertiesError);
@@ -335,9 +280,7 @@ export function AgentPromptDesigner({
     getCurrentPromptUnauth: isAuthEnabled
       ? () => editingUnauthPrompt
       : undefined,
-    getCurrentPromptAuth: isAuthEnabled
-      ? () => editingAuthPrompt
-      : undefined,
+    getCurrentPromptAuth: isAuthEnabled ? () => editingAuthPrompt : undefined,
   });
 
   useEffect(() => {
@@ -356,16 +299,18 @@ export function AgentPromptDesigner({
   }, [agentId]);
 
   const systemPromptGenStatus = agent?.systemPromptGenerationStatus;
-  const systemPromptGenInProgress =
-    isSystemPromptGenerationInProgress(systemPromptGenStatus);
+  const systemPromptGenInProgress = isSystemPromptGenerationInProgress(
+    systemPromptGenStatus,
+  );
   const systemPromptGenFailed = systemPromptGenStatus === "failed";
-  
+
   const inProduction = agent?.inProduction ?? false;
   const inCommercial = agent?.inCommercial ?? false;
   const hasPromptInMcp = Boolean(agent?.prompt);
   const needsSync = inProduction && !inCommercial && !hasPromptInMcp;
-  
-  const promptAndChatLocked = propertiesLoading || systemPromptGenInProgress || needsSync;
+
+  const promptAndChatLocked =
+    propertiesLoading || systemPromptGenInProgress || needsSync;
 
   useEffect(() => {
     if (!agentId || !systemPromptGenInProgress) return;
@@ -426,7 +371,12 @@ export function AgentPromptDesigner({
 
   useEffect(() => {
     if (!agentId || !agent) return;
-    if (propertiesLoading || testingPropertiesLoading || loadingProductionPrompt) return;
+    if (
+      propertiesLoading ||
+      testingPropertiesLoading ||
+      loadingProductionPrompt
+    )
+      return;
     if (bootstrapAttemptedRef.current) return;
 
     const mcpPrompt = normalizePrompt(agent.prompt);
@@ -512,9 +462,7 @@ export function AgentPromptDesigner({
     if (modelsLoading || promptModels.length === 0) return;
     const current = promptModels.find((m) => m.id === promptModel);
     if (!current?.available && firstAvailable) {
-      queueMicrotask(() =>
-        setPromptModel(firstAvailable as PromptModelId),
-      );
+      queueMicrotask(() => setPromptModel(firstAvailable as PromptModelId));
     }
   }, [modelsLoading, promptModels, promptModel, firstAvailable]);
 
@@ -523,11 +471,9 @@ export function AgentPromptDesigner({
     setIsSaving(true);
     let ok = true;
     if (editingPrompt !== savedPrompt) {
-      const saved = await updateTestingPropertyDocument(
-        agentId,
-        "prompt",
-        { base: editingPrompt },
-      );
+      const saved = await updateTestingPropertyDocument(agentId, "prompt", {
+        base: editingPrompt,
+      });
       if (saved) setSavedPrompt(editingPrompt);
       else ok = false;
     }
@@ -583,7 +529,13 @@ export function AgentPromptDesigner({
       return baseDiffers || authDiffers || unauthDiffers;
     }
     return baseDiffers;
-  }, [savedPrompt, savedAuthPrompt, savedUnauthPrompt, productionPrompt, isAuthEnabled]);
+  }, [
+    savedPrompt,
+    savedAuthPrompt,
+    savedUnauthPrompt,
+    productionPrompt,
+    isAuthEnabled,
+  ]);
 
   /** El base guardado en pruebas ya es el mismo que en producción (solo base, no auth). */
   const hasTestingProductionDiff = savedTestingDiffersFromProduction;
@@ -637,9 +589,11 @@ export function AgentPromptDesigner({
     let unauthDiffers = false;
     if (isAuthEnabled && productionPrompt?.auth) {
       authDiffers =
-        normalizePrompt(savedAuthPrompt) !== normalizePrompt(productionPrompt.auth.auth);
+        normalizePrompt(savedAuthPrompt) !==
+        normalizePrompt(productionPrompt.auth.auth);
       unauthDiffers =
-        normalizePrompt(savedUnauthPrompt) !== normalizePrompt(productionPrompt.auth.unauth);
+        normalizePrompt(savedUnauthPrompt) !==
+        normalizePrompt(productionPrompt.auth.unauth);
     }
 
     if (authDiffers || unauthDiffers) {
@@ -654,15 +608,27 @@ export function AgentPromptDesigner({
     await executePromote({ includeAuth: false, includeUnauth: false });
   };
 
-  const executePromote = async ({ includeAuth, includeUnauth }: { includeAuth: boolean; includeUnauth: boolean }) => {
+  const executePromote = async ({
+    includeAuth,
+    includeUnauth,
+  }: {
+    includeAuth: boolean;
+    includeUnauth: boolean;
+  }) => {
     setPromoting(true);
     try {
-      const payload: { prompt: string; auth?: { auth: string; unauth: string } } = {
+      const payload: {
+        prompt: string;
+        auth?: { auth: string; unauth: string };
+      } = {
         prompt: savedPrompt,
       };
-      
+
       // Si decidimos incluir auth, lo enviamos todo al API (actualiza el documento auth entero)
-      if (isAuthEnabled && (includeAuth || includeUnauth || !productionPrompt?.auth)) {
+      if (
+        isAuthEnabled &&
+        (includeAuth || includeUnauth || !productionPrompt?.auth)
+      ) {
         payload.auth = {
           auth: includeAuth
             ? savedAuthPrompt
@@ -740,19 +706,19 @@ export function AgentPromptDesigner({
   const suggestedForBase =
     suggestedPrompts?.base ??
     ((suggestedTarget ?? ["base"]).includes("base")
-      ? suggestedPrompt ?? undefined
+      ? (suggestedPrompt ?? undefined)
       : undefined);
 
   const suggestedForUnauth =
     suggestedPrompts?.unauth ??
     ((suggestedTarget ?? []).includes("unauth")
-      ? suggestedPrompt ?? undefined
+      ? (suggestedPrompt ?? undefined)
       : undefined);
 
   const suggestedForAuth =
     suggestedPrompts?.auth ??
     ((suggestedTarget ?? []).includes("auth")
-      ? suggestedPrompt ?? undefined
+      ? (suggestedPrompt ?? undefined)
       : undefined);
 
   const showMarkdownEditorBase = useMemo(
@@ -787,11 +753,13 @@ export function AgentPromptDesigner({
 
   const handleApplySuggestion = () => {
     if (hasMulti && suggestedPrompts) {
-      if (suggestedPrompts.base != null) setEditingPrompt(suggestedPrompts.base);
+      if (suggestedPrompts.base != null)
+        setEditingPrompt(suggestedPrompts.base);
       if (suggestedPrompts.unauth != null) {
         setEditingUnauthPrompt(suggestedPrompts.unauth);
       }
-      if (suggestedPrompts.auth != null) setEditingAuthPrompt(suggestedPrompts.auth);
+      if (suggestedPrompts.auth != null)
+        setEditingAuthPrompt(suggestedPrompts.auth);
       clearSuggestion();
       setRejectedSuggestionHunkIds(new Set());
       return;
@@ -803,10 +771,16 @@ export function AgentPromptDesigner({
         : primaryTarget === "unauth"
           ? editingUnauthPrompt
           : editingPrompt;
-    const suggestionDiffLines = computeDiffLines(referenceText, suggestedPrompt);
+    const suggestionDiffLines = computeDiffLines(
+      referenceText,
+      suggestedPrompt,
+    );
     const textToApply =
       suggestionDiffLines.length > 0
-        ? buildTextWithRevertedHunks(suggestionDiffLines, rejectedSuggestionHunkIds)
+        ? buildTextWithRevertedHunks(
+            suggestionDiffLines,
+            rejectedSuggestionHunkIds,
+          )
         : suggestedPrompt;
     const targets = suggestedTarget?.length ? suggestedTarget : ["base"];
     for (const t of targets) {
@@ -853,7 +827,11 @@ export function AgentPromptDesigner({
           if (pdf) setPendingPdf(pdf);
           continue;
         }
-        if (maxImages > 0 && isAllowedImageType(file.type) && file.size <= MAX_IMAGE_BYTES) {
+        if (
+          maxImages > 0 &&
+          isAllowedImageType(file.type) &&
+          file.size <= MAX_IMAGE_BYTES
+        ) {
           const img = await fileToImageData(file);
           if (img) {
             setPendingImages((p) => {
@@ -902,9 +880,7 @@ export function AgentPromptDesigner({
   }, []);
 
   const effectiveRejected: Set<number> =
-    showSuggestion && !hasMulti
-      ? rejectedSuggestionHunkIds
-      : new Set<number>();
+    showSuggestion && !hasMulti ? rejectedSuggestionHunkIds : new Set<number>();
 
   if (loadingAgent) {
     return (
@@ -924,18 +900,22 @@ export function AgentPromptDesigner({
         >
           <Loader2Icon className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-primary" />
           <div>
-            <p className="font-medium">Generando system prompt especializado…</p>
+            <p className="font-medium">
+              Generando system prompt especializado…
+            </p>
             <p className="mt-0.5 text-muted-foreground text-xs">
-              Esto ocurre en segundo plano. El editor y el asistente están en solo
-              lectura hasta que termine. Esta página se actualiza sola cada pocos
-              segundos.
+              Esto ocurre en segundo plano. El editor y el asistente están en
+              solo lectura hasta que termine. Esta página se actualiza sola cada
+              pocos segundos.
             </p>
           </div>
         </div>
       )}
       {systemPromptGenFailed && (
         <div className="mb-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2.5 text-sm">
-          <p className="font-medium text-destructive">No se pudo generar el system prompt</p>
+          <p className="font-medium text-destructive">
+            No se pudo generar el system prompt
+          </p>
           <p className="mt-1 text-xs text-muted-foreground break-words">
             {agent?.systemPromptGenerationError?.trim() ||
               "Reintenta la generación o revisa la configuración del agente."}
@@ -956,12 +936,16 @@ export function AgentPromptDesigner({
         </div>
       )}
       <div className="flex min-h-0 flex-1 overflow-hidden rounded-lg border">
-        <Dialog open={isPromoteDialogOpen} onOpenChange={setIsPromoteDialogOpen}>
+        <Dialog
+          open={isPromoteDialogOpen}
+          onOpenChange={setIsPromoteDialogOpen}
+        >
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Opciones de promoción</DialogTitle>
               <DialogDescription>
-                Hay cambios en los prompts de autenticación. ¿Qué deseas promover?
+                Hay cambios en los prompts de autenticación. ¿Qué deseas
+                promover?
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -969,31 +953,46 @@ export function AgentPromptDesigner({
                 <Checkbox
                   id="promote-auth"
                   checked={promoteIncludeAuth}
-                  onCheckedChange={(c: boolean) => setPromoteIncludeAuth(c === true)}
+                  onCheckedChange={(c: boolean) =>
+                    setPromoteIncludeAuth(c === true)
+                  }
                 />
-                <Label htmlFor="promote-auth">Prompt de usuarios autenticados</Label>
+                <Label htmlFor="promote-auth">
+                  Prompt de usuarios autenticados
+                </Label>
               </div>
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="promote-unauth"
                   checked={promoteIncludeUnauth}
-                  onCheckedChange={(c: boolean) => setPromoteIncludeUnauth(c === true)}
+                  onCheckedChange={(c: boolean) =>
+                    setPromoteIncludeUnauth(c === true)
+                  }
                 />
-                <Label htmlFor="promote-unauth">Prompt de usuarios no autenticados</Label>
+                <Label htmlFor="promote-unauth">
+                  Prompt de usuarios no autenticados
+                </Label>
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsPromoteDialogOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setIsPromoteDialogOpen(false)}
+              >
                 Cancelar
               </Button>
               <Button
-                onClick={() => void executePromote({
-                  includeAuth: promoteIncludeAuth,
-                  includeUnauth: promoteIncludeUnauth,
-                })}
+                onClick={() =>
+                  void executePromote({
+                    includeAuth: promoteIncludeAuth,
+                    includeUnauth: promoteIncludeUnauth,
+                  })
+                }
                 disabled={promoting}
               >
-                {promoting && <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />}
+                {promoting && (
+                  <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                )}
                 Promover
               </Button>
             </DialogFooter>
@@ -1013,11 +1012,15 @@ export function AgentPromptDesigner({
             <DialogHeader>
               <DialogTitle>Subir cambios a producción</DialogTitle>
               <DialogDescription>
-                Revisa el diff de testing a producción y escribe CONFIRMAR para continuar.
+                Revisa el diff de testing a producción y escribe CONFIRMAR para
+                continuar.
               </DialogDescription>
             </DialogHeader>
             <div className="max-h-[45vh] overflow-auto rounded border">
-              <PromptDiffView oldText={productionPrompt?.prompt ?? ""} newText={savedPrompt} />
+              <PromptDiffView
+                oldText={productionPrompt?.prompt ?? ""}
+                newText={savedPrompt}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="push-confirm">Confirmación</Label>
@@ -1030,14 +1033,22 @@ export function AgentPromptDesigner({
               />
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsPushDialogOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setIsPushDialogOpen(false)}
+              >
                 Cancelar
               </Button>
               <Button
                 onClick={() => void handlePromoteToProduction()}
-                disabled={normalizeConfirmInput(pushConfirmText) !== "confirmar" || promoting}
+                disabled={
+                  normalizeConfirmInput(pushConfirmText) !== "confirmar" ||
+                  promoting
+                }
               >
-                {promoting ? <Loader2Icon className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {promoting ? (
+                  <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
                 Confirmar y subir
               </Button>
             </DialogFooter>
@@ -1057,11 +1068,15 @@ export function AgentPromptDesigner({
             <DialogHeader>
               <DialogTitle>Bajar cambios desde producción</DialogTitle>
               <DialogDescription>
-                Revisa el diff de producción a testing y escribe CONFIRMAR para continuar.
+                Revisa el diff de producción a testing y escribe CONFIRMAR para
+                continuar.
               </DialogDescription>
             </DialogHeader>
             <div className="max-h-[45vh] overflow-auto rounded border">
-              <PromptDiffView oldText={savedPrompt} newText={productionPrompt?.prompt ?? ""} />
+              <PromptDiffView
+                oldText={savedPrompt}
+                newText={productionPrompt?.prompt ?? ""}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="pull-confirm">Confirmación</Label>
@@ -1074,7 +1089,10 @@ export function AgentPromptDesigner({
               />
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsPullDialogOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setIsPullDialogOpen(false)}
+              >
                 Cancelar
               </Button>
               <Button
@@ -1094,157 +1112,161 @@ export function AgentPromptDesigner({
         </Dialog>
         <div className="flex-1 min-w-0 flex flex-col min-h-0">
           <div className="flex-1 min-h-0 flex flex-col p-3 gap-4 overflow-hidden bg-background">
-          <div className="flex-[3] min-h-0 flex flex-col gap-2 overflow-hidden">
-            <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
-              <div className="flex min-w-0 items-center gap-2">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Base Prompt
-                </Label>
-                {isAuthEnabled && (
-                  <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">
-                    Modular
-                  </span>
+            <div className="flex-[3] min-h-0 flex flex-col gap-2 overflow-hidden">
+              <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                <div className="flex min-w-0 items-center gap-2">
+                  <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Base Prompt
+                  </Label>
+                  {isAuthEnabled && (
+                    <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">
+                      Modular
+                    </span>
+                  )}
+                </div>
+                {showMarkdownEditorBase ? (
+                  <PromptMarkdownViewToggle
+                    rawView={rawViewBasePrompt}
+                    onRawViewChange={(raw) => {
+                      setRawViewBasePrompt(raw);
+                      if (!raw) setBaseMarkdownRemount((n) => n + 1);
+                    }}
+                    disabled={promptAndChatLocked}
+                  />
+                ) : null}
+              </div>
+              <div className="flex-1 min-h-0">
+                {showSuggestion &&
+                suggestedForBase != null &&
+                primaryTarget === "base" ? (
+                  <PromptDiffView
+                    oldText={editingPrompt}
+                    newText={suggestedForBase}
+                    rejectedSuggestionHunkIds={effectiveRejected}
+                    onRejectSuggestionHunk={(hunkId: number) =>
+                      setRejectedSuggestionHunkIds((prev) => {
+                        const next = new Set<number>(prev);
+                        next.add(hunkId);
+                        return next;
+                      })
+                    }
+                    onAcceptSuggestionHunk={(hunkId: number) =>
+                      setRejectedSuggestionHunkIds((prev) => {
+                        const next = new Set<number>(prev);
+                        next.delete(hunkId);
+                        return next;
+                      })
+                    }
+                  />
+                ) : hasChanges && editorViewMode === "diff" ? (
+                  <PromptDiffView
+                    oldText={savedPrompt}
+                    newText={editingPrompt}
+                    onRevertHunk={(newText) => setEditingPrompt(newText)}
+                  />
+                ) : (
+                  <PromptMarkdownEditor
+                    value={editingPrompt}
+                    onChange={setEditingPrompt}
+                    disabled={promptAndChatLocked}
+                    className="h-full w-full text-sm"
+                    placeholder="Escribe el prompt del agente…"
+                    rawView={rawViewBasePrompt}
+                    markdownPaneRemountKey={baseMarkdownRemount}
+                  />
                 )}
               </div>
-              {showMarkdownEditorBase ? (
-                <PromptMarkdownViewToggle
-                  rawView={rawViewBasePrompt}
-                  onRawViewChange={(raw) => {
-                    setRawViewBasePrompt(raw);
-                    if (!raw) setBaseMarkdownRemount((n) => n + 1);
-                  }}
-                  disabled={promptAndChatLocked}
-                />
-              ) : null}
             </div>
-            <div className="flex-1 min-h-0">
-              {showSuggestion &&
-              suggestedForBase != null &&
-              primaryTarget === "base" ? (
-                <PromptDiffView
-                  oldText={editingPrompt}
-                  newText={suggestedForBase}
-                  rejectedSuggestionHunkIds={effectiveRejected}
-                  onRejectSuggestionHunk={(hunkId: number) =>
-                    setRejectedSuggestionHunkIds((prev) => {
-                      const next = new Set<number>(prev);
-                      next.add(hunkId);
-                      return next;
-                    })
-                  }
-                  onAcceptSuggestionHunk={(hunkId: number) =>
-                    setRejectedSuggestionHunkIds((prev) => {
-                      const next = new Set<number>(prev);
-                      next.delete(hunkId);
-                      return next;
-                    })
-                  }
-                />
-              ) : hasChanges && editorViewMode === "diff" ? (
-                <PromptDiffView
-                  oldText={savedPrompt}
-                  newText={editingPrompt}
-                  onRevertHunk={(newText) => setEditingPrompt(newText)}
-                />
-              ) : (
-                <PromptMarkdownEditor
-                  value={editingPrompt}
-                  onChange={setEditingPrompt}
-                  disabled={promptAndChatLocked}
-                  className="h-full w-full text-sm"
-                  placeholder="Escribe el prompt del agente…"
-                  rawView={rawViewBasePrompt}
-                  markdownPaneRemountKey={baseMarkdownRemount}
-                />
-              )}
-            </div>
-          </div>
-          {isAuthEnabled && (
-            <div className="flex-[2] min-h-0 grid grid-cols-1 lg:grid-cols-2 gap-4 p-3 border-t bg-muted/5 overflow-hidden">
-              <div className="flex flex-col gap-2 min-h-0">
-                <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                  <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Unauth (Public)
-                  </Label>
-                  {showMarkdownEditorUnauth ? (
-                    <PromptMarkdownViewToggle
-                      rawView={rawViewUnauthPrompt}
-                      onRawViewChange={(raw) => {
-                        setRawViewUnauthPrompt(raw);
-                        if (!raw) setUnauthMarkdownRemount((n) => n + 1);
-                      }}
-                      disabled={promptAndChatLocked}
-                    />
-                  ) : null}
+            {isAuthEnabled && (
+              <div className="flex-[2] min-h-0 grid grid-cols-1 lg:grid-cols-2 gap-4 p-3 border-t bg-muted/5 overflow-hidden">
+                <div className="flex flex-col gap-2 min-h-0">
+                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Unauth (Public)
+                    </Label>
+                    {showMarkdownEditorUnauth ? (
+                      <PromptMarkdownViewToggle
+                        rawView={rawViewUnauthPrompt}
+                        onRawViewChange={(raw) => {
+                          setRawViewUnauthPrompt(raw);
+                          if (!raw) setUnauthMarkdownRemount((n) => n + 1);
+                        }}
+                        disabled={promptAndChatLocked}
+                      />
+                    ) : null}
+                  </div>
+                  <div className="flex-1 min-h-0">
+                    {showSuggestion && suggestedForUnauth != null ? (
+                      <PromptDiffView
+                        oldText={editingUnauthPrompt}
+                        newText={suggestedForUnauth}
+                      />
+                    ) : hasChanges && editorViewMode === "diff" ? (
+                      <PromptDiffView
+                        oldText={savedUnauthPrompt}
+                        newText={editingUnauthPrompt}
+                        onRevertHunk={(newText) =>
+                          setEditingUnauthPrompt(newText)
+                        }
+                      />
+                    ) : (
+                      <PromptMarkdownEditor
+                        value={editingUnauthPrompt}
+                        onChange={setEditingUnauthPrompt}
+                        className="h-full text-xs [&_.ProseMirror]:text-xs"
+                        disabled={promptAndChatLocked}
+                        placeholder="Prompt para usuarios no autenticados…"
+                        rawView={rawViewUnauthPrompt}
+                        markdownPaneRemountKey={unauthMarkdownRemount}
+                      />
+                    )}
+                  </div>
                 </div>
-                <div className="flex-1 min-h-0">
-                  {showSuggestion && suggestedForUnauth != null ? (
-                    <PromptDiffView
-                      oldText={editingUnauthPrompt}
-                      newText={suggestedForUnauth}
-                    />
-                  ) : hasChanges && editorViewMode === "diff" ? (
-                    <PromptDiffView
-                      oldText={savedUnauthPrompt}
-                      newText={editingUnauthPrompt}
-                      onRevertHunk={(newText) => setEditingUnauthPrompt(newText)}
-                    />
-                  ) : (
-                    <PromptMarkdownEditor
-                      value={editingUnauthPrompt}
-                      onChange={setEditingUnauthPrompt}
-                      className="h-full text-xs [&_.ProseMirror]:text-xs"
-                      disabled={promptAndChatLocked}
-                      placeholder="Prompt para usuarios no autenticados…"
-                      rawView={rawViewUnauthPrompt}
-                      markdownPaneRemountKey={unauthMarkdownRemount}
-                    />
-                  )}
+                <div className="flex flex-col gap-2 min-h-0">
+                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-primary/80">
+                      Auth (Verified)
+                    </Label>
+                    {showMarkdownEditorAuth ? (
+                      <PromptMarkdownViewToggle
+                        rawView={rawViewAuthPrompt}
+                        onRawViewChange={(raw) => {
+                          setRawViewAuthPrompt(raw);
+                          if (!raw) setAuthMarkdownRemount((n) => n + 1);
+                        }}
+                        disabled={promptAndChatLocked}
+                      />
+                    ) : null}
+                  </div>
+                  <div className="flex-1 min-h-0">
+                    {showSuggestion && suggestedForAuth != null ? (
+                      <PromptDiffView
+                        oldText={editingAuthPrompt}
+                        newText={suggestedForAuth}
+                      />
+                    ) : hasChanges && editorViewMode === "diff" ? (
+                      <PromptDiffView
+                        oldText={savedAuthPrompt}
+                        newText={editingAuthPrompt}
+                        onRevertHunk={(newText) =>
+                          setEditingAuthPrompt(newText)
+                        }
+                      />
+                    ) : (
+                      <PromptMarkdownEditor
+                        value={editingAuthPrompt}
+                        onChange={setEditingAuthPrompt}
+                        className="h-full text-xs [&_.ProseMirror]:text-xs"
+                        disabled={promptAndChatLocked}
+                        placeholder="Prompt para usuarios autenticados…"
+                        rawView={rawViewAuthPrompt}
+                        markdownPaneRemountKey={authMarkdownRemount}
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
-              <div className="flex flex-col gap-2 min-h-0">
-                <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                  <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-primary/80">
-                    Auth (Verified)
-                  </Label>
-                  {showMarkdownEditorAuth ? (
-                    <PromptMarkdownViewToggle
-                      rawView={rawViewAuthPrompt}
-                      onRawViewChange={(raw) => {
-                        setRawViewAuthPrompt(raw);
-                        if (!raw) setAuthMarkdownRemount((n) => n + 1);
-                      }}
-                      disabled={promptAndChatLocked}
-                    />
-                  ) : null}
-                </div>
-                <div className="flex-1 min-h-0">
-                  {showSuggestion && suggestedForAuth != null ? (
-                    <PromptDiffView
-                      oldText={editingAuthPrompt}
-                      newText={suggestedForAuth}
-                    />
-                  ) : hasChanges && editorViewMode === "diff" ? (
-                    <PromptDiffView
-                      oldText={savedAuthPrompt}
-                      newText={editingAuthPrompt}
-                      onRevertHunk={(newText) => setEditingAuthPrompt(newText)}
-                    />
-                  ) : (
-                    <PromptMarkdownEditor
-                      value={editingAuthPrompt}
-                      onChange={setEditingAuthPrompt}
-                      className="h-full text-xs [&_.ProseMirror]:text-xs"
-                      disabled={promptAndChatLocked}
-                      placeholder="Prompt para usuarios autenticados…"
-                      rawView={rawViewAuthPrompt}
-                      markdownPaneRemountKey={authMarkdownRemount}
-                    />
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
+            )}
           </div>
           <div className="flex w-full flex-wrap items-center gap-2 p-3 border-t">
             <Tooltip>
@@ -1260,9 +1282,7 @@ export function AgentPromptDesigner({
                     !canTransfer
                   }
                   className={
-                    !canTransfer || loadingProductionPrompt
-                      ? "opacity-50"
-                      : ""
+                    !canTransfer || loadingProductionPrompt ? "opacity-50" : ""
                   }
                 >
                   {pullingProductionBase ? (
@@ -1329,7 +1349,9 @@ export function AgentPromptDesigner({
                   clearSuggestion();
                   reset();
                 }}
-                disabled={(!hasChanges && !showSuggestion) || promptAndChatLocked}
+                disabled={
+                  (!hasChanges && !showSuggestion) || promptAndChatLocked
+                }
               >
                 Deshacer
               </Button>
@@ -1346,7 +1368,8 @@ export function AgentPromptDesigner({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  Guarda los cambios en Testing para poder probarlos en &quot;Pruebas con kAI&quot;
+                  Guarda los cambios en Testing para poder probarlos en
+                  &quot;Pruebas con kAI&quot;
                 </TooltipContent>
               </Tooltip>
               <Tooltip>
@@ -1401,8 +1424,8 @@ export function AgentPromptDesigner({
           setChatInput={setChatInput}
           pendingImages={pendingImages}
           setPendingImages={setPendingImages}
-          pendingPdf={pendingPdf as any}
-          setPendingPdf={setPendingPdf as any}
+          pendingPdf={pendingPdf as PendingPdf}
+          setPendingPdf={setPendingPdf as (pdf: PendingPdf | null) => void}
           isDraggingOverChat={isDraggingOverChat}
           handleChatDragOver={handleChatDragOver}
           handleChatDrop={handleChatDrop}
