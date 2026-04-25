@@ -4,6 +4,7 @@ export * from "./agents/agents-api";
 export * from "./agents/agent-tool";
 export * from "./agents/agent-properties";
 export * from "./agents/configuration-editor";
+export * from "./agents/prompt-designer";
 export * from "./form-builder";
 export * from "./chat/prompt-chat";
 export * from "./chat/prompt-diff";
