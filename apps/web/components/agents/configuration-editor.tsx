@@ -23,6 +23,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -31,6 +37,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  FunnelIcon,
   Loader2Icon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -128,6 +135,9 @@ export function AgentConfigurationEditor({
   const [schemasListError, setSchemasListError] = useState<string | null>(null);
   const [selectedAllowedSchemaIds, setSelectedAllowedSchemaIds] = useState<string[]>([]);
   const [savingAllowedSchemas, setSavingAllowedSchemas] = useState(false);
+  const [schemaSearch, setSchemaSearch] = useState("");
+  const [showOnlySelectedSchemas, setShowOnlySelectedSchemas] = useState(false);
+  const [showAllSchemas, setShowAllSchemas] = useState(false);
 
   useEffect(() => {
     if (testingPropertiesError) toast.error(testingPropertiesError);
@@ -699,8 +709,6 @@ export function AgentConfigurationEditor({
     }
   }, [agentId, selectedAllowedSchemaIds, onAgentUpdated]);
 
-  if (!agentId) return null;
-
   const isAdmin = userRole === "admin";
   const isTechLead = isAdmin || dialogTechLeads.some(
     (tl) => tl.email.trim().toLowerCase() === userEmail?.trim().toLowerCase()
@@ -712,6 +720,23 @@ export function AgentConfigurationEditor({
   const showAllSections = isTechLead;
   const showGrowerSections = !isTechLead && (isGrower || isAdmin);
   const canSeeOperationalSettings = showAllSections || showGrowerSections;
+  const normalizedSchemaSearch = schemaSearch.trim().toLowerCase();
+  const filteredSchemas = useMemo(() => {
+    return availableSchemas.filter((schema) => {
+      const matchesSearch =
+        normalizedSchemaSearch.length === 0 ||
+        schema.label.toLowerCase().includes(normalizedSchemaSearch) ||
+        schema.schemaId.toLowerCase().includes(normalizedSchemaSearch);
+      if (!matchesSearch) return false;
+      if (!showOnlySelectedSchemas) return true;
+      return selectedAllowedSchemaIds.includes(schema.schemaId);
+    });
+  }, [availableSchemas, normalizedSchemaSearch, selectedAllowedSchemaIds, showOnlySelectedSchemas]);
+  const schemasToRender = showAllSchemas ? filteredSchemas : filteredSchemas.slice(0, 8);
+  const hiddenSchemasCount = Math.max(0, filteredSchemas.length - schemasToRender.length);
+
+  if (!agentId) return null;
+
   const visibleSectionNav = [
     { id: "status", label: "Estado", visible: true },
     { id: "conversation", label: "Conversación", visible: canSeeOperationalSettings },
@@ -1430,6 +1455,41 @@ export function AgentConfigurationEditor({
                     Los esquemas se cargan desde el proyecto KAI (productividad), no desde el asistente
                     comercial. Solo puedes asignar esquemas que existan en esa base.
                   </p>
+                  <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
+                    <Input
+                      placeholder="Buscar por nombre o ID…"
+                      value={schemaSearch}
+                      onChange={(e) => {
+                        setSchemaSearch(e.target.value);
+                        setShowAllSchemas(false);
+                      }}
+                      className="w-full flex-1"
+                    />
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={showOnlySelectedSchemas ? "default" : "outline"}
+                            className="h-8 w-8 shrink-0 px-0"
+                            onClick={() => {
+                              setShowOnlySelectedSchemas((prev) => !prev);
+                              setShowAllSchemas(false);
+                            }}
+                            aria-label="Alternar filtro de esquemas seleccionados"
+                          >
+                            <FunnelIcon className="size-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" sideOffset={8}>
+                          {showOnlySelectedSchemas
+                            ? "Mostrar todos los esquemas"
+                            : "Mostrar solo los esquemas seleccionados"}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   {schemasListError ? (
                     <p className="text-sm text-destructive">{schemasListError}</p>
                   ) : schemasLoading ? (
@@ -1441,41 +1501,59 @@ export function AgentConfigurationEditor({
                     <p className="text-sm text-muted-foreground">
                       No hay esquemas en este ambiente. Créalos en Base de datos → Esquemas.
                     </p>
+                  ) : filteredSchemas.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No hay esquemas que coincidan con el filtro actual.
+                    </p>
                   ) : (
-                    <ul className="max-h-64 space-y-2 overflow-y-auto pr-1">
-                      {availableSchemas.map((schema) => {
-                        const checked = selectedAllowedSchemaIds.includes(schema.schemaId);
-                        return (
-                          <li key={schema.schemaId} className="flex items-start gap-2">
-                            <input
-                              type="checkbox"
-                              id={`allowed-schema-${schema.schemaId}`}
-                              checked={checked}
-                              onChange={(e) => {
-                                const on = e.target.checked;
-                                setSelectedAllowedSchemaIds((prev) =>
-                                  on
-                                    ? prev.includes(schema.schemaId)
-                                      ? prev
-                                      : [...prev, schema.schemaId]
-                                    : prev.filter((id) => id !== schema.schemaId),
-                                );
-                              }}
-                              className="mt-0.5 h-4 w-4 rounded border-input"
-                            />
-                            <label
-                              htmlFor={`allowed-schema-${schema.schemaId}`}
-                              className="cursor-pointer text-sm leading-snug"
-                            >
-                              <span className="font-medium">{schema.label}</span>
-                              <span className="ml-2 font-mono text-xs text-muted-foreground">
-                                {schema.schemaId}
-                              </span>
-                            </label>
-                          </li>
-                        );
-                      })}
-                    </ul>
+                    <>
+                      <ul className="max-h-64 space-y-2 overflow-y-auto pr-1">
+                        {schemasToRender.map((schema) => {
+                          const checked = selectedAllowedSchemaIds.includes(schema.schemaId);
+                          return (
+                            <li key={schema.schemaId} className="flex items-start gap-2">
+                              <input
+                                type="checkbox"
+                                id={`allowed-schema-${schema.schemaId}`}
+                                checked={checked}
+                                onChange={(e) => {
+                                  const on = e.target.checked;
+                                  setSelectedAllowedSchemaIds((prev) =>
+                                    on
+                                      ? prev.includes(schema.schemaId)
+                                        ? prev
+                                        : [...prev, schema.schemaId]
+                                      : prev.filter((id) => id !== schema.schemaId),
+                                  );
+                                }}
+                                className="mt-0.5 h-4 w-4 rounded border-input"
+                              />
+                              <label
+                                htmlFor={`allowed-schema-${schema.schemaId}`}
+                                className="cursor-pointer text-sm leading-snug"
+                              >
+                                <span className="font-medium">{schema.label}</span>
+                                <span className="ml-2 font-mono text-xs text-muted-foreground">
+                                  {schema.schemaId}
+                                </span>
+                              </label>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                      {hiddenSchemasCount > 0 && (
+                        <div className="pt-1">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setShowAllSchemas((prev) => !prev)}
+                          >
+                            {showAllSchemas ? "Ver menos" : `Ver ${hiddenSchemasCount} más`}
+                          </Button>
+                        </div>
+                      )}
+                    </>
                   )}
                   <div className="border-t border-border pt-4">
                     <div className="flex justify-end">
