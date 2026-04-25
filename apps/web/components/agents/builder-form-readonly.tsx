@@ -3,7 +3,7 @@
 import { Fragment, useMemo } from "react";
 
 import { useBuilderFormReadonlyData } from "@/hooks";
-import { PanelError, PanelLoading } from "@/components/agents/panel-states";
+import { PanelError } from "@/components/agents/panel-states";
 import { FORM_SECTIONS, STAGE_TYPES } from "@/consts/form-builder/constants";
 import type {
   AgentFlowQuestion,
@@ -302,6 +302,29 @@ function sectionsInOrder(ids: FormSectionId[]): FormSection[] {
   return ids.map((id) => byId.get(id)).filter((s): s is FormSection => s != null);
 }
 
+function BuilderFormReadonlySkeleton() {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto">
+      <div className="space-y-2">
+        <div className="h-4 w-[28rem] animate-pulse rounded bg-muted/50" />
+        <div className="h-3 w-52 animate-pulse rounded bg-muted/40" />
+      </div>
+      <div className="grid grid-cols-1 content-start gap-4 lg:grid-cols-2 lg:items-start lg:gap-x-5 lg:gap-y-4">
+        <div className="flex min-h-0 min-w-0 flex-col gap-4">
+          <div className="h-56 animate-pulse rounded-xl border bg-muted/35" />
+          <div className="h-72 animate-pulse rounded-xl border bg-muted/35" />
+          <div className="h-56 animate-pulse rounded-xl border bg-muted/35" />
+        </div>
+        <div className="flex min-h-0 min-w-0 flex-col gap-4">
+          <div className="h-64 animate-pulse rounded-xl border bg-muted/35" />
+          <div className="h-48 animate-pulse rounded-xl border bg-muted/35" />
+          <div className="h-72 animate-pulse rounded-xl border bg-muted/35" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function AgentBuilderFormReadonly({ agentId }: { agentId: string }) {
   const { loading, error, payload, catalog, refetch } = useBuilderFormReadonlyData(agentId);
 
@@ -315,7 +338,7 @@ export function AgentBuilderFormReadonly({ agentId }: { agentId: string }) {
     return map;
   }, [catalog]);
 
-  if (loading) return <PanelLoading />;
+  if (loading) return <BuilderFormReadonlySkeleton />;
 
   if (error || !payload) {
     return (
