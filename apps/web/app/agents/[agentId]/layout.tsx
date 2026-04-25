@@ -33,14 +33,14 @@ import {
 } from "@/services/agents-api";
 
 const SECTIONS = [
-  { suffix: "tasks", label: "Tareas" },
   { suffix: "dates-statuses", label: "Fechas y estado" },
+  { suffix: "tasks", label: "Tareas" },
+  { suffix: "prompt-design", label: "Diseño de prompt" },
   { suffix: "simulator", label: "Simulador" },
   { suffix: "tools", label: "Tools" },
-  { suffix: "prompt-design", label: "Diseño de prompt" },
-  { suffix: "form", label: "Formulario" },
   { suffix: "testing-data", label: "Testing" },
   { suffix: "configuration", label: "Configuración" },
+  { suffix: "form", label: "Formulario" },
 ] as const;
 
 /** Título: nombre del agente (énfasis) · nombre del negocio (secundario), como en el diseño de referencia. */
