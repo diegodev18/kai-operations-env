@@ -40,34 +40,18 @@ test.beforeEach(({ page }) => {
   });
 });
 
-async function dismissDynamicBlockIfAny(page: Page) {
-  const skip = page.getByTestId("form-builder-dynamic-skip");
-  if (await skip.isVisible({ timeout: 2500 }).catch(() => false)) {
-    await skip.click();
-    await expect(skip).toBeHidden({ timeout: 15_000 });
-  }
-}
-
 async function clickFormNext(page: Page) {
-  await dismissDynamicBlockIfAny(page);
   const next = page.getByTestId("form-builder-next");
   await expect(next).toBeVisible({ timeout: 60_000 });
-  // Tras pulsar, Negocio/Personalidad pueden poner "Analizando…" en el mismo botón
-  await expect(next).not.toContainText("Analizando", { timeout: 180_000 });
   await expect(next).toBeEnabled({ timeout: 180_000 });
   await pauseBeforeSeguir(page, "paso explícito");
   await next.click();
 }
 
-/**
- * Pulsar Siguiente y, si la IA muestra el bloque dinámico (sin barra inferior), Omitir y repetir.
- * Espera a que termine "Analizando…" antes de exigir el botón habilitado (evita falso bloqueo en Negocio/Personalidad).
- */
+/** Avanza con «Siguiente» hasta que el título de sección coincida con `nextTitle`. */
 async function advanceToNextSectionHeading(page: Page, nextTitle: string) {
-  await dismissDynamicBlockIfAny(page);
   const sectionTitle = page.getByTestId("form-builder-section-title");
   const next = page.getByTestId("form-builder-next");
-  const skip = page.getByTestId("form-builder-dynamic-skip");
 
   async function atTarget() {
     if (!(await sectionTitle.isVisible().catch(() => false))) return false;
@@ -78,24 +62,15 @@ async function advanceToNextSectionHeading(page: Page, nextTitle: string) {
   for (let attempt = 0; attempt < 15; attempt++) {
     if (await atTarget()) return;
 
-    if (await skip.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await skip.click();
-      await expect(skip).toBeHidden({ timeout: 45_000 });
-      continue;
-    }
-
     if (await next.isVisible({ timeout: 8000 }).catch(() => false)) {
-      await expect(next).not.toContainText("Analizando", { timeout: 180_000 });
-      if (!(await next.isVisible().catch(() => false))) continue;
-      if (await skip.isVisible().catch(() => false)) continue;
       await expect(next).toBeEnabled({ timeout: 90_000 });
       await pauseBeforeSeguir(page, `hacia «${nextTitle}» (intento ${attempt + 1})`);
       await next.click();
     } else {
-      await Promise.race([
-        skip.waitFor({ state: "visible", timeout: 180_000 }),
-        sectionTitle.filter({ hasText: nextTitle }).waitFor({ state: "visible", timeout: 180_000 }),
-      ]).catch(() => {});
+      await sectionTitle
+        .filter({ hasText: nextTitle })
+        .waitFor({ state: "visible", timeout: 180_000 })
+        .catch(() => {});
     }
 
     await expect(sectionTitle)

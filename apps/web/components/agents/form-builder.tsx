@@ -56,14 +56,12 @@ import { Input } from "@/components/ui/input";
 import {
   postAgentDraft,
   patchAgentDraft,
-  analyzeAgentWithAI,
   recommendAgentTools,
   generateAgentToolFlowsMarkdown,
   fetchAgentFlowQuestions,
   fetchSavedBuilderCompanies,
   postSavedBuilderCompany,
   patchSavedBuilderCompany,
-  type DynamicQuestion,
   type BuilderCompanyPayload,
   type SavedBuilderCompany,
   type ToolFlowsMarkdownPayload,
@@ -844,13 +842,6 @@ export function AgentFormBuilder() {
     Set<FormSectionId>
   >(new Set());
   const [isSaving, setIsSaving] = useState(false);
-  const [dynamicQuestions, setDynamicQuestions] = useState<DynamicQuestion[]>(
-    [],
-  );
-  const [dynamicAnswers, setDynamicAnswers] = useState<Record<string, string>>(
-    {},
-  );
-  const [isAnalyzingAI, setIsAnalyzingAI] = useState(false);
   const [toolsRegenerateNonce, setToolsRegenerateNonce] = useState(0);
   const [toolsRecommendLoading, setToolsRecommendLoading] = useState(false);
   const [toolsRecommendError, setToolsRecommendError] = useState<string | null>(
@@ -1230,13 +1221,6 @@ export function AgentFormBuilder() {
     [state, catalog, toolsRationale, toolReasonById],
   );
 
-  const handleDynamicAnswerChange = useCallback(
-    (field: string, value: string) => {
-      setDynamicAnswers((prev) => ({ ...prev, [field]: value }));
-    },
-    [],
-  );
-
   const canProceed = useCallback(
     (section: FormSectionId): boolean => {
       switch (section) {
@@ -1281,20 +1265,6 @@ export function AgentFormBuilder() {
     },
     [state],
   );
-
-  const shouldAnalyzeWithAI = (section: FormSectionId): boolean => {
-    if (section === "business") {
-      return (
-        !!state.industry ||
-        !!state.description ||
-        !!state.target_audience ||
-        !!state.agent_description
-      );
-    }
-    if (section === "personality")
-      return !!state.agent_personality || !!state.agent_name;
-    return false;
-  };
 
   const advanceToNextSection = useCallback(() => {
     const sections = FORM_SECTIONS.map((s) => s.id);
@@ -1372,32 +1342,6 @@ export function AgentFormBuilder() {
       }
     }
 
-    // Analyze with AI for dynamic questions
-    if (shouldAnalyzeWithAI(currentSection)) {
-      setIsAnalyzingAI(true);
-      try {
-        const questions = await analyzeAgentWithAI(
-          currentSection,
-          state as unknown as Record<string, unknown>,
-        );
-        if (questions && questions.length > 0) {
-          const relevantQuestions = questions.filter(
-            (q) => q.section === currentSection,
-          );
-          if (relevantQuestions.length > 0) {
-            setDynamicQuestions(relevantQuestions);
-            setDynamicAnswers({});
-            setIsAnalyzingAI(false);
-            return; // Show dynamic questions instead of advancing
-          }
-        }
-      } catch (error) {
-        console.error("AI analysis error:", error);
-      }
-      setIsAnalyzingAI(false);
-    }
-
-    // No dynamic questions, advance normally
     const exitingToolFlowDoc = currentSection === "tools" && isToolFlowDocStep;
     advanceToNextSection();
     if (exitingToolFlowDoc) {
@@ -1411,26 +1355,6 @@ export function AgentFormBuilder() {
     advanceToNextSection,
     saveBusinessProfileToFirestore,
   ]);
-
-  const handleSkipDynamicQuestions = useCallback(() => {
-    setDynamicQuestions([]);
-    setDynamicAnswers({});
-    advanceToNextSection();
-  }, [advanceToNextSection]);
-
-  const handleSubmitDynamicAnswers = useCallback(() => {
-    // Merge dynamic answers into state
-    const updates: Partial<FormBuilderState> = {};
-    Object.entries(dynamicAnswers).forEach(([field, value]) => {
-      if (value.trim()) {
-        (updates as Record<string, unknown>)[field] = value;
-      }
-    });
-    setState((prev) => ({ ...prev, ...updates }));
-    setDynamicQuestions([]);
-    setDynamicAnswers({});
-    advanceToNextSection();
-  }, [dynamicAnswers, advanceToNextSection]);
 
   const handlePrev = useCallback(() => {
     if (isToolFlowDocStep) {
@@ -1862,93 +1786,12 @@ export function AgentFormBuilder() {
           ) : (
             <>
               {renderSection()}
-
-              {dynamicQuestions.length > 0 && (
-                <div className="mt-6 space-y-4 border-t pt-6">
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Información adicional sugerida
-                  </p>
-                  {dynamicQuestions.map((question) => (
-                    <div key={question.field}>
-                      <label className="text-sm font-medium">
-                        {question.label}
-                        <span className="text-destructive ml-1">*</span>
-                      </label>
-                      {question.type === "select" && question.options ? (
-                        <select
-                          value={dynamicAnswers[question.field] || ""}
-                          onChange={(e) =>
-                            handleDynamicAnswerChange(
-                              question.field,
-                              e.target.value,
-                            )
-                          }
-                          className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        >
-                          <option value="">Selecciona una opción</option>
-                          {question.options.map((opt) => (
-                            <option key={opt} value={opt}>
-                              {opt}
-                            </option>
-                          ))}
-                        </select>
-                      ) : question.type === "textarea" ? (
-                        <textarea
-                          value={dynamicAnswers[question.field] || ""}
-                          onChange={(e) =>
-                            handleDynamicAnswerChange(
-                              question.field,
-                              e.target.value,
-                            )
-                          }
-                          placeholder={
-                            question.placeholder || "Escribe tu respuesta..."
-                          }
-                          rows={3}
-                          className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        />
-                      ) : (
-                        <input
-                          type="text"
-                          value={dynamicAnswers[question.field] || ""}
-                          onChange={(e) =>
-                            handleDynamicAnswerChange(
-                              question.field,
-                              e.target.value,
-                            )
-                          }
-                          placeholder={
-                            question.placeholder || "Escribe tu respuesta..."
-                          }
-                          className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        />
-                      )}
-                    </div>
-                  ))}
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      data-testid="form-builder-dynamic-skip"
-                      onClick={handleSkipDynamicQuestions}
-                    >
-                      Omitir
-                    </Button>
-                    <Button size="sm" onClick={handleSubmitDynamicAnswers}>
-                      Guardar y continuar
-                    </Button>
-                  </div>
-                </div>
-              )}
             </>
           )}
         </div>
       </div>
 
-      {currentSection !== "templates" &&
-        currentSection !== "review" &&
-        dynamicQuestions.length === 0 && (
+      {currentSection !== "templates" && currentSection !== "review" && (
           <div className="mt-auto flex items-center justify-between border-t px-4 py-3">
             <Button
               variant="outline"
@@ -1964,7 +1807,6 @@ export function AgentFormBuilder() {
               onClick={handleNext}
               disabled={
                 !canProceed(currentSection) ||
-                isAnalyzingAI ||
                 (currentSection === "flows" &&
                   (flowQuestionsLoading ||
                     (state.flow_questions.length === 0 &&
@@ -1977,17 +1819,8 @@ export function AgentFormBuilder() {
                   toolFlowsGenLoading)
               }
             >
-              {isAnalyzingAI ? (
-                <>
-                  <Loader2Icon className="mr-2 size-4 animate-spin" />
-                  Analizando...
-                </>
-              ) : (
-                <>
-                  Siguiente
-                  <ArrowRightIcon className="ml-2 size-4" />
-                </>
-              )}
+              Siguiente
+              <ArrowRightIcon className="ml-2 size-4" />
             </Button>
           </div>
         )}
