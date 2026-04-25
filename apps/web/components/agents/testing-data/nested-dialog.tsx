@@ -147,11 +147,11 @@ export function NestedDialog({
             />
           </div>
         ) : (
-          <div className="space-y-1">
+          <div className="space-y-1 max-h-[60vh] overflow-y-auto">
             <Textarea
               value={jsonText}
               onChange={(e) => { setJsonText(e.target.value); setJsonParseError(null); }}
-              className="min-h-[320px] font-mono text-sm"
+              className="min-h-[320px] max-h-[55vh] font-mono text-sm"
               spellCheck={false}
             />
             {jsonParseError && (
