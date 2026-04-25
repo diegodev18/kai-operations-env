@@ -25,7 +25,10 @@ import {
   handleFirestoreError,
   requireEmailForGrower,
 } from "@/utils/agent-drafts/access";
-import { detectAreaCodeFromPhoneNumber } from "@/utils/agent-drafts/phone-region";
+import {
+  detectAreaCodeFromPhoneNumber,
+  extractRawNationalPhoneDigits,
+} from "@/utils/agent-drafts/phone-region";
 import {
   patchDraftBodySchema,
   postDraftBodySchema,
@@ -149,6 +152,9 @@ export async function postAgentDraft(
         usersBuildersName: growerName,
         areaCode: areaCode,
         phoneNumber: userPhone,
+        rawPhoneNumber: userPhone.trim()
+          ? extractRawNationalPhoneDigits(userPhone)
+          : "",
       },
     );
     await batch.commit();

@@ -51,3 +51,21 @@ export function detectAreaCodeFromPhoneNumber(phoneNumber: string): {
 
   return { country: "Mexico", lada: "521", timezone: "America/Mexico_City" };
 }
+
+const COUNTRY_CODE_PREFIXES_SORTED = Object.keys(COUNTRY_CODE_MAPPING).sort(
+  (a, b) => b.length - a.length,
+);
+
+/**
+ * Dígitos nacionales sin prefijo de país (p. ej. MX sin 52/521; US sin 1).
+ */
+export function extractRawNationalPhoneDigits(phoneNumber: string): string {
+  const cleaned = phoneNumber.replace(/\D/g, "");
+  if (!cleaned) return "";
+  for (const prefix of COUNTRY_CODE_PREFIXES_SORTED) {
+    if (cleaned.startsWith(prefix)) {
+      return cleaned.slice(prefix.length);
+    }
+  }
+  return cleaned;
+}

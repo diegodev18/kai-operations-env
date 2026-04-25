@@ -1,3 +1,5 @@
+import type { AgentLifecycleSummary } from "@/types";
+
 /** Estado operativo del agente para el dashboard de operaciones. */
 export type AgentOperationalStatus =
   | "active"
@@ -60,6 +62,8 @@ export interface Agent {
   firestoreDataMode?: "auto" | "testing" | "production";
   /** El agente es favorito del usuario actual (desde el backend). */
   isFavorite?: boolean;
+  /** Listado ligero: estatus comercial + fecha estimada. */
+  lifecycleSummary?: AgentLifecycleSummary;
   /** Estado del agente en Operations. */
   status?: "active" | "archived";
   /** Fechas y estado de implementación (`implementation/lifecycle`). */
@@ -67,6 +71,8 @@ export interface Agent {
     createdAt: string | null;
     soldAt: string | null;
     deliveredAt: string | null;
+    estimatedDeliveryAt?: string | null;
+    actualDeliveredAt?: string | null;
     nextMeetingAt: string | null;
     commercialStatus:
       | "building"

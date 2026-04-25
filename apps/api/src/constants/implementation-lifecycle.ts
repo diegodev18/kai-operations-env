@@ -18,6 +18,9 @@ export const LIFECYCLE_UPDATED_FROM_VALUES = [
   "sync",
 ] as const;
 
+/** Días después de `soldAt` para rellenar `estimatedDeliveryAt` cuando aún está vacío. */
+export const DEFAULT_ESTIMATED_DELIVERY_DAYS_AFTER_SOLD = 30;
+
 export type CommercialStatus = (typeof COMMERCIAL_STATUS_VALUES)[number];
 export type ServerStatus = (typeof SERVER_STATUS_VALUES)[number];
 export type LifecycleUpdatedFrom = (typeof LIFECYCLE_UPDATED_FROM_VALUES)[number];

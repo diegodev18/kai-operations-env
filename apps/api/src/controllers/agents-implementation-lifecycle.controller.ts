@@ -4,6 +4,7 @@ import { FieldValue, Timestamp } from "firebase-admin/firestore";
 
 import {
   canTransitionCommercialStatus,
+  DEFAULT_ESTIMATED_DELIVERY_DAYS_AFTER_SOLD,
   isCommercialStatus,
   isLifecycleUpdatedFrom,
   isServerStatus,
@@ -26,6 +27,8 @@ type LifecycleDoc = {
   createdAt?: unknown;
   soldAt?: unknown;
   deliveredAt?: unknown;
+  estimatedDeliveryAt?: unknown;
+  actualDeliveredAt?: unknown;
   nextMeetingAt?: unknown;
   commercialStatus?: unknown;
   serverStatusOverride?: unknown;
@@ -73,6 +76,24 @@ function sameValue(a: unknown, b: unknown): boolean {
   return false;
 }
 
+/** Compara fechas ISO ya normalizadas o null. */
+function sameIsoInstant(a: string | null, b: string | null): boolean {
+  if (a == null && b == null) return true;
+  if (a == null || b == null) return false;
+  const ta = new Date(a).getTime();
+  const tb = new Date(b).getTime();
+  if (Number.isNaN(ta) || Number.isNaN(tb)) return false;
+  return ta === tb;
+}
+
+function addDaysUtcMidnight(iso: string, days: number): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  d.setUTCDate(d.getUTCDate() + days);
+  d.setUTCHours(0, 0, 0, 0);
+  return d.toISOString();
+}
+
 function computeDaysSince(iso: string | null): number {
   if (!iso) return 0;
   const t = new Date(iso).getTime();
@@ -90,6 +111,8 @@ function normalizeLifecycleForResponse(
   const createdAt = toIsoOrNull(raw?.createdAt) ?? createdAtFallback;
   const soldAt = toIsoOrNull(raw?.soldAt);
   const deliveredAt = toIsoOrNull(raw?.deliveredAt);
+  const estimatedDeliveryAt = toIsoOrNull(raw?.estimatedDeliveryAt);
+  const actualDeliveredAt = toIsoOrNull(raw?.actualDeliveredAt);
   const nextMeetingAt = toIsoOrNull(raw?.nextMeetingAt);
   const commercialStatus = isCommercialStatus(raw?.commercialStatus)
     ? raw?.commercialStatus
@@ -117,6 +140,8 @@ function normalizeLifecycleForResponse(
     createdAt,
     soldAt,
     deliveredAt,
+    estimatedDeliveryAt,
+    actualDeliveredAt,
     nextMeetingAt,
     commercialStatus,
     serverStatusAuto,
@@ -206,11 +231,13 @@ async function appendLifecycleChangeLog(
 ) {
   const prevDisplay = prevValue == null ? "vacío" : String(prevValue);
   const nextDisplay = nextValue == null ? "vacío" : String(nextValue);
+  const reasonSuffix =
+    reasonCode != null && reasonCode.length > 0 ? ` Razón: ${reasonCode}.` : "";
   await appendImplementationActivityEntry(db, agentId, {
     kind: "system",
     actorEmail,
     action: "lifecycle_updated",
-    summary: `Actualizó ${field}: ${prevDisplay} → ${nextDisplay}.`,
+    summary: `Actualizó ${field}: ${prevDisplay} → ${nextDisplay}.${reasonSuffix}`,
     metadata: {
       field,
       previous: prevValue ?? null,
@@ -390,6 +417,21 @@ export async function patchImplementationLifecycle(
       return c.json({ error: "nextMeetingAt debe ser fecha ISO o null" }, 400);
     }
 
+    const estimatedDeliveryAtParsed = parseInputDate(payload.estimatedDeliveryAt);
+    if (payload.estimatedDeliveryAt !== undefined && estimatedDeliveryAtParsed === undefined) {
+      return c.json(
+        { error: "estimatedDeliveryAt debe ser fecha ISO o null" },
+        400,
+      );
+    }
+    const actualDeliveredAtParsed = parseInputDate(payload.actualDeliveredAt);
+    if (payload.actualDeliveredAt !== undefined && actualDeliveredAtParsed === undefined) {
+      return c.json(
+        { error: "actualDeliveredAt debe ser fecha ISO o null" },
+        400,
+      );
+    }
+
     const commercialStatusRaw = payload.commercialStatus;
     if (
       commercialStatusRaw !== undefined &&
@@ -470,6 +512,8 @@ export async function patchImplementationLifecycle(
       : null;
     const currentSoldAt = toIsoOrNull(current.soldAt);
     const currentNextMeetingAt = toIsoOrNull(current.nextMeetingAt);
+    const currentEstimatedDeliveryAt = toIsoOrNull(current.estimatedDeliveryAt);
+    const currentActualDeliveredAt = toIsoOrNull(current.actualDeliveredAt);
     const currentServerOverride = isServerStatus(current.serverStatusOverride)
       ? current.serverStatusOverride
       : null;
@@ -495,14 +539,44 @@ export async function patchImplementationLifecycle(
       patch.commercialStateChangedAt =
         toIsoOrNull(current.createdAt) ?? createdAtFallback ?? new Date().toISOString();
     }
-    if (payload.soldAt !== undefined && !sameValue(currentSoldAt, soldAt)) {
+    if (
+      payload.soldAt !== undefined &&
+      !sameIsoInstant(currentSoldAt, soldAt ?? null)
+    ) {
       patch.soldAt = soldAt;
     }
     if (
       payload.nextMeetingAt !== undefined &&
-      !sameValue(currentNextMeetingAt, nextMeetingAt)
+      !sameIsoInstant(currentNextMeetingAt, nextMeetingAt ?? null)
     ) {
       patch.nextMeetingAt = nextMeetingAt;
+    }
+    if (
+      payload.estimatedDeliveryAt !== undefined &&
+      !sameIsoInstant(
+        currentEstimatedDeliveryAt,
+        estimatedDeliveryAtParsed ?? null,
+      )
+    ) {
+      patch.estimatedDeliveryAt = estimatedDeliveryAtParsed;
+    }
+    if (
+      payload.actualDeliveredAt !== undefined &&
+      !sameIsoInstant(currentActualDeliveredAt, actualDeliveredAtParsed ?? null)
+    ) {
+      patch.actualDeliveredAt = actualDeliveredAtParsed;
+    }
+    if (
+      "soldAt" in patch &&
+      patch.soldAt != null &&
+      typeof patch.soldAt === "string" &&
+      !("estimatedDeliveryAt" in patch) &&
+      currentEstimatedDeliveryAt == null
+    ) {
+      patch.estimatedDeliveryAt = addDaysUtcMidnight(
+        patch.soldAt,
+        DEFAULT_ESTIMATED_DELIVERY_DAYS_AFTER_SOLD,
+      );
     }
     if (commercialStatusRaw !== undefined) {
       if (!sameValue(previousCommercial, commercialStatusRaw)) {
@@ -528,6 +602,8 @@ export async function patchImplementationLifecycle(
     const hasBusinessChanges =
       "soldAt" in patch ||
       "nextMeetingAt" in patch ||
+      "estimatedDeliveryAt" in patch ||
+      "actualDeliveredAt" in patch ||
       "commercialStatus" in patch ||
       "serverStatusOverride" in patch ||
       "autoServerStatus" in patch ||
@@ -567,6 +643,36 @@ export async function patchImplementationLifecycle(
           updatedFrom,
           reasonCode,
           idempotencyKey ? `${idempotencyKey}:nextMeetingAt` : null,
+        ),
+      );
+    }
+    if ("estimatedDeliveryAt" in patch) {
+      logTasks.push(
+        appendLifecycleArtifacts(
+          db,
+          agentId,
+          actorEmail,
+          "estimatedDeliveryAt",
+          currentEstimatedDeliveryAt,
+          patch.estimatedDeliveryAt,
+          updatedFrom,
+          reasonCode,
+          idempotencyKey ? `${idempotencyKey}:estimatedDeliveryAt` : null,
+        ),
+      );
+    }
+    if ("actualDeliveredAt" in patch) {
+      logTasks.push(
+        appendLifecycleArtifacts(
+          db,
+          agentId,
+          actorEmail,
+          "actualDeliveredAt",
+          currentActualDeliveredAt,
+          patch.actualDeliveredAt,
+          updatedFrom,
+          reasonCode,
+          idempotencyKey ? `${idempotencyKey}:actualDeliveredAt` : null,
         ),
       );
     }

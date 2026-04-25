@@ -767,6 +767,8 @@ export async function patchImplementationLifecycle(
   body: {
     soldAt?: string | null;
     nextMeetingAt?: string | null;
+    estimatedDeliveryAt?: string | null;
+    actualDeliveredAt?: string | null;
     commercialStatus?: AgentCommercialStatus;
     serverStatusOverride?: AgentServerStatus | null;
     updatedFrom?: LifecycleUpdatedFrom;

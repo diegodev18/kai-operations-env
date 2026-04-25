@@ -15,7 +15,6 @@ import {
   agentMatchesGrowersSearchQuery,
   agentMatchesRootSearchQuery,
   agentMatchesSearchQuery,
-  buildLightAgent,
   fetchGrowersForAgent,
   isGrowerCursor,
   normalizeAgentsSearchQuery,
@@ -23,6 +22,7 @@ import {
   parseAgentDocFromData,
   parseBillingDoc,
 } from "@/utils/agents";
+import { lifecycleSummaryFromFirestoreData } from "@/utils/agents/lifecycle-doc";
 import {
   extractFirestoreIndexUrl,
   firestoreFailureHint,
@@ -80,6 +80,7 @@ async function buildLightAgentWithDeployment(
     agentRef.collection("properties").doc("prompt").get(),
     agentRef.collection("properties").doc("response").get(),
     agentRef.collection("billing").doc("main").get(),
+    agentRef.collection("implementation").doc("lifecycle").get(),
   ];
 
   let growersIdx: number | undefined;
@@ -95,13 +96,21 @@ async function buildLightAgentWithDeployment(
   }
 
   const results = await Promise.all(fetchTasks);
-  const [agentSnap, aiSnap, promptSnap, responseSnap, billingSnap] = results.slice(0, 5) as [
-    FirebaseFirestore.DocumentSnapshot,
-    FirebaseFirestore.DocumentSnapshot,
-    FirebaseFirestore.DocumentSnapshot,
-    FirebaseFirestore.DocumentSnapshot,
-    FirebaseFirestore.DocumentSnapshot,
-  ];
+  const [agentSnap, aiSnap, promptSnap, responseSnap, billingSnap, lifecycleSnap] =
+    results.slice(0, 6) as [
+      FirebaseFirestore.DocumentSnapshot,
+      FirebaseFirestore.DocumentSnapshot,
+      FirebaseFirestore.DocumentSnapshot,
+      FirebaseFirestore.DocumentSnapshot,
+      FirebaseFirestore.DocumentSnapshot,
+      FirebaseFirestore.DocumentSnapshot,
+    ];
+
+  const lifecycleSummary = lifecycleSnap.exists
+    ? lifecycleSummaryFromFirestoreData(
+        lifecycleSnap.data() as Record<string, unknown>,
+      )
+    : undefined;
 
   if (growers === undefined && growersIdx !== undefined) {
     const growersSnap = results[growersIdx] as FirebaseFirestore.QuerySnapshot;
@@ -178,6 +187,7 @@ async function buildLightAgentWithDeployment(
     waitTime: Number.isFinite(waitTime) ? waitTime : undefined,
     billing: billingSnap.exists ? parseBillingDoc(billingSnap) : undefined,
     status,
+    ...(lifecycleSummary != null ? { lifecycleSummary } : {}),
   };
 }
 

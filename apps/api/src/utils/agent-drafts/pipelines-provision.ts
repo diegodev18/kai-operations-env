@@ -4,7 +4,10 @@ import { serverTimestampField } from "@/constants/agent-property-defaults";
 import logger from "@/lib/logger";
 
 import { USERS_BUILDERS } from "./constants";
-import { detectAreaCodeFromPhoneNumber } from "./phone-region";
+import {
+  detectAreaCodeFromPhoneNumber,
+  extractRawNationalPhoneDigits,
+} from "./phone-region";
 
 type DraftStage = {
   id: string;
@@ -290,6 +293,9 @@ export async function provisionAgentAfterComplete(
         name: ownerName,
         email: ownerEmail,
         phoneNumber: ownerPhone,
+        rawPhoneNumber: ownerPhone.trim()
+          ? extractRawNationalPhoneDigits(ownerPhone)
+          : "",
         role: "Administrador",
         areaCode,
         usersBuildersId: ownerUserId,

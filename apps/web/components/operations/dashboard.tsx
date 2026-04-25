@@ -71,11 +71,13 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { COMMERCIAL_STATUS_LABELS_ES } from "@/consts/agent-lifecycle";
 import type {
   AgentOperationalStatus,
   AgentWithOperations,
   PaymentRecord,
 } from "@/lib/agents/agent";
+import type { AgentCommercialStatus } from "@/types";
 import {
   AGENTS_PAGE_SIZE,
   type AgentGrowerRow,
@@ -967,6 +969,9 @@ export function OperationsDashboard(props: {
                     <th className="p-3 text-left font-medium w-8"></th>
                     <th className="p-3 text-left font-medium">Agente</th>
                     <th className="p-3 text-left font-medium">Estatus</th>
+                    <th className="p-3 text-left font-medium min-w-[9rem]">
+                      Implementación
+                    </th>
                     <th className="p-3 text-left font-medium">Cobranza</th>
                     <th className="p-3 text-left font-medium">Growers</th>
                     {isAdmin ? (
@@ -986,6 +991,9 @@ export function OperationsDashboard(props: {
                           <div className="h-5 w-16 bg-muted animate-pulse rounded" />
                         </td>
                         <td className="p-3">
+                          <div className="h-5 w-28 bg-muted animate-pulse rounded" />
+                        </td>
+                        <td className="p-3">
                           <div className="h-5 w-20 bg-muted animate-pulse rounded" />
                         </td>
                         <td className="p-3">
@@ -996,7 +1004,7 @@ export function OperationsDashboard(props: {
                   ) : !isLoading && orderedAgents.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={isAdmin ? 6 : 5}
+                        colSpan={isAdmin ? 7 : 6}
                         className="p-12 text-center text-muted-foreground"
                       >
                         No hay agentes que mostrar
@@ -1011,7 +1019,7 @@ export function OperationsDashboard(props: {
                         archivedAgents.length > 0 ? (
                           <tr className="bg-muted/30">
                             <td
-                              colSpan={isAdmin ? 6 : 5}
+                              colSpan={isAdmin ? 7 : 6}
                               className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
                             >
                               Archivados ({archivedAgents.length})
@@ -1187,6 +1195,38 @@ export function OperationsDashboard(props: {
                               </Badge>
                             )}
                           </td>
+                          <td className="p-3 text-muted-foreground align-top">
+                            {(() => {
+                              const comm = (agent.lifecycleSummary
+                                ?.commercialStatus ??
+                                "building") as AgentCommercialStatus;
+                              if (comm === "delivered") {
+                                return null;
+                              }
+                              const est =
+                                agent.lifecycleSummary?.estimatedDeliveryAt;
+                              return (
+                                <div className="flex flex-col gap-0.5 text-xs">
+                                  <span className="font-medium text-foreground">
+                                    {COMMERCIAL_STATUS_LABELS_ES[comm]}
+                                  </span>
+                                  {est ? (
+                                    <span>
+                                      Est.{" "}
+                                      {new Date(est).toLocaleDateString(
+                                        "es-MX",
+                                        { dateStyle: "short" },
+                                      )}
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground/80">
+                                      Sin fecha estimada
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </td>
                           <td className="p-3">
                             <div className="flex items-center gap-2">
                               {agent.billing.domiciliated === true ? (
@@ -1316,7 +1356,7 @@ export function OperationsDashboard(props: {
                         </tr>
                         {expandedAgentId === agent.id && (
                           <tr className="bg-muted/30">
-                            <td colSpan={isAdmin ? 6 : 5} className="p-4">
+                            <td colSpan={isAdmin ? 7 : 6} className="p-4">
                               {agent.billing.domiciliated === true ? (
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                   <Building2Icon className="size-4" />

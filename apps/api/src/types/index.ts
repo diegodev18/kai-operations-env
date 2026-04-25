@@ -2,6 +2,7 @@ export type {
   AgentDocument,
   AgentsInfoAuthContext,
   AgentBilling,
+  AgentLifecycleSummary,
   LightAgent,
   ImplementationTaskStatus,
   ImplementationTaskPayload,

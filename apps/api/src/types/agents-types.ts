@@ -1,5 +1,7 @@
 import type { QueryDocumentSnapshot } from "firebase-admin/firestore";
 
+import type { CommercialStatus } from "@/constants/implementation-lifecycle";
+
 import type { GrowerPayload, TechLeadPayload } from "./agent-collaborators";
 
 export type AgentsInfoAuthContext = {
@@ -21,10 +23,17 @@ export interface AgentBilling {
   paymentAlert: boolean;
 }
 
+export interface AgentLifecycleSummary {
+  commercialStatus: CommercialStatus;
+  estimatedDeliveryAt: string | null;
+}
+
 export interface LightAgent {
   enabled: boolean;
   growers: GrowerPayload[];
   techLeads?: TechLeadPayload[];
+  /** Proyección mínima de `implementation/lifecycle` para listados. */
+  lifecycleSummary?: AgentLifecycleSummary;
   id: string;
   injectCommandsInPrompt?: boolean;
   isMultiMessageResponseEnable?: boolean;

@@ -62,12 +62,26 @@ function formatDateTime(value: string | null): string {
   });
 }
 
+function sameLifecycleInstant(
+  a: string | null | undefined,
+  b: string | null | undefined,
+): boolean {
+  const x = a ?? null;
+  const y = b ?? null;
+  if (x === null && y === null) return true;
+  if (x === null || y === null) return false;
+  return new Date(x).getTime() === new Date(y).getTime();
+}
+
 export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [data, setData] = useState<AgentImplementationLifecycle | null>(null);
   const [soldAtInput, setSoldAtInput] = useState("");
   const [nextMeetingAtInput, setNextMeetingAtInput] = useState("");
+  const [estimatedDeliveryAtInput, setEstimatedDeliveryAtInput] =
+    useState("");
+  const [actualDeliveredAtInput, setActualDeliveredAtInput] = useState("");
   const [commercialStatus, setCommercialStatus] =
     useState<AgentCommercialStatus>("building");
   const [serverStatusOverride, setServerStatusOverride] = useState<
@@ -79,6 +93,10 @@ export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
     setData(next);
     setSoldAtInput(toDateInputValue(next.soldAt));
     setNextMeetingAtInput(toDateInputValue(next.nextMeetingAt));
+    setEstimatedDeliveryAtInput(
+      toDateInputValue(next.estimatedDeliveryAt ?? null),
+    );
+    setActualDeliveredAtInput(toDateInputValue(next.actualDeliveredAt ?? null));
     setCommercialStatus(next.commercialStatus);
     setServerStatusOverride(next.serverStatusOverride ?? "auto");
     setReasonCode(next.reasonCode ?? "");
@@ -116,8 +134,22 @@ export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
   const hasChanges = useMemo(() => {
     if (!data) return false;
     return (
-      toIsoFromDateInput(soldAtInput) !== data.soldAt ||
-      toIsoFromDateInput(nextMeetingAtInput) !== data.nextMeetingAt ||
+      !sameLifecycleInstant(
+        toIsoFromDateInput(soldAtInput),
+        data.soldAt ?? null,
+      ) ||
+      !sameLifecycleInstant(
+        toIsoFromDateInput(nextMeetingAtInput),
+        data.nextMeetingAt ?? null,
+      ) ||
+      !sameLifecycleInstant(
+        toIsoFromDateInput(estimatedDeliveryAtInput),
+        data.estimatedDeliveryAt ?? null,
+      ) ||
+      !sameLifecycleInstant(
+        toIsoFromDateInput(actualDeliveredAtInput),
+        data.actualDeliveredAt ?? null,
+      ) ||
       commercialStatus !== data.commercialStatus ||
       (serverStatusOverride === "auto" ? null : serverStatusOverride) !==
         data.serverStatusOverride ||
@@ -125,7 +157,9 @@ export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
     );
   }, [
     commercialStatus,
+    actualDeliveredAtInput,
     data,
+    estimatedDeliveryAtInput,
     nextMeetingAtInput,
     reasonCode,
     serverStatusOverride,
@@ -139,6 +173,8 @@ export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
       const result = await patchImplementationLifecycle(agentId, {
         soldAt: toIsoFromDateInput(soldAtInput),
         nextMeetingAt: toIsoFromDateInput(nextMeetingAtInput),
+        estimatedDeliveryAt: toIsoFromDateInput(estimatedDeliveryAtInput),
+        actualDeliveredAt: toIsoFromDateInput(actualDeliveredAtInput),
         commercialStatus,
         serverStatusOverride:
           serverStatusOverride === "auto" ? null : serverStatusOverride,
@@ -161,8 +197,10 @@ export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
     }
   }, [
     agentId,
+    actualDeliveredAtInput,
     commercialStatus,
     data,
+    estimatedDeliveryAtInput,
     hasChanges,
     hydrateForm,
     nextMeetingAtInput,
@@ -195,7 +233,18 @@ export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
       rows: [
         { label: "Creación", value: formatDateTime(data.createdAt) },
         { label: "Venta", value: formatDateTime(data.soldAt) },
-        { label: "Entrega", value: formatDateTime(data.deliveredAt) },
+        {
+          label: "Activación técnica (auto)",
+          value: formatDateTime(data.deliveredAt),
+        },
+        {
+          label: "Entrega estimada",
+          value: formatDateTime(data.estimatedDeliveryAt ?? null),
+        },
+        {
+          label: "Entrega real",
+          value: formatDateTime(data.actualDeliveredAt ?? null),
+        },
         { label: "Próxima reunión", value: formatDateTime(data.nextMeetingAt) },
       ],
     },
@@ -252,7 +301,7 @@ export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
           <Input value={formatDateTime(data.createdAt)} readOnly />
         </div>
         <div className="space-y-2">
-          <Label>Fecha de entrega (automática)</Label>
+          <Label>Activación técnica (WhatsApp activo, automático)</Label>
           <Input value={formatDateTime(data.deliveredAt)} readOnly />
         </div>
         <div className="space-y-2">
@@ -263,6 +312,10 @@ export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
             value={soldAtInput}
             onChange={(e) => setSoldAtInput(e.target.value)}
           />
+          <p className="text-xs text-muted-foreground">
+            Si guardas la venta y aún no hay fecha estimada, se propone venta +
+            30 días.
+          </p>
         </div>
         <div className="space-y-2">
           <Label htmlFor="nextMeetingAt">Fecha de próxima reunión</Label>
@@ -271,6 +324,24 @@ export function AgentLifecycleStatusPanel({ agentId }: { agentId: string }) {
             type="date"
             value={nextMeetingAtInput}
             onChange={(e) => setNextMeetingAtInput(e.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="estimatedDeliveryAt">Fecha de entrega estimada</Label>
+          <Input
+            id="estimatedDeliveryAt"
+            type="date"
+            value={estimatedDeliveryAtInput}
+            onChange={(e) => setEstimatedDeliveryAtInput(e.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="actualDeliveredAt">Fecha de entrega real</Label>
+          <Input
+            id="actualDeliveredAt"
+            type="date"
+            value={actualDeliveredAtInput}
+            onChange={(e) => setActualDeliveredAtInput(e.target.value)}
           />
         </div>
       </section>

@@ -78,6 +78,10 @@ export type AgentImplementationLifecycle = {
   createdAt: string | null;
   soldAt: string | null;
   deliveredAt: string | null;
+  /** Fecha estimada de entrega (negocio); auto si hay venta y aún no existía. */
+  estimatedDeliveryAt: string | null;
+  /** Fecha de entrega real (editable). */
+  actualDeliveredAt: string | null;
   nextMeetingAt: string | null;
   commercialStatus: AgentCommercialStatus;
   serverStatus: AgentServerStatus;
@@ -91,6 +95,12 @@ export type AgentImplementationLifecycle = {
   serverStateChangedAt: string | null;
   daysInCommercialState: number;
   daysInServerState: number;
+};
+
+/** Subconjunto de lifecycle en `GET /api/agents/info?light=1`. */
+export type AgentLifecycleSummary = {
+  commercialStatus: AgentCommercialStatus;
+  estimatedDeliveryAt: string | null;
 };
 
 /** Respuesta de GET .../whatsapp-integration-status (sin datos sensibles). */
