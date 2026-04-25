@@ -48,8 +48,10 @@ import {
   deleteAgentTechLead,
 } from "@/services/agents-api";
 import { fetchDynamicTableSchemas } from "@/services/dynamic-table-schemas-api";
-import { useEnvironment } from "@/contexts/EnvironmentContext";
 import type { DynamicTableSchemaDocument } from "@/types/dynamic-table-schema";
+
+/** Esquemas viven en Firestore de KAI (producción), no en el proyecto asistente comercial (`testing` en API). */
+const DYNAMIC_SCHEMAS_API_ENV = "production" as const;
 import {
   fetchOrganizationMe,
   fetchOrganizationUsers,
@@ -121,7 +123,6 @@ export function AgentConfigurationEditor({
   >("auto");
   const [savingFirestoreDataMode, setSavingFirestoreDataMode] = useState(false);
   const { data: diffData, isLoading: isDiffLoading, refetch: refetchDiff } = useTestingDiff(agentId);
-  const { environment } = useEnvironment();
   const [availableSchemas, setAvailableSchemas] = useState<DynamicTableSchemaDocument[]>([]);
   const [schemasLoading, setSchemasLoading] = useState(false);
   const [schemasListError, setSchemasListError] = useState<string | null>(null);
@@ -198,7 +199,7 @@ export function AgentConfigurationEditor({
     setSchemasLoading(true);
     setSchemasListError(null);
     void (async () => {
-      const res = await fetchDynamicTableSchemas(environment);
+      const res = await fetchDynamicTableSchemas(DYNAMIC_SCHEMAS_API_ENV);
       if (cancelled) return;
       setSchemasLoading(false);
       if (res.ok) {
@@ -211,7 +212,7 @@ export function AgentConfigurationEditor({
     return () => {
       cancelled = true;
     };
-  }, [agentId, environment]);
+  }, [agentId]);
 
   useEffect(() => {
     if (!isGrowersDialogOpen || !agentId) {
@@ -684,7 +685,7 @@ export function AgentConfigurationEditor({
       const res = await patchAgentAllowedDynamicTableSchemas(
         agentId,
         { schemaIds: selectedAllowedSchemaIds },
-        environment,
+        DYNAMIC_SCHEMAS_API_ENV,
       );
       if (res.ok) {
         setSelectedAllowedSchemaIds(res.allowedSchemasIds);
@@ -696,7 +697,7 @@ export function AgentConfigurationEditor({
     } finally {
       setSavingAllowedSchemas(false);
     }
-  }, [agentId, selectedAllowedSchemaIds, environment, onAgentUpdated]);
+  }, [agentId, selectedAllowedSchemaIds, onAgentUpdated]);
 
   if (!agentId) return null;
 
@@ -1426,9 +1427,8 @@ export function AgentConfigurationEditor({
                     Esquemas de tablas dinámicas
                   </h3>
                   <p className="text-xs text-muted-foreground">
-                    La lista de esquemas depende del ambiente seleccionado en la barra superior (
-                    {environment === "production" ? "producción" : "testing"}). Solo se pueden asignar
-                    esquemas que existan en ese ambiente.
+                    Los esquemas se cargan desde el proyecto KAI (productividad), no desde el asistente
+                    comercial. Solo puedes asignar esquemas que existan en esa base.
                   </p>
                   {schemasListError ? (
                     <p className="text-sm text-destructive">{schemasListError}</p>
