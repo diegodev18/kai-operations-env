@@ -36,6 +36,8 @@ export {
 export { useTestingData } from "./agents/testing-data";
 export { useTestingDiff } from "./agents/testing/testing-diff";
 export type { TestingDiffItem } from "./agents/testing/testing-diff";
+export { useConfigurationEditorTeamManagement } from "./agents/configuration-editor/team-management";
+export { useConfigurationEditorDynamicSchemas } from "./agents/configuration-editor/dynamic-schemas";
 
 export { useDynamicTableSchemasList } from "./dynamic-tables/dynamic-table-schemas-list";
 export { useDynamicTableSchemaDetail } from "./dynamic-tables/dynamic-table-schema-detail";
