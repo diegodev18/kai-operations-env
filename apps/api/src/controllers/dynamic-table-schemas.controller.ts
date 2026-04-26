@@ -5,6 +5,7 @@ import type { DocumentData } from "firebase-admin/firestore";
 import { FieldValue, getFirestoreForEnvironment } from "@/lib/firestore";
 import type { FirestoreEnvironment } from "@/lib/firestore";
 import logger, { formatError } from "@/lib/logger";
+import { auth } from "@/lib/auth";
 import { requireAdmin, stripUndefinedDeep } from "@/utils/database/admin-operations";
 import {
   dynamicTableSchemaCreateBodySchema,
@@ -135,8 +136,8 @@ export async function getDynamicTableSchema(c: Context) {
 }
 
 export async function createDynamicTableSchema(c: Context) {
-  const adminCheck = await requireAdmin(c);
-  if ("error" in adminCheck) return adminCheck.error;
+  const session = await auth.api.getSession({ headers: c.req.raw.headers });
+  if (!session?.user) return c.json({ error: "No autorizado" }, 401);
 
   const env = parseEnvironment(c);
   if (!env) return c.json({ error: "Environment inválido" }, 400);
