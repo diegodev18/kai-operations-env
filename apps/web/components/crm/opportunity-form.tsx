@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -24,6 +24,10 @@ import type {
   CrmOpportunityStage,
 } from "@/types";
 import { CRM_OPPORTUNITY_STAGE_LABELS } from "@/types";
+import {
+  fetchOrganizationUsers,
+  type OrganizationUser,
+} from "@/services/organization-api";
 
 const STAGES = Object.entries(CRM_OPPORTUNITY_STAGE_LABELS) as [
   CrmOpportunityStage,
@@ -100,6 +104,16 @@ export function OpportunityFormDialog({
           companyName: defaultComp?.name,
         }),
   );
+  const [users, setUsers] = useState<OrganizationUser[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    fetchOrganizationUsers()
+      .then((res) => {
+        if (res) setUsers(res.users);
+      })
+      .catch(() => undefined);
+  }, [open]);
 
   const set = (key: keyof CrmOpportunityInput, value: unknown) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -233,11 +247,27 @@ export function OpportunityFormDialog({
 
             <div>
               <label className="mb-1 block text-xs font-medium">Implementador</label>
-              <Input
+              <Select
                 value={form.implementerName ?? ""}
-                onChange={(e) => set("implementerName", e.target.value)}
-                placeholder="Quién lo implementa"
-              />
+                onValueChange={(v) => set("implementerName", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Quién lo implementa" />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.map((u) => (
+                    <SelectItem key={u.id} value={u.name}>
+                      <span className="font-medium">{u.name}</span>
+                      <span className="ml-1.5 text-xs text-muted-foreground">{u.email}</span>
+                    </SelectItem>
+                  ))}
+                  {users.length === 0 && (
+                    <div className="px-2 py-3 text-center text-xs text-muted-foreground">
+                      Cargando usuarios…
+                    </div>
+                  )}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="col-span-2">

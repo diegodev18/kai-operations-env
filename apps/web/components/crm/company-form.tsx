@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -19,6 +19,10 @@ import {
 } from "@/components/ui/select";
 import type { CrmCompany, CrmCompanyInput, CrmCompanyStatus } from "@/types";
 import { CRM_COMPANY_STATUS_LABELS } from "@/types";
+import {
+  fetchOrganizationUsers,
+  type OrganizationUser,
+} from "@/services/organization-api";
 
 const STATUSES = Object.entries(CRM_COMPANY_STATUS_LABELS) as [
   CrmCompanyStatus,
@@ -36,6 +40,32 @@ const INDUSTRIES = [
   "Tecnología",
   "Manufactura",
   "Transporte",
+  "Otro",
+];
+
+const COUNTRIES = [
+  "México",
+  "Argentina",
+  "Bolivia",
+  "Brasil",
+  "Chile",
+  "Colombia",
+  "Costa Rica",
+  "Cuba",
+  "Ecuador",
+  "El Salvador",
+  "España",
+  "Estados Unidos",
+  "Guatemala",
+  "Honduras",
+  "Nicaragua",
+  "Panamá",
+  "Paraguay",
+  "Perú",
+  "Puerto Rico",
+  "República Dominicana",
+  "Uruguay",
+  "Venezuela",
   "Otro",
 ];
 
@@ -76,6 +106,40 @@ function companyToForm(c: CrmCompany): CrmCompanyInput {
   };
 }
 
+interface UserPickerProps {
+  label: string;
+  value: string;
+  users: OrganizationUser[];
+  onChange: (name: string) => void;
+  placeholder?: string;
+}
+
+function UserPicker({ label, value, users, onChange, placeholder }: UserPickerProps) {
+  return (
+    <div>
+      <label className="mb-1 block text-xs font-medium">{label}</label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger>
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent>
+          {users.map((u) => (
+            <SelectItem key={u.id} value={u.name}>
+              <span className="font-medium">{u.name}</span>
+              <span className="ml-1.5 text-xs text-muted-foreground">{u.email}</span>
+            </SelectItem>
+          ))}
+          {users.length === 0 && (
+            <div className="px-2 py-3 text-center text-xs text-muted-foreground">
+              Cargando usuarios…
+            </div>
+          )}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
 interface CompanyFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -94,6 +158,16 @@ export function CompanyFormDialog({
   const [form, setForm] = useState<CrmCompanyInput>(() =>
     initial ? companyToForm(initial) : emptyForm(),
   );
+  const [users, setUsers] = useState<OrganizationUser[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    fetchOrganizationUsers()
+      .then((res) => {
+        if (res) setUsers(res.users);
+      })
+      .catch(() => undefined);
+  }, [open]);
 
   const set = (key: keyof CrmCompanyInput, value: unknown) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -168,23 +242,21 @@ export function CompanyFormDialog({
               </Select>
             </div>
 
-            <div>
-              <label className="mb-1 block text-xs font-medium">Owner</label>
-              <Input
-                value={form.ownerName ?? ""}
-                onChange={(e) => set("ownerName", e.target.value)}
-                placeholder="Responsable comercial"
-              />
-            </div>
+            <UserPicker
+              label="Owner"
+              value={form.ownerName ?? ""}
+              users={users}
+              onChange={(name) => set("ownerName", name)}
+              placeholder="Responsable comercial"
+            />
 
-            <div>
-              <label className="mb-1 block text-xs font-medium">Grower</label>
-              <Input
-                value={form.growerName ?? ""}
-                onChange={(e) => set("growerName", e.target.value)}
-                placeholder="Implementador"
-              />
-            </div>
+            <UserPicker
+              label="Grower"
+              value={form.growerName ?? ""}
+              users={users}
+              onChange={(name) => set("growerName", name)}
+              placeholder="Implementador"
+            />
 
             <div>
               <label className="mb-1 block text-xs font-medium">MRR (MXN)</label>
@@ -204,11 +276,21 @@ export function CompanyFormDialog({
 
             <div>
               <label className="mb-1 block text-xs font-medium">País</label>
-              <Input
+              <Select
                 value={form.country ?? ""}
-                onChange={(e) => set("country", e.target.value)}
-                placeholder="México"
-              />
+                onValueChange={(v) => set("country", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar país" />
+                </SelectTrigger>
+                <SelectContent>
+                  {COUNTRIES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="col-span-2">
