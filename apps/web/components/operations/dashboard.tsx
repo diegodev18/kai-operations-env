@@ -7,7 +7,9 @@ import {
   ArchiveRestoreIcon,
   BanknoteIcon,
   BookOpenIcon,
+  BriefcaseIcon,
   Building2Icon,
+  BuildingIcon,
   CalendarIcon,
   CheckCircleIcon,
   ChevronDownIcon,
@@ -129,7 +131,8 @@ export function OperationsDashboard(props: {
   /** Primitivos derivados: el objeto `searchParams` cambia de referencia en cada render. */
   const urlQ = searchParams.get("q") ?? "";
   const queryString = searchParams.toString();
-  const { isAdmin } = useUserRole();
+  const { isAdmin, role } = useUserRole();
+  const isCommercial = role === "commercial";
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   /** Texto de búsqueda aplicado al API (debounce 300 ms; vacío al limpiar al instante). */
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -721,6 +724,30 @@ export function OperationsDashboard(props: {
                 <MegaphoneIcon className="size-4" />
                 Actualidad
               </Link>
+              {(isAdmin || isCommercial) && (
+                <>
+                  <div className="my-2 border-t" />
+                  <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    CRM
+                  </div>
+                  <Link
+                    href="/crm/companies"
+                    className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    <BuildingIcon className="size-4" />
+                    Empresas
+                  </Link>
+                  <Link
+                    href="/crm/opportunities"
+                    className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    <BriefcaseIcon className="size-4" />
+                    Oportunidades
+                  </Link>
+                </>
+              )}
               <div className="my-2 border-t" />
               {isAdmin && (
                 <>

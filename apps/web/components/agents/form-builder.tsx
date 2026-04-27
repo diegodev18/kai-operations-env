@@ -66,6 +66,7 @@ import {
   type SavedBuilderCompany,
   type ToolFlowsMarkdownPayload,
 } from "@/services/agents-api";
+import { fetchCrmCompany, updateCrmOpportunity } from "@/services/crm-api";
 import {
   PromptMarkdownEditor,
   PromptMarkdownViewToggle,
@@ -831,6 +832,8 @@ export function AgentFormBuilder() {
   const { tools: catalog, isLoading: isLoadingCatalog } = useToolsCatalog();
   const userName = session?.user?.name ?? session?.user?.email ?? "";
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [crmCompanyId, setCrmCompanyId] = useState<string | null>(null);
+  const [crmOpportunityId, setCrmOpportunityId] = useState<string | null>(null);
 
   const [state, setState] = useState<FormBuilderState>(() => ({
     ...DEFAULT_FORM_STATE,
@@ -984,6 +987,35 @@ export function AgentFormBuilder() {
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasUnsavedChanges]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const companyId = params.get("crmCompanyId");
+    const opportunityId = params.get("crmOpportunityId");
+    if (companyId) setCrmCompanyId(companyId);
+    if (opportunityId) setCrmOpportunityId(opportunityId);
+    if (!companyId) return;
+
+    void (async () => {
+      const res = await fetchCrmCompany(companyId);
+      if (!res.ok) return;
+      const c = res.company;
+      setState((prev) => ({
+        ...prev,
+        business_name: c.name || prev.business_name,
+        industry: c.industry || prev.industry,
+        description: c.description || prev.description,
+        target_audience: c.targetAudience || prev.target_audience,
+        agent_description: c.agentDescription || prev.agent_description,
+        escalation_rules: c.escalationRules || prev.escalation_rules,
+        country: c.country || prev.country,
+        business_timezone: c.businessTimezone || prev.business_timezone,
+        brandValues: c.brandValues ?? prev.brandValues,
+        policies: c.policies || prev.policies,
+      }));
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (currentSection !== "flows") return;
@@ -1462,6 +1494,10 @@ export function AgentFormBuilder() {
 
       await patchAgentDraft(draftId, { step: "complete" });
 
+      if (crmOpportunityId) {
+        await updateCrmOpportunity(crmOpportunityId, { agentId: draftId });
+      }
+
       const promptDesignUrl = `/agents/${encodeURIComponent(draftId)}/prompt-design`;
       let didNavigate = false;
       let redirectTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -1491,7 +1527,7 @@ export function AgentFormBuilder() {
     } finally {
       setIsSaving(false);
     }
-  }, [state, canProceed]);
+  }, [state, canProceed, crmOpportunityId]);
 
   const renderSection = () => {
     const sectionProps: SectionProps = {

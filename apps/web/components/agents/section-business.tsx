@@ -1,13 +1,19 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { Loader2Icon, ChevronDownIcon } from "lucide-react";
+import { Loader2Icon, ChevronDownIcon, BuildingIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -16,8 +22,10 @@ import {
   type SavedBuilderCompany,
   type ToolsCatalogItem,
 } from "@/services/agents-api";
+import { fetchCrmCompanies } from "@/services/crm-api";
 import { EscalationRulesInput, StringListInput } from "@/components/shared";
-import type { FormBuilderState } from "@/types";
+import type { CrmCompany, FormBuilderState } from "@/types";
+import { useUserRole } from "@/hooks";
 
 interface SectionBusinessProps {
   state: FormBuilderState;
@@ -51,6 +59,22 @@ function builderCompanyPayloadToPartialState(
   };
 }
 
+function crmCompanyToPartialState(c: CrmCompany): Partial<FormBuilderState> {
+  return {
+    business_name: c.name,
+    industry: c.industry ?? "",
+    custom_industry: "",
+    description: c.description ?? "",
+    target_audience: c.targetAudience ?? "",
+    agent_description: c.agentDescription ?? "",
+    escalation_rules: c.escalationRules ?? "",
+    country: c.country ?? "",
+    business_timezone: c.businessTimezone ?? "",
+    brandValues: c.brandValues ?? [],
+    policies: c.policies ?? "",
+  };
+}
+
 export function SectionBusiness({
   state,
   onChange,
@@ -60,6 +84,10 @@ export function SectionBusiness({
   onEditingSavedCompanyIdChange,
   saveBusinessProfileToFirestore,
 }: SectionBusinessProps) {
+  const { role, isAdmin } = useUserRole();
+  const isCommercial = role === "commercial";
+  const canUseCrm = isAdmin || isCommercial;
+
   const [savedCompanies, setSavedCompanies] = useState<SavedBuilderCompany[]>(
     [],
   );
@@ -67,6 +95,11 @@ export function SectionBusiness({
   const [savedSearch, setSavedSearch] = useState("");
   const [savingCompany, setSavingCompany] = useState(false);
   const [savedMenuOpen, setSavedMenuOpen] = useState(false);
+
+  const [crmDialogOpen, setCrmDialogOpen] = useState(false);
+  const [crmCompanies, setCrmCompanies] = useState<CrmCompany[]>([]);
+  const [crmLoading, setCrmLoading] = useState(false);
+  const [crmSearch, setCrmSearch] = useState("");
 
   useEffect(() => {
     if (userName && !state.owner_name) {
@@ -122,6 +155,40 @@ export function SectionBusiness({
       savedCompanies.find((s) => s.id === editingSavedCompanyId)?.name ?? null
     );
   }, [editingSavedCompanyId, savedCompanies]);
+
+  const openCrmDialog = useCallback(async () => {
+    setCrmDialogOpen(true);
+    if (crmCompanies.length === 0) {
+      setCrmLoading(true);
+      const res = await fetchCrmCompanies();
+      setCrmLoading(false);
+      if (res.ok) {
+        setCrmCompanies(res.companies);
+      } else {
+        toast.error(res.error);
+      }
+    }
+  }, [crmCompanies.length]);
+
+  const applyCrmCompany = useCallback(
+    (c: CrmCompany) => {
+      onChange(crmCompanyToPartialState(c));
+      toast.success(`Datos de «${c.name}» cargados desde CRM`);
+      setCrmDialogOpen(false);
+      setCrmSearch("");
+    },
+    [onChange],
+  );
+
+  const filteredCrmCompanies = useMemo(() => {
+    const q = crmSearch.trim().toLowerCase();
+    if (!q) return crmCompanies;
+    return crmCompanies.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        (c.industry ?? "").toLowerCase().includes(q),
+    );
+  }, [crmCompanies, crmSearch]);
 
   const handleSaveCompanyProfile = useCallback(async () => {
     if (!saveBusinessProfileToFirestore) return;
@@ -248,8 +315,67 @@ export function SectionBusiness({
               Guardar como nuevo
             </Button>
           ) : null}
+          {canUseCrm && (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 w-full sm:w-auto"
+              onClick={() => void openCrmDialog()}
+            >
+              <BuildingIcon className="mr-2 size-4" />
+              Desde CRM
+            </Button>
+          )}
         </div>
       </div>
+
+      <Dialog open={crmDialogOpen} onOpenChange={setCrmDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cargar empresa desde CRM</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              placeholder="Buscar por nombre o sector…"
+              value={crmSearch}
+              onChange={(e) => setCrmSearch(e.target.value)}
+              autoFocus
+            />
+            <div className="max-h-64 overflow-y-auto">
+              {crmLoading ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2Icon className="size-4 animate-spin text-muted-foreground" />
+                </div>
+              ) : filteredCrmCompanies.length === 0 ? (
+                <p className="py-4 text-center text-sm text-muted-foreground">
+                  {crmCompanies.length === 0
+                    ? "No hay empresas en el CRM."
+                    : "Sin coincidencias."}
+                </p>
+              ) : (
+                filteredCrmCompanies.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className="w-full rounded-md px-3 py-2 text-left hover:bg-accent/50"
+                    onClick={() => applyCrmCompany(c)}
+                  >
+                    <span className="block font-medium leading-tight">
+                      {c.name}
+                    </span>
+                    {c.industry ? (
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        {c.industry}
+                        {c.ownerName ? ` · ${c.ownerName}` : ""}
+                      </span>
+                    ) : null}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div>
         <label className="text-sm font-medium">

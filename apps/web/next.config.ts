@@ -55,6 +55,10 @@ const nextConfig: NextConfig = {
         source: "/api/changelogs/:path*",
         destination: `${API_INTERNAL_URL}/api/changelogs/:path*`,
       },
+      {
+        source: "/api/crm/:path*",
+        destination: `${API_INTERNAL_URL}/api/crm/:path*`,
+      },
     ];
   },
 };

@@ -12,6 +12,7 @@ import { favoritesRouter } from "@/routes/favorites.route";
 import { healthRouter } from "@/routes/health.route";
 import { organizationRouter } from "@/routes/organization.route";
 import { promptRouter } from "@/routes/prompt.route";
+import { crmRouter } from "@/routes/crm.route";
 
 export const api = new Hono();
 
@@ -27,3 +28,4 @@ api.route("/favorites", favoritesRouter);
 api.route("/builder/saved-companies", builderSavedCompaniesRouter);
 api.route("/organization", organizationRouter);
 api.route("/prompt", promptRouter);
+api.route("/crm", crmRouter);
