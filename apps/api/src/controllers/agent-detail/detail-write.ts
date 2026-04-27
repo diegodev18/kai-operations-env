@@ -102,26 +102,6 @@ export async function updateAgentPropertyDocument(
       : agentRef.collection("properties").doc(documentId);
     await docRef.set(body as Record<string, unknown>, { merge: true });
 
-    if (documentId === "ai") {
-      const aiBody = body as Record<string, unknown>;
-      const model =
-        typeof aiBody.model === "string" && aiBody.model.trim() !== ""
-          ? aiBody.model
-          : null;
-      const temperature =
-        aiBody.temperature !== undefined &&
-        aiBody.temperature !== null &&
-        Number.isFinite(Number(aiBody.temperature))
-          ? Number(aiBody.temperature)
-          : null;
-      const updateData: Record<string, unknown> = {};
-      if (model !== null) updateData["ai.model"] = model;
-      if (temperature !== null) updateData["ai.temperature"] = temperature;
-      if (Object.keys(updateData).length > 0) {
-        await agentRef.update(updateData);
-      }
-    }
-
     return c.json({ documentId, success: true });
   } catch (error) {
     const r = handleFirestoreError(c, error, "[agents/:id/properties PATCH]");

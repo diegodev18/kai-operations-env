@@ -82,17 +82,6 @@ export async function writeDefaultAgentProperties(
   await batch.commit();
 }
 
-/** Sync model/temperature to draft root for backward compat (KAI-DEV pattern). */
-export async function syncAiFieldsToDraftRoot(
-  draftRef: DocumentReference,
-): Promise<void> {
-  const ai = PROPERTY_DEFAULTS.ai;
-  await draftRef.update({
-    "ai.model": ai.model,
-    "ai.temperature": ai.temperature,
-  });
-}
-
 /** Batch-set default property documents under testing/data/properties. */
 export async function writeDefaultTestingProperties(
   draftRef: DocumentReference,

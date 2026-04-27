@@ -141,9 +141,4 @@ export async function applyBuilderAdvancedProperties(
   }
 
   await batch.commit();
-
-  await draftRef.update({
-    "ai.model": model,
-    "ai.temperature": temperature,
-  });
 }
