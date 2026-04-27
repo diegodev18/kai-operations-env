@@ -236,6 +236,18 @@ export async function provisionAgentAfterComplete(
     }
   }
 
+  let userBuilderRef: FirebaseFirestore.DocumentReference | null = null;
+  if (ownerPhone.trim().length > 0) {
+    const usersBuildersSnap = await db
+      .collection(USERS_BUILDERS)
+      .where("phoneNumber", "==", ownerPhone)
+      .limit(1)
+      .get();
+    if (!usersBuildersSnap.empty) {
+      userBuilderRef = usersBuildersSnap.docs[0]!.ref;
+    }
+  }
+
   const batch = db.batch();
   for (const pipeline of pipelinesToWrite) {
     const pipelineDocRef = draftRef
@@ -298,7 +310,7 @@ export async function provisionAgentAfterComplete(
           : "",
         role: "Administrador",
         areaCode,
-        usersBuildersId: ownerUserId,
+        usersBuildersId: userBuilderRef ? userBuilderRef.id : ownerUserId,
         usersBuildersName: ownerName,
         createdAt: serverTimestampField(),
       },
@@ -315,19 +327,12 @@ export async function provisionAgentAfterComplete(
   await batch.commit();
 
   if (ownerPhone.trim().length > 0) {
-    const usersBuildersSnap = await db
-      .collection(USERS_BUILDERS)
-      .where("phoneNumber", "==", ownerPhone)
-      .limit(1)
-      .get();
-
-    if (usersBuildersSnap.empty) {
+    if (!userBuilderRef) {
       logger.warn(
         "[agents/drafts] provisionAgentAfterComplete: no usersBuilders doc for phoneNumber; skipping assignedModules and agentDrafts",
         { agentId: draftRef.id, ownerPhone },
       );
     } else {
-      const userBuilderRef = usersBuildersSnap.docs[0]!.ref;
       const ts = serverTimestampField();
       await userBuilderRef.set(
         { assignedModules: moduleAccess, updatedAt: ts },
