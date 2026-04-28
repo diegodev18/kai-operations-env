@@ -4,9 +4,9 @@ import {
   PROPERTY_DEFAULTS,
   PROPERTY_DOC_IDS,
   type PropertyDocId,
-} from "@/constants/agentPropertyDefaults";
+} from "@/constants/agent-property-defaults";
 import { getFirestore } from "@/lib/firestore";
-import type { AgentsInfoAuthContext } from "@/types/agents";
+import type { AgentsInfoAuthContext } from "@/types/agents-types";
 import { appendImplementationActivityEntry } from "@/services/implementation-activity.service";
 import {
   extractFirestoreIndexUrl,

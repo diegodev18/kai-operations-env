@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   OperationsShell,
   type BreadcrumbSegment,
-} from "@/components/operations-shell";
+} from "@/components/operations";
 
 function buildBlogBreadcrumb(pathname: string | null): BreadcrumbSegment[] {
   const base: BreadcrumbSegment[] = [

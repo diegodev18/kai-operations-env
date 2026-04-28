@@ -1,17 +1,12 @@
 "use client";
 
-import { useParams } from "next/navigation";
-import { AgentToolsPanel } from "@/components/agent-tools-panel";
+import { AgentMissingFallback, AgentToolsPanel } from "@/components/agents";
+import { useAgentIdParam } from "@/hooks";
 
 export default function AgentToolsPage() {
-  const params = useParams();
-  const agentId = typeof params.agentId === "string" ? params.agentId : "";
+  const agentId = useAgentIdParam();
 
-  if (!agentId) {
-    return (
-      <p className="text-sm text-muted-foreground">Agente no especificado.</p>
-    );
-  }
+  if (!agentId) return <AgentMissingFallback />;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

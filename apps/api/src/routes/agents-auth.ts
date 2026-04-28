@@ -1,7 +1,7 @@
 import type { Context } from "hono";
 import { eq } from "drizzle-orm";
 
-import type { AgentsInfoAuthContext } from "@/types/agents";
+import type { AgentsInfoAuthContext } from "@/types/agents-types";
 import { db } from "@/db/client";
 import { user } from "@/db/schema/auth";
 import { auth } from "@/lib/auth";

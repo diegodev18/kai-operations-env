@@ -1,8 +1,9 @@
 import type { Context } from "hono";
 import { z } from "zod";
+import { Timestamp } from "firebase-admin/firestore";
 
 import { getFirestore } from "@/lib/firestore";
-import type { AgentsInfoAuthContext } from "@/types/agents";
+import type { AgentsInfoAuthContext } from "@/types/agents-types";
 import { appendImplementationActivityEntry } from "@/services/implementation-activity.service";
 import {
   extractFirestoreIndexUrl,
@@ -10,6 +11,11 @@ import {
   isFirebaseConfigError,
 } from "@/utils/firestore/errors";
 import { userCanAccessAgent } from "@/utils/agents";
+import {
+  computeAgentTestingDiff,
+  normalizeForDiff,
+  testingDiffEntryKey,
+} from "@/utils/agents/agent-testing-diff";
 
 function handleError(c: Context, error: unknown, logPrefix: string) {
   if (isFirebaseConfigError(error)) {
@@ -121,6 +127,34 @@ function sanitizeToolDocForProduction(
   return out;
 }
 
+function isSerializedTimestamp(value: unknown): value is {
+  _seconds: number;
+  _nanoseconds?: number;
+} {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const typed = value as Record<string, unknown>;
+  return typeof typed._seconds === "number";
+}
+
+/** Rebuild Firestore-native types from serialized payload values sent by the diff UI. */
+function reviveFirestoreValue(value: unknown): unknown {
+  if (isSerializedTimestamp(value)) {
+    const nanos = typeof value._nanoseconds === "number" ? value._nanoseconds : 0;
+    return new Timestamp(value._seconds, nanos);
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => reviveFirestoreValue(item));
+  }
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = reviveFirestoreValue(v);
+    }
+    return out;
+  }
+  return value;
+}
+
 export async function postPromoteToProduction(
   c: Context,
   authCtx: AgentsInfoAuthContext,
@@ -161,10 +195,70 @@ export async function postPromoteToProduction(
       return c.json(
         {
           error:
-            "El nombre de confirmación no coincide con el nombre del agente.",
+            "Escribe CONFIRMAR (en mayúsculas o minúsculas) para confirmar la promoción a producción.",
+          code: "INVALID_CONFIRMATION",
         },
         400,
       );
+    }
+
+    const collectionsWithServerDiff = new Set(["properties", "tools"]);
+    const fieldsToValidate = parsed.data.fields.filter((f) =>
+      collectionsWithServerDiff.has(f.collection),
+    );
+
+    if (fieldsToValidate.length > 0) {
+      let currentDiff: Awaited<ReturnType<typeof computeAgentTestingDiff>>;
+      try {
+        currentDiff = await computeAgentTestingDiff(db, agentId);
+      } catch (e) {
+        if (e instanceof Error && e.message === "NO_TESTING_DATA") {
+          return c.json(
+            { error: "No hay datos de testing", code: "NO_TESTING_DATA" },
+            404,
+          );
+        }
+        throw e;
+      }
+
+      const diffByKey = new Map(
+        currentDiff.map((d) => [testingDiffEntryKey(d), d] as const),
+      );
+
+      const invalid: string[] = [];
+      for (const field of fieldsToValidate) {
+        const key = testingDiffEntryKey(field);
+        const entry = diffByKey.get(key);
+        if (!entry) {
+          invalid.push(key);
+          continue;
+        }
+        const sentNorm = normalizeForDiff(field.value);
+        if (JSON.stringify(sentNorm) !== JSON.stringify(entry.testingValue)) {
+          invalid.push(`${key} (valor distinto al diff actual)`);
+        }
+      }
+
+      if (invalid.length === fieldsToValidate.length) {
+        return c.json(
+          {
+            error:
+              "No hay diferencias vigentes para transferir o la selección ya no coincide con testing. Recarga el panel y vuelve a intentar.",
+            code: "NO_DIFF_TO_TRANSFER",
+          },
+          409,
+        );
+      }
+
+      if (invalid.length > 0) {
+        return c.json(
+          {
+            error: `Algunos campos ya no coinciden con el diff actual de testing: ${invalid.slice(0, 5).join("; ")}.`,
+            code: "STALE_PROMOTE_SELECTION",
+          },
+          409,
+        );
+      }
     }
 
     const testingToolsRef = agentRef.collection("testing").doc("data").collection("tools");
@@ -191,26 +285,27 @@ export async function postPromoteToProduction(
     }
 
     for (const field of parsed.data.fields) {
+      const fieldValue = reviveFirestoreValue(field.value);
       if (field.collection === "properties") {
         const prodDocRef = agentRef.collection("properties").doc(field.documentId);
-        await prodDocRef.set({ [field.fieldKey]: field.value }, { merge: true });
+        await prodDocRef.set({ [field.fieldKey]: fieldValue }, { merge: true });
 
         if (
           field.documentId === "prompt" &&
           field.fieldKey === "base" &&
-          typeof field.value === "string"
+          typeof fieldValue === "string"
         ) {
           await agentRef.update({
-            "mcp_configuration.system_prompt": field.value,
+            "mcp_configuration.system_prompt": fieldValue,
           });
         }
       } else if (field.collection === "tools") {
         if (field.fieldKey === "__exists") continue;
         const prodToolRef = agentRef.collection("tools").doc(field.documentId);
-        await prodToolRef.set({ [field.fieldKey]: field.value }, { merge: true });
+        await prodToolRef.set({ [field.fieldKey]: fieldValue }, { merge: true });
       } else if (field.collection === "collaborators") {
         const prodGrowerRef = agentRef.collection("growers").doc(field.documentId);
-        await prodGrowerRef.set({ [field.fieldKey]: field.value }, { merge: true });
+        await prodGrowerRef.set({ [field.fieldKey]: fieldValue }, { merge: true });
       }
     }
 
@@ -256,165 +351,15 @@ export async function getTestingDiff(
       return c.json({ error: "No autorizado para este agente" }, 403);
     }
     const db = getFirestore();
-    const agentRef = db.collection("agent_configurations").doc(agentId);
-
-    const testingDataRef = agentRef.collection("testing").doc("data");
-    const testingDataSnap = await testingDataRef.get();
-    if (!testingDataSnap.exists) {
-      return c.json({ error: "No hay datos de testing" }, 404);
-    }
-
-    const [prodPropsSnap, testingPropsSnap, prodToolsSnap, testingToolsSnap] = await Promise.all([
-      agentRef.collection("properties").get(),
-      testingDataRef.collection("properties").get(),
-      agentRef.collection("tools").get(),
-      testingDataRef.collection("tools").get(),
-    ]);
-
-    const diff: Array<{
-      collection: string;
-      documentId: string;
-      fieldKey: string;
-      testingValue: unknown;
-      productionValue: unknown;
-    }> = [];
-
-    const normalize = (v: any): any => {
-      if (v === undefined) return null;
-      try {
-        const normalized = JSON.parse(JSON.stringify(v));
-        return sortKeysRecursively(normalized);
-      } catch {
-        return v;
+    try {
+      const diff = await computeAgentTestingDiff(db, agentId);
+      return c.json({ diff });
+    } catch (e) {
+      if (e instanceof Error && e.message === "NO_TESTING_DATA") {
+        return c.json({ error: "No hay datos de testing" }, 404);
       }
-    };
-
-    const sortKeysRecursively = (obj: any): any => {
-      if (obj === null || typeof obj !== "object") return obj;
-      if (Array.isArray(obj)) return obj.map(sortKeysRecursively);
-      const sorted: Record<string, any> = {};
-      Object.keys(obj).sort().forEach((key) => {
-        sorted[key] = sortKeysRecursively(obj[key]);
-      });
-      return sorted;
-    };
-
-    // Properties Diff
-    const allPropDocIds = new Set([
-      ...prodPropsSnap.docs.map((d) => d.id),
-      ...testingPropsSnap.docs.map((d) => d.id),
-    ]);
-
-    for (const docId of allPropDocIds) {
-      const testingDoc = testingPropsSnap.docs.find((d) => d.id === docId);
-      const prodDoc = prodPropsSnap.docs.find((d) => d.id === docId);
-
-      const testingData = (testingDoc?.data() as Record<string, unknown>) || {};
-      const prodData = (prodDoc?.data() as Record<string, unknown>) || {};
-
-      const allKeys = new Set([
-        ...Object.keys(testingData),
-        ...Object.keys(prodData),
-      ]);
-
-      for (const key of allKeys) {
-        if (key.startsWith("_")) continue;
-
-        const tVal = testingData[key];
-        const pVal = prodData[key];
-
-        const tNorm = normalize(tVal);
-        const pNorm = normalize(pVal);
-
-        if (JSON.stringify(tNorm) !== JSON.stringify(pNorm)) {
-          diff.push({
-            collection: "properties",
-            documentId: docId,
-            fieldKey: key,
-            testingValue: tNorm,
-            productionValue: pNorm,
-          });
-        }
-      }
+      throw e;
     }
-
-    // Tools Diff
-    const allToolIds = new Set([
-      ...prodToolsSnap.docs.map((d) => d.id),
-      ...testingToolsSnap.docs.map((d) => d.id),
-    ]);
-
-    for (const toolId of allToolIds) {
-      const testingTool = testingToolsSnap.docs.find((d) => d.id === toolId);
-      const prodTool = prodToolsSnap.docs.find((d) => d.id === toolId);
-
-      const testingData = (testingTool?.data() as Record<string, unknown>) || {};
-      const prodData = (prodTool?.data() as Record<string, unknown>) || {};
-
-      // Check if tool exists in both
-      const toolExistsInTesting = testingTool?.exists;
-      const toolExistsInProd = prodTool?.exists;
-
-      if (toolExistsInTesting && !toolExistsInProd) {
-        // Tool added in testing
-        diff.push({
-          collection: "tools",
-          documentId: toolId,
-          fieldKey: "__exists",
-          testingValue: true,
-          productionValue: false,
-        });
-        for (const key of Object.keys(testingData)) {
-          if (key.startsWith("_")) continue;
-          const tVal = testingData[key];
-          const tNorm = normalize(tVal);
-          diff.push({
-            collection: "tools",
-            documentId: toolId,
-            fieldKey: key,
-            testingValue: tNorm,
-            productionValue: null,
-          });
-        }
-      } else if (!toolExistsInTesting && toolExistsInProd) {
-        // Tool removed in testing
-        diff.push({
-          collection: "tools",
-          documentId: toolId,
-          fieldKey: "__exists",
-          testingValue: false,
-          productionValue: true,
-        });
-      } else if (toolExistsInTesting && toolExistsInProd) {
-        // Tool exists in both, compare fields
-        const allKeys = new Set([
-          ...Object.keys(testingData),
-          ...Object.keys(prodData),
-        ]);
-
-        for (const key of allKeys) {
-          if (key.startsWith("_")) continue;
-
-          const tVal = testingData[key];
-          const pVal = prodData[key];
-
-          const tNorm = normalize(tVal);
-          const pNorm = normalize(pVal);
-
-          if (JSON.stringify(tNorm) !== JSON.stringify(pNorm)) {
-            diff.push({
-              collection: "tools",
-              documentId: toolId,
-              fieldKey: key,
-              testingValue: tNorm,
-              productionValue: pNorm,
-            });
-          }
-        }
-      }
-    }
-
-    return c.json({ diff });
   } catch (error) {
     const r = handleError(c, error, "[agents testing diff]");
     return r ?? c.json({ error: "No se pudo obtener el diff." }, 500);

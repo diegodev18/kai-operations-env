@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   CheckCircleIcon,
@@ -20,24 +20,27 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { UserMenu } from "@/components/user-menu";
-import { AgentActivitySheet } from "@/components/agent-activity-sheet";
-import { useAuth } from "@/hooks/auth";
+import { AgentActivitySheet } from "@/components/agents";
+import { UserMenu } from "@/components/shared";
+import { useAgentIdParam, useAuth } from "@/hooks";
 import { cn } from "@/lib/utils";
 import {
   assignAgentToUser,
   fetchAgentById,
   fetchAssignedAgentForUser,
-} from "@/lib/agents-api";
+  fetchFavorites,
+  toggleFavorite,
+} from "@/services/agents-api";
 
 const SECTIONS = [
+  { suffix: "dates-statuses", label: "Fechas y estado" },
   { suffix: "tasks", label: "Tareas" },
+  { suffix: "prompt-design", label: "Diseño de prompt" },
   { suffix: "simulator", label: "Simulador" },
   { suffix: "tools", label: "Tools" },
-  { suffix: "prompt-design", label: "Diseño de prompt" },
-  { suffix: "form", label: "Formulario" },
   { suffix: "testing-data", label: "Testing" },
   { suffix: "configuration", label: "Configuración" },
+  { suffix: "form", label: "Formulario" },
 ] as const;
 
 /** Título: nombre del agente (énfasis) · nombre del negocio (secundario), como en el diseño de referencia. */
@@ -123,9 +126,8 @@ export default function AgentDetailLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const params = useParams();
+  const agentId = useAgentIdParam();
   const pathname = usePathname();
-  const agentId = typeof params.agentId === "string" ? params.agentId : "";
   const { session, isPending: authPending, signOut } = useAuth();
 
   const [headerNames, setHeaderNames] = useState<{
@@ -188,13 +190,12 @@ export default function AgentDetailLayout({
     let cancelled = false;
     const loadFavorites = async () => {
       try {
-        const res = await fetch("/api/favorites", { credentials: "include" });
-        if (!cancelled && res.ok) {
-          const data = (await res.json()) as { favorites?: string[] };
+        const data = await fetchFavorites();
+        if (!cancelled && data) {
           setFavoriteAgentIds(new Set(data.favorites ?? []));
         }
       } catch {
-        // ignore
+        toast.error("Error al cargar favoritos");
       }
     };
     void loadFavorites();
@@ -309,11 +310,8 @@ export default function AgentDetailLayout({
                       setTogglingFavorite(agentId);
                       try {
                         const method = isFavorite ? "DELETE" : "POST";
-                        const res = await fetch(
-                          `/api/favorites/${encodeURIComponent(agentId)}`,
-                          { method, credentials: "include" },
-                        );
-                        if (res.ok) {
+                        const result = await toggleFavorite(agentId, method);
+                        if (result.ok) {
                           setFavoriteAgentIds((prev) => {
                             const next = new Set(prev);
                             if (isFavorite) {
@@ -329,7 +327,7 @@ export default function AgentDetailLayout({
                               : "Añadido a favoritos",
                           );
                         } else {
-                          toast.error("Error al actualizar favoritos");
+                          toast.error(result.error ?? "Error al actualizar favoritos");
                         }
                       } finally {
                         setTogglingFavorite(null);

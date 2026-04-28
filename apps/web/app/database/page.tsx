@@ -1,13 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { UserMenu } from "@/components/user-menu";
-import { useAuth } from "@/hooks/auth";
-import { useUserRole } from "@/hooks/useUserRole";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { DatabaseOperationsChrome } from "@/components/database/database-operations-chrome";
+import { useAuth, useUserRole } from "@/hooks";
 import {
   Copy,
   Pencil,
@@ -15,19 +11,10 @@ import {
   ChevronRightIcon,
   GitCompare,
   FolderSearch,
-  MenuIcon,
-  LayoutDashboardIcon,
-  LayoutGridIcon,
-  BookOpenIcon,
-  MegaphoneIcon,
-  UploadIcon as UploadIconLucide,
-  CopyIcon as CopyIconLucide,
-  PencilIcon,
+  Table2,
 } from "lucide-react";
-import { ChangelogNavItem } from "@/components/changelog-nav";
-import { FolderSearch as FolderSearchIcon } from "lucide-react";
 
-const SERVICES = [
+const DATABASE_SERVICES = [
   {
     id: "upload-data",
     title: "Upload data",
@@ -36,11 +23,11 @@ const SERVICES = [
     href: "/database/upload-data",
     icon: Upload,
     visual: (
-      <div className="flex items-center gap-2 h-20 animate-card-visual">
-        <div className="w-8 h-8 rounded bg-muted-foreground/20" />
+      <div className="flex h-20 animate-card-visual items-center gap-2">
+        <div className="h-8 w-8 rounded bg-muted-foreground/20" />
         <div className="flex flex-col gap-1">
-          <div className="w-14 h-1.5 rounded bg-muted-foreground/20" />
-          <div className="w-10 h-1.5 rounded bg-muted-foreground/20" />
+          <div className="h-1.5 w-14 rounded bg-muted-foreground/20" />
+          <div className="h-1.5 w-10 rounded bg-muted-foreground/20" />
         </div>
       </div>
     ),
@@ -53,11 +40,11 @@ const SERVICES = [
     href: "/database/duplicate-clone",
     icon: Copy,
     visual: (
-      <div className="flex items-center gap-2 h-20 animate-card-visual">
-        <div className="w-8 h-8 rounded bg-muted-foreground/20" />
+      <div className="flex h-20 animate-card-visual items-center gap-2">
+        <div className="h-8 w-8 rounded bg-muted-foreground/20" />
         <div className="flex gap-1">
-          <div className="w-6 h-1.5 rounded bg-muted-foreground/20" />
-          <div className="w-6 h-1.5 rounded bg-muted-foreground/20" />
+          <div className="h-1.5 w-6 rounded bg-muted-foreground/20" />
+          <div className="h-1.5 w-6 rounded bg-muted-foreground/20" />
         </div>
       </div>
     ),
@@ -70,9 +57,9 @@ const SERVICES = [
     href: "/database/update-document",
     icon: Pencil,
     visual: (
-      <div className="flex items-center gap-2 h-20 animate-card-visual">
-        <div className="w-8 h-8 rounded bg-muted-foreground/20" />
-        <div className="w-12 h-1.5 rounded bg-muted-foreground/20" />
+      <div className="flex h-20 animate-card-visual items-center gap-2">
+        <div className="h-8 w-8 rounded bg-muted-foreground/20" />
+        <div className="h-1.5 w-12 rounded bg-muted-foreground/20" />
       </div>
     ),
   },
@@ -84,11 +71,11 @@ const SERVICES = [
     href: "/database/viewer-comparator",
     icon: GitCompare,
     visual: (
-      <div className="flex items-center gap-2 h-20 animate-card-visual">
-        <div className="w-8 h-8 rounded bg-muted-foreground/20" />
+      <div className="flex h-20 animate-card-visual items-center gap-2">
+        <div className="h-8 w-8 rounded bg-muted-foreground/20" />
         <div className="flex gap-1">
-          <div className="w-8 h-1.5 rounded bg-muted-foreground/20" />
-          <div className="w-6 h-1.5 rounded bg-muted-foreground/20" />
+          <div className="h-1.5 w-8 rounded bg-muted-foreground/20" />
+          <div className="h-1.5 w-6 rounded bg-muted-foreground/20" />
         </div>
       </div>
     ),
@@ -101,9 +88,31 @@ const SERVICES = [
     href: "/database/document-explorer",
     icon: FolderSearch,
     visual: (
-      <div className="flex items-center gap-2 h-20 animate-card-visual">
-        <div className="w-8 h-8 rounded bg-muted-foreground/20" />
-        <div className="w-10 h-1.5 rounded bg-muted-foreground/20" />
+      <div className="flex h-20 animate-card-visual items-center gap-2">
+        <div className="h-8 w-8 rounded bg-muted-foreground/20" />
+        <div className="h-1.5 w-10 rounded bg-muted-foreground/20" />
+      </div>
+    ),
+  },
+] as const;
+
+const ESQUEMAS_SERVICES = [
+  {
+    id: "dynamic-tables",
+    title: "Tablas dinámicas",
+    description:
+      "Define esquemas (columnas, tipos, filtros) para colecciones de Firestore; los documentos viven en dynamic_table_schemas.",
+    href: "/dynamic-tables",
+    icon: Table2,
+    visual: (
+      <div className="flex h-20 animate-card-visual items-center gap-2">
+        <div className="h-8 w-8 rounded bg-muted-foreground/20" />
+        <div className="grid h-8 w-10 grid-cols-2 gap-0.5">
+          <div className="rounded-sm bg-muted-foreground/25" />
+          <div className="rounded-sm bg-muted-foreground/25" />
+          <div className="rounded-sm bg-muted-foreground/25" />
+          <div className="rounded-sm bg-muted-foreground/25" />
+        </div>
       </div>
     ),
   },
@@ -112,7 +121,6 @@ const SERVICES = [
 export default function DataBasePage() {
   const { session, signOut } = useAuth();
   const { isAdmin } = useUserRole();
-  const [menuOpen, setMenuOpen] = useState(false);
 
   if (!isAdmin) {
     return (
@@ -123,100 +131,66 @@ export default function DataBasePage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <header className="flex h-14 shrink-0 items-center justify-between border-b px-4">
-        <div className="flex items-center gap-2 font-semibold">
-          <Button type="button" variant="ghost" size="icon" className="size-9" onClick={() => setMenuOpen(!menuOpen)}>
-            <MenuIcon className="size-5" />
-          </Button>
-          <LayoutDashboardIcon className="size-5" />
-          <span>Operaciones</span>
-          <span className="text-muted-foreground">/</span>
-          <span className="text-muted-foreground">Database</span>
-        </div>
-        <UserMenu
-          userName={session?.user?.name}
-          userEmail={session?.user?.email}
-          userImage={(session?.user as { image?: string | null })?.image}
-          onSignOut={() => void signOut()}
-        />
-      </header>
-
-      <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-        <SheetContent side="left" className="w-64">
-          <SheetHeader>
-            <SheetTitle>Menú</SheetTitle>
-          </SheetHeader>
-          <nav className="mt-4 flex flex-col gap-1 px-2">
-            <Link href="/" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted" onClick={() => setMenuOpen(false)}>
-              <LayoutDashboardIcon className="size-4" />
-              Inicio
-            </Link>
-            <ChangelogNavItem onClick={() => setMenuOpen(false)} />
-            <Link href="/blog" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted" onClick={() => setMenuOpen(false)}>
-              <BookOpenIcon className="size-4" />
-              Lecciones
-            </Link>
-            <Link href="/blog-actuality" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted" onClick={() => setMenuOpen(false)}>
-              <MegaphoneIcon className="size-4" />
-              Actualidad
-            </Link>
-            <div className="my-2 border-t" />
-            <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Database</div>
-            <Link href="/database" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted" onClick={() => setMenuOpen(false)}>
-              <FolderSearchIcon className="size-4" />
-              Servicios
-            </Link>
-            <Link href="/database/upload-data" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted" onClick={() => setMenuOpen(false)}>
-              <UploadIconLucide className="size-4" />
-              Upload data
-            </Link>
-            <Link href="/database/duplicate-clone" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted" onClick={() => setMenuOpen(false)}>
-              <CopyIconLucide className="size-4" />
-              Duplicate / clone
-            </Link>
-            <Link href="/database/update-document" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted" onClick={() => setMenuOpen(false)}>
-              <PencilIcon className="size-4" />
-              Update document
-            </Link>
-            <Link href="/database/viewer-comparator" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted" onClick={() => setMenuOpen(false)}>
-              <CopyIconLucide className="size-4" />
-              Viewer and comparator
-            </Link>
-            <Link href="/database/document-explorer" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted" onClick={() => setMenuOpen(false)}>
-              <FolderSearchIcon className="size-4" />
-              Document explorer
-            </Link>
-          </nav>
-        </SheetContent>
-      </Sheet>
-
-      <main className="mx-auto w-full max-w-5xl flex-1 space-y-6 p-6">
+    <DatabaseOperationsChrome
+      breadcrumbLast="Database"
+      userName={session?.user?.name}
+      userEmail={session?.user?.email}
+      userImage={(session?.user as { image?: string | null })?.image}
+      onSignOut={() => void signOut()}
+    >
+      <main className="mx-auto w-full max-w-5xl flex-1 space-y-8 p-6">
         <div>
           <p className="text-sm text-muted-foreground">Herramientas para gestionar datos en Firestore.</p>
         </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {SERVICES.map(({ id, title, description, href, icon: Icon, visual }) => (
-          <Link key={id} href={href} className="block group">
-            <Card className="h-full bg-card/80 hover:bg-card border-border/50 transition-colors overflow-hidden">
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex flex-col gap-2">
-                    <div className="p-2 rounded-lg bg-muted/50 w-fit">
-                      <Icon className="w-5 h-5 text-muted-foreground" />
+        <section className="space-y-3">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Database</h2>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {DATABASE_SERVICES.map(({ id, title, description, href, icon: Icon, visual }) => (
+              <Link key={id} href={href} className="group block">
+                <Card className="h-full overflow-hidden border-border/50 bg-card/80 transition-colors hover:bg-card">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex flex-col gap-2">
+                        <div className="w-fit rounded-lg bg-muted/50 p-2">
+                          <Icon className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                        <CardTitle className="text-lg">{title}</CardTitle>
+                      </div>
+                      <ChevronRightIcon className="h-5 w-5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                     </div>
-                    <CardTitle className="text-lg">{title}</CardTitle>
-                  </div>
-                  <ChevronRightIcon className="w-5 h-5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                </div>
-                <CardDescription className="text-sm">{description}</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-0 flex items-end justify-end">{visual}</CardContent>
-            </Card>
-          </Link>
-          ))}
-        </div>
+                    <CardDescription className="text-sm">{description}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex items-end justify-end pt-0">{visual}</CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </section>
+        <section className="space-y-3">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Esquemas</h2>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {ESQUEMAS_SERVICES.map(({ id, title, description, href, icon: Icon, visual }) => (
+              <Link key={id} href={href} className="group block">
+                <Card className="h-full overflow-hidden border-border/50 bg-card/80 transition-colors hover:bg-card">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex flex-col gap-2">
+                        <div className="w-fit rounded-lg bg-muted/50 p-2">
+                          <Icon className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                        <CardTitle className="text-lg">{title}</CardTitle>
+                      </div>
+                      <ChevronRightIcon className="h-5 w-5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                    </div>
+                    <CardDescription className="text-sm">{description}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex items-end justify-end pt-0">{visual}</CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </section>
       </main>
-    </div>
+    </DatabaseOperationsChrome>
   );
 }

@@ -1,18 +1,12 @@
 "use client";
 
-import { useParams } from "next/navigation";
-
-import { AgentImplementationTasksPanel } from "@/components/agent-implementation-tasks-panel";
+import { AgentImplementationTasksPanel, AgentMissingFallback } from "@/components/agents";
+import { useAgentIdParam } from "@/hooks";
 
 export default function AgentTasksPage() {
-  const params = useParams();
-  const agentId = typeof params.agentId === "string" ? params.agentId : "";
+  const agentId = useAgentIdParam();
 
-  if (!agentId) {
-    return (
-      <p className="text-sm text-muted-foreground">Agente no especificado.</p>
-    );
-  }
+  if (!agentId) return <AgentMissingFallback />;
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">

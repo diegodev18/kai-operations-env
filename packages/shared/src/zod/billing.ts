@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const patchBillingConfigSchema = z.object({
-  domiciliated: z.boolean().optional(),
+  domiciliated: z.union([z.boolean(), z.null()]).optional(),
   defaultPaymentAmount: z.number().min(0).optional(),
   paymentDueDate: z.string().nullable().optional(),
 });

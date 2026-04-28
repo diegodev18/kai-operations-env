@@ -1,4 +1,4 @@
-import type { SSEEvent, SSEMessage } from "@/types/integration-simulator";
+import type { SSEEvent, SSEMessage } from "@/types";
 
 /** Parsea un stream SSE (event:/data:) del servicio de simulación. */
 export async function parseSSEStream(

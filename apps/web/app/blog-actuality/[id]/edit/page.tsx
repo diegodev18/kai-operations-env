@@ -14,16 +14,16 @@ import { ArrowLeftIcon, Loader2Icon, SaveIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { ActualityMarkdownComposer } from "@/components/actuality-markdown-composer";
+import { ActualityMarkdownComposer } from "@/components/blog";
 import {
   fetchBlogPost,
   updateBlogPost,
   uploadBlogImage,
   type BlogPost,
-} from "@/lib/blog-api";
-import { ACTUALITY_TAGS } from "@/lib/blog-tags";
-import { fetchOrganizationUsers } from "@/lib/organization-api";
-import { useAuth } from "@/hooks/auth";
+} from "@/services/blog-api";
+import { ACTUALITY_TAGS } from "@/consts/blog-tags";
+import { fetchOrganizationUsers } from "@/services/organization-api";
+import { useAuth } from "@/hooks";
 
 const POST_TYPE = "actuality" as const;
 

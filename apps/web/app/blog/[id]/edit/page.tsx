@@ -30,14 +30,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { fetchBlogPost, updateBlogPost, type BlogPost } from "@/lib/blog-api";
-import { BLOG_TAGS } from "@/lib/blog-tags";
+import { fetchBlogPost, updateBlogPost, type BlogPost } from "@/services/blog-api";
+import { BLOG_TAGS } from "@/consts/blog-tags";
 import {
   generateMarkdown,
   parseMarkdownContent,
   type LessonFields,
-} from "@/lib/lesson-markdown";
-import { useAuth } from "@/hooks/auth";
+} from "@/lib/blog/lesson-markdown";
+import { useAuth } from "@/hooks";
 
 const SECTIONS: {
   key: keyof LessonFields;

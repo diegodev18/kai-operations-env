@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { getFirestore } from "@/lib/firestore";
 import { appendImplementationActivityEntry } from "@/services/implementation-activity.service";
-import type { AgentsInfoAuthContext } from "@/types/agents";
+import type { AgentsInfoAuthContext } from "@/types/agents-types";
 import { isOperationsAdmin, isOperationsCommercial } from "@/utils/operations-access";
 import { parseBillingDoc, parsePaymentRecordDoc } from "@/utils/agents";
 
@@ -13,7 +13,7 @@ function serverTimestampField() {
 }
 
 const patchBillingConfigSchema = z.object({
-  domiciliated: z.boolean().optional(),
+  domiciliated: z.union([z.boolean(), z.null()]).optional(),
   defaultPaymentAmount: z.number().min(0).optional(),
   paymentDueDate: z.string().nullable().optional(),
 });

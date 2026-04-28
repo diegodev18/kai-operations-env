@@ -6,10 +6,10 @@ import { z } from "zod";
 
 import { ApiErrors, errorResponse } from "@/lib/api-error";
 import { buildBuilderPropertyHeuristicsText } from "@/constants/builder-suggested-properties";
-import { mergeBuilderTechnicalPropertyPatchesForChat } from "@/controllers/agent-drafts.controller";
+import { mergeBuilderTechnicalPropertyPatchesForChat } from "@/utils/agent-drafts/merge-technical-property-patches";
 import { getFirestore } from "@/lib/firestore";
 import logger from "@/lib/logger";
-import type { AgentsInfoAuthContext } from "@/types/agents";
+import type { AgentsInfoAuthContext } from "@/types/agents-types";
 
 const TOOLS_CATALOG = "toolsCatalog";
 const TOOLS_DOCS_STORE_DISPLAY_NAME = "agents-tools-default-docs";

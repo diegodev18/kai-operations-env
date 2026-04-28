@@ -2,7 +2,7 @@ import {
   PROPERTY_DEFAULTS,
   PROPERTY_DOC_IDS,
   type PropertyDocId,
-} from "@/constants/agentPropertyDefaults";
+} from "@/constants/agent-property-defaults";
 
 export type BuilderPropertyValueKind = "boolean" | "number" | "string";
 

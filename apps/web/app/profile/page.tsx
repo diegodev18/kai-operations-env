@@ -10,14 +10,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAuth } from "@/hooks/auth";
-import { useUserRole } from "@/hooks/useUserRole";
-import { authClient } from "@/lib/auth-client";
+import { useAuth, useUserRole } from "@/hooks";
+import { authClient } from "@/lib/auth/auth-client";
 import {
   buildGithubAvatarUrl,
   isValidGithubLogin,
   parseGithubLoginFromImageUrl,
-} from "@/lib/github-avatar";
+} from "@/lib/profile/github-avatar";
 
 function roleLabel(role: string): string {
   if (role === "admin") return "Administrador";

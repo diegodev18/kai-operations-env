@@ -1,8 +1,8 @@
 "use client";
 
-import { OperationsDashboard } from "@/components/operations-dashboard";
-import { LoginPage } from "@/components/login-page";
-import { useAuth } from "@/hooks/auth";
+import { OperationsDashboard } from "@/components/operations";
+import { LoginPage } from "@/components/shared";
+import { useAuth } from "@/hooks";
 
 export default function Home() {
   const { session, isPending, signOut } = useAuth();

@@ -1,6 +1,6 @@
 import type { Firestore } from "firebase-admin/firestore";
 
-import type { AgentDocument, LightAgent } from "@/types/agents";
+import type { AgentDocument, LightAgent } from "@/types/agents-types";
 
 import { fetchGrowersForAgent } from "./growers";
 import { parseAgentDoc } from "./parseAgentDoc";

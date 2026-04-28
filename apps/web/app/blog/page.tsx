@@ -24,10 +24,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { fetchBlogPosts, searchBlogPosts, type BlogPost } from "@/lib/blog-api";
-import { BLOG_TAGS } from "@/lib/blog-tags";
-import { useAuth } from "@/hooks/auth";
-import { useUserRole } from "@/hooks/useUserRole";
+import { fetchBlogPosts, searchBlogPosts, type BlogPost } from "@/services/blog-api";
+import { BLOG_TAGS } from "@/consts/blog-tags";
+import { useAuth, useUserRole } from "@/hooks";
 
 function formatDate(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString("es-ES", {
@@ -297,7 +296,12 @@ export default function BlogPage() {
                       ) : null}
                     </div>
                     <div className="line-clamp-2 text-sm text-muted-foreground prose prose-sm dark:prose-invert prose-p:my-0 max-w-prose">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          a: ({ children }) => <>{children}</>,
+                        }}
+                      >
                         {post.content.slice(0, 220)}
                       </ReactMarkdown>
                     </div>

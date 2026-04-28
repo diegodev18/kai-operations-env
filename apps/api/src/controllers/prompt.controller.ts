@@ -7,6 +7,13 @@ import { dirname, join } from "path";
 import { getAgentToolsContext } from "@/lib/agent-tools";
 import { auth } from "@/lib/auth";
 import logger, { formatError } from "@/lib/logger";
+import {
+  PROMPT_CHAT_PDF_MIME_TYPE,
+  type PromptChatMessage as ChatMessage,
+  type PromptChatMessageImage as ChatMessageImage,
+  type PromptChatMessagePdf as ChatMessagePdf,
+  type PromptChatProvider as Provider,
+} from "@/types/prompt-chat";
 
 const {
   FIREBASE_SERVICE_ACCOUNT_JSON,
@@ -60,16 +67,8 @@ const genAI = (() => {
   return null;
 })();
 
-interface ModelConfig {
-  apiModelId: string;
-  name: string;
-  provider: Provider;
-}
-
-type Provider = "gemini";
-
 /** Operaciones: solo Gemini vía @google/genai (API key o Vertex AI). */
-export const PROMPT_MODELS: Record<string, ModelConfig> = {
+export const PROMPT_MODELS = {
   "gemini-3-flash": {
     apiModelId: "gemini-2.5-flash",
     name: "Gemini 2.5 Flash",
@@ -103,24 +102,7 @@ const ALLOWED_IMAGE_MIME_TYPES = [
 const MAX_IMAGES_PER_MESSAGE = 4;
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024; // 3 MB
 
-const PDF_MIME_TYPE = "application/pdf";
 const MAX_PDF_BYTES = 20 * 1024 * 1024; // 20 MB
-
-interface ChatMessage {
-  content: string;
-  images?: ChatMessageImage[];
-  role: "model" | "user";
-}
-
-interface ChatMessageImage {
-  data: string;
-  mimeType: string;
-}
-
-interface ChatMessagePdf {
-  data: string;
-  mimeType: typeof PDF_MIME_TYPE;
-}
 
 export function getAvailableModels(): {
   available: boolean;
@@ -201,7 +183,7 @@ function validateAttachedPdf(
   }
   const item = raw as ChatMessagePdf;
   if (
-    item.mimeType !== PDF_MIME_TYPE ||
+    item.mimeType !== PROMPT_CHAT_PDF_MIME_TYPE ||
     typeof item.data !== "string" ||
     !item.data
   ) {
@@ -219,7 +201,7 @@ function validateAttachedPdf(
       valid: null,
     };
   }
-  return { valid: { data: item.data, mimeType: PDF_MIME_TYPE } };
+  return { valid: { data: item.data, mimeType: PROMPT_CHAT_PDF_MIME_TYPE } };
 }
 
 const PROMPT_SEPARATOR = "\n\nPROMPT:\n";

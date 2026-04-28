@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import {
   OperationsShell,
   type BreadcrumbSegment,
-} from "@/components/operations-shell";
+} from "@/components/operations";
 
 const profileBreadcrumb: BreadcrumbSegment[] = [
   { label: "Operaciones", href: "/" },

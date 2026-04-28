@@ -28,10 +28,9 @@ import {
   fetchBlogPosts,
   searchBlogPosts,
   type BlogPost,
-} from "@/lib/blog-api";
-import { ACTUALITY_TAGS } from "@/lib/blog-tags";
-import { useAuth } from "@/hooks/auth";
-import { useUserRole } from "@/hooks/useUserRole";
+} from "@/services/blog-api";
+import { ACTUALITY_TAGS } from "@/consts/blog-tags";
+import { useAuth, useUserRole } from "@/hooks";
 
 function formatDate(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString("es-ES", {
@@ -303,7 +302,12 @@ export default function ActualityPage() {
                       ) : null}
                     </div>
                     <div className="line-clamp-2 text-sm text-muted-foreground prose prose-sm dark:prose-invert prose-p:my-0 max-w-prose">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          a: ({ children }) => <>{children}</>,
+                        }}
+                      >
                         {post.content.slice(0, 220)}
                       </ReactMarkdown>
                     </div>

@@ -4,12 +4,12 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 
 import { BUILDER_COMPANIES_COLLECTION } from "@/constants/builder-companies";
-import { serverTimestampField } from "@/constants/agentPropertyDefaults";
+import { serverTimestampField } from "@/constants/agent-property-defaults";
 import { db } from "@/db/client";
 import { user as userTable } from "@/db/schema/auth";
 import { getFirestore, Timestamp } from "@/lib/firestore";
 import { auth } from "@/lib/auth";
-import { resolveSessionUserRole } from "@/utils/sessionUser";
+import { resolveSessionUserRole } from "@/utils/session-user";
 import {
   extractFirestoreIndexUrl,
   firestoreFailureHint,
@@ -36,7 +36,7 @@ const postBodySchema = z.object({
   payload: builderCompanyPayloadSchema,
 });
 
-const router = new Hono();
+export const builderSavedCompaniesRouter = new Hono();
 
 async function getSessionUser(c: Context) {
   const session = await auth.api.getSession({ headers: c.req.raw.headers });
@@ -115,7 +115,7 @@ function timestampToIso(value: unknown): string | null {
   return null;
 }
 
-router.get("/", async (c) => {
+builderSavedCompaniesRouter.get("/", async (c) => {
   const sessionUser = await getSessionUser(c);
   if (!sessionUser?.id) {
     return c.json({ error: "No autorizado" }, 401);
@@ -157,7 +157,7 @@ router.get("/", async (c) => {
   }
 });
 
-router.post("/", async (c) => {
+builderSavedCompaniesRouter.post("/", async (c) => {
   const sessionUser = await getSessionUser(c);
   if (!sessionUser?.id) {
     return c.json({ error: "No autorizado" }, 401);
@@ -215,7 +215,7 @@ router.post("/", async (c) => {
   }
 });
 
-router.patch("/:id", async (c) => {
+builderSavedCompaniesRouter.patch("/:id", async (c) => {
   const sessionUser = await getSessionUser(c);
   if (!sessionUser?.id) {
     return c.json({ error: "No autorizado" }, 401);
@@ -281,5 +281,3 @@ router.patch("/:id", async (c) => {
     return r ?? c.json({ error: "Error al actualizar empresa." }, 500);
   }
 });
-
-export default router;

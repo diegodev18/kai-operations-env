@@ -69,6 +69,314 @@ export const PROJECTS: { id: ProjectId; name: string; description: string }[] =
   ];
 
 export const changelogData: Record<string, ChangelogEntry> = {
+  "2.5.1": {
+    date: "2026-04-23",
+    description:
+      "Atlas: refactorización de hooks por dominio, separación de actions y normalización de imports públicos",
+    changes: {
+      added: [
+        "Nueva estructura de hooks por dominio en `apps/web/hooks/`: `auth/`, `api/`, `agents/` (tools/properties/prompt/testing), `chat/` e `index.ts` como barrel público.",
+        "Nuevos archivos de actions separados para operaciones async con feedback UX: `agent-tools.actions.ts` y `agent-prompt.actions.ts`.",
+        "Separación de `prompt-chat.ts` en `chat/use-prompt-chat.ts` (hook principal) y `chat/use-prompt-models.ts` (carga de modelos), manteniendo tipos en `@/types/prompt-chat`.",
+      ],
+      changed: [
+        "Renombrado y reubicación de hooks a convención kebab-case (`use-*.ts`) y organización por responsabilidad para mejorar trazabilidad y mantenimiento.",
+        "Actualización de imports en componentes/páginas para consumir rutas nuevas o exports centralizados desde `@/hooks`.",
+        "Hooks de lectura ajustados para manejo de errores no intrusivo (retornan `error | null`) y sin side-effects de toast.",
+      ],
+      improved: [
+        "Menor duplicación al consolidar patrones de fetch/refetch en hooks reutilizables, priorizando `use-api-resource` como base común.",
+        "Arquitectura más escalable para crecimiento de módulos de agente (tools/properties/prompt/testing) sin mezclar estados ni responsabilidades.",
+      ],
+    },
+  },
+  "2.5.2": {
+    date: "2026-04-23",
+    description:
+      "Atlas: estandarización de nombres kebab-case en API, centralización de tipos y mejora del árbol de subcolecciones de Testing Data",
+    changes: {
+      added: [
+        "Nueva capa de contratos compartidos en `apps/api/src/types/` con módulos dedicados por dominio (`agents-types`, `agent-collaborators`, `database-admin`, `prompt-chat`, `testing-data`, etc.) y barrel único en `types/index.ts`.",
+        "Respuesta de subcolecciones de Testing Data ahora incluye `documentsScanned` para trazabilidad del escaneo de referencias.",
+      ],
+      changed: [
+        "Migración de imports de tipos en API para consumir `@/types/...` y eliminar dependencias inversas `types -> utils`.",
+        "Renombrado de archivos API a kebab-case en `types/`, `lib/`, `utils/` y `constants/` (ej. `session-user.ts`, `invitation-token.ts`, `organization-members.ts`, `agent-property-defaults.ts`).",
+        "Actualización de `AGENTS.md` (raíz, `apps/api`, `apps/web`) para documentar convención de naming kebab-case y ubicación de contratos compartidos.",
+      ],
+      fixed: [
+        "Corregido `listTestingDataSubcollections`: ya no limita a 50 documentos; usa `CollectionReference.listDocuments()` y recorre todas las refs para evitar subcolecciones omitidas en el árbol de UI.",
+      ],
+      improved: [
+        "Menor costo de lectura en Firestore para descubrimiento de subcolecciones al evitar `get()` de documentos y operar por metadatos de referencias.",
+      ],
+    },
+  },
+  "2.5.0": {
+    date: "2026-04-21",
+    description:
+      "Refactorización de frontend: reorganización de arquitectura, consolidación de componentes y eliminación de código duplicado",
+    changes: {
+      added: [
+        "Nuevo directorio `services/` para centralizar todas las llamadas al backend API; separa responsabilidades de `lib/` (SDKs) vs `services/` (API calls).",
+        "Hook genérico `useApiResource<T>()` para eliminar boilerplate en patrones fetch-on-mount: gestiona loading, error, y refetch automáticamente.",
+        "Helper `parseJsonResponse<T>()` en `utils/api-helpers.ts` para parsear respuestas JSON sin try-catch repetido.",
+        "Componentes compartidos `ChangelogListPage` y `ChangelogVersionPage` para consolidar 6 páginas de changelog duplicadas (panel/tools/agents).",
+        "5 nuevas funciones en `services/agents-api.ts`: `fetchFavorites()`, `toggleFavorite()`, `fetchAgentProperties()`, `patchAgentPropertyDoc()`, `fetchTestingProperties()`.",
+      ],
+      changed: [
+        "Moví `agents-api.ts`, `organization-api.ts`, `blog-api.ts` de `lib/` a nuevo directorio `services/`; actualicé 40+ imports en todo el proyecto.",
+        "Refactoricé 3 hooks (`useProductionPrompt`, `useTestingDiff`, `useToolsCatalog`) para usar `useApiResource`, reduciendo boilerplate de estado.",
+        "Reduje 6 páginas de changelog (panel, tools, agents × [list, detail]) a wrappers de 5-9 LOC cada una (era 150 LOC por página).",
+        "Componentes que hacen fetch directo ahora usan funciones del service (`operations-dashboard.tsx`, `agent-tools-panel.tsx`, `layout.tsx`).",
+      ],
+      improved: [
+        "Separación clara de responsabilidades: `lib/` = SDKs/tipos/helpers puros; `services/` = API calls; `utils/` = helpers reutilizables.",
+        "Mantenibilidad: cambios en lógica de API se hacen en un único lugar (`services/`).",
+        "Escalabilidad: agregar nuevo changelog project ahora requiere solo 2 archivos de 5-10 LOC.",
+        "Reducción de código: ~650 líneas de duplicación eliminadas (changelog + hooks + fetch patterns).",
+      ],
+      fixed: [
+        "Solucionó error de HTML validation «<a> cannot be a descendant of <a>» en previsualizaciones de blog markdown dentro de `Link` wrapper.",
+      ],
+    },
+  },
+  "2.5.3": {
+    date: "2026-04-23",
+    description:
+      "Atlas: historial persistente del simulador de agentes por usuario, con gestión de conversaciones y mejoras de estabilidad SSR/hidratación",
+    changes: {
+      added: [
+        "Persistencia del simulador por agente y por usuario de backoffice en Firestore (`agent_configurations/{agentId}/implementation/simulator/users/{backofficeUserId}`).",
+        "Nuevos endpoints de API para estado del simulador: `GET`, `PATCH` y `DELETE /api/agents/:agentId/simulator-state`.",
+        "Botón y diálogo de Historial en el simulador para listar conversaciones guardadas, ver estado (activa/cerrada), abrir conversaciones cerradas y eliminar historial completo.",
+        "Acciones de seguridad UX: confirmación (`AlertDialog`) al eliminar conversación desde card y desde historial.",
+      ],
+      changed: [
+        "El simulador ahora crea una nueva card al ejecutar sobre una conversación ya finalizada, preservando intacto el resultado/historial anterior.",
+        "Conversaciones cerradas se ocultan del carrusel principal pero permanecen en historial, con opción de reabrir.",
+        "Siempre se garantiza al menos una card abierta para nuevas pruebas, incluso cuando todo el historial previo está cerrado.",
+        "La instrucción de conversaciones finalizadas queda visible pero bloqueada (solo lectura) para evitar cambios sobre ejecuciones históricas.",
+      ],
+      fixed: [
+        "Corregido mismatch de hidratación en el simulador (atributos SSR/cliente en `Textarea`).",
+        "Corregido warning de React por `setState` síncrono dentro de `useEffect` durante carga de historial.",
+        "Mitigado error de `script tag while rendering React component` eliminando scripts embebidos al renderizar HTML histórico en actividad.",
+        "El diálogo de historial ya no muestra la conversación placeholder vacía como si fuera historial real.",
+      ],
+      improved: [
+        "Guardado del historial con debounce para reducir escrituras durante streaming SSE y mejorar rendimiento.",
+        "Normalización de conversaciones persistidas para evitar estados efímeros (`isSending`/`currentTurn`) al recargar.",
+      ],
+    },
+  },
+  "2.5.4": {
+    date: "2026-04-23",
+    description:
+      "Atlas: nueva vista Dates & Statuses con lifecycle operativo, bitácora enriquecida y reglas de transición por estado",
+    changes: {
+      added: [
+        "Nueva vista de detalle del agente en `/agents/:id/dates-statuses` para gestionar fechas y estados operativos/comerciales.",
+        "Nuevos endpoints `GET` y `PATCH /api/agents/:agentId/implementation-lifecycle` con persistencia en `agent_configurations/{agentId}/implementation/lifecycle`.",
+        "Contrato de lifecycle con metadatos de trazabilidad: `updatedBy`, `updatedFrom`, `reasonCode`, `updatedAt`.",
+        "Event log inmutable para lifecycle en `implementation/events/items` con soporte de `idempotencyKey` y escritura dual (proyección + evento).",
+        "Resumen UI tipo bitácora en la vista de lifecycle, con bloques de fechas, estados/permanencia y última actualización.",
+      ],
+      changed: [
+        "Estatus comerciales y de servidor estandarizados en inglés en API/datos, con etiquetas en español en UI mediante mapeo centralizado.",
+        "La ruta de navegación de la sección quedó en `dates-statuses` (reemplaza `fechas-estado`).",
+        "El resumen de lifecycle fue compactado y refactorizado para renderizar cards y filas mediante `.map`, reduciendo repetición en JSX.",
+      ],
+      fixed: [
+        "Bitácora de lifecycle ya no registra cambios falsos cuando el valor final no cambia (`vacío -> vacío`).",
+        "Guardado de lifecycle evita escribir y loguear campos sin cambios efectivos para reducir ruido operativo.",
+      ],
+      improved: [
+        "Máquina de estados para `commercialStatus` con transiciones válidas/invalidación (`409`) en API.",
+        "Nuevos campos temporales `commercialStateChangedAt` y `serverStateChangedAt`, y métricas `daysInCommercialState` / `daysInServerState` para seguimiento de aging.",
+      ],
+    },
+  },
+  "2.5.5": {
+    date: "2026-04-24",
+    description:
+      "Atlas: formato unificado de valores Firestore en diffs y sincronización testing↔producción más fiable",
+    changes: {
+      added: [
+        "`apps/web/utils/firestore-value-format.ts`: utilidad para mostrar valores Firestore (p. ej. timestamps serializados) de forma coherente en comparaciones de UI.",
+      ],
+      changed: [
+        "`PromoteDiffDialog` y `ToolsPullFromProductionDialog` usan el formateo compartido para valores “antes / después” en vistas de diff.",
+        "`apps/api/src/controllers/agent-sync.controller.ts`: revived de tipos nativos de Firestore desde payloads serializados para mantener integridad al sincronizar datos del agente.",
+      ],
+      improved: [
+        "Menos duplicación y lectura más clara al comparar valores entre testing y producción.",
+      ],
+    },
+  },
+  "2.5.6": {
+    date: "2026-04-24",
+    description:
+      "Atlas: editor de configuración del agente — cambios locales, bajar properties, guardado sin “reset” y versión desacoplada del modelo",
+    changes: {
+      added: [
+        "En `configuration-editor`: flujo para revisar cambios locales antes de guardar, `PendingLocalChangesList` y diálogo de resumen integrado en el editor.",
+        "Bajar **properties** de producción a testing con `ToolsPullFromProductionDialog` y vista previa de diff alineada a properties (`diffPreviewLabel`).",
+        "`useTestingProperties`: `refetch` acepta opciones (`silent`, `autoSync`) vía `RefetchTestingPropertiesOptions`; export del tipo en el barrel `@/hooks`.",
+      ],
+      changed: [
+        "`PendingLocalChangesList`: listado por documento y campo con rutas tipo `thinking.level` y valores antes/después usando `formatFirestoreValue`.",
+        "`configuration-editor` y `prompt-designer` llaman `refetch({ silent: true })` tras guardar, promover, pull o bootstrap de prompt para actualizar datos sin vaciar el estado ni activar el loading global del hook.",
+        "La **versión del agente** solo cambia desde el selector explícito; se eliminó la vinculación automática al modelo de IA (p. ej. Gemini 3 → `2.0.0` pendiente al guardar).",
+        "Simplificación del manejo de “cambios pendientes” y del guardado (sin ref intermedia de versión pendiente).",
+      ],
+      improved: [
+        "UX al persistir configuración y prompts: menos parpadeo y sin sensación de recarga completa al refrescar properties de testing.",
+      ],
+    },
+  },
+  "2.5.7": {
+    date: "2026-04-24",
+    description:
+      "Atlas: reorganización visual del editor de configuración del agente",
+    changes: {
+      added: [
+        "Resumen superior de estado del agente con versión, cambios locales y diferencias entre testing y producción.",
+        "Navegación lateral sticky para saltar entre Estado, Conversación, IA, Memoria, Acceso, Validación, Runtime y Equipo.",
+        "Sección dedicada de Equipo para gestionar growers y tech leads fuera de la barra de acciones de guardado.",
+      ],
+      changed: [
+        "Las secciones del editor ahora se presentan como cards con títulos más orientados a intención de uso (conversación, acceso, runtime, validación, etc.) en lugar de nombres puramente técnicos.",
+        "La barra inferior queda enfocada en acciones de cambios: bajar, subir y guardar; el apagado/encendido y descarte se movieron al bloque de estado.",
+        "`configuration-editor.tsx` se comenzó a dividir en módulos dedicados para constantes, helpers, labels, lista de cambios locales, navegación, estado, equipo y barra de acciones.",
+      ],
+      improved: [
+        "Lectura más clara del panel y menor mezcla entre acciones operativas, sincronización y edición de campos.",
+        "Descripciones del editor reescritas en lenguaje no técnico para facilitar su uso por equipos operativos.",
+      ],
+    },
+  },
+  "2.4.24": {
+    date: "2026-04-21",
+    description:
+      "Atlas: paso opcional «Manual de herramientas» en el builder, con generación/actualización IA y traducción al prompt final",
+    changes: {
+      added: [
+        "En el constructor de agentes (`agent-form-builder`), nuevo subpaso opcional «Manual de herramientas» después de «Herramientas», con diálogo inicial Sí/No al pulsar Siguiente.",
+        "Editor markdown para el manual con `PromptMarkdownEditor` + `PromptMarkdownViewToggle`, pensado para iterar flujos de uso de tools en español.",
+        "Botones «Regenerar» y «Actualizar» para el manual con confirmación mediante `AlertDialog` antes de ejecutar la acción.",
+        "Nueva API `POST /api/agents/builder/tool-flows-markdown` (Hono + proxy Next + cliente en `agents-api`) para generar/actualizar markdown de flujos con IA.",
+      ],
+      changed: [
+        "El payload del paso `tools` ahora también puede persistir `toolFlowsMarkdownEs` junto con `selected_tools` en el borrador del agente.",
+        "El submit final del builder envía `toolFlowsMarkdownEs` en el PATCH de `tools` para que el contenido quede disponible antes de `step: complete`.",
+      ],
+      improved: [
+        "La generación multi-fase del system prompt ahora integra `draftRoot.toolFlowsMarkdownEs`: usa esa guía en español para construir instrucciones en inglés, evitando dejar instrucciones internas en español en el prompt final.",
+      ],
+    },
+  },
+  "2.4.23": {
+    date: "2026-04-21",
+    description:
+      "Builder de agentes: paso opcional Manual de herramientas, contexto reforzado y generación en streaming",
+    changes: {
+      added: [
+        "E2E del form builder actualizado para el modal opcional tras «Herramientas»: ruta rápida (No, continuar) y ruta opcional con `FORM_BUILDER_TOOL_MANUAL=1` para entrar a «Manual de herramientas».",
+        "Nueva variable documentada `FORM_BUILDER_TOOL_MANUAL=1` en README de `apps/web`.",
+        "Generación del manual de herramientas en tiempo real (SSE): backend emite `delta/done/error`, proxy Next reenvía stream y el editor muestra texto incremental durante «Generando con IA…».",
+        "Campo `supplemental_context` para enriquecer la generación de flujos con contexto de Avanzado + racional de recomendación por herramienta.",
+      ],
+      changed: [
+        "El payload del manual ahora incluye personalidad/estilo configurados (tono, rasgos, emojis, acento, firma, longitud, estilo conversacional), además de políticas y frases requeridas.",
+        "El prompt del generador de manual de tools exige ejemplos conversacionales más específicos y alineados a negocio/contexto/persona.",
+        "Ancho del subpaso «Manual de herramientas» ajustado a `max-w-4xl` (más espacio que el formulario base, sin llegar a full-width).",
+      ],
+      fixed: [
+        "El test E2E ya no pisa el contenido del manual con texto de prueba (`# E2E ...`) al recorrer la ruta opcional.",
+        "Reglas endurecidas en el diseñador de prompt y en el diseñador de flujos para evitar narración de acciones internas al usuario (ej. “voy a buscar...”) y priorizar respuesta final útil.",
+      ],
+    },
+  },
+  "2.4.22": {
+    date: "2026-04-20",
+    description:
+      "Atlas: diseño de prompt — conmutador Markdown/Raw y toggle en cabecera de cada bloque",
+    changes: {
+      added: [
+        "Conmutador Markdown / Raw: vista visual (TipTap) o texto plano monoespaciado (`Textarea`) sobre el mismo string markdown; al volver a visual se remonta el editor para hidratar el contenido.",
+        "Componente UI `Switch` (`@radix-ui/react-switch`) y `PromptMarkdownViewToggle` exportado desde `prompt-markdown-editor` para reutilizar el mismo control compacto.",
+        "Props `rawView` y `markdownPaneRemountKey` en `PromptMarkdownEditor` para modo controlado desde el padre sin barra interna.",
+      ],
+      changed: [
+        "En `AgentPromptDesigner`, el toggle Markdown/Raw pasa a la misma fila que «Base Prompt», «Unauth (Public)» y «Auth (Verified)» (solo cuando se muestra el editor, no en diff ni sugerencia), liberando la franja superior del área de edición.",
+      ],
+    },
+  },
+  "2.4.21": {
+    date: "2026-04-20",
+    description:
+      "Atlas: diseño de prompt — editor markdown enriquecido (estilo Notion) y barra flotante al seleccionar texto",
+    changes: {
+      added: [
+        "En `/agents/:id/prompt-design`, componente `PromptMarkdownEditor` con TipTap, `@tiptap/markdown` y `StarterKit`: el prompt base y los modulares (auth / unauth) se editan con formato visible (títulos, listas, negrita, etc.) manteniendo el guardado como texto markdown en testing.",
+        "Menú flotante tipo Notion al seleccionar texto (`BubbleMenu`): negrita, cursiva, tachado, código en línea, H2/H3, cita, listas ordenadas y con viñetas; anclado a `document.body` con posición fija para evitar recortes por `overflow` del panel.",
+        "Dependencias: `@tiptap/markdown`, `@tiptap/extension-placeholder`, `@tiptap/extension-bubble-menu`; bloque `@tiptap/*` alineado en 3.22.4.",
+      ],
+      fixed: [
+        "Bucle «Maximum update depth exceeded» en el menú flotante: `appendTo`, `shouldShow` y `options` del `BubbleMenu` deben ser referencias estables (constantes de módulo), porque TipTap re-despacha al cambiar su identidad y chocaba con `useEditorState`.",
+      ],
+    },
+  },
+  "2.4.20": {
+    date: "2026-04-18",
+    description:
+      "Atlas: modo de datos MCP (`firestore_data_mode`) en raíz del agente y control en configuración",
+    changes: {
+      added: [
+        "Campo raíz `firestore_data_mode` (`auto` | `testing` | `production`) documentado en contrato de agente; validación en `PATCH /api/agents/:id` junto con `version`; constantes `firestore-data-mode` y exposición en `parseAgentDoc` / detalle del agente.",
+        "En el editor de configuración del agente, selector «Datos MCP (producción vs prueba)» que guarda vía `patchAgent` y describe el comportamiento respecto a `testing/data` vs colecciones de producción en MCP-KAI-AGENTS y Tools MCP.",
+      ],
+      changed: [
+        "`fetchAgentById` siempre devuelve `firestoreDataMode` (por defecto `auto`) para hidratar el selector sin valores vacíos.",
+        "El selector de modo MCP en el editor solo lo ven usuarios con rol admin; `PATCH /api/agents/:id` rechaza cambios de `firestore_data_mode` si el rol no es administrador.",
+      ],
+    },
+  },
+  "2.4.19": {
+    date: "2026-04-18",
+    description:
+      "Database Duplicate/clone: Firestore por ambiente, duplicar documento recursivo y respuestas estables",
+    changes: {
+      fixed: [
+        "En la API, duplicar/clonar y el resto de rutas bajo `/api/database` que distinguen testing vs production llamaban siempre al mismo Firestore (credenciales de producción). El destino se comprobaba en el mismo proyecto que el origen, lo que generaba el error «El documento ya existe en destino» aunque en testing no existiera. Se añade `getFirestoreForEnvironment` y credenciales opcionales de testing (`FIREBASE_SERVICE_ACCOUNT_JSON_TESTING` o `apps/api/src/tokens/firebase.testing.json`).",
+        "Clonaciones recursivas muy grandes podían devolver HTML de error interno en lugar de JSON (respuesta demasiado pesada o fallos al serializar). El log de éxito limita las entradas devueltas (`log.documentos`) y expone `logDocumentosTotal` cuando hay truncado; al escribir se eliminan `undefined` y se reescriben `DocumentReference` al Firestore de destino para copias entre proyectos.",
+        "En Duplicate / clone (`/database/duplicate-clone`), la respuesta se interpreta con `text` + `JSON.parse` seguro: si el servidor devuelve HTML (p. ej. 500), se muestra un mensaje claro en lugar de «Unexpected token…».",
+      ],
+      added: [
+        "Operación «Duplicar documento» con checkbox «Incluir subcolecciones (clonación recursiva)», preview de subcolecciones y exclusiones (mismo patrón que duplicar colección y clonar recursivo). Documentado en `.env.example` el JSON de servicio para el proyecto Firebase de testing.",
+      ],
+    },
+  },
+  "2.4.18": {
+    date: "2026-04-18",
+    description:
+      "Atlas: diseño de prompt — bug de recarga (versión antigua), alinear testing con producción al promover",
+    changes: {
+      fixed: [
+        "En `/agents/:id/prompt-design` (`AgentPromptDesigner`), «Subir a producción» llamaba a `POST .../promote-prompt-to-production`, que solo escribe `agent_configurations/{id}/properties/prompt` y `mcp_configuration.system_prompt` en producción. La pantalla y `GET .../properties` (con agente en comercial) leen el prompt desde `testing/data/properties`: si el texto promovido no estaba guardado en testing o había desfase, tras recargar volvía la primera versión u otra copia vieja.",
+        "Condición de carrera en la hidratación: el efecto que inicializa `savedPrompt` / `editingPrompt` solo esperaba `propertiesLoading` y usaba `baseTesting || baseProperties || agent.prompt`, de modo que una cadena vacía o datos aún no cargados podían forzar el fallback al MCP antes de tiempo.",
+      ],
+      changed: [
+        "`executePromote`: tras un promote exitoso, `PATCH .../testing/properties/prompt` con el mismo `base` (y `auth` + `model` / `temperature` / `isMultiFunctionCallingEnable` cuando el payload incluye variantes auth), vía `updateTestingPropertyDocument`, para que testing coincida con lo desplegado.",
+        "Toasts: mensaje de éxito solo si la sincronización con testing responde bien; si falla el PATCH tras haber promovido, aviso de error pidiendo guardar de nuevo (producción ya quedó actualizada).",
+        "Tras sync correcto: actualización de `savedPrompt` (y prompts auth/unauth si aplica), `refetchTestingProperties` y `refetchProductionPrompt` como antes.",
+        "Hidratación del prompt: si `agent.inCommercial`, no aplicar el efecto hasta `!testingPropertiesLoading`; orden de fuentes explícito — datos de `useTestingProperties` si existen, si no `useAgentProperties`, si no `agent.prompt` — sin encadenar con `||` sobre strings.",
+        "`hooks/agent-testing-properties.ts`: `isLoading` inicial `true` cuando hay `agentId` (evita un frame en falso «no cargando»); al limpiar `agentId`, `setIsLoading(false)`.",
+        "`handleSave`: tras guardado exitoso, `refetchTestingProperties` para alinear el hook con Firestore sin depender de F5.",
+      ],
+    },
+  },
   "2.4.17": {
     date: "2026-04-16",
     description:
@@ -192,7 +500,7 @@ export const changelogData: Record<string, ChangelogEntry> = {
       added: [
         "En el paso **Avanzado** del constructor (`agent-form-builder.tsx`): modelo LLM y temperatura, tiempo de espera antes de procesar (`response.waitTime`), activar memoria conversacional (`isMemoryEnable`), partir la respuesta en varios mensajes (`isMultiMessageResponseEnable`), agente validador y reintentos MCP (`isValidatorAgentEnable`, `mcp.maxRetries`), mensaje cuando el envío no es soportado (`answer.notSupport`), y **Requiere autenticación** (sincronizado con `agent.isAuthEnable` al crear el borrador).",
         "API y utilidad `applyBuilderAdvancedProperties` (`apps/api/src/utils/apply-builder-advanced-properties.ts`): tras el PATCH `step: business` se fusionan `properties/*` y `testing/data/properties/*` (incl. `prompt.model` / `temperature` alineados con `ai`), y `time.zone` se deriva de `business_timezone` del paso Negocio.",
-        "Campos opcionales en el cuerpo del PATCH de borrador `business` (Zod en API y `packages/shared`, tipos en `apps/web/types/agents-api.ts`).",
+        "Campos opcionales en el cuerpo del PATCH de borrador `business` (Zod en API y `packages/shared`, tipos en `apps/web/types/agents/agents-api.ts`).",
       ],
       removed: [
         "Controles quitados del paso Avanzado (siguen disponibles en el editor de configuración del agente cuando aplique): máximo de llamadas a herramientas por turno, lista blanca (`limitation`), horario de atención y `operating_hours` enviados vacíos desde el constructor, aviso de «Zona horaria del agente», y cantidad máxima de recuerdos (`memory.limit`).",
@@ -220,7 +528,7 @@ export const changelogData: Record<string, ChangelogEntry> = {
     changes: {
       added: [
         "API `PATCH /api/builder/saved-companies/:id` para actualizar `name`, `payload` y `updatedAt` en Firestore, con comprobación de `usersBuildersId` (404/403 si no corresponde).",
-        "Cliente `patchSavedBuilderCompany` en `lib/agents-api.ts`.",
+        "Cliente `patchSavedBuilderCompany` en `services/agents-api.ts`.",
         "Al cargar un perfil desde el selector se enlaza su documento: «Actualizar empresa» hace PATCH; el primer guardado sin perfil cargado sigue creando con POST y asocia el id para siguientes actualizaciones.",
         "Indicador «Editando: [nombre]» y botón «Guardar como nuevo» (desvincula el doc y el siguiente guardado crea otro registro). Al elegir «Guardar como nuevo» se resetea la deduplicación del auto-guardado al pulsar Siguiente.",
         "Guardado automático al pulsar Siguiente reutiliza la misma lógica POST/PATCH según haya perfil en edición.",
@@ -235,7 +543,7 @@ export const changelogData: Record<string, ChangelogEntry> = {
       added: [
         "Colección Firestore `builderCompanies` con documentos por perfil de negocio: `usersBuildersId` (teléfono del builder, alineado con `usersBuilders`), `name`, `payload` en camelCase (`businessName`, `description`, `industry`, etc.), `createdAt` y `updatedAt`.",
         "API Hono `GET` y `POST /api/builder/saved-companies` (validación Zod); sin endpoint de borrado. Rewrite en `next.config.ts` hacia la API interna para `/api/builder/*`.",
-        "Cliente `fetchSavedBuilderCompanies` y `postSavedBuilderCompany` en `lib/agents-api.ts`; tipos `BuilderCompanyPayload` y `SavedBuilderCompany`.",
+        "Cliente `fetchSavedBuilderCompanies` y `postSavedBuilderCompany` en `services/agents-api.ts`; tipos `BuilderCompanyPayload` y `SavedBuilderCompany`.",
         "En el paso Negocio del form builder: bloque «Empresas guardadas» con buscador por nombre o descripción, lista que muestra el nombre y debajo la descripción del negocio (para distinguir entradas con el mismo nombre), y botón «Guardar empresa actual».",
         "Guardado automático del perfil del negocio al pulsar **Siguiente** cuando los datos obligatorios están completos, con deduplicación por hash del payload para no crear registros idénticos seguidos.",
         "Callback `onBusinessProfileSaved` para alinear el estado de deduplicación tras guardar manualmente o cargar un perfil desde el selector.",
@@ -863,7 +1171,10 @@ export function getProjectById(id: ProjectId) {
   return PROJECTS.find((p) => p.id === id);
 }
 
-/** True si el usuario de sesión es el creador de la entrada (id o email de autor). */
+/**
+ * True si el usuario es el creador (id o email de autor).
+ * En UI/API de edición se combina con rol admin: `isAdmin || canEditChangelogEntry(...)`.
+ */
 export function canEditChangelogEntry(
   entry: DbChangelogEntry,
   sessionUser: { id?: string; email?: string | null } | null | undefined,

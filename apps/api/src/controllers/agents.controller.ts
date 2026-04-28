@@ -9,13 +9,12 @@ import type {
   AgentDocument,
   AgentsInfoAuthContext,
   LightAgent,
-} from "@/types/agents";
+} from "@/types/agents-types";
 import type { PrefetchedAgentData } from "@/utils/agents/agentSearchMatch";
 import {
   agentMatchesGrowersSearchQuery,
   agentMatchesRootSearchQuery,
   agentMatchesSearchQuery,
-  buildLightAgent,
   fetchGrowersForAgent,
   isGrowerCursor,
   normalizeAgentsSearchQuery,
@@ -23,6 +22,7 @@ import {
   parseAgentDocFromData,
   parseBillingDoc,
 } from "@/utils/agents";
+import { lifecycleSummaryFromFirestoreData } from "@/utils/agents/lifecycle-doc";
 import {
   extractFirestoreIndexUrl,
   firestoreFailureHint,
@@ -80,6 +80,7 @@ async function buildLightAgentWithDeployment(
     agentRef.collection("properties").doc("prompt").get(),
     agentRef.collection("properties").doc("response").get(),
     agentRef.collection("billing").doc("main").get(),
+    agentRef.collection("implementation").doc("lifecycle").get(),
   ];
 
   let growersIdx: number | undefined;
@@ -95,13 +96,21 @@ async function buildLightAgentWithDeployment(
   }
 
   const results = await Promise.all(fetchTasks);
-  const [agentSnap, aiSnap, promptSnap, responseSnap, billingSnap] = results.slice(0, 5) as [
-    FirebaseFirestore.DocumentSnapshot,
-    FirebaseFirestore.DocumentSnapshot,
-    FirebaseFirestore.DocumentSnapshot,
-    FirebaseFirestore.DocumentSnapshot,
-    FirebaseFirestore.DocumentSnapshot,
-  ];
+  const [agentSnap, aiSnap, promptSnap, responseSnap, billingSnap, lifecycleSnap] =
+    results.slice(0, 6) as [
+      FirebaseFirestore.DocumentSnapshot,
+      FirebaseFirestore.DocumentSnapshot,
+      FirebaseFirestore.DocumentSnapshot,
+      FirebaseFirestore.DocumentSnapshot,
+      FirebaseFirestore.DocumentSnapshot,
+      FirebaseFirestore.DocumentSnapshot,
+    ];
+
+  const lifecycleSummary = lifecycleSnap.exists
+    ? lifecycleSummaryFromFirestoreData(
+        lifecycleSnap.data() as Record<string, unknown>,
+      )
+    : undefined;
 
   if (growers === undefined && growersIdx !== undefined) {
     const growersSnap = results[growersIdx] as FirebaseFirestore.QuerySnapshot;
@@ -160,6 +169,8 @@ async function buildLightAgentWithDeployment(
     ...parsed,
     growers,
     techLeads,
+    inProduction: true,
+    inCommercial: hasTestingData,
     enabled,
     injectCommandsInPrompt:
       agentData?.injectCommandsInPrompt === true ||
@@ -176,6 +187,7 @@ async function buildLightAgentWithDeployment(
     waitTime: Number.isFinite(waitTime) ? waitTime : undefined,
     billing: billingSnap.exists ? parseBillingDoc(billingSnap) : undefined,
     status,
+    ...(lifecycleSummary != null ? { lifecycleSummary } : {}),
   };
 }
 
@@ -336,8 +348,15 @@ async function paginateLightAgentsWithSearch(
         if (filters.status === "commercial" && !row.inCommercial) continue;
         if (filters.status === "testing" && row.inProduction) continue;
         if (filters.billingAlert === "true" && !row.billing?.paymentAlert) continue;
-        if (filters.domiciliated === "true" && !row.billing?.domiciliated) continue;
-        if (filters.domiciliated === "false" && row.billing?.domiciliated) continue;
+        if (filters.domiciliated === "true" && row.billing?.domiciliated !== true) {
+          continue;
+        }
+        if (filters.domiciliated === "false" && row.billing?.domiciliated !== false) {
+          continue;
+        }
+        if (filters.domiciliated === "unknown" && row.billing?.domiciliated != null) {
+          continue;
+        }
         if (filters.archivedOnly && row.status !== "archived") continue;
       }
 
@@ -580,8 +599,15 @@ export const getAgentsInfo = async (
       if (statusFilter === "commercial") filterFns.push((a) => a.inCommercial === true);
       if (statusFilter === "testing") filterFns.push((a) => !a.inProduction);
       if (billingAlertFilter === "true") filterFns.push((a) => a.billing?.paymentAlert === true);
-      if (domiciliatedFilter === "true") filterFns.push((a) => a.billing?.domiciliated === true);
-      if (domiciliatedFilter === "false") filterFns.push((a) => a.billing?.domiciliated === false);
+      if (domiciliatedFilter === "true") {
+        filterFns.push((a) => a.billing?.domiciliated === true);
+      }
+      if (domiciliatedFilter === "false") {
+        filterFns.push((a) => a.billing?.domiciliated === false);
+      }
+      if (domiciliatedFilter === "unknown") {
+        filterFns.push((a) => a.billing?.domiciliated == null);
+      }
       if (archivedOnly) filterFns.push((a) => a.status === "archived");
 
       let agents = agentsRows.filter((row): row is LightAgent => row != null);

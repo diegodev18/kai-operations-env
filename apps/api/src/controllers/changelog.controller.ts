@@ -1,36 +1,14 @@
 import type { Context } from "hono";
 import { nanoid } from "nanoid";
 
-import type { AgentsInfoAuthContext } from "@/types/agents";
+import type { AgentsInfoAuthContext } from "@/types/agents-types";
+import type { ChangelogPayload } from "@/types/changelog-types";
 import { getFirestore, FieldValue } from "@/lib/firestore";
 import { isOperationsAdmin } from "@/utils/operations-access";
 import { compareChangelogEntriesVersionThenRegisterDateDesc } from "@/utils/semver-compare";
 
 const ALLOWED_PROJECTS = ["panel", "agents", "tools"] as const;
 const STORAGE_BUCKET = "kai-project-26879.appspot.com";
-
-interface ChangelogPayload {
-  projectId: string;
-  registerDate: string;
-  implementationDate: string;
-  version: string;
-  author: { name: string; email: string };
-  collaborators: { name: string; email: string }[];
-  description: string;
-  changes: {
-    added?: string[];
-    changed?: string[];
-    fixed?: string[];
-    removed?: string[];
-    improved?: string[];
-  };
-  attachments: { name: string; url: string; type: string }[];
-  ticketUrl?: string;
-  createTicket: boolean;
-  tags?: string[];
-  status: "draft" | "published";
-  internalNotes?: string;
-}
 
 /** Firestore rejects `undefined`; strip top-level optional fields before `.set()`. */
 function firestoreDocData(data: Record<string, unknown>) {
@@ -341,9 +319,12 @@ export async function patchChangelogEntry(
     (k) => k !== "hidden" && ALLOW_PATCH_FIELDS.has(k),
   );
   if (contentKeys.length > 0) {
-    if (!isChangelogCreator(existing, authCtx)) {
+    if (!isChangelogCreator(existing, authCtx) && !admin) {
       return c.json(
-        { error: "Solo el creador puede editar el contenido de esta entrada" },
+        {
+          error:
+            "Solo el creador de la entrada o un administrador puede editar el contenido",
+        },
         403,
       );
     }

@@ -1,6 +1,6 @@
 import type { DocumentReference } from "firebase-admin/firestore";
 
-import { PROPERTY_DEFAULTS } from "@/constants/agentPropertyDefaults";
+import { PROPERTY_DEFAULTS } from "@/constants/agent-property-defaults";
 
 /** Aligned with apps/web agent-configuration-editor AGENT_LLM_MODELS. */
 export const BUILDER_LLM_MODELS = [
@@ -141,9 +141,4 @@ export async function applyBuilderAdvancedProperties(
   }
 
   await batch.commit();
-
-  await draftRef.update({
-    "ai.model": model,
-    "ai.temperature": temperature,
-  });
 }

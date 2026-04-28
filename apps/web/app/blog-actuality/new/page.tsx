@@ -14,11 +14,11 @@ import { Loader2Icon, SendIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { ActualityMarkdownComposer } from "@/components/actuality-markdown-composer";
-import { createBlogPost, uploadBlogImage } from "@/lib/blog-api";
-import { ACTUALITY_TAGS } from "@/lib/blog-tags";
-import { fetchOrganizationUsers } from "@/lib/organization-api";
-import { useAuth } from "@/hooks/auth";
+import { ActualityMarkdownComposer } from "@/components/blog";
+import { createBlogPost, uploadBlogImage } from "@/services/blog-api";
+import { ACTUALITY_TAGS } from "@/consts/blog-tags";
+import { fetchOrganizationUsers } from "@/services/organization-api";
+import { useAuth } from "@/hooks";
 
 const POST_TYPE = "actuality" as const;
 
