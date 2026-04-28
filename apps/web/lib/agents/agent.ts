@@ -1,11 +1,7 @@
 import type { AgentLifecycleSummary } from "@/types";
 
 /** Estado operativo del agente para el dashboard de operaciones. */
-export type AgentOperationalStatus =
-  | "active"
-  | "off"
-  | "testing"
-  | "suspended";
+export type AgentOperationalStatus = "active" | "off" | "testing" | "suspended";
 
 export type AgentBilling = {
   /** `true` / `false` explícitos; `null` = sin información en Firestore. */
@@ -61,7 +57,7 @@ export interface Agent {
   /** Rutas de datos MCP: automático, siempre testing/data o siempre producción. */
   firestoreDataMode?: "auto" | "testing" | "production";
   /** IDs de esquemas de tablas dinámicas permitidos (doc raíz del agente). */
-  allowedSchemasIds?: string[];
+  allowedSchemaIds?: string[];
   /** El agente es favorito del usuario actual (desde el backend). */
   isFavorite?: boolean;
   /** Listado ligero: estatus comercial + fecha estimada. */

@@ -14,10 +14,14 @@ export function useConfigurationEditorDynamicSchemas({
   agentId: string;
   onAgentUpdated?: () => void | Promise<void>;
 }) {
-  const [availableSchemas, setAvailableSchemas] = useState<DynamicTableSchemaDocument[]>([]);
+  const [availableSchemas, setAvailableSchemas] = useState<
+    DynamicTableSchemaDocument[]
+  >([]);
   const [schemasLoading, setSchemasLoading] = useState(false);
   const [schemasListError, setSchemasListError] = useState<string | null>(null);
-  const [selectedAllowedSchemaIds, setSelectedAllowedSchemaIds] = useState<string[]>([]);
+  const [selectedAllowedSchemaIds, setSelectedAllowedSchemaIds] = useState<
+    string[]
+  >([]);
   const [savingAllowedSchemas, setSavingAllowedSchemas] = useState(false);
   const [schemaSearch, setSchemaSearch] = useState("");
   const [showOnlySelectedSchemas, setShowOnlySelectedSchemas] = useState(false);
@@ -55,10 +59,20 @@ export function useConfigurationEditorDynamicSchemas({
       if (!showOnlySelectedSchemas) return true;
       return selectedAllowedSchemaIds.includes(schema.schemaId);
     });
-  }, [availableSchemas, normalizedSchemaSearch, selectedAllowedSchemaIds, showOnlySelectedSchemas]);
+  }, [
+    availableSchemas,
+    normalizedSchemaSearch,
+    selectedAllowedSchemaIds,
+    showOnlySelectedSchemas,
+  ]);
 
-  const schemasToRender = showAllSchemas ? filteredSchemas : filteredSchemas.slice(0, 8);
-  const hiddenSchemasCount = Math.max(0, filteredSchemas.length - schemasToRender.length);
+  const schemasToRender = showAllSchemas
+    ? filteredSchemas
+    : filteredSchemas.slice(0, 8);
+  const hiddenSchemasCount = Math.max(
+    0,
+    filteredSchemas.length - schemasToRender.length,
+  );
 
   const toggleShowOnlySelectedSchemas = useCallback(() => {
     setShowOnlySelectedSchemas((prev) => !prev);
@@ -74,15 +88,18 @@ export function useConfigurationEditorDynamicSchemas({
     setShowAllSchemas(false);
   }, []);
 
-  const toggleSchemaSelection = useCallback((schemaId: string, checked: boolean) => {
-    setSelectedAllowedSchemaIds((prev) =>
-      checked
-        ? prev.includes(schemaId)
-          ? prev
-          : [...prev, schemaId]
-        : prev.filter((id) => id !== schemaId),
-    );
-  }, []);
+  const toggleSchemaSelection = useCallback(
+    (schemaId: string, checked: boolean) => {
+      setSelectedAllowedSchemaIds((prev) =>
+        checked
+          ? prev.includes(schemaId)
+            ? prev
+            : [...prev, schemaId]
+          : prev.filter((id) => id !== schemaId),
+      );
+    },
+    [],
+  );
 
   const saveAllowedSchemas = useCallback(async (): Promise<SaveResult> => {
     if (!agentId) return { ok: true };
@@ -94,7 +111,7 @@ export function useConfigurationEditorDynamicSchemas({
         DYNAMIC_SCHEMAS_API_ENV,
       );
       if (res.ok) {
-        setSelectedAllowedSchemaIds(res.allowedSchemasIds);
+        setSelectedAllowedSchemaIds(res.allowedSchemaIds);
         await onAgentUpdated?.();
         return { ok: true };
       }

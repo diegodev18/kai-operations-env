@@ -7,18 +7,18 @@ export {
 export { buildLightAgent } from "./buildLightAgent";
 export { userCanAddGrowerToAgent } from "./growerAccess";
 export { isGrowerCursor } from "./growersCursor";
-export type { GrowerPayload, TechLeadPayload } from "@/types/agent-collaborators";
+export type {
+  GrowerPayload,
+  TechLeadPayload,
+} from "@/types/agent-collaborators";
 export { fetchGrowersForAgent, mapGrowerDocsToPayload } from "./growers";
-export {
-  fetchTechLeadsForAgent,
-  mapTechLeadDocsToPayload,
-} from "./techLeads";
+export { fetchTechLeadsForAgent, mapTechLeadDocsToPayload } from "./techLeads";
 export {
   parseAgentDoc,
   parseAgentDocFromData,
   type ParsedAgentDoc,
 } from "./parseAgentDoc";
-export { normalizeAllowedSchemasIdsFromAgentRoot } from "./allowed-schemas-ids";
+export { normalizeallowedSchemaIdsFromAgentRoot } from "./allowed-schemas-ids";
 export {
   parseBillingDoc,
   parsePaymentRecordDoc,

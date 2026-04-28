@@ -15,11 +15,11 @@ import {
 } from "@/constants/firestore-data-mode";
 import { appendImplementationActivityEntry } from "@/services/implementation-activity.service";
 import type { AgentsInfoAuthContext } from "@/types/agents-types";
-import { handleFirestoreError, requireAgentAccess } from "@/utils/agent-detail/access";
 import {
-  resolveAgentWriteDatabase,
-  userCanEditAgent,
-} from "@/utils/agents";
+  handleFirestoreError,
+  requireAgentAccess,
+} from "@/utils/agent-detail/access";
+import { resolveAgentWriteDatabase, userCanEditAgent } from "@/utils/agents";
 import { isOperationsAdmin } from "@/utils/operations-access";
 
 const DYNAMIC_TABLE_SCHEMAS_COLLECTION = "dynamic_table_schemas";
@@ -29,7 +29,9 @@ const patchAllowedDynamicTableSchemasBodySchema = z.object({
   schemaIds: z.array(z.string().min(1, "schemaId no puede estar vacío")),
 });
 
-function parseAllowedSchemasEnvironmentHeader(c: Context): FirestoreEnvironment | null {
+function parseAllowedSchemasEnvironmentHeader(
+  c: Context,
+): FirestoreEnvironment | null {
   const raw = (c.req.header("X-Environment") ?? "testing").trim().toLowerCase();
   if (raw === "testing" || raw === "production") return raw;
   return null;
@@ -57,10 +59,7 @@ export async function updateAgentPropertyDocument(
 
   const canEdit = await userCanEditAgent(authCtx, agentId);
   if (!canEdit) {
-    return c.json(
-      { error: "No tienes permisos para editar este agente" },
-      403,
-    );
+    return c.json({ error: "No tienes permisos para editar este agente" }, 403);
   }
 
   const isKnownDoc = PROPERTY_DOC_IDS.includes(documentId as PropertyDocId);
@@ -86,19 +85,29 @@ export async function updateAgentPropertyDocument(
     bodyObj.enabled === false &&
     !isOperationsAdmin(authCtx.userRole)
   ) {
-    return ApiErrors.forbidden(c, "Solo un administrador puede apagar el agente");
+    return ApiErrors.forbidden(
+      c,
+      "Solo un administrador puede apagar el agente",
+    );
   }
 
   try {
-    const { db: database, hasTestingData, inProduction } =
-      await resolveAgentWriteDatabase(agentId);
+    const {
+      db: database,
+      hasTestingData,
+      inProduction,
+    } = await resolveAgentWriteDatabase(agentId);
     if (!hasTestingData && !inProduction) {
       return ApiErrors.notFound(c, "Agente no encontrado");
     }
     const agentRef = database.collection("agent_configurations").doc(agentId);
 
     const docRef = hasTestingData
-      ? agentRef.collection("testing").doc("data").collection("properties").doc(documentId)
+      ? agentRef
+          .collection("testing")
+          .doc("data")
+          .collection("properties")
+          .doc(documentId)
       : agentRef.collection("properties").doc(documentId);
     await docRef.set(body as Record<string, unknown>, { merge: true });
 
@@ -139,8 +148,7 @@ export async function patchAgent(
     updateData.version = bodyObj.version;
   }
 
-  const rawMode =
-    bodyObj.firestore_data_mode ?? bodyObj.firestoreDataMode;
+  const rawMode = bodyObj.firestore_data_mode ?? bodyObj.firestoreDataMode;
   if (rawMode !== undefined) {
     if (!isOperationsAdmin(authCtx.userRole)) {
       return ApiErrors.forbidden(
@@ -162,8 +170,11 @@ export async function patchAgent(
   }
 
   try {
-    const { db: database, hasTestingData, inProduction } =
-      await resolveAgentWriteDatabase(agentId);
+    const {
+      db: database,
+      hasTestingData,
+      inProduction,
+    } = await resolveAgentWriteDatabase(agentId);
     if (!hasTestingData && !inProduction) {
       return ApiErrors.notFound(c, "Agente no encontrado");
     }
@@ -188,7 +199,7 @@ export async function patchAgent(
 }
 
 /**
- * Sincroniza `allowedSchemasIds` en el doc raíz y la subcolección `allowedSchemas`.
+ * Sincroniza `allowedSchemaIds` en el doc raíz y la subcolección `allowedSchemas`.
  * Valida IDs contra `dynamic_table_schemas` del proyecto indicado por `X-Environment`.
  */
 export async function patchAgentAllowedDynamicTableSchemas(
@@ -206,7 +217,10 @@ export async function patchAgentAllowedDynamicTableSchemas(
 
   const env = parseAllowedSchemasEnvironmentHeader(c);
   if (!env) {
-    return ApiErrors.validation(c, "X-Environment debe ser testing o production");
+    return ApiErrors.validation(
+      c,
+      "X-Environment debe ser testing o production",
+    );
   }
 
   let body: unknown;
@@ -218,7 +232,9 @@ export async function patchAgentAllowedDynamicTableSchemas(
 
   const parsed = patchAllowedDynamicTableSchemasBodySchema.safeParse(body);
   if (!parsed.success) {
-    const msg = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
+    const msg = parsed.error.issues
+      .map((i) => `${i.path.join(".")}: ${i.message}`)
+      .join("; ");
     return ApiErrors.validation(c, msg);
   }
 
@@ -228,7 +244,10 @@ export async function patchAgentAllowedDynamicTableSchemas(
     const envDb = getFirestoreForEnvironment(env);
     const validation = await Promise.all(
       schemaIds.map(async (id) => {
-        const snap = await envDb.collection(DYNAMIC_TABLE_SCHEMAS_COLLECTION).doc(id).get();
+        const snap = await envDb
+          .collection(DYNAMIC_TABLE_SCHEMAS_COLLECTION)
+          .doc(id)
+          .get();
         return { id, exists: snap.exists };
       }),
     );
@@ -240,8 +259,11 @@ export async function patchAgentAllowedDynamicTableSchemas(
       );
     }
 
-    const { db: database, hasTestingData, inProduction } =
-      await resolveAgentWriteDatabase(agentId);
+    const {
+      db: database,
+      hasTestingData,
+      inProduction,
+    } = await resolveAgentWriteDatabase(agentId);
     if (!hasTestingData && !inProduction) {
       return ApiErrors.notFound(c, "Agente no encontrado");
     }
@@ -255,7 +277,11 @@ export async function patchAgentAllowedDynamicTableSchemas(
 
     const BATCH_MAX = 450;
     type BatchOp =
-      | { type: "update"; ref: DocumentReference; data: Record<string, unknown> }
+      | {
+          type: "update";
+          ref: DocumentReference;
+          data: Record<string, unknown>;
+        }
       | { type: "set"; ref: DocumentReference; data: Record<string, unknown> }
       | { type: "delete"; ref: DocumentReference };
 
@@ -263,7 +289,7 @@ export async function patchAgentAllowedDynamicTableSchemas(
       {
         type: "update",
         ref: agentRef,
-        data: { allowedSchemasIds: schemaIds },
+        data: { allowedSchemaIds: schemaIds },
       },
     ];
     for (const id of schemaIds) {
@@ -288,9 +314,13 @@ export async function patchAgentAllowedDynamicTableSchemas(
       await batch.commit();
     }
 
-    return c.json({ success: true, allowedSchemasIds: schemaIds });
+    return c.json({ success: true, allowedSchemaIds: schemaIds });
   } catch (error) {
-    const r = handleFirestoreError(c, error, "[agents/:id/allowed-dynamic-table-schemas PATCH]");
+    const r = handleFirestoreError(
+      c,
+      error,
+      "[agents/:id/allowed-dynamic-table-schemas PATCH]",
+    );
     return r ?? c.json({ error: "Error al guardar esquemas permitidos" }, 500);
   }
 }
@@ -304,7 +334,10 @@ export async function postAgentOperationsArchive(
   if (denied) return denied;
 
   if (!isOperationsAdmin(authCtx.userRole)) {
-    return ApiErrors.forbidden(c, "Solo un administrador puede archivar agentes");
+    return ApiErrors.forbidden(
+      c,
+      "Solo un administrador puede archivar agentes",
+    );
   }
 
   let body: unknown;
@@ -355,7 +388,11 @@ export async function postAgentOperationsArchive(
 
     return c.json({ ok: true, status });
   } catch (error) {
-    const r = handleFirestoreError(c, error, "[agents/:id/operations-archive POST]");
+    const r = handleFirestoreError(
+      c,
+      error,
+      "[agents/:id/operations-archive POST]",
+    );
     return r ?? c.json({ error: "Error al actualizar status del agente" }, 500);
   }
 }

@@ -196,7 +196,7 @@ export function AgentConfigurationEditor({
         setAgentVersion(agent.version);
       }
       setFirestoreDataMode(agent?.firestoreDataMode ?? "auto");
-      const ids = agent?.allowedSchemasIds ?? [];
+      const ids = agent?.allowedSchemaIds ?? [];
       setSelectedAllowedSchemaIds(ids);
     })();
     return () => {

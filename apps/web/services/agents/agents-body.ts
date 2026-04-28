@@ -28,10 +28,14 @@ import type {
 } from "@/types";
 import { normalizeAgentStatus } from "@/services/agents/normalize";
 
-function normalizeAllowedSchemasIdsFromAgentJson(j: Record<string, unknown>): string[] {
-  const raw = j.allowedSchemasIds ?? j.allowed_schemas_ids;
+function normalizeallowedSchemaIdsFromAgentJson(
+  j: Record<string, unknown>,
+): string[] {
+  const raw = j.allowedSchemaIds ?? j.allowed_schemas_ids;
   if (!Array.isArray(raw)) return [];
-  return raw.filter((x): x is string => typeof x === "string" && x.trim() !== "");
+  return raw.filter(
+    (x): x is string => typeof x === "string" && x.trim() !== "",
+  );
 }
 
 export async function postAgentGrower(
@@ -198,9 +202,7 @@ export async function deleteAgentTechLead(
 
 // --- Agent drafts (colecci?n agent_drafts; miembros y admins; grower creador en POST) ---
 
-export async function fetchToolsCatalog(): Promise<
-  ToolsCatalogItem[] | null
-> {
+export async function fetchToolsCatalog(): Promise<ToolsCatalogItem[] | null> {
   const res = await fetch("/api/agents/tools-catalog", {
     credentials: "include",
     cache: "no-store",
@@ -217,8 +219,7 @@ export async function fetchToolsCatalog(): Promise<
 // --- Builder: empresas guardadas (Firestore builderCompanies) ---
 
 export async function fetchSavedBuilderCompanies(): Promise<
-  | { ok: true; companies: SavedBuilderCompany[] }
-  | { ok: false; error: string }
+  { ok: true; companies: SavedBuilderCompany[] } | { ok: false; error: string }
 > {
   const res = await fetch("/api/builder/saved-companies", {
     credentials: "include",
@@ -244,8 +245,7 @@ export async function postSavedBuilderCompany(body: {
   name?: string;
   payload: BuilderCompanyPayload;
 }): Promise<
-  | { ok: true; id: string; name: string }
-  | { ok: false; error: string }
+  { ok: true; id: string; name: string } | { ok: false; error: string }
 > {
   const res = await fetch("/api/builder/saved-companies", {
     method: "POST",
@@ -275,8 +275,7 @@ export async function patchSavedBuilderCompany(
   id: string,
   body: { name?: string; payload: BuilderCompanyPayload },
 ): Promise<
-  | { ok: true; id: string; name: string }
-  | { ok: false; error: string }
+  { ok: true; id: string; name: string } | { ok: false; error: string }
 > {
   const res = await fetch(
     `/api/builder/saved-companies/${encodeURIComponent(id)}`,
@@ -351,15 +350,12 @@ export async function patchAgentDraft(
   | { ok: true; creation_step?: string; selected_tools?: string[] }
   | { ok: false; error: string; invalid_ids?: string[] }
 > {
-  const res = await fetch(
-    `/api/agents/drafts/${encodeURIComponent(draftId)}`,
-    {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify(body),
-    },
-  );
+  const res = await fetch(`/api/agents/drafts/${encodeURIComponent(draftId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(body),
+  });
   let data: {
     creation_step?: string;
     selected_tools?: string[];
@@ -385,9 +381,7 @@ export async function patchAgentDraft(
   };
 }
 
-export async function fetchAgentDraft(
-  draftId: string,
-): Promise<
+export async function fetchAgentDraft(draftId: string): Promise<
   | {
       ok: true;
       id: string;
@@ -397,13 +391,10 @@ export async function fetchAgentDraft(
     }
   | { ok: false; error: string }
 > {
-  const res = await fetch(
-    `/api/agents/drafts/${encodeURIComponent(draftId)}`,
-    {
-      credentials: "include",
-      cache: "no-store",
-    },
-  );
+  const res = await fetch(`/api/agents/drafts/${encodeURIComponent(draftId)}`, {
+    credentials: "include",
+    cache: "no-store",
+  });
   let data: {
     id?: string;
     draft?: AgentDraftClient;
@@ -519,7 +510,9 @@ export async function fetchDraftPendingTasks(
 export async function createDraftPendingTask(
   draftId: string,
   body: { title: string; context?: string; postponed_from?: string },
-): Promise<{ ok: true; task: DraftPendingTask } | { ok: false; error: string }> {
+): Promise<
+  { ok: true; task: DraftPendingTask } | { ok: false; error: string }
+> {
   const res = await fetch(
     `/api/agents/drafts/${encodeURIComponent(draftId)}/tasks`,
     {
@@ -538,7 +531,8 @@ export async function createDraftPendingTask(
   if (!res.ok) {
     return { ok: false, error: data.error ?? "No se pudo crear la tarea" };
   }
-  if (!data.task) return { ok: false, error: "Respuesta inv?lida del servidor" };
+  if (!data.task)
+    return { ok: false, error: "Respuesta inv?lida del servidor" };
   return { ok: true, task: data.task };
 }
 
@@ -546,7 +540,9 @@ export async function patchDraftPendingTask(
   draftId: string,
   taskId: string,
   body: { status?: "pending" | "completed"; title?: string; context?: string },
-): Promise<{ ok: true; task: DraftPendingTask } | { ok: false; error: string }> {
+): Promise<
+  { ok: true; task: DraftPendingTask } | { ok: false; error: string }
+> {
   const res = await fetch(
     `/api/agents/drafts/${encodeURIComponent(draftId)}/tasks/${encodeURIComponent(taskId)}`,
     {
@@ -565,7 +561,8 @@ export async function patchDraftPendingTask(
   if (!res.ok) {
     return { ok: false, error: data.error ?? "No se pudo actualizar la tarea" };
   }
-  if (!data.task) return { ok: false, error: "Respuesta inv?lida del servidor" };
+  if (!data.task)
+    return { ok: false, error: "Respuesta inv?lida del servidor" };
   return { ok: true, task: data.task };
 }
 
@@ -581,7 +578,9 @@ export async function fetchDraftTechnicalProperties(
   );
   if (!res.ok) return null;
   try {
-    const data = (await res.json()) as { properties?: Record<string, Record<string, unknown>> };
+    const data = (await res.json()) as {
+      properties?: Record<string, Record<string, unknown>>;
+    };
     return data.properties ?? null;
   } catch {
     return null;
@@ -609,7 +608,10 @@ export async function patchDraftTechnicalPropertyDocument(
     /* empty */
   }
   if (!res.ok) {
-    return { ok: false, error: data.error ?? "No se pudo guardar la propiedad" };
+    return {
+      ok: false,
+      error: data.error ?? "No se pudo guardar la propiedad",
+    };
   }
   return { ok: true };
 }
@@ -637,7 +639,9 @@ export async function createDraftPropertyItem(
   draftId: string,
   documentId: "personality" | "business",
   body: { title: string; content: string },
-): Promise<{ ok: true; item: DraftPropertyItem } | { ok: false; error: string }> {
+): Promise<
+  { ok: true; item: DraftPropertyItem } | { ok: false; error: string }
+> {
   const res = await fetch(
     `/api/agents/drafts/${encodeURIComponent(draftId)}/properties/${encodeURIComponent(documentId)}/items`,
     {
@@ -656,7 +660,8 @@ export async function createDraftPropertyItem(
   if (!res.ok) {
     return { ok: false, error: data.error ?? "No se pudo crear el item" };
   }
-  if (!data.item) return { ok: false, error: "Respuesta inv?lida del servidor" };
+  if (!data.item)
+    return { ok: false, error: "Respuesta inv?lida del servidor" };
   return { ok: true, item: data.item };
 }
 
@@ -665,7 +670,9 @@ export async function patchDraftPropertyItem(
   documentId: "personality" | "business",
   itemId: string,
   body: { title?: string; content?: string },
-): Promise<{ ok: true; item: DraftPropertyItem } | { ok: false; error: string }> {
+): Promise<
+  { ok: true; item: DraftPropertyItem } | { ok: false; error: string }
+> {
   const res = await fetch(
     `/api/agents/drafts/${encodeURIComponent(draftId)}/properties/${encodeURIComponent(documentId)}/items/${encodeURIComponent(itemId)}`,
     {
@@ -681,8 +688,10 @@ export async function patchDraftPropertyItem(
   } catch {
     /* empty */
   }
-  if (!res.ok) return { ok: false, error: data.error ?? "No se pudo actualizar el item" };
-  if (!data.item) return { ok: false, error: "Respuesta inv?lida del servidor" };
+  if (!res.ok)
+    return { ok: false, error: data.error ?? "No se pudo actualizar el item" };
+  if (!data.item)
+    return { ok: false, error: "Respuesta inv?lida del servidor" };
   return { ok: true, item: data.item };
 }
 
@@ -704,7 +713,8 @@ export async function deleteDraftPropertyItem(
   } catch {
     /* empty */
   }
-  if (!res.ok) return { ok: false, error: data.error ?? "No se pudo eliminar el item" };
+  if (!res.ok)
+    return { ok: false, error: data.error ?? "No se pudo eliminar el item" };
   return { ok: true };
 }
 
@@ -717,8 +727,7 @@ export async function fetchAgentById(agentId: string): Promise<Agent | null> {
   if (!res.ok) return null;
   try {
     const j = (await res.json()) as Record<string, unknown>;
-    const firestoreDataModeRaw =
-      j.firestoreDataMode ?? j.firestore_data_mode;
+    const firestoreDataModeRaw = j.firestoreDataMode ?? j.firestore_data_mode;
     const firestoreDataMode: "auto" | "testing" | "production" =
       firestoreDataModeRaw === "testing" ||
       firestoreDataModeRaw === "production"
@@ -734,7 +743,7 @@ export async function fetchAgentById(agentId: string): Promise<Agent | null> {
       inProduction: Boolean(j.in_production ?? j.inProduction),
       status: normalizeAgentStatus(j.status),
       firestoreDataMode,
-      allowedSchemasIds: normalizeAllowedSchemasIdsFromAgentJson(j),
+      allowedSchemaIds: normalizeallowedSchemaIdsFromAgentJson(j),
       primarySource:
         (j.primary_source ?? j.primarySource) === "production"
           ? "production"
@@ -831,7 +840,9 @@ export async function fetchAgentBuilderForm(
 export async function postAgentOperationsArchive(
   agentId: string,
   body: { status: "active" | "archived"; confirm?: string },
-): Promise<{ ok: true; status: "active" | "archived" } | { ok: false; error: string }> {
+): Promise<
+  { ok: true; status: "active" | "archived" } | { ok: false; error: string }
+> {
   const res = await fetch(
     `/api/agents/${encodeURIComponent(agentId)}/operations-archive`,
     {
@@ -889,14 +900,13 @@ export async function patchAgent(
   return { ok: false, error: "Respuesta inválida del servidor" };
 }
 
-/** Sincroniza `allowedSchemasIds` y subcolección `allowedSchemas` (validación contra esquemas del ambiente). */
+/** Sincroniza `allowedSchemaIds` y subcolección `allowedSchemas` (validación contra esquemas del ambiente). */
 export async function patchAgentAllowedDynamicTableSchemas(
   agentId: string,
   body: { schemaIds: string[] },
   environment: "testing" | "production",
 ): Promise<
-  | { ok: true; allowedSchemasIds: string[] }
-  | { ok: false; error: string }
+  { ok: true; allowedSchemaIds: string[] } | { ok: false; error: string }
 > {
   const res = await fetch(
     `/api/agents/${encodeURIComponent(agentId)}/allowed-dynamic-table-schemas`,
@@ -912,7 +922,7 @@ export async function patchAgentAllowedDynamicTableSchemas(
   );
   let data: {
     success?: boolean;
-    allowedSchemasIds?: string[];
+    allowedSchemaIds?: string[];
     error?: string;
   } = {};
   try {
@@ -923,11 +933,14 @@ export async function patchAgentAllowedDynamicTableSchemas(
   if (!res.ok) {
     return {
       ok: false,
-      error: typeof data.error === "string" ? data.error : "No se pudieron guardar los esquemas",
+      error:
+        typeof data.error === "string"
+          ? data.error
+          : "No se pudieron guardar los esquemas",
     };
   }
-  if (data.success && Array.isArray(data.allowedSchemasIds)) {
-    return { ok: true, allowedSchemasIds: data.allowedSchemasIds };
+  if (data.success && Array.isArray(data.allowedSchemaIds)) {
+    return { ok: true, allowedSchemaIds: data.allowedSchemaIds };
   }
   return { ok: false, error: "Respuesta inválida del servidor" };
 }
@@ -959,7 +972,15 @@ export async function postAgentSyncFromProduction(
 /** Testing → producción: promueve campos individuales seleccionados. */
 export async function postPromoteToProduction(
   agentId: string,
-  body: { fields: Array<{ collection: string; documentId: string; fieldKey: string; value: unknown }>; confirmation_agent_name: string },
+  body: {
+    fields: Array<{
+      collection: string;
+      documentId: string;
+      fieldKey: string;
+      value: unknown;
+    }>;
+    confirmation_agent_name: string;
+  },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const res = await fetch(
     `/api/agents/${encodeURIComponent(agentId)}/promote-to-production`,
@@ -989,14 +1010,30 @@ export async function postPromoteToProduction(
 /** Obtiene el diff granular entre testing y producción. */
 export async function fetchTestingDiff(
   agentId: string,
-): Promise<{ diff: Array<{ collection: string; documentId: string; fieldKey: string; testingValue: unknown; productionValue: unknown }> } | null> {
+): Promise<{
+  diff: Array<{
+    collection: string;
+    documentId: string;
+    fieldKey: string;
+    testingValue: unknown;
+    productionValue: unknown;
+  }>;
+} | null> {
   const res = await fetch(
     `/api/agents/${encodeURIComponent(agentId)}/testing/diff`,
     { credentials: "include", cache: "no-store" },
   );
   if (!res.ok) return null;
   try {
-    return (await res.json()) as { diff: Array<{ collection: string; documentId: string; fieldKey: string; testingValue: unknown; productionValue: unknown }> };
+    return (await res.json()) as {
+      diff: Array<{
+        collection: string;
+        documentId: string;
+        fieldKey: string;
+        testingValue: unknown;
+        productionValue: unknown;
+      }>;
+    };
   } catch {
     return null;
   }
@@ -1095,7 +1132,10 @@ export async function postAgentBuilderChat(body: {
     /* empty */
   }
   if (!res.ok) {
-    return { ok: false, error: data.error ?? "No se pudo consultar el chat del builder" };
+    return {
+      ok: false,
+      error: data.error ?? "No se pudo consultar el chat del builder",
+    };
   }
   if (!data.assistantMessage) {
     return { ok: false, error: "Respuesta inv?lida del servidor" };
@@ -1176,8 +1216,7 @@ export type FlowQuestionItem = {
 export async function fetchAgentFlowQuestions(
   payload: FlowQuestionsPayload,
 ): Promise<
-  | { ok: true; questions: FlowQuestionItem[] }
-  | { ok: false; error: string }
+  { ok: true; questions: FlowQuestionItem[] } | { ok: false; error: string }
 > {
   try {
     const res = await fetch("/api/agents/builder/flow-questions", {
@@ -1247,7 +1286,8 @@ export async function recommendAgentTools(
     if (!res.ok) {
       return {
         ok: false,
-        error: data.error ?? "No se pudo obtener la recomendación de herramientas",
+        error:
+          data.error ?? "No se pudo obtener la recomendación de herramientas",
       };
     }
     if (!Array.isArray(data.toolIds)) {
@@ -1264,7 +1304,9 @@ export async function recommendAgentTools(
     return {
       ok: false,
       error:
-        e instanceof Error ? e.message : "Error de red al recomendar herramientas",
+        e instanceof Error
+          ? e.message
+          : "Error de red al recomendar herramientas",
     };
   }
 }
@@ -1308,10 +1350,15 @@ async function consumeToolFlowsMarkdownSse(
         }
         if ("done" in obj && obj.done === true) {
           const out = accumulated.trim();
-          if (!out) return { ok: false, error: "El modelo no devolvió contenido." };
+          if (!out)
+            return { ok: false, error: "El modelo no devolvió contenido." };
           return { ok: true, markdown: out };
         }
-        if ("delta" in obj && typeof obj.delta === "string" && obj.delta.length > 0) {
+        if (
+          "delta" in obj &&
+          typeof obj.delta === "string" &&
+          obj.delta.length > 0
+        ) {
           accumulated += obj.delta;
           onStreamDelta?.(accumulated);
         }
@@ -1400,7 +1447,8 @@ export async function createImplementationTask(
       error: data.error ?? "No se pudo crear la tarea",
     };
   }
-  if (!data.task) return { ok: false, error: "Respuesta inv?lida del servidor" };
+  if (!data.task)
+    return { ok: false, error: "Respuesta inv?lida del servidor" };
   return { ok: true, task: data.task };
 }
 
@@ -1439,7 +1487,8 @@ export async function patchImplementationTask(
       error: data.error ?? "No se pudo actualizar la tarea",
     };
   }
-  if (!data.task) return { ok: false, error: "Respuesta inválida del servidor" };
+  if (!data.task)
+    return { ok: false, error: "Respuesta inválida del servidor" };
   return { ok: true, task: data.task };
 }
 
@@ -1465,7 +1514,8 @@ export async function createImplementationActivityComment(
   agentId: string,
   bodyHtml: string,
 ): Promise<
-  { ok: true; entry: ImplementationActivityEntry } | { ok: false; error: string }
+  | { ok: true; entry: ImplementationActivityEntry }
+  | { ok: false; error: string }
 > {
   const res = await fetch(
     `/api/agents/${encodeURIComponent(agentId)}/implementation-activity`,
@@ -1483,7 +1533,10 @@ export async function createImplementationActivityComment(
     /* empty */
   }
   if (!res.ok) {
-    return { ok: false, error: data.error ?? "No se pudo publicar el comentario" };
+    return {
+      ok: false,
+      error: data.error ?? "No se pudo publicar el comentario",
+    };
   }
   if (!data.entry) {
     return { ok: false, error: "Respuesta inválida del servidor" };
@@ -1496,7 +1549,8 @@ export async function patchImplementationActivityCommentVisibility(
   entryId: string,
   hidden: boolean,
 ): Promise<
-  { ok: true; entry: ImplementationActivityEntry } | { ok: false; error: string }
+  | { ok: true; entry: ImplementationActivityEntry }
+  | { ok: false; error: string }
 > {
   const res = await fetch(
     `/api/agents/${encodeURIComponent(agentId)}/implementation-activity/${encodeURIComponent(entryId)}`,
@@ -1538,7 +1592,9 @@ export async function fetchSimulatorState(
   );
   if (!res.ok) return null;
   try {
-    return (await res.json()) as { conversations: SimulatorStoredConversation[] };
+    return (await res.json()) as {
+      conversations: SimulatorStoredConversation[];
+    };
   } catch {
     return null;
   }
@@ -1564,7 +1620,10 @@ export async function patchSimulatorState(
     /* empty */
   }
   if (!res.ok) {
-    return { ok: false, error: data.error ?? "No se pudo guardar el historial del simulador" };
+    return {
+      ok: false,
+      error: data.error ?? "No se pudo guardar el historial del simulador",
+    };
   }
   if (!data.ok) {
     return { ok: false, error: "Respuesta inválida del servidor" };
@@ -1589,7 +1648,10 @@ export async function deleteSimulatorState(
     /* empty */
   }
   if (!res.ok) {
-    return { ok: false, error: data.error ?? "No se pudo eliminar el historial del simulador" };
+    return {
+      ok: false,
+      error: data.error ?? "No se pudo eliminar el historial del simulador",
+    };
   }
   if (!data.ok) {
     return { ok: false, error: "Respuesta inválida del servidor" };
@@ -1647,7 +1709,10 @@ export async function fetchAgentBilling(
   );
   if (!res.ok) return null;
   try {
-    return (await res.json()) as { billing: AgentBilling; payments: PaymentRecord[] };
+    return (await res.json()) as {
+      billing: AgentBilling;
+      payments: PaymentRecord[];
+    };
   } catch {
     return null;
   }
@@ -1677,7 +1742,10 @@ export async function patchAgentBillingConfig(
     /* empty */
   }
   if (!res.ok) {
-    return { ok: false, error: data.error ?? "No se pudo actualizar la configuración" };
+    return {
+      ok: false,
+      error: data.error ?? "No se pudo actualizar la configuración",
+    };
   }
   if (data.ok) return { ok: true };
   return { ok: false, error: "Respuesta inválida del servidor" };
@@ -1745,7 +1813,16 @@ export async function uploadAgentFile(
   taskId: string,
   file: File,
 ): Promise<
-  | { ok: true; file: { name: string; url: string; uploadedAt: string; type: string; size: number } }
+  | {
+      ok: true;
+      file: {
+        name: string;
+        url: string;
+        uploadedAt: string;
+        type: string;
+        size: number;
+      };
+    }
   | { ok: false; error: string }
 > {
   const formData = new FormData();
@@ -1761,7 +1838,13 @@ export async function uploadAgentFile(
     },
   );
   let data: {
-    file?: { name: string; url: string; uploadedAt: string; type: string; size: number };
+    file?: {
+      name: string;
+      url: string;
+      uploadedAt: string;
+      type: string;
+      size: number;
+    };
     error?: string;
   } = {};
   try {
@@ -1772,7 +1855,8 @@ export async function uploadAgentFile(
   if (!res.ok) {
     return { ok: false, error: data.error ?? "No se pudo subir el archivo" };
   }
-  if (!data.file) return { ok: false, error: "Respuesta inválida del servidor" };
+  if (!data.file)
+    return { ok: false, error: "Respuesta inválida del servidor" };
   return { ok: true, file: data.file };
 }
 

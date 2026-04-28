@@ -7,7 +7,7 @@ import { getFirestore } from "@/lib/firestore";
 import type { AgentsInfoAuthContext } from "@/types/agents-types";
 import {
   getAgentDeploymentFlags,
-  normalizeAllowedSchemasIdsFromAgentRoot,
+  normalizeallowedSchemaIdsFromAgentRoot,
   parseAgentDoc,
   resolveAgentWriteDatabase,
 } from "@/utils/agents";
@@ -55,10 +55,10 @@ export async function getAgentById(
     const enabled = (agentData?.enabled as boolean | undefined) !== false;
     const status = normalizeAgentStatus(snapshot.data()?.status);
     const rootData = snapshot.data() as Record<string, unknown> | undefined;
-    const allowedSchemasIds = normalizeAllowedSchemasIdsFromAgentRoot(rootData);
+    const allowedSchemaIds = normalizeallowedSchemaIdsFromAgentRoot(rootData);
     return c.json({
       ...agent,
-      allowedSchemasIds,
+      allowedSchemaIds,
       enabled,
       status,
       in_commercial: flags.hasTestingData,
@@ -80,8 +80,11 @@ export async function getAgentProperties(
   if (denied) return denied;
 
   try {
-    const { db: database, hasTestingData, inProduction } =
-      await resolveAgentWriteDatabase(agentId);
+    const {
+      db: database,
+      hasTestingData,
+      inProduction,
+    } = await resolveAgentWriteDatabase(agentId);
     if (!hasTestingData && !inProduction) {
       return ApiErrors.notFound(c, "Agente no encontrado");
     }
@@ -172,8 +175,11 @@ export async function getAgentBuilderForm(
       return ApiErrors.notFound(c, "Agente no encontrado");
     }
 
-    const { db: database, hasTestingData, inProduction } =
-      await resolveAgentWriteDatabase(agentId);
+    const {
+      db: database,
+      hasTestingData,
+      inProduction,
+    } = await resolveAgentWriteDatabase(agentId);
     const agentRef = database.collection("agent_configurations").doc(agentId);
 
     const live = await assembleBuilderFormPayload(agentRef, hasTestingData);
@@ -237,19 +243,24 @@ export async function getProductionPrompt(
     }
 
     const agentData = agentSnap.data() ?? {};
-    const mcp = agentData.mcp_configuration as Record<string, unknown> | undefined;
-    const systemPrompt = typeof mcp?.system_prompt === "string" ? mcp.system_prompt : "";
+    const mcp = agentData.mcp_configuration as
+      | Record<string, unknown>
+      | undefined;
+    const systemPrompt =
+      typeof mcp?.system_prompt === "string" ? mcp.system_prompt : "";
 
     const promptData = promptSnap.exists ? promptSnap.data() : undefined;
-    const basePrompt = typeof promptData?.base === "string" ? promptData.base : "";
+    const basePrompt =
+      typeof promptData?.base === "string" ? promptData.base : "";
 
     const authData = promptData?.auth as Record<string, unknown> | undefined;
     const authPrompt = authData?.auth as string | undefined;
     const unauthPrompt = authData?.unauth as string | undefined;
 
-    const result: { prompt: string; auth?: { auth: string; unauth: string } } = {
-      prompt: basePrompt || systemPrompt,
-    };
+    const result: { prompt: string; auth?: { auth: string; unauth: string } } =
+      {
+        prompt: basePrompt || systemPrompt,
+      };
     if (authPrompt !== undefined || unauthPrompt !== undefined) {
       result.auth = {
         auth: typeof authPrompt === "string" ? authPrompt : "",
@@ -259,7 +270,11 @@ export async function getProductionPrompt(
 
     return c.json(result);
   } catch (error) {
-    const r = handleFirestoreError(c, error, "[agents/:id/production-prompt GET]");
+    const r = handleFirestoreError(
+      c,
+      error,
+      "[agents/:id/production-prompt GET]",
+    );
     return r ?? c.json({ error: "Error al leer prompt de producción" }, 500);
   }
 }
