@@ -15,6 +15,34 @@ export const GET_AGENT_TOOLS_DECLARATION = {
   ],
 };
 
+export const GET_SIMULATOR_CONVERSATIONS_DECLARATION = {
+  functionDeclarations: [
+    {
+      name: "get_simulator_conversations",
+      description:
+        "Obtiene las conversaciones recientes del simulador de testing del agente. ALWAYS call this function when the user reports incorrect behavior in tests, asks to analyze simulator conversations, or wants to improve the prompt based on testing results (e.g. 'el bot repite la misma pregunta', 'analiza las conversaciones de prueba', '¿por qué no cierra el flow?', 'qué salió mal en testing', 'mejora según las pruebas'). Returns the actual messages from the last simulator conversations.",
+      parameters: { properties: {}, type: "object" },
+    },
+  ],
+};
+
+export const GET_REAL_CONVERSATIONS_DECLARATION = {
+  functionDeclarations: [
+    {
+      name: "get_real_conversations",
+      description:
+        "Obtiene conversaciones reales recientes de usuarios de WhatsApp en producción. ALWAYS call this function when the user wants to analyze how the bot responds to real users, reports production issues, or asks to improve the prompt based on real conversations (e.g. 'cómo responde a los usuarios', 'el bot dice X en producción', 'mejora según conversaciones reales', 'qué le dice a los clientes').",
+      parameters: { properties: {}, type: "object" },
+    },
+  ],
+};
+
+export const PROMPT_DESIGNER_TOOLS = [
+  GET_AGENT_TOOLS_DECLARATION,
+  GET_SIMULATOR_CONVERSATIONS_DECLARATION,
+  GET_REAL_CONVERSATIONS_DECLARATION,
+];
+
 export const SYSTEM_QUESTION_ONLY = `You are an expert assistant that analyzes AI agent prompts. You describe what the prompt says — you NEVER speak as the agent.
 
 CRITICAL: Never say "As [agent name]...", "I am...", "I use...", or speak in first person as the agent. Always describe in third person: "The prompt indicates...", "The agent's instructions say...", "According to the prompt...".
@@ -24,6 +52,11 @@ LANGUAGE: Detect the language of the user's message and respond in that same lan
 Answer questions about the prompt using it as context.
 
 TOOLS: If the user message contains a section "--- AGENT TOOLS CONTEXT ---", that section lists the tools actually configured for this agent (name, description, parameters). When the user asks what tools the agent has, which tools it uses, "qué tools tiene", "según el contexto de tools", or similar, you MUST answer using that section: list the tools from AGENT TOOLS CONTEXT with their names and, if relevant, their parameters. Do not limit the answer to what is only written in the prompt text when the tools context is present.
+
+FUNCTION TOOLS: You have access to three functions:
+- get_agent_tools: call when the user asks about tools or wants to improve how the prompt handles them.
+- get_simulator_conversations: call when the user reports problems in simulator tests or asks to analyze test conversations.
+- get_real_conversations: call when the user asks about real user interactions or production behavior.
 
 **Format:** Output exactly: ANSWER:\n
 Then your answer. Never output PROMPT or edit the prompt. Questions only.`;
@@ -72,4 +105,7 @@ Edit "Quita las oraciones prohibidas" → SUMMARY: Eliminé las reglas 18-19 sob
 
 No JSON, no markdown. Always output the real edited prompt for modification requests.
 
-FUNCTION TOOLS: You have access to the function get_agent_tools. ALWAYS call it when the user asks about the agent's tools or asks to improve how the prompt handles them (e.g. "qué tools tiene", "añade ejemplos con las tools", "mejora la descripción de las herramientas", "incluye las tools en el prompt"). The function returns the authoritative current tool list from the database — always prefer it over any tool descriptions that may already appear in the prompt text. Only skip calling it for requests that are clearly unrelated to tools.`;
+FUNCTION TOOLS: You have access to three functions:
+- get_agent_tools: ALWAYS call when the user asks about tools or wants to improve how the prompt describes or uses them (e.g. "qué tools tiene", "añade ejemplos con las tools"). Always prefer this function over tool descriptions already in the prompt text.
+- get_simulator_conversations: ALWAYS call when the user reports incorrect behavior in simulator tests or asks to analyze test conversations (e.g. "el bot repite la misma pregunta", "analiza las pruebas", "¿por qué no cierra el flow?").
+- get_real_conversations: ALWAYS call when the user asks about real user interactions or production behavior (e.g. "cómo responde a los usuarios", "el bot dice X en producción", "mejora según conversaciones reales").`;

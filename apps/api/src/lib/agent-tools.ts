@@ -114,6 +114,136 @@ export async function fetchAgentToolsForPromptChat(
   }
 }
 
+export type AgentSimulatorConversationForChat = {
+  id: string;
+  testPrompt: string;
+  messages: { role: string; content: string }[];
+  hasError: boolean;
+};
+
+export async function fetchSimulatorConversationsForPromptChat(
+  agentId: string,
+  userId: string,
+): Promise<AgentSimulatorConversationForChat[] | null> {
+  if (!userId) return null;
+  try {
+    const { db, hasTestingData, inProduction } =
+      await resolveAgentWriteDatabase(agentId);
+    if (!hasTestingData && !inProduction) return null;
+
+    const snap = await db
+      .collection("agent_configurations")
+      .doc(agentId)
+      .collection("implementation")
+      .doc("simulator")
+      .collection("users")
+      .doc(userId)
+      .get();
+
+    if (!snap.exists) return [];
+
+    const data = snap.data() as { conversations?: unknown } | undefined;
+    if (!Array.isArray(data?.conversations)) return [];
+
+    const raw = data.conversations as Array<{
+      id?: string;
+      prompt?: string;
+      streamEvents?: unknown[];
+      error?: string | null;
+      closedAt?: string | null;
+    }>;
+
+    const result: AgentSimulatorConversationForChat[] = [];
+
+    for (const conv of raw.slice(-3)) {
+      if (!conv.id) continue;
+      const messages: { role: string; content: string }[] = [];
+      for (const event of (conv.streamEvents ?? []).slice(-30)) {
+        const e = event as { type?: string; data?: { role?: string; content?: string } };
+        if (e.type !== "message" || !e.data) continue;
+        const role = typeof e.data.role === "string" ? e.data.role : "user";
+        const content = typeof e.data.content === "string" ? e.data.content : "";
+        if (content) messages.push({ role, content });
+        if (messages.length >= 15) break;
+      }
+      if (messages.length === 0) continue;
+      result.push({
+        id: conv.id,
+        testPrompt: typeof conv.prompt === "string" ? conv.prompt : "",
+        messages,
+        hasError: !!conv.error,
+      });
+    }
+
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+export type AgentRealConversationForChat = {
+  chatId: string;
+  messages: { role: string; content: string; timestamp?: string }[];
+};
+
+export async function fetchRealConversationsForPromptChat(
+  agentId: string,
+): Promise<AgentRealConversationForChat[] | null> {
+  try {
+    const database = getFirestore();
+    const chatsSnap = await database
+      .collection("agent_configurations")
+      .doc(agentId)
+      .collection("chats")
+      .orderBy("updatedAt", "desc")
+      .limit(3)
+      .get();
+
+    if (chatsSnap.empty) return [];
+
+    const result: AgentRealConversationForChat[] = [];
+
+    for (const chatDoc of chatsSnap.docs) {
+      const messagesSnap = await database
+        .collection("agent_configurations")
+        .doc(agentId)
+        .collection("chats")
+        .doc(chatDoc.id)
+        .collection("messages")
+        .where("status", "==", "show")
+        .orderBy("createdAt", "desc")
+        .limit(15)
+        .get();
+
+      if (messagesSnap.empty) continue;
+
+      const messages: { role: string; content: string; timestamp?: string }[] = [];
+      for (const msgDoc of messagesSnap.docs.reverse()) {
+        const d = msgDoc.data() as {
+          role?: string;
+          content?: string;
+          messageCase?: string;
+          createdAt?: { toDate?: () => Date };
+        };
+        const mc = d.messageCase ?? "";
+        if (mc !== "user_message" && mc !== "model_response") continue;
+        const content = typeof d.content === "string" ? d.content.trim() : "";
+        if (!content) continue;
+        const role = d.role === "model" ? "model" : "user";
+        const timestamp = d.createdAt?.toDate?.()?.toISOString();
+        messages.push({ role, content, ...(timestamp ? { timestamp } : {}) });
+      }
+
+      if (messages.length === 0) continue;
+      result.push({ chatId: chatDoc.id, messages });
+    }
+
+    return result;
+  } catch {
+    return null;
+  }
+}
+
 function formatToolParameters(params: ToolParams): string[] {
   const properties = params.properties;
   if (!properties || typeof properties !== "object" || Array.isArray(properties))

@@ -32,9 +32,9 @@ export type ChatMessageToolCall = {
   name: string;
 };
 
-export type ChatMessageToolResult = {
+export type ChatMessageToolResultTools = {
   role: "tool_result";
-  name: string;
+  name: "get_agent_tools";
   tools: {
     id: string;
     name: string;
@@ -43,6 +43,16 @@ export type ChatMessageToolResult = {
     enabled: boolean;
   }[];
 };
+
+export type ChatMessageToolResultConversations = {
+  role: "tool_result";
+  name: "get_simulator_conversations" | "get_real_conversations";
+  count: number;
+};
+
+export type ChatMessageToolResult =
+  | ChatMessageToolResultTools
+  | ChatMessageToolResultConversations;
 
 export type ChatMessage =
   | ChatMessageText

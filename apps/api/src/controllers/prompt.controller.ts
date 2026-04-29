@@ -5,11 +5,15 @@ import { existsSync } from "fs";
 import { dirname, join } from "path";
 
 import {
-  GET_AGENT_TOOLS_DECLARATION,
+  PROMPT_DESIGNER_TOOLS,
   SYSTEM_AGENT_EDIT,
   SYSTEM_QUESTION_ONLY,
 } from "@/constants/prompt-chat";
-import { fetchAgentToolsForPromptChat } from "@/lib/agent-tools";
+import {
+  fetchAgentToolsForPromptChat,
+  fetchRealConversationsForPromptChat,
+  fetchSimulatorConversationsForPromptChat,
+} from "@/lib/agent-tools";
 import { auth } from "@/lib/auth";
 import logger, { formatError } from "@/lib/logger";
 import {
@@ -295,6 +299,8 @@ export const promptChat = async (c: Context) => {
       ? (body as { agentId: string }).agentId.trim()
       : null;
 
+  const userId = (session.user.id || session.user.email || "").trim();
+
   const lastUserMessage =
     messages.length > 0
       ? messages[messages.length - 1]
@@ -465,7 +471,7 @@ export const promptChat = async (c: Context) => {
                 config: {
                   systemInstruction,
                   temperature: 0.2,
-                  tools: [GET_AGENT_TOOLS_DECLARATION],
+                  tools: PROMPT_DESIGNER_TOOLS,
                 } as never,
                 contents,
                 model: modelConfig.apiModelId,
@@ -473,7 +479,7 @@ export const promptChat = async (c: Context) => {
 
               for await (const chunk of phase1Stream) {
                 const fc = extractFunctionCall(chunk);
-                if (fc?.name === "get_agent_tools") {
+                if (fc?.name) {
                   detectedFunctionCall = fc;
                   break;
                 }
@@ -535,6 +541,64 @@ export const promptChat = async (c: Context) => {
                 phase2Stream,
                 modelConfig.apiModelId,
               );
+            } else if (detectedFunctionCall?.name === "get_simulator_conversations") {
+              controller.enqueue(
+                encoder.encode(
+                  JSON.stringify({ name: "get_simulator_conversations", t: "tool_call" }) + "\n",
+                ),
+              );
+              const conversations = await fetchSimulatorConversationsForPromptChat(agentId, userId);
+              const count = conversations?.length ?? 0;
+              controller.enqueue(
+                encoder.encode(
+                  JSON.stringify({ count, name: "get_simulator_conversations", t: "tool_result" }) + "\n",
+                ),
+              );
+              const phase2Stream = await genAI.models.generateContentStream({
+                config: { systemInstruction, temperature: 0.2 },
+                contents: [
+                  ...contents,
+                  {
+                    parts: [{ functionCall: { args: {}, name: "get_simulator_conversations" } }],
+                    role: "model" as const,
+                  },
+                  {
+                    parts: [{ functionResponse: { name: "get_simulator_conversations", response: { conversations: conversations ?? [] } } }],
+                    role: "user" as const,
+                  },
+                ],
+                model: modelConfig.apiModelId,
+              });
+              await processPromptStream(controller, encoder, phase2Stream, modelConfig.apiModelId);
+            } else if (detectedFunctionCall?.name === "get_real_conversations") {
+              controller.enqueue(
+                encoder.encode(
+                  JSON.stringify({ name: "get_real_conversations", t: "tool_call" }) + "\n",
+                ),
+              );
+              const conversations = await fetchRealConversationsForPromptChat(agentId);
+              const count = conversations?.length ?? 0;
+              controller.enqueue(
+                encoder.encode(
+                  JSON.stringify({ count, name: "get_real_conversations", t: "tool_result" }) + "\n",
+                ),
+              );
+              const phase2Stream = await genAI.models.generateContentStream({
+                config: { systemInstruction, temperature: 0.2 },
+                contents: [
+                  ...contents,
+                  {
+                    parts: [{ functionCall: { args: {}, name: "get_real_conversations" } }],
+                    role: "model" as const,
+                  },
+                  {
+                    parts: [{ functionResponse: { name: "get_real_conversations", response: { conversations: conversations ?? [] } } }],
+                    role: "user" as const,
+                  },
+                ],
+                model: modelConfig.apiModelId,
+              });
+              await processPromptStream(controller, encoder, phase2Stream, modelConfig.apiModelId);
             } else {
               // No tool call — restart as a clean direct stream for real streaming UX.
               const directStream = await genAI.models.generateContentStream({

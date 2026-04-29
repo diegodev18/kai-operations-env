@@ -3,7 +3,8 @@ import type {
   ChatMessage,
   ChatMessageText,
   ChatMessageToolCall,
-  ChatMessageToolResult,
+  ChatMessageToolResultTools,
+  ChatMessageToolResultConversations,
   ChatMessageImage,
   ChatMessagePdf,
   PromptTarget,
@@ -23,6 +24,8 @@ export type {
   ChatMessageText,
   ChatMessageToolCall,
   ChatMessageToolResult,
+  ChatMessageToolResultTools,
+  ChatMessageToolResultConversations,
   ChatMessageImage,
   ChatMessagePdf,
   PromptModelId,
@@ -184,7 +187,9 @@ export const usePromptChat = ({
                 }
               | { t: "error"; err: string }
               | { t: "tool_call"; name: string }
-              | { t: "tool_result"; name: string; tools: ChatMessageToolResult["tools"] };
+              | { t: "tool_result"; name: "get_agent_tools"; tools: ChatMessageToolResultTools["tools"] }
+              | { t: "tool_result"; name: "get_simulator_conversations"; count: number }
+              | { t: "tool_result"; name: "get_real_conversations"; count: number };
             if (data.t === "chunk") {
               streamedContent += data.text;
               const promptPart = streamingPromptRef.current
@@ -255,13 +260,27 @@ export const usePromptChat = ({
                 next.splice(next.length - 1, 0, msg);
                 return next;
               });
-            } else if (data.t === "tool_result") {
+            } else if (data.t === "tool_result" && data.name === "get_agent_tools") {
               setMessages((prev) => {
                 const next = [...prev];
-                const msg: ChatMessageToolResult = {
+                const msg: ChatMessageToolResultTools = {
+                  role: "tool_result",
+                  name: "get_agent_tools",
+                  tools: data.tools,
+                };
+                next.splice(next.length - 1, 0, msg);
+                return next;
+              });
+            } else if (
+              data.t === "tool_result" &&
+              (data.name === "get_simulator_conversations" || data.name === "get_real_conversations")
+            ) {
+              setMessages((prev) => {
+                const next = [...prev];
+                const msg: ChatMessageToolResultConversations = {
                   role: "tool_result",
                   name: data.name,
-                  tools: data.tools,
+                  count: data.count,
                 };
                 next.splice(next.length - 1, 0, msg);
                 return next;

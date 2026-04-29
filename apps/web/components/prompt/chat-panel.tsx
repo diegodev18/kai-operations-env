@@ -29,8 +29,10 @@ import {
   ArrowUpIcon,
   CheckCircle2Icon,
   FileTextIcon,
+  FlaskConicalIcon,
   ImageIcon,
   Loader2Icon,
+  MessageSquareTextIcon,
   RotateCcwIcon,
   ShieldCheckIcon,
   SparklesIcon,
@@ -45,7 +47,7 @@ import type {
   PromptModelId,
   PromptMode,
 } from "@/hooks";
-import type { ChatMessageToolResult } from "@/types";
+import type { ChatMessageToolResultConversations, ChatMessageToolResultTools } from "@/types";
 import { isChatStatusMessage } from "@/hooks";
 
 type PendingPdf = ChatMessagePdf & { name: string };
@@ -217,15 +219,44 @@ export function PromptChatPanel({
                   );
                 }
                 if (message.role === "tool_result") {
-                  const r = message as ChatMessageToolResult;
+                  if (message.name === "get_agent_tools") {
+                    const r = message as ChatMessageToolResultTools;
+                    return (
+                      <div key={`tool_result-${index}`} className="flex justify-start">
+                        <div className="flex items-center gap-1.5 rounded-md bg-muted/60 px-2 py-1 text-xs text-muted-foreground">
+                          <CheckCircle2Icon className="h-3 w-3 shrink-0 text-green-500" />
+                          <span>
+                            {r.tools.length === 0
+                              ? "Sin herramientas configuradas"
+                              : `${r.tools.length} herramienta${r.tools.length !== 1 ? "s" : ""} obtenida${r.tools.length !== 1 ? "s" : ""}`}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  }
+                  const r = message as ChatMessageToolResultConversations;
+                  if (r.name === "get_simulator_conversations") {
+                    return (
+                      <div key={`tool_result-${index}`} className="flex justify-start">
+                        <div className="flex items-center gap-1.5 rounded-md bg-muted/60 px-2 py-1 text-xs text-muted-foreground">
+                          <FlaskConicalIcon className="h-3 w-3 shrink-0 text-purple-500" />
+                          <span>
+                            {r.count === 0
+                              ? "Sin conversaciones de prueba"
+                              : `${r.count} conversación${r.count !== 1 ? "es" : ""} de simulador analizada${r.count !== 1 ? "s" : ""}`}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  }
                   return (
                     <div key={`tool_result-${index}`} className="flex justify-start">
                       <div className="flex items-center gap-1.5 rounded-md bg-muted/60 px-2 py-1 text-xs text-muted-foreground">
-                        <CheckCircle2Icon className="h-3 w-3 shrink-0 text-green-500" />
+                        <MessageSquareTextIcon className="h-3 w-3 shrink-0 text-blue-500" />
                         <span>
-                          {r.tools.length === 0
-                            ? "Sin herramientas configuradas"
-                            : `${r.tools.length} herramienta${r.tools.length !== 1 ? "s" : ""} obtenida${r.tools.length !== 1 ? "s" : ""}`}
+                          {r.count === 0
+                            ? "Sin conversaciones reales"
+                            : `${r.count} conversación${r.count !== 1 ? "es" : ""} real${r.count !== 1 ? "es" : ""} analizada${r.count !== 1 ? "s" : ""}`}
                         </span>
                       </div>
                     </div>
