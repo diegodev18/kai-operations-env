@@ -1,4 +1,5 @@
 import type { Context } from "hono";
+import { randomUUID } from "node:crypto";
 
 import { FieldPath, type Query } from "firebase-admin/firestore";
 
@@ -16,11 +17,14 @@ import {
   agentMatchesRootSearchQuery,
   agentMatchesSearchQuery,
   applyUsersBuildersTestingAssignment,
+  assignTestingByPhoneNumber,
   collectAgentStakeholderEmails,
   fetchGrowersForAgent,
   isGrowerCursor,
   normalizeAgentsSearchQuery,
+  normalizePhoneDigits,
   parseAgentDoc,
+  searchUsersBuildersByPhoneDigits,
   parseAgentDocFromData,
   parseBillingDoc,
   userCanAccessAgent,
@@ -34,7 +38,6 @@ import {
 } from "@/utils/firestore/errors";
 import { isOperationsAdmin, isOperationsCommercial } from "@/utils/operations-access";
 import { auth } from "@/lib/auth";
-import { listUsersForOrganization } from "@/lib/invitations";
 import { db } from "@/db/client";
 import { user, userFavoriteAgents } from "@/db/schema/auth";
 import { eq, sql } from "drizzle-orm";
@@ -708,11 +711,54 @@ export const getAgentsInfo = async (
   }
 };
 
+const newUserBuilderSchema = z.object({
+  name: z.string().min(1),
+});
+
+/** Correo canónico para usersBuilders creado desde Operations (no inbox real). */
+function syntheticUserBuilderEmail(phoneDigits: string): string {
+  return `${phoneDigits}@userBuilder.com`;
+}
+
+/** `uid`: id de usuario en Postgres si el teléfono coincide; si no, UUID nuevo. */
+async function resolveUsersBuilderUidForPhone(phoneDigits: string): Promise<string> {
+  const rows = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(
+      sql`regexp_replace(coalesce(${user.phone}, ''), '[^0-9]', '', 'g') = ${phoneDigits}`,
+    )
+    .limit(1);
+  if (rows[0]?.id) return rows[0].id;
+  return randomUUID();
+}
+
 const assignToUserBodySchema = z
   .object({
     targetUserId: z.string().min(1).optional(),
+    targetPhoneNumber: z.string().min(1).optional(),
+    newUserBuilder: newUserBuilderSchema.optional(),
   })
-  .strict();
+  .strict()
+  .refine((d) => !(d.targetUserId && d.targetPhoneNumber), {
+    message: "No combines targetUserId y targetPhoneNumber",
+  });
+
+async function stakeholderPhoneDigitsForAgent(agentId: string): Promise<Set<string>> {
+  const emails = await collectAgentStakeholderEmails(agentId);
+  if (emails.size === 0) return new Set();
+  const emailList = [...emails];
+  const rows = await db
+    .select({ phone: user.phone })
+    .from(user)
+    .where(sql`lower(${user.email}) in (${sql.join(emailList.map((e) => sql`${e}`), sql`, `)})`);
+  const out = new Set<string>();
+  for (const r of rows) {
+    const d = normalizePhoneDigits(r.phone ?? "");
+    if (d.length > 0) out.add(d);
+  }
+  return out;
+}
 
 export async function getTestingAssignTargets(
   c: Context,
@@ -728,50 +774,31 @@ export async function getTestingAssignTargets(
   if (!canAccess) {
     return ApiErrors.forbidden(c, "No autorizado");
   }
-  const ops =
-    isOperationsAdmin(authCtx.userRole) || isOperationsCommercial(authCtx.userRole);
-  if (ops) {
-    const users = await listUsersForOrganization();
+
+  const phoneQ = c.req.query("phone");
+  const rawPhone = Array.isArray(phoneQ) ? (phoneQ[0] ?? "") : (phoneQ ?? "");
+  const digits = normalizePhoneDigits(rawPhone);
+  if (digits.length < 3) {
     return c.json({
-      scope: "organization" as const,
-      targets: users.map((u) => ({
-        userId: u.id,
-        name: u.name,
-        email: u.email,
-        assignable: Boolean(u.phone && u.phone.trim().length > 0),
-      })),
+      scope: "usersBuilders" as const,
+      targets: [],
+      exactMatchFound: false,
+      minDigits: 3,
     });
   }
-  const emailSet = await collectAgentStakeholderEmails(agentId);
-  const emails = [...emailSet];
-  if (emails.length === 0) {
-    return c.json({
-      scope: "agent" as const,
-      targets: [] as {
-        userId: string;
-        name: string;
-        email: string;
-        assignable: boolean;
-      }[],
-    });
-  }
-  const rows = await db
-    .select({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
-    })
-    .from(user)
-    .where(sql`lower(${user.email}) in (${sql.join(emails.map((e) => sql`${e}`), sql`, `)})`);
+
+  const { hits, exactMatchFound } = await searchUsersBuildersByPhoneDigits(digits);
   return c.json({
-    scope: "agent" as const,
-    targets: rows.map((r) => ({
-      userId: r.id,
-      name: r.name,
-      email: r.email,
-      assignable: Boolean(r.phone && r.phone.trim().length > 0),
+    scope: "usersBuilders" as const,
+    targets: hits.map((h) => ({
+      phoneNumber: h.phoneNumber,
+      name: h.name,
+      email: h.email,
+      uid: h.uid,
+      fromFirestore: true,
+      assignable: true,
     })),
+    exactMatchFound,
   });
 }
 
@@ -807,10 +834,91 @@ export async function assignAgentToUser(
   }
   const parsed = assignToUserBodySchema.safeParse(body);
   if (!parsed.success) {
-    return ApiErrors.validation(c, "Cuerpo de solicitud inválido");
+    const msg =
+      parsed.error.issues.map((i) => i.message).join(", ") || "Cuerpo de solicitud inválido";
+    return ApiErrors.validation(c, msg);
   }
 
   const sessionUserId = session.user.id as string;
+  const rawTargetPhone = parsed.data.targetPhoneNumber?.trim();
+
+  if (rawTargetPhone) {
+    const phoneDigits = normalizePhoneDigits(rawTargetPhone);
+    if (phoneDigits.length < 10) {
+      return ApiErrors.validation(
+        c,
+        "Indica un número completo (al menos 10 dígitos) para usersBuilders",
+      );
+    }
+
+    const existing = await firestore
+      .collection("usersBuilders")
+      .where("phoneNumber", "==", phoneDigits)
+      .limit(1)
+      .get();
+
+    if (!existing.empty) {
+      const { createdUserBuilder } = await assignTestingByPhoneNumber({
+        agentId,
+        phoneNumber: phoneDigits,
+        actorUserId: sessionUserId,
+      });
+      return c.json({ ok: true, createdUserBuilder });
+    }
+
+    const nb = parsed.data.newUserBuilder;
+    if (!nb) {
+      return ApiErrors.validation(
+        c,
+        "No hay usersBuilders con ese phoneNumber. Envía newUserBuilder con name para crear el documento.",
+      );
+    }
+
+    const syntheticEmail = syntheticUserBuilderEmail(phoneDigits);
+
+    const ops =
+      isOperationsAdmin(authCtx.userRole) || isOperationsCommercial(authCtx.userRole);
+    const canEdit = await userCanEditAgent(authCtx, agentId);
+    if (!ops && !canEdit) {
+      return ApiErrors.forbidden(c, "No autorizado");
+    }
+    if (!ops) {
+      const stakePhones = await stakeholderPhoneDigitsForAgent(agentId);
+      const stakeEmails = await collectAgentStakeholderEmails(agentId);
+      const phoneOk = stakePhones.has(phoneDigits);
+      const emailOk = stakeEmails.has(syntheticEmail.toLowerCase());
+      if (!phoneOk && !emailOk) {
+        return ApiErrors.forbidden(c, "No autorizado");
+      }
+    }
+
+    try {
+      const uid = await resolveUsersBuilderUidForPhone(phoneDigits);
+      const { createdUserBuilder } = await assignTestingByPhoneNumber({
+        agentId,
+        phoneNumber: phoneDigits,
+        actorUserId: sessionUserId,
+        identity: {
+          name: nb.name.trim(),
+          email: syntheticEmail,
+          uid,
+        },
+      });
+      return c.json({ ok: true, createdUserBuilder });
+    } catch (e: unknown) {
+      if (
+        e instanceof Error &&
+        e.message === "USERS_BUILDERS_CREATE_REQUIRES_IDENTITY"
+      ) {
+        return ApiErrors.validation(
+          c,
+          "Faltan datos para crear usersBuilders (name).",
+        );
+      }
+      throw e;
+    }
+  }
+
   const targetUserId = parsed.data.targetUserId?.trim() || sessionUserId;
 
   const targetRows = await db

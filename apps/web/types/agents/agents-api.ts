@@ -5,15 +5,19 @@ export type AgentGrowerRow = { email: string; name: string };
 export type AgentTechLeadRow = { email: string; name: string };
 
 export type TestingAssignTargetRow = {
-  userId: string;
+  phoneNumber: string;
   name: string;
   email: string;
+  uid: string;
+  fromFirestore: true;
   assignable: boolean;
 };
 
 export type TestingAssignTargetsResponse = {
-  scope: "organization" | "agent";
+  scope: "usersBuilders";
   targets: TestingAssignTargetRow[];
+  exactMatchFound: boolean;
+  minDigits?: number;
 };
 
 export type ImplementationTaskStatus = "pending" | "completed";

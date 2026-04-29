@@ -6,8 +6,13 @@ export {
 } from "./agentAccess";
 export {
   applyUsersBuildersTestingAssignment,
+  assignTestingByPhoneNumber,
+  buildRichUsersBuilderCreatePayload,
   collectAgentStakeholderEmails,
+  normalizePhoneDigits,
+  searchUsersBuildersByPhoneDigits,
 } from "./testing-assign";
+export type { RichUsersBuilderCreateInput, UsersBuilderSearchHit } from "./testing-assign";
 export { buildLightAgent } from "./buildLightAgent";
 export { userCanAddGrowerToAgent } from "./growerAccess";
 export { isGrowerCursor } from "./growersCursor";

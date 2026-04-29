@@ -1662,9 +1662,15 @@ export async function deleteSimulatorState(
 
 export async function fetchTestingAssignTargets(
   agentId: string,
+  phoneQuery: string,
 ): Promise<TestingAssignTargetsResponse | null> {
+  const params = new URLSearchParams();
+  if (phoneQuery.trim().length > 0) {
+    params.set("phone", phoneQuery);
+  }
+  const qs = params.toString();
   const res = await fetch(
-    `/api/agents/${encodeURIComponent(agentId)}/testing-assign-targets`,
+    `/api/agents/${encodeURIComponent(agentId)}/testing-assign-targets${qs ? `?${qs}` : ""}`,
     {
       credentials: "include",
       cache: "no-store",
@@ -1680,12 +1686,25 @@ export async function fetchTestingAssignTargets(
 
 export async function assignAgentToUser(
   agentId: string,
-  options?: { targetUserId?: string },
+  options?: {
+    targetUserId?: string;
+    targetPhoneNumber?: string;
+    newUserBuilder?: { name: string };
+  },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const payload =
-    options?.targetUserId != null && options.targetUserId.trim() !== ""
-      ? { targetUserId: options.targetUserId.trim() }
-      : {};
+  let payload: Record<string, unknown> = {};
+  const tid = options?.targetUserId?.trim();
+  const tph = options?.targetPhoneNumber?.trim();
+  if (tph) {
+    payload = { targetPhoneNumber: tph };
+    if (options?.newUserBuilder) {
+      payload.newUserBuilder = {
+        name: options.newUserBuilder.name,
+      };
+    }
+  } else if (tid) {
+    payload = { targetUserId: tid };
+  }
   const res = await fetch(
     `/api/agents/${encodeURIComponent(agentId)}/assign-to-user`,
     {

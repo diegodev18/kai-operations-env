@@ -9,6 +9,7 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Popover,
   PopoverAnchor,
@@ -30,6 +31,10 @@ import { cn } from "@/lib/utils";
 
 const HOVER_MS = 1500;
 
+function digitsOnly(s: string): string {
+  return s.replace(/\D/g, "");
+}
+
 type AgentTestingAssignControlProps = {
   agentId: string;
   sessionUserId: string | undefined;
@@ -50,11 +55,11 @@ export function AgentTestingAssignControl({
     null,
   );
   const [search, setSearch] = useState("");
+  const [createName, setCreateName] = useState("");
 
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pointerInPopoverRef = useRef(false);
-  /** Evita self-assign al soltar el clic justo después de abrir el menú por hover. */
   const suppressNextAssignClickRef = useRef(false);
   const assigningRef = useRef(false);
 
@@ -81,18 +86,29 @@ export function AgentTestingAssignControl({
     }, 200);
   }, [cancelScheduledClose]);
 
-  const loadTargets = useCallback(async () => {
-    setTargetsLoading(true);
-    try {
-      const data = await fetchTestingAssignTargets(agentId);
-      setTargetsData(data);
-      if (!data) {
-        toast.error("No se pudo cargar la lista de asignación");
-      }
-    } finally {
+  useEffect(() => {
+    const d = digitsOnly(search);
+    if (d.length < 3) {
+      setTargetsData(null);
       setTargetsLoading(false);
+      return;
     }
-  }, [agentId]);
+    setTargetsLoading(true);
+    const t = setTimeout(() => {
+      void (async () => {
+        try {
+          const data = await fetchTestingAssignTargets(agentId, search);
+          setTargetsData(data);
+          if (!data) {
+            toast.error("No se pudo buscar en usersBuilders");
+          }
+        } finally {
+          setTargetsLoading(false);
+        }
+      })();
+    }, 350);
+    return () => clearTimeout(t);
+  }, [search, agentId]);
 
   const openMenuFromHover = useCallback(() => {
     clearHoverTimer();
@@ -101,9 +117,10 @@ export function AgentTestingAssignControl({
       suppressNextAssignClickRef.current = false;
     }, 450);
     setSearch("");
+    setTargetsData(null);
+    setCreateName("");
     setPopoverOpen(true);
-    void loadTargets();
-  }, [clearHoverTimer, loadTargets]);
+  }, [clearHoverTimer]);
 
   useEffect(() => {
     return () => {
@@ -163,19 +180,79 @@ export function AgentTestingAssignControl({
     [agentId, cancelScheduledClose, onSelfAssigned, sessionUserId],
   );
 
-  const filteredTargets = useMemo(() => {
-    const list = targetsData?.targets ?? [];
-    const q = search.trim().toLowerCase();
-    if (!q) return list;
-    return list.filter(
-      (t) =>
-        t.name.toLowerCase().includes(q) || t.email.toLowerCase().includes(q),
-    );
-  }, [targetsData?.targets, search]);
+  const runAssignByPhone = useCallback(
+    async (phoneNumber: string) => {
+      if (assigningRef.current) return;
+      assigningRef.current = true;
+      setAssigning(true);
+      try {
+        const result = await assignAgentToUser(agentId, {
+          targetPhoneNumber: phoneNumber,
+        });
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success("Agente asignado al número en usersBuilders");
+        setPopoverOpen(false);
+        cancelScheduledClose();
+      } catch {
+        toast.error("Error al asignar agente");
+      } finally {
+        assigningRef.current = false;
+        setAssigning(false);
+      }
+    },
+    [agentId, cancelScheduledClose],
+  );
 
-  const showSearch =
-    targetsData?.scope === "organization" ||
-    (targetsData?.targets.length ?? 0) > 8;
+  const runCreateAndAssign = useCallback(async () => {
+    const phoneDigits = digitsOnly(search);
+    if (phoneDigits.length < 10) {
+      toast.error("Indica un número completo (mínimo 10 dígitos)");
+      return;
+    }
+    if (!createName.trim()) {
+      toast.error("El nombre es obligatorio");
+      return;
+    }
+    if (assigningRef.current) return;
+    assigningRef.current = true;
+    setAssigning(true);
+    try {
+      const result = await assignAgentToUser(agentId, {
+        targetPhoneNumber: phoneDigits,
+        newUserBuilder: {
+          name: createName.trim(),
+        },
+      });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("usersBuilders creado y agente asignado a testing");
+      setPopoverOpen(false);
+      cancelScheduledClose();
+    } catch {
+      toast.error("Error al crear o asignar");
+    } finally {
+      assigningRef.current = false;
+      setAssigning(false);
+    }
+  }, [
+    agentId,
+    cancelScheduledClose,
+    createName,
+    search,
+  ]);
+
+  const searchDigits = useMemo(() => digitsOnly(search), [search]);
+  const showCreateForm =
+    searchDigits.length >= 10 &&
+    !targetsLoading &&
+    targetsData != null &&
+    !targetsData.exactMatchFound &&
+    targetsData.targets.length === 0;
 
   return (
     <Popover
@@ -232,7 +309,7 @@ export function AgentTestingAssignControl({
         align="end"
         side="bottom"
         sideOffset={6}
-        className="w-80 p-0"
+        className="max-w-[calc(100vw-1rem)] w-96 p-0"
         onPointerEnter={() => {
           pointerInPopoverRef.current = true;
           cancelScheduledClose();
@@ -244,63 +321,106 @@ export function AgentTestingAssignControl({
       >
         <PopoverHeader className="border-b px-3 py-2">
           <PopoverTitle className="text-sm">
-            Asignar agente a testing
+            Asignar agente a testing (usersBuilders)
           </PopoverTitle>
           <p className="text-muted-foreground text-xs font-normal">
-            Elige un usuario con teléfono en su cuenta, o usa el botón para
-            asignarte a ti.
+            Busca por <code className="text-foreground">phoneNumber</code> en
+            Firestore. Si no hay documento, completa los datos para crearlo.
           </p>
         </PopoverHeader>
 
         <div className="flex flex-col gap-2 p-2">
-          {showSearch ? (
-            <Input
-              placeholder="Buscar por nombre o correo…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-8 text-xs"
-            />
-          ) : null}
+          <Input
+            placeholder="Número (mín. 3 dígitos para buscar)…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-8 text-xs"
+            inputMode="tel"
+            autoComplete="tel"
+          />
 
-          <div className="max-h-56 overflow-y-auto overscroll-contain">
-            {targetsLoading ? (
+          <div className="max-h-52 overflow-y-auto overscroll-contain">
+            {searchDigits.length === 0 ? (
+              <p className="text-muted-foreground px-2 py-2 text-xs">
+                Escribe dígitos del teléfono para consultar{" "}
+                <code className="text-foreground">usersBuilders</code> por{" "}
+                <code className="text-foreground">phoneNumber</code>.
+              </p>
+            ) : targetsLoading ? (
               <div className="text-muted-foreground flex items-center gap-2 px-2 py-4 text-xs">
                 <Loader2Icon className="size-3.5 shrink-0 animate-spin" />
-                Cargando…
+                Buscando en usersBuilders…
               </div>
-            ) : filteredTargets.length === 0 ? (
-              <p className="text-muted-foreground px-2 py-3 text-xs">
-                No hay usuarios que coincidan o no hay destinatarios
-                disponibles.
+            ) : searchDigits.length < 3 ? (
+              <p className="text-muted-foreground px-2 py-2 text-xs">
+                Escribe al menos 3 dígitos para buscar por{" "}
+                <code className="text-foreground">phoneNumber</code>.
+              </p>
+            ) : targetsData != null && targetsData.targets.length === 0 ? (
+              <p className="text-muted-foreground px-2 py-2 text-xs">
+                Sin coincidencias para ese prefijo o número.
               </p>
             ) : (
               <ul className="flex flex-col gap-0.5">
-                {filteredTargets.map((t) => (
-                  <li key={t.userId}>
+                {(targetsData?.targets ?? []).map((t) => (
+                  <li key={t.phoneNumber}>
                     <button
                       type="button"
                       disabled={!t.assignable || assigning}
-                      onClick={() => void runAssign(t.userId)}
+                      onClick={() => void runAssignByPhone(t.phoneNumber)}
                       className={cn(
                         "hover:bg-muted flex w-full flex-col rounded-md px-2 py-1.5 text-left text-xs transition-colors",
-                        !t.assignable && "text-muted-foreground cursor-not-allowed",
+                        !t.assignable && "cursor-not-allowed text-muted-foreground",
                       )}
                     >
-                      <span className="truncate font-medium">{t.name}</span>
-                      <span className="text-muted-foreground truncate">
-                        {t.email}
+                      <span className="font-mono text-[11px] text-muted-foreground">
+                        {t.phoneNumber}
                       </span>
-                      {!t.assignable ? (
-                        <span className="text-destructive mt-0.5 text-[11px]">
-                          Sin teléfono en cuenta
-                        </span>
-                      ) : null}
+                      <span className="truncate font-medium">{t.name || "—"}</span>
+                      <span className="text-muted-foreground truncate text-[11px]">
+                        {t.email || "—"}
+                      </span>
                     </button>
                   </li>
                 ))}
               </ul>
             )}
           </div>
+
+          {showCreateForm ? (
+            <div className="border-t bg-muted/30 space-y-2 p-2">
+              <p className="text-xs font-medium">
+                No existe usersBuilders para{" "}
+                <span className="font-mono">{searchDigits}</span>. El correo será{" "}
+                <span className="font-mono text-foreground">
+                  {searchDigits}@userBuilder.com
+                </span>
+                . El <code className="text-foreground">uid</code> se elige por
+                teléfono en la app o UUID.
+              </p>
+              <div className="space-y-1.5">
+                <Label htmlFor="ub-create-name" className="text-xs">
+                  Nombre
+                </Label>
+                <Input
+                  id="ub-create-name"
+                  value={createName}
+                  onChange={(e) => setCreateName(e.target.value)}
+                  className="h-8 text-xs"
+                  placeholder="Nombre completo"
+                />
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                className="w-full"
+                disabled={assigning}
+                onClick={() => void runCreateAndAssign()}
+              >
+                Crear usersBuilders y asignar
+              </Button>
+            </div>
+          ) : null}
         </div>
       </PopoverContent>
     </Popover>
