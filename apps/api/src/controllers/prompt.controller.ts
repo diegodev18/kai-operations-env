@@ -4,7 +4,7 @@ import { GoogleGenAI } from "@google/genai";
 import { existsSync } from "fs";
 import { dirname, join } from "path";
 
-import { getAgentToolsContext } from "@/lib/agent-tools";
+import { fetchAgentToolsForPromptChat, getAgentToolsContext } from "@/lib/agent-tools";
 import { auth } from "@/lib/auth";
 import logger, { formatError } from "@/lib/logger";
 import {
@@ -259,6 +259,157 @@ function streamErrorMessage(err: unknown): string {
   return "Stream failed";
 }
 
+const GET_AGENT_TOOLS_DECLARATION = {
+  functionDeclarations: [
+    {
+      name: "get_agent_tools",
+      description:
+        "Obtiene la lista de herramientas (tools) configuradas para este agente. Llama esta función cuando el usuario pida mejorar cómo el prompt describe o utiliza las tools del agente (ej: 'añade ejemplos con las tools', 'mejora la descripción de las herramientas', 'qué tools tiene el agente'). No la llames si el contexto de tools ya está presente en el mensaje o si la solicitud es una pregunta general.",
+      parameters: { properties: {}, type: "object" },
+    },
+  ],
+};
+
+function extractFunctionCall(
+  response: unknown,
+): { args?: Record<string, unknown>; name?: string } | null {
+  const r = response as {
+    candidates?: Array<{
+      content?: {
+        parts?: Array<{ functionCall?: { args?: Record<string, unknown>; name?: string } }>;
+      };
+    }>;
+    functionCalls?: Array<{ args?: Record<string, unknown>; name?: string }>;
+  };
+  const fromTop = (r.functionCalls ?? [])[0];
+  if (fromTop) return fromTop;
+  const parts = r.candidates?.[0]?.content?.parts ?? [];
+  return parts.map((p) => p.functionCall).find((x) => x != null) ?? null;
+}
+
+function extractTextFromModelResponse(response: unknown): string {
+  const candidates = (
+    response as { candidates?: Array<{ content?: { parts?: unknown[] } }> }
+  )?.candidates;
+  const parts = candidates?.[0]?.content?.parts;
+  if (!Array.isArray(parts)) return "";
+  const chunks: string[] = [];
+  for (const part of parts) {
+    if (
+      part != null &&
+      typeof part === "object" &&
+      "text" in part &&
+      typeof (part as { text?: unknown }).text === "string"
+    ) {
+      chunks.push((part as { text: string }).text);
+    }
+  }
+  return chunks.join("").trim();
+}
+
+async function* singleChunkIterable(
+  text: string,
+): AsyncIterable<{ text: string }> {
+  yield { text };
+}
+
+async function processPromptStream(
+  controller: ReadableStreamDefaultController,
+  encoder: TextEncoder,
+  chunks: AsyncIterable<unknown>,
+  modelId: string,
+): Promise<void> {
+  try {
+    let fullText = "";
+    let chatSentUpTo = 0;
+
+    for await (const chunk of chunks) {
+      const text = (chunk as { text?: string }).text ?? "";
+      fullText += text;
+
+      if (chatSentUpTo < fullText.length) {
+        const answerMatch = ANSWER_PREFIX_REGEX.exec(fullText);
+        const answerStart = answerMatch ? answerMatch[0].length : 0;
+        const isAnswer =
+          answerStart > 0 && !fullText.includes(PROMPT_SEPARATOR);
+        const sepIdx = fullText.indexOf(PROMPT_SEPARATOR);
+
+        if (isAnswer) {
+          const startFrom = Math.max(chatSentUpTo, answerStart);
+          const toSend = fullText.slice(startFrom);
+          if (toSend.length > 0) {
+            controller.enqueue(
+              encoder.encode(JSON.stringify({ t: "chunk", text: toSend }) + "\n"),
+            );
+          }
+          chatSentUpTo = fullText.length;
+        } else if (sepIdx === -1) {
+          let toSend = fullText.slice(chatSentUpTo);
+          if (chatSentUpTo === 0) {
+            const am = ANSWER_PREFIX_REGEX.exec(toSend);
+            if (am) toSend = toSend.slice(am[0].length);
+            else toSend = toSend.replace(SUMMARY_PREFIX_REGEX, "").trimStart();
+          }
+          if (toSend.length > 0) {
+            controller.enqueue(
+              encoder.encode(JSON.stringify({ t: "chunk", text: toSend }) + "\n"),
+            );
+            chatSentUpTo = fullText.length;
+          }
+        } else {
+          let toSend = fullText.slice(chatSentUpTo, sepIdx);
+          if (chatSentUpTo === 0) {
+            toSend = toSend.replace(SUMMARY_PREFIX_REGEX, "").trimStart();
+          }
+          if (toSend.length > 0) {
+            controller.enqueue(
+              encoder.encode(JSON.stringify({ t: "chunk", text: toSend }) + "\n"),
+            );
+          }
+          chatSentUpTo = fullText.length;
+        }
+      }
+
+      const sepIdxForChunk = fullText.indexOf(PROMPT_SEPARATOR);
+      if (sepIdxForChunk >= 0) {
+        const promptSoFar = fullText.slice(sepIdxForChunk + PROMPT_SEPARATOR.length);
+        if (promptSoFar.length > 0) {
+          controller.enqueue(
+            encoder.encode(
+              JSON.stringify({ prompt: promptSoFar, t: "prompt_chunk" }) + "\n",
+            ),
+          );
+        }
+      }
+    }
+
+    const multiPrompts = parseMultiBlockPrompts(fullText);
+    if (multiPrompts && Object.keys(multiPrompts).length > 0) {
+      controller.enqueue(
+        encoder.encode(JSON.stringify({ prompts: multiPrompts, t: "done" }) + "\n"),
+      );
+    } else {
+      const sepIdx = fullText.indexOf(PROMPT_SEPARATOR);
+      const prompt =
+        sepIdx >= 0 ? fullText.slice(sepIdx + PROMPT_SEPARATOR.length).trim() : "";
+      const target = parseTargetFromResponse(fullText);
+      controller.enqueue(
+        encoder.encode(JSON.stringify({ prompt, t: "done", target }) + "\n"),
+      );
+    }
+  } catch (err) {
+    logger.error("Prompt stream error (Gemini)", {
+      error: formatError(err),
+      modelId,
+    });
+    controller.enqueue(
+      encoder.encode(
+        JSON.stringify({ err: streamErrorMessage(err), t: "error" }) + "\n",
+      ),
+    );
+  }
+}
+
 const SYSTEM_QUESTION_ONLY = `You are an expert assistant that analyzes AI agent prompts. You describe what the prompt says — you NEVER speak as the agent.
 
 CRITICAL: Never say "As [agent name]...", "I am...", "I use...", or speak in first person as the agent. Always describe in third person: "The prompt indicates...", "The agent's instructions say...", "According to the prompt...".
@@ -314,7 +465,9 @@ Question "¿Usa emojis?" → ANSWER: El prompt indica que el agente mantiene un 
 Question "¿Qué herramientas usa?" → ANSWER: then your answer. No PROMPT section.
 Edit "Quita las oraciones prohibidas" → SUMMARY: Eliminé las reglas 18-19 sobre frases prohibidas. Then PROMPT: then the ENTIRE prompt with those rules removed.
 
-No JSON, no markdown. Always output the real edited prompt for modification requests.`;
+No JSON, no markdown. Always output the real edited prompt for modification requests.
+
+FUNCTION TOOLS: You have access to the function get_agent_tools. ALWAYS call it when the user asks about the agent's tools or asks to improve how the prompt handles them (e.g. "qué tools tiene", "añade ejemplos con las tools", "mejora la descripción de las herramientas", "incluye las tools en el prompt"). The function returns the authoritative current tool list from the database — always prefer it over any tool descriptions that may already appear in the prompt text. Only skip calling it for requests that are clearly unrelated to tools.`;
 
 export const promptChat = async (c: Context) => {
   const session = await auth.api.getSession({
@@ -570,125 +723,106 @@ export const promptChat = async (c: Context) => {
         },
       ];
 
-      const stream = await genAI.models.generateContentStream({
-        config: { systemInstruction, temperature: 0.2 },
-        contents,
-        model: modelConfig.apiModelId,
-      });
+      const enableToolCalling =
+        mode === "agent" && !!agentId && !includeToolsContext;
 
       const readable = new ReadableStream({
         async start(controller) {
           try {
-            let fullText = "";
-            let chatSentUpTo = 0;
-
-            for await (const chunk of stream) {
-              const text = chunk.text ?? "";
-              fullText += text;
-
-              if (chatSentUpTo < fullText.length) {
-                const answerMatch = ANSWER_PREFIX_REGEX.exec(fullText);
-                const answerStart = answerMatch ? answerMatch[0].length : 0;
-                const isAnswer =
-                  answerStart > 0 && !fullText.includes(PROMPT_SEPARATOR);
-                const sepIdx = fullText.indexOf(PROMPT_SEPARATOR);
-
-                if (isAnswer) {
-                  const startFrom = Math.max(chatSentUpTo, answerStart);
-                  const toSend = fullText.slice(startFrom);
-                  if (toSend.length > 0) {
-                    controller.enqueue(
-                      encoder.encode(
-                        JSON.stringify({ t: "chunk", text: toSend }) + "\n",
-                      ),
-                    );
-                  }
-                  chatSentUpTo = fullText.length;
-                } else if (sepIdx === -1) {
-                  let toSend = fullText.slice(chatSentUpTo);
-                  if (chatSentUpTo === 0) {
-                    const am = ANSWER_PREFIX_REGEX.exec(toSend);
-                    if (am) toSend = toSend.slice(am[0].length);
-                    else
-                      toSend = toSend
-                        .replace(SUMMARY_PREFIX_REGEX, "")
-                        .trimStart();
-                  }
-                  if (toSend.length > 0) {
-                    controller.enqueue(
-                      encoder.encode(
-                        JSON.stringify({ t: "chunk", text: toSend }) + "\n",
-                      ),
-                    );
-                    chatSentUpTo = fullText.length;
-                  }
-                } else {
-                  let toSend = fullText.slice(chatSentUpTo, sepIdx);
-                  if (chatSentUpTo === 0) {
-                    toSend = toSend
-                      .replace(SUMMARY_PREFIX_REGEX, "")
-                      .trimStart();
-                  }
-                  if (toSend.length > 0) {
-                    controller.enqueue(
-                      encoder.encode(
-                        JSON.stringify({ t: "chunk", text: toSend }) + "\n",
-                      ),
-                    );
-                  }
-                  chatSentUpTo = fullText.length;
-                }
+            if (enableToolCalling) {
+              let phase1: unknown;
+              try {
+                phase1 = await genAI.models.generateContent({
+                  config: {
+                    systemInstruction,
+                    temperature: 0.2,
+                    tools: [GET_AGENT_TOOLS_DECLARATION],
+                  } as never,
+                  contents,
+                  model: modelConfig.apiModelId,
+                });
+              } catch (phase1Err) {
+                logger.warn("Phase 1 tool-call attempt failed, falling back to direct stream", {
+                  error: formatError(phase1Err),
+                });
+                const fallbackStream = await genAI.models.generateContentStream({
+                  config: { systemInstruction, temperature: 0.2 },
+                  contents,
+                  model: modelConfig.apiModelId,
+                });
+                await processPromptStream(controller, encoder, fallbackStream, modelConfig.apiModelId);
+                return;
               }
 
-              const sepIdxForChunk = fullText.indexOf(PROMPT_SEPARATOR);
-              if (sepIdxForChunk >= 0) {
-                const promptSoFar = fullText.slice(
-                  sepIdxForChunk + PROMPT_SEPARATOR.length,
+              const fc = extractFunctionCall(phase1);
+
+              if (fc?.name === "get_agent_tools") {
+                controller.enqueue(
+                  encoder.encode(
+                    JSON.stringify({ name: "get_agent_tools", t: "tool_call" }) + "\n",
+                  ),
                 );
-                if (promptSoFar.length > 0) {
-                  controller.enqueue(
-                    encoder.encode(
-                      JSON.stringify({
-                        prompt: promptSoFar,
-                        t: "prompt_chunk",
-                      }) + "\n",
-                    ),
-                  );
-                }
+                const tools = await fetchAgentToolsForPromptChat(agentId);
+                controller.enqueue(
+                  encoder.encode(
+                    JSON.stringify({
+                      name: "get_agent_tools",
+                      t: "tool_result",
+                      tools: tools ?? [],
+                    }) + "\n",
+                  ),
+                );
+                const phase2Stream = await genAI.models.generateContentStream({
+                  config: { systemInstruction, temperature: 0.2 },
+                  contents: [
+                    ...contents,
+                    {
+                      parts: [{ functionCall: { args: {}, name: "get_agent_tools" } }],
+                      role: "model" as const,
+                    },
+                    {
+                      parts: [
+                        {
+                          functionResponse: {
+                            name: "get_agent_tools",
+                            response: { tools: tools ?? [] },
+                          },
+                        },
+                      ],
+                      role: "user" as const,
+                    },
+                  ],
+                  model: modelConfig.apiModelId,
+                });
+                await processPromptStream(controller, encoder, phase2Stream, modelConfig.apiModelId);
+              } else {
+                const phase1Text = extractTextFromModelResponse(phase1);
+                await processPromptStream(
+                  controller,
+                  encoder,
+                  singleChunkIterable(phase1Text),
+                  modelConfig.apiModelId,
+                );
               }
-            }
-
-            const multiPrompts = parseMultiBlockPrompts(fullText);
-            if (multiPrompts && Object.keys(multiPrompts).length > 0) {
-              controller.enqueue(
-                encoder.encode(
-                  JSON.stringify({ prompts: multiPrompts, t: "done" }) + "\n",
-                ),
-              );
             } else {
-              const sepIdx = fullText.indexOf(PROMPT_SEPARATOR);
-              const prompt =
-                sepIdx >= 0
-                  ? fullText.slice(sepIdx + PROMPT_SEPARATOR.length).trim()
-                  : "";
-              const target = parseTargetFromResponse(fullText);
-              controller.enqueue(
-                encoder.encode(
-                  JSON.stringify({ prompt, t: "done", target }) + "\n",
-                ),
-              );
+              const stream = await genAI.models.generateContentStream({
+                config: { systemInstruction, temperature: 0.2 },
+                contents,
+                model: modelConfig.apiModelId,
+              });
+              await processPromptStream(controller, encoder, stream, modelConfig.apiModelId);
             }
           } catch (err) {
-            logger.error("Prompt stream error (Gemini)", {
-              error: formatError(err),
-              modelId,
-            });
-            controller.enqueue(
-              encoder.encode(
-                JSON.stringify({ err: streamErrorMessage(err), t: "error" }) +
-                  "\n",
-              ),
-            );
+            logger.error("Prompt chat ReadableStream error", { error: formatError(err) });
+            try {
+              controller.enqueue(
+                encoder.encode(
+                  JSON.stringify({ err: streamErrorMessage(err), t: "error" }) + "\n",
+                ),
+              );
+            } catch {
+              // controller may already be closed
+            }
           } finally {
             controller.close();
           }

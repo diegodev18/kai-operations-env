@@ -1,4 +1,5 @@
 import { getFirestore } from "@/lib/firestore";
+import { resolveAgentWriteDatabase } from "@/utils/agents";
 
 interface ParamProperty {
   description?: string;
@@ -58,6 +59,58 @@ export async function getAgentToolsContext(agentId: string): Promise<string> {
     return blocks.join("\n").trimEnd();
   } catch {
     return "";
+  }
+}
+
+export type AgentToolForChat = {
+  id: string;
+  name: string;
+  displayName?: string;
+  description: string;
+  enabled: boolean;
+};
+
+/**
+ * Fetches agent tools for use in the prompt designer tool-calling flow.
+ * Respects testing vs production path via resolveAgentWriteDatabase.
+ */
+export async function fetchAgentToolsForPromptChat(
+  agentId: string,
+): Promise<AgentToolForChat[] | null> {
+  try {
+    const { db, hasTestingData, inProduction } =
+      await resolveAgentWriteDatabase(agentId);
+    if (!hasTestingData && !inProduction) return null;
+
+    const agentRef = db.collection("agent_configurations").doc(agentId);
+    const toolsRef = hasTestingData
+      ? agentRef.collection("testing").doc("data").collection("tools")
+      : agentRef.collection("tools");
+
+    const snapshot = await toolsRef.get();
+    if (snapshot.empty) return [];
+
+    const tools: AgentToolForChat[] = [];
+    for (const doc of snapshot.docs) {
+      const data = doc.data() as {
+        description?: string;
+        displayName?: string;
+        enabled?: boolean;
+        name?: string;
+      };
+      if (data.enabled === false) continue;
+      tools.push({
+        description: typeof data.description === "string" ? data.description : "",
+        displayName:
+          typeof data.displayName === "string" ? data.displayName : undefined,
+        enabled: true,
+        id: doc.id,
+        name: typeof data.name === "string" ? data.name : doc.id,
+      });
+    }
+    return tools;
+  } catch {
+    return null;
   }
 }
 

@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/tooltip";
 import {
   ArrowUpIcon,
+  CheckCircle2Icon,
   FileTextIcon,
   ImageIcon,
   ListChecksIcon,
@@ -35,6 +36,7 @@ import {
   ShieldCheckIcon,
   SparklesIcon,
   TerminalIcon,
+  WrenchIcon,
   XIcon,
 } from "lucide-react";
 import type {
@@ -44,6 +46,7 @@ import type {
   PromptModelId,
   PromptMode,
 } from "@/hooks";
+import type { ChatMessageToolResult } from "@/types";
 import { isChatStatusMessage } from "@/hooks";
 
 type PendingPdf = ChatMessagePdf & { name: string };
@@ -206,6 +209,31 @@ export function PromptChatPanel({
           <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden px-3 pb-1">
             <div className="flex-1 overflow-y-auto space-y-2 mb-2 pr-1">
               {messages.map((message: ChatMessage, index: number) => {
+                if (message.role === "tool_call") {
+                  return (
+                    <div key={`tool_call-${index}`} className="flex justify-start">
+                      <div className="flex items-center gap-1.5 rounded-md bg-muted/60 px-2 py-1 text-xs text-muted-foreground">
+                        <WrenchIcon className="h-3 w-3 shrink-0 animate-pulse" />
+                        <span>Consultando herramientas del agente…</span>
+                      </div>
+                    </div>
+                  );
+                }
+                if (message.role === "tool_result") {
+                  const r = message as ChatMessageToolResult;
+                  return (
+                    <div key={`tool_result-${index}`} className="flex justify-start">
+                      <div className="flex items-center gap-1.5 rounded-md bg-muted/60 px-2 py-1 text-xs text-muted-foreground">
+                        <CheckCircle2Icon className="h-3 w-3 shrink-0 text-green-500" />
+                        <span>
+                          {r.tools.length === 0
+                            ? "Sin herramientas configuradas"
+                            : `${r.tools.length} herramienta${r.tools.length !== 1 ? "s" : ""} obtenida${r.tools.length !== 1 ? "s" : ""}`}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                }
                 const isLast = index === messages.length - 1;
                 const thinking = isLast && message.role === "model" && chatLoading;
                 const isStatus =

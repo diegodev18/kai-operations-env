@@ -1,6 +1,9 @@
 import { useState, useCallback, useRef } from "react";
 import type {
   ChatMessage,
+  ChatMessageText,
+  ChatMessageToolCall,
+  ChatMessageToolResult,
   ChatMessageImage,
   ChatMessagePdf,
   PromptTarget,
@@ -17,6 +20,9 @@ import {
 
 export type {
   ChatMessage,
+  ChatMessageText,
+  ChatMessageToolCall,
+  ChatMessageToolResult,
   ChatMessageImage,
   ChatMessagePdf,
   PromptModelId,
@@ -41,7 +47,7 @@ export const usePromptChat = ({
   getCurrentPromptAuth,
 }: UsePromptChatParams) => {
   const [messages, setMessages] = useState<ChatMessage[]>(
-    () => initialMessages ?? [],
+    () => (initialMessages ?? []) as ChatMessage[],
   );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,13 +68,16 @@ export const usePromptChat = ({
       return;
     }
 
-    const userMessage: ChatMessage = {
+    const userMessage: ChatMessageText = {
       role: "user",
       content,
       ...(images?.length ? { images } : {}),
     };
 
-    const nextMessages = [...messages, userMessage];
+    const apiMessages = messages.filter(
+      (m): m is ChatMessageText => m.role === "user" || m.role === "model",
+    );
+    const nextMessages = [...apiMessages, userMessage];
     const basePrompt = suggestedPrompt ?? getCurrentPrompt();
 
     setMessages([
@@ -175,7 +184,9 @@ export const usePromptChat = ({
                   target?: unknown;
                   prompts?: SuggestedPrompts;
                 }
-              | { t: "error"; err: string };
+              | { t: "error"; err: string }
+              | { t: "tool_call"; name: string }
+              | { t: "tool_result"; name: string; tools: ChatMessageToolResult["tools"] };
             if (data.t === "chunk") {
               streamedContent += data.text;
               const promptPart = streamingPromptRef.current
@@ -237,6 +248,24 @@ export const usePromptChat = ({
                   role: "model",
                   content: `⚠️ ${streamError}`,
                 };
+                return next;
+              });
+            } else if (data.t === "tool_call") {
+              setMessages((prev) => {
+                const next = [...prev];
+                const msg: ChatMessageToolCall = { role: "tool_call", name: data.name };
+                next.splice(next.length - 1, 0, msg);
+                return next;
+              });
+            } else if (data.t === "tool_result") {
+              setMessages((prev) => {
+                const next = [...prev];
+                const msg: ChatMessageToolResult = {
+                  role: "tool_result",
+                  name: data.name,
+                  tools: data.tools,
+                };
+                next.splice(next.length - 1, 0, msg);
                 return next;
               });
             }
