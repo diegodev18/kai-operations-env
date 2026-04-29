@@ -271,6 +271,9 @@ export function PromptChatPanel({
                 const display = thinking
                   ? message.content.split("\n").slice(-6).join("\n")
                   : message.content;
+                const msgImages = message.role === "user"
+                  ? (message as import("@/types").ChatMessageText).images
+                  : undefined;
                 return (
                   <div
                     key={`${message.role}-${index}`}
@@ -285,6 +288,19 @@ export function PromptChatPanel({
                             : "bg-muted"
                       }`}
                     >
+                      {msgImages && msgImages.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-1.5">
+                          {msgImages.map((img, i) => (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              key={i}
+                              src={`data:${img.mimeType};base64,${img.data}`}
+                              alt=""
+                              className="h-16 w-16 rounded object-cover"
+                            />
+                          ))}
+                        </div>
+                      )}
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
                         components={chatMarkdownComponents}
