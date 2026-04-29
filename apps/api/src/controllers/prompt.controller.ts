@@ -4,7 +4,12 @@ import { GoogleGenAI } from "@google/genai";
 import { existsSync } from "fs";
 import { dirname, join } from "path";
 
-import { fetchAgentToolsForPromptChat, getAgentToolsContext } from "@/lib/agent-tools";
+import {
+  GET_AGENT_TOOLS_DECLARATION,
+  SYSTEM_AGENT_EDIT,
+  SYSTEM_QUESTION_ONLY,
+} from "@/constants/prompt-chat";
+import { fetchAgentToolsForPromptChat } from "@/lib/agent-tools";
 import { auth } from "@/lib/auth";
 import logger, { formatError } from "@/lib/logger";
 import {
@@ -14,6 +19,11 @@ import {
   type PromptChatMessagePdf as ChatMessagePdf,
   type PromptChatProvider as Provider,
 } from "@/types/prompt-chat";
+import {
+  extractFunctionCall,
+  processPromptStream,
+  streamErrorMessage,
+} from "@/utils/prompt-stream";
 
 const {
   FIREBASE_SERVICE_ACCOUNT_JSON,
@@ -34,10 +44,6 @@ const productionCredsPath = defaultCredsPath
   ? join(dirname(defaultCredsPath), "firebase.production.json")
   : null;
 
-/**
- * Devuelve la ruta de credenciales para Vertex AI.
- * Requisito del proyecto: usar firebase.production.json.
- */
 function getVertexCredsPath(): null | string {
   if (productionCredsPath && existsSync(productionCredsPath)) {
     return productionCredsPath;
@@ -101,7 +107,6 @@ const ALLOWED_IMAGE_MIME_TYPES = [
 ] as const;
 const MAX_IMAGES_PER_MESSAGE = 4;
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024; // 3 MB
-
 const MAX_PDF_BYTES = 20 * 1024 * 1024; // 20 MB
 
 export function getAvailableModels(): {
@@ -152,7 +157,11 @@ function validateAttachedImages(
     }
     const mimeType = (item as ChatMessageImage).mimeType;
     const data = (item as ChatMessageImage).data;
-    if (!ALLOWED_IMAGE_MIME_TYPES.includes(mimeType as (typeof ALLOWED_IMAGE_MIME_TYPES)[number])) {
+    if (
+      !ALLOWED_IMAGE_MIME_TYPES.includes(
+        mimeType as (typeof ALLOWED_IMAGE_MIME_TYPES)[number],
+      )
+    ) {
       return {
         error: `Tipo de imagen no permitido. Usa: ${ALLOWED_IMAGE_MIME_TYPES.join(", ")}.`,
         valid: [],
@@ -187,7 +196,10 @@ function validateAttachedPdf(
     typeof item.data !== "string" ||
     !item.data
   ) {
-    return { error: "El PDF debe tener mimeType application/pdf y data en base64.", valid: null };
+    return {
+      error: "El PDF debe tener mimeType application/pdf y data en base64.",
+      valid: null,
+    };
   }
   let decodedLength: number;
   try {
@@ -203,271 +215,6 @@ function validateAttachedPdf(
   }
   return { valid: { data: item.data, mimeType: PROMPT_CHAT_PDF_MIME_TYPE } };
 }
-
-const PROMPT_SEPARATOR = "\n\nPROMPT:\n";
-const ANSWER_PREFIX = "ANSWER:\n";
-const ANSWER_PREFIX_REGEX = /^ANSWER:\s*/i;
-/** Quita el prefijo SUMMARY: (con espacio o salto de línea) para no mostrarlo en el chat */
-const SUMMARY_PREFIX_REGEX = /^SUMMARY:\s*/i;
-
-const VALID_TARGETS = ["base", "auth", "unauth"] as const;
-/** Parsea bloques PROMPT BASE:, PROMPT UNAUTH:, PROMPT AUTH: en fullText (case-insensitive). Si hay al menos uno, devuelve { base?, unauth?, auth? }. */
-function parseMultiBlockPrompts(
-  fullText: string,
-): null | { auth?: string; base?: string; unauth?: string; } {
-  const lower = fullText.toLowerCase();
-  const markers = [
-    { key: "base" as const, tag: "prompt base:" },
-    { key: "unauth" as const, tag: "prompt unauth:" },
-    { key: "auth" as const, tag: "prompt auth:" },
-  ];
-  const indices = markers
-    .map((m) => ({ key: m.key, start: lower.indexOf(m.tag) }))
-    .filter((x) => x.start >= 0);
-  if (indices.length === 0) return null;
-  indices.sort((a, b) => a.start - b.start);
-
-  const result: { auth?: string; base?: string; unauth?: string; } = {};
-  for (let i = 0; i < indices.length; i++) {
-    const tagLen = markers.find((m) => m.key === indices[i].key)!.tag.length;
-    const start = indices[i].start + tagLen;
-    const end =
-      i + 1 < indices.length ? indices[i + 1].start : fullText.length;
-    const content = fullText.slice(start, end).trim();
-    if (content) result[indices[i].key] = content;
-  }
-  return Object.keys(result).length > 0 ? result : null;
-}
-
-/** Parsea TARGET: base, auth, unauth de fullText. Devuelve ["base"] si no hay TARGET válido. */
-function parseTargetFromResponse(fullText: string): string[] {
-  const match = /TARGET:\s*([^\n]+)/i.exec(fullText);
-  if (!match) return ["base"];
-  const part = match[1].trim().toLowerCase();
-  const tokens = part.split(/\s*,\s*/).map((s) => s.trim());
-  const valid = tokens.filter((t): t is (typeof VALID_TARGETS)[number] =>
-    VALID_TARGETS.includes(t as (typeof VALID_TARGETS)[number]),
-  );
-  return valid.length > 0 ? valid : ["base"];
-}
-
-function streamErrorMessage(err: unknown): string {
-  const msg = err instanceof Error ? err.message : String(err);
-  if (msg.includes("402") || /insufficient\s*balance/i.test(msg)) {
-    return "Saldo o cuota insuficiente en Google Cloud / Gemini. Revisa facturación o cuotas de Vertex AI.";
-  }
-  return "Stream failed";
-}
-
-const GET_AGENT_TOOLS_DECLARATION = {
-  functionDeclarations: [
-    {
-      name: "get_agent_tools",
-      description:
-        "Obtiene la lista de herramientas (tools) configuradas para este agente. Llama esta función cuando el usuario pida mejorar cómo el prompt describe o utiliza las tools del agente (ej: 'añade ejemplos con las tools', 'mejora la descripción de las herramientas', 'qué tools tiene el agente'). No la llames si el contexto de tools ya está presente en el mensaje o si la solicitud es una pregunta general.",
-      parameters: { properties: {}, type: "object" },
-    },
-  ],
-};
-
-function extractFunctionCall(
-  response: unknown,
-): { args?: Record<string, unknown>; name?: string } | null {
-  const r = response as {
-    candidates?: Array<{
-      content?: {
-        parts?: Array<{ functionCall?: { args?: Record<string, unknown>; name?: string } }>;
-      };
-    }>;
-    functionCalls?: Array<{ args?: Record<string, unknown>; name?: string }>;
-  };
-  const fromTop = (r.functionCalls ?? [])[0];
-  if (fromTop) return fromTop;
-  const parts = r.candidates?.[0]?.content?.parts ?? [];
-  return parts.map((p) => p.functionCall).find((x) => x != null) ?? null;
-}
-
-function extractTextFromModelResponse(response: unknown): string {
-  const candidates = (
-    response as { candidates?: Array<{ content?: { parts?: unknown[] } }> }
-  )?.candidates;
-  const parts = candidates?.[0]?.content?.parts;
-  if (!Array.isArray(parts)) return "";
-  const chunks: string[] = [];
-  for (const part of parts) {
-    if (
-      part != null &&
-      typeof part === "object" &&
-      "text" in part &&
-      typeof (part as { text?: unknown }).text === "string"
-    ) {
-      chunks.push((part as { text: string }).text);
-    }
-  }
-  return chunks.join("").trim();
-}
-
-async function* singleChunkIterable(
-  text: string,
-): AsyncIterable<{ text: string }> {
-  yield { text };
-}
-
-async function processPromptStream(
-  controller: ReadableStreamDefaultController,
-  encoder: TextEncoder,
-  chunks: AsyncIterable<unknown>,
-  modelId: string,
-): Promise<void> {
-  try {
-    let fullText = "";
-    let chatSentUpTo = 0;
-
-    for await (const chunk of chunks) {
-      const text = (chunk as { text?: string }).text ?? "";
-      fullText += text;
-
-      if (chatSentUpTo < fullText.length) {
-        const answerMatch = ANSWER_PREFIX_REGEX.exec(fullText);
-        const answerStart = answerMatch ? answerMatch[0].length : 0;
-        const isAnswer =
-          answerStart > 0 && !fullText.includes(PROMPT_SEPARATOR);
-        const sepIdx = fullText.indexOf(PROMPT_SEPARATOR);
-
-        if (isAnswer) {
-          const startFrom = Math.max(chatSentUpTo, answerStart);
-          const toSend = fullText.slice(startFrom);
-          if (toSend.length > 0) {
-            controller.enqueue(
-              encoder.encode(JSON.stringify({ t: "chunk", text: toSend }) + "\n"),
-            );
-          }
-          chatSentUpTo = fullText.length;
-        } else if (sepIdx === -1) {
-          let toSend = fullText.slice(chatSentUpTo);
-          if (chatSentUpTo === 0) {
-            const am = ANSWER_PREFIX_REGEX.exec(toSend);
-            if (am) toSend = toSend.slice(am[0].length);
-            else toSend = toSend.replace(SUMMARY_PREFIX_REGEX, "").trimStart();
-          }
-          if (toSend.length > 0) {
-            controller.enqueue(
-              encoder.encode(JSON.stringify({ t: "chunk", text: toSend }) + "\n"),
-            );
-            chatSentUpTo = fullText.length;
-          }
-        } else {
-          let toSend = fullText.slice(chatSentUpTo, sepIdx);
-          if (chatSentUpTo === 0) {
-            toSend = toSend.replace(SUMMARY_PREFIX_REGEX, "").trimStart();
-          }
-          if (toSend.length > 0) {
-            controller.enqueue(
-              encoder.encode(JSON.stringify({ t: "chunk", text: toSend }) + "\n"),
-            );
-          }
-          chatSentUpTo = fullText.length;
-        }
-      }
-
-      const sepIdxForChunk = fullText.indexOf(PROMPT_SEPARATOR);
-      if (sepIdxForChunk >= 0) {
-        const promptSoFar = fullText.slice(sepIdxForChunk + PROMPT_SEPARATOR.length);
-        if (promptSoFar.length > 0) {
-          controller.enqueue(
-            encoder.encode(
-              JSON.stringify({ prompt: promptSoFar, t: "prompt_chunk" }) + "\n",
-            ),
-          );
-        }
-      }
-    }
-
-    const multiPrompts = parseMultiBlockPrompts(fullText);
-    if (multiPrompts && Object.keys(multiPrompts).length > 0) {
-      controller.enqueue(
-        encoder.encode(JSON.stringify({ prompts: multiPrompts, t: "done" }) + "\n"),
-      );
-    } else {
-      const sepIdx = fullText.indexOf(PROMPT_SEPARATOR);
-      const prompt =
-        sepIdx >= 0 ? fullText.slice(sepIdx + PROMPT_SEPARATOR.length).trim() : "";
-      const target = parseTargetFromResponse(fullText);
-      controller.enqueue(
-        encoder.encode(JSON.stringify({ prompt, t: "done", target }) + "\n"),
-      );
-    }
-  } catch (err) {
-    logger.error("Prompt stream error (Gemini)", {
-      error: formatError(err),
-      modelId,
-    });
-    controller.enqueue(
-      encoder.encode(
-        JSON.stringify({ err: streamErrorMessage(err), t: "error" }) + "\n",
-      ),
-    );
-  }
-}
-
-const SYSTEM_QUESTION_ONLY = `You are an expert assistant that analyzes AI agent prompts. You describe what the prompt says — you NEVER speak as the agent.
-
-CRITICAL: Never say "As [agent name]...", "I am...", "I use...", or speak in first person as the agent. Always describe in third person: "The prompt indicates...", "The agent's instructions say...", "According to the prompt...".
-
-LANGUAGE: Detect the language of the user's message and respond in that same language (e.g. Spanish if they write in Spanish, English if in English). Do not default to English.
-
-Answer questions about the prompt using it as context.
-
-TOOLS: If the user message contains a section "--- AGENT TOOLS CONTEXT ---", that section lists the tools actually configured for this agent (name, description, parameters). When the user asks what tools the agent has, which tools it uses, "qué tools tiene", "según el contexto de tools", or similar, you MUST answer using that section: list the tools from AGENT TOOLS CONTEXT with their names and, if relevant, their parameters. Do not limit the answer to what is only written in the prompt text when the tools context is present.
-
-**Format:** Output exactly: ${ANSWER_PREFIX}
-Then your answer. Never output PROMPT or edit the prompt. Questions only.`;
-
-const SYSTEM_AGENT_EDIT = `You are an expert assistant for editing AI agent prompts. You are NOT the agent itself. You NEVER roleplay or speak as the agent. You only edit or describe the prompt document.
-
-LANGUAGE: Detect the language of the user's message and respond in that same language (e.g. Spanish if they write in Spanish, English if in English). Do not default to English.
-
-CRITICAL: Never say "As [agent name]...", "I am...", "I use...", or speak in first person as the agent. Always describe in third person: "The prompt indicates...", "The agent's instructions say...".
-
-You support TWO types of requests:
-
-## 1. QUESTIONS about the prompt
-
-When the user asks about the prompt (e.g. "¿Usa emojis?", "What's the communication style?") — describe what the prompt says. Use third person. Detect the user's language and respond in that same language (e.g. Spanish → Spanish, English → English).
-
-If the user asks what tools the agent has, "qué tools tiene", "según el contexto de tools", or similar, and the message includes a section "--- AGENT TOOLS CONTEXT ---", answer using that section: list the tools from AGENT TOOLS CONTEXT (name, description, parameters). Do not limit the answer to what is only written in the prompt text when the tools context is present.
-
-**Format:** Output exactly: ${ANSWER_PREFIX}
-Then your answer. No PROMPT section.
-
-## 2. MODIFICATION requests
-
-When the user asks to CHANGE the prompt (e.g. "add emojis", "quita las oraciones prohibidas", "make it more concise") — you MUST edit the actual prompt text and output the full modified prompt.
-
-**When the user attaches image(s) or a PDF:** Use them as essential context. For example, if they send a screenshot of a conversation (e.g. WhatsApp chat) and feedback like "no debe repetir el mismo mensaje", "haz el flujo más natural", or "que no sea tan repetitivo", you MUST:
-- Look at the image to identify which part of the prompt is involved (e.g. which workflow, Core Objective, or data-capture flow — such as "event registration", "captura de datos para evento", formularios paso a paso).
-- Apply the requested change ONLY to that specific section or flow (e.g. add instructions for varying wording, avoiding repeated phrases like "Para continuar con tu registro... ¿podrías proporcionarme...?" for each field, or making each step sound more natural and distinct).
-- Do NOT suggest generic edits to the whole prompt. The edit must target the flow or section visible or implied in the image and the user's message.
-
-**Critical rules:**
-- You are editing a document. The prompt is the agent's instructions. You modify that document directly.
-- NEVER respond as the agent (e.g. "As Ventanito I cannot edit..."). You are the editor, not the agent.
-- Apply the requested change to the prompt text. Output the COMPLETE updated prompt after PROMPT:.
-- Change ONLY what was requested. Copy unchanged parts character-for-character.
-- Detect the user's language and write the summary in that language.
-
-**Format:** Output SUMMARY: on its own line, then 2–4 bullet points of what you changed. Then output exactly: ${PROMPT_SEPARATOR}
-Then the FULL updated prompt (the complete prompt with your edits applied).
-
-## Examples
-
-Question "¿Usa emojis?" → ANSWER: El prompt indica que el agente mantiene un estilo formal y no utiliza emojis. (Describe in third person, never "As X, I don't use emojis".)
-Question "¿Qué herramientas usa?" → ANSWER: then your answer. No PROMPT section.
-Edit "Quita las oraciones prohibidas" → SUMMARY: Eliminé las reglas 18-19 sobre frases prohibidas. Then PROMPT: then the ENTIRE prompt with those rules removed.
-
-No JSON, no markdown. Always output the real edited prompt for modification requests.
-
-FUNCTION TOOLS: You have access to the function get_agent_tools. ALWAYS call it when the user asks about the agent's tools or asks to improve how the prompt handles them (e.g. "qué tools tiene", "añade ejemplos con las tools", "mejora la descripción de las herramientas", "incluye las tools en el prompt"). The function returns the authoritative current tool list from the database — always prefer it over any tool descriptions that may already appear in the prompt text. Only skip calling it for requests that are clearly unrelated to tools.`;
 
 export const promptChat = async (c: Context) => {
   const session = await auth.api.getSession({
@@ -508,13 +255,15 @@ export const promptChat = async (c: Context) => {
 
   const currentPromptUnauth =
     body != null &&
-    typeof (body as { currentPromptUnauth?: unknown }).currentPromptUnauth === "string"
+    typeof (body as { currentPromptUnauth?: unknown }).currentPromptUnauth ===
+      "string"
       ? (body as { currentPromptUnauth: string }).currentPromptUnauth
       : "";
 
   const currentPromptAuth =
     body != null &&
-    typeof (body as { currentPromptAuth?: unknown }).currentPromptAuth === "string"
+    typeof (body as { currentPromptAuth?: unknown }).currentPromptAuth ===
+      "string"
       ? (body as { currentPromptAuth: string }).currentPromptAuth
       : "";
 
@@ -538,13 +287,6 @@ export const promptChat = async (c: Context) => {
       (body as { mode: string }).mode === "agent")
       ? (body as { mode: "agent" | "questions" }).mode
       : "agent";
-
-  const includeToolsContext =
-    body != null &&
-    typeof (body as { includeToolsContext?: unknown }).includeToolsContext ===
-      "boolean"
-      ? (body as { includeToolsContext: boolean }).includeToolsContext
-      : false;
 
   const agentId =
     body != null &&
@@ -609,22 +351,6 @@ export const promptChat = async (c: Context) => {
         ].join("\n")
       : "";
 
-  let toolsContextBlock = "";
-  if (includeToolsContext && agentId) {
-    const ctx = await getAgentToolsContext(agentId);
-    if (ctx) {
-      toolsContextBlock = [
-        "",
-        "--- AGENT TOOLS CONTEXT ---",
-        ctx,
-        "--- END AGENT TOOLS CONTEXT ---",
-        "",
-        "When adding or editing tool usage or examples in the prompt, use ONLY the parameter names listed above for each tool. Do not invent parameter names (e.g. do not use product_name or user_contact_info unless they appear in that tool's Parameters list).",
-        "",
-      ].join("\n");
-    }
-  }
-
   const systemInstruction =
     mode === "questions" ? SYSTEM_QUESTION_ONLY : SYSTEM_AGENT_EDIT;
 
@@ -683,7 +409,6 @@ export const promptChat = async (c: Context) => {
     "",
     ...promptBlocks,
     "",
-    toolsContextBlock,
     historyBlock,
     pdfNote,
     `User request: ${lastUserMessage.content}`,
@@ -705,129 +430,157 @@ export const promptChat = async (c: Context) => {
       return c.json({ error: "LLM is not configured on the server" }, 500);
     }
 
-    const parts: ({ inlineData: { data: string; mimeType: string; } } | { text: string })[] = [];
-      for (const img of attachedImages) {
-        parts.push({ inlineData: { data: img.data, mimeType: img.mimeType } });
-      }
-      if (attachedPdf) {
-        parts.push({
-          inlineData: { data: attachedPdf.data, mimeType: attachedPdf.mimeType },
-        });
-      }
-      parts.push({ text: userContent });
+    const parts: (
+      | { inlineData: { data: string; mimeType: string } }
+      | { text: string }
+    )[] = [];
+    for (const img of attachedImages) {
+      parts.push({ inlineData: { data: img.data, mimeType: img.mimeType } });
+    }
+    if (attachedPdf) {
+      parts.push({
+        inlineData: { data: attachedPdf.data, mimeType: attachedPdf.mimeType },
+      });
+    }
+    parts.push({ text: userContent });
 
-      const contents = [
-        {
-          parts,
-          role: "user" as const,
-        },
-      ];
+    const contents = [{ parts, role: "user" as const }];
 
-      const enableToolCalling =
-        mode === "agent" && !!agentId && !includeToolsContext;
+    const enableToolCalling = mode === "agent" && !!agentId;
 
-      const readable = new ReadableStream({
-        async start(controller) {
-          try {
-            if (enableToolCalling) {
-              let phase1: unknown;
-              try {
-                phase1 = await genAI.models.generateContent({
-                  config: {
-                    systemInstruction,
-                    temperature: 0.2,
-                    tools: [GET_AGENT_TOOLS_DECLARATION],
-                  } as never,
-                  contents,
-                  model: modelConfig.apiModelId,
-                });
-              } catch (phase1Err) {
-                logger.warn("Phase 1 tool-call attempt failed, falling back to direct stream", {
-                  error: formatError(phase1Err),
-                });
-                const fallbackStream = await genAI.models.generateContentStream({
-                  config: { systemInstruction, temperature: 0.2 },
-                  contents,
-                  model: modelConfig.apiModelId,
-                });
-                await processPromptStream(controller, encoder, fallbackStream, modelConfig.apiModelId);
-                return;
+    const readable = new ReadableStream({
+      async start(controller) {
+        try {
+          if (enableToolCalling) {
+            // Phase 1: stream with tool declarations to detect function calls fast.
+            // Function calls appear in the first chunk; if we see text instead, break
+            // and restart as a clean direct stream for proper streaming UX.
+            let detectedFunctionCall: {
+              args?: Record<string, unknown>;
+              name?: string;
+            } | null = null;
+
+            try {
+              const phase1Stream = await genAI.models.generateContentStream({
+                config: {
+                  systemInstruction,
+                  temperature: 0.2,
+                  tools: [GET_AGENT_TOOLS_DECLARATION],
+                } as never,
+                contents,
+                model: modelConfig.apiModelId,
+              });
+
+              for await (const chunk of phase1Stream) {
+                const fc = extractFunctionCall(chunk);
+                if (fc?.name === "get_agent_tools") {
+                  detectedFunctionCall = fc;
+                  break;
+                }
+                // Text arrived before any function call — no tool needed, stop here.
+                // We'll restart as a direct stream below for proper streaming UX.
+                if ((chunk as { text?: string }).text) break;
               }
+            } catch (phase1Err) {
+              logger.warn(
+                "Phase 1 tool detection failed, falling back to direct stream",
+                { error: formatError(phase1Err) },
+              );
+            }
 
-              const fc = extractFunctionCall(phase1);
-
-              if (fc?.name === "get_agent_tools") {
-                controller.enqueue(
-                  encoder.encode(
-                    JSON.stringify({ name: "get_agent_tools", t: "tool_call" }) + "\n",
-                  ),
-                );
-                const tools = await fetchAgentToolsForPromptChat(agentId);
-                controller.enqueue(
-                  encoder.encode(
-                    JSON.stringify({
-                      name: "get_agent_tools",
-                      t: "tool_result",
-                      tools: tools ?? [],
-                    }) + "\n",
-                  ),
-                );
-                const phase2Stream = await genAI.models.generateContentStream({
-                  config: { systemInstruction, temperature: 0.2 },
-                  contents: [
-                    ...contents,
-                    {
-                      parts: [{ functionCall: { args: {}, name: "get_agent_tools" } }],
-                      role: "model" as const,
-                    },
-                    {
-                      parts: [
-                        {
-                          functionResponse: {
-                            name: "get_agent_tools",
-                            response: { tools: tools ?? [] },
-                          },
+            if (detectedFunctionCall?.name === "get_agent_tools") {
+              controller.enqueue(
+                encoder.encode(
+                  JSON.stringify({ name: "get_agent_tools", t: "tool_call" }) +
+                    "\n",
+                ),
+              );
+              const tools = await fetchAgentToolsForPromptChat(agentId);
+              controller.enqueue(
+                encoder.encode(
+                  JSON.stringify({
+                    name: "get_agent_tools",
+                    t: "tool_result",
+                    tools: tools ?? [],
+                  }) + "\n",
+                ),
+              );
+              const phase2Stream = await genAI.models.generateContentStream({
+                config: { systemInstruction, temperature: 0.2 },
+                contents: [
+                  ...contents,
+                  {
+                    parts: [
+                      { functionCall: { args: {}, name: "get_agent_tools" } },
+                    ],
+                    role: "model" as const,
+                  },
+                  {
+                    parts: [
+                      {
+                        functionResponse: {
+                          name: "get_agent_tools",
+                          response: { tools: tools ?? [] },
                         },
-                      ],
-                      role: "user" as const,
-                    },
-                  ],
-                  model: modelConfig.apiModelId,
-                });
-                await processPromptStream(controller, encoder, phase2Stream, modelConfig.apiModelId);
-              } else {
-                const phase1Text = extractTextFromModelResponse(phase1);
-                await processPromptStream(
-                  controller,
-                  encoder,
-                  singleChunkIterable(phase1Text),
-                  modelConfig.apiModelId,
-                );
-              }
+                      },
+                    ],
+                    role: "user" as const,
+                  },
+                ],
+                model: modelConfig.apiModelId,
+              });
+              await processPromptStream(
+                controller,
+                encoder,
+                phase2Stream,
+                modelConfig.apiModelId,
+              );
             } else {
-              const stream = await genAI.models.generateContentStream({
+              // No tool call — restart as a clean direct stream for real streaming UX.
+              const directStream = await genAI.models.generateContentStream({
                 config: { systemInstruction, temperature: 0.2 },
                 contents,
                 model: modelConfig.apiModelId,
               });
-              await processPromptStream(controller, encoder, stream, modelConfig.apiModelId);
-            }
-          } catch (err) {
-            logger.error("Prompt chat ReadableStream error", { error: formatError(err) });
-            try {
-              controller.enqueue(
-                encoder.encode(
-                  JSON.stringify({ err: streamErrorMessage(err), t: "error" }) + "\n",
-                ),
+              await processPromptStream(
+                controller,
+                encoder,
+                directStream,
+                modelConfig.apiModelId,
               );
-            } catch {
-              // controller may already be closed
             }
-          } finally {
-            controller.close();
+          } else {
+            const stream = await genAI.models.generateContentStream({
+              config: { systemInstruction, temperature: 0.2 },
+              contents,
+              model: modelConfig.apiModelId,
+            });
+            await processPromptStream(
+              controller,
+              encoder,
+              stream,
+              modelConfig.apiModelId,
+            );
           }
-        },
-      });
+        } catch (err) {
+          logger.error("Prompt chat ReadableStream error", {
+            error: formatError(err),
+          });
+          try {
+            controller.enqueue(
+              encoder.encode(
+                JSON.stringify({ err: streamErrorMessage(err), t: "error" }) +
+                  "\n",
+              ),
+            );
+          } catch {
+            // controller may already be closed
+          }
+        } finally {
+          controller.close();
+        }
+      },
+    });
 
     return new Response(readable, {
       headers: {

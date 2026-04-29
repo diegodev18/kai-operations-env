@@ -10,7 +10,6 @@ import type { Agent } from "@/lib/agents/agent";
 import {
   useAgentProperties,
   useTestingProperties,
-  useAgentTools,
   usePromptDesignerPreferences,
   usePromptDesignerDialogs,
   usePromptDesignerChatAttachments,
@@ -55,7 +54,6 @@ export function AgentPromptDesigner({
     didAutoSync: testingDidAutoSync,
     refetch: refetchTestingProperties,
   } = useTestingProperties(agentId);
-  const { tools: agentTools, error: agentToolsError } = useAgentTools(agentId);
   const {
     data: productionPrompt,
     isLoading: loadingProductionPrompt,
@@ -87,16 +85,11 @@ export function AgentPromptDesigner({
   }, [testingDidAutoSync]);
 
   useEffect(() => {
-    if (agentToolsError) toast.error(agentToolsError);
-  }, [agentToolsError]);
-
-  useEffect(() => {
     if (productionPromptError) toast.error(productionPromptError);
   }, [productionPromptError]);
 
   const [chatInput, setChatInput] = useState("");
   const [chatWidth, setChatWidth] = useState(340);
-  const [includeToolsContext] = useState(false);
   const [regenerateSystemPromptLoading, setRegenerateSystemPromptLoading] =
     useState(false);
 
@@ -105,7 +98,6 @@ export function AgentPromptDesigner({
     usePromptDesignerPreferences({
       promptModels,
       modelsLoading,
-      includeToolsContext,
     });
   const {
     pendingImages,
@@ -152,7 +144,6 @@ export function AgentPromptDesigner({
     getCurrentPrompt: () => editingPrompt,
     model: promptModel,
     mode: promptMode,
-    includeToolsContext,
     agentId,
     isAuthEnabled,
     getCurrentPromptUnauth: isAuthEnabled
@@ -417,15 +408,6 @@ export function AgentPromptDesigner({
     });
   };
 
-  const formatToolsBlock = useCallback(() => {
-    if (!agentTools.length) return "Lista de tools: (ninguna).";
-    const lines: string[] = ["Tools del agente:"];
-    for (const t of agentTools) {
-      lines.push(`- ${t.name}: ${t.description || ""}`);
-    }
-    return lines.join("\n");
-  }, [agentTools]);
-
   const handleSendChat = async () => {
     const content = chatInput.trim();
     if (!content) return;
@@ -606,7 +588,6 @@ export function AgentPromptDesigner({
           handleSendChat={handleSendChat}
           addFilesFromFileList={addFilesFromFileList}
           chatFileInputRef={chatFileInputRef}
-          formatToolsBlock={formatToolsBlock}
         />
       </div>
     </div>

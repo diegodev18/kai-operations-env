@@ -30,7 +30,6 @@ import {
   CheckCircle2Icon,
   FileTextIcon,
   ImageIcon,
-  ListChecksIcon,
   Loader2Icon,
   RotateCcwIcon,
   ShieldCheckIcon,
@@ -103,7 +102,6 @@ export interface PromptChatPanelProps {
   handleSendChat: () => void;
   addFilesFromFileList: (files: FileList | null, currentCount: number) => void;
   chatFileInputRef: RefObject<HTMLInputElement | null>;
-  formatToolsBlock: () => string;
 }
 
 export function PromptChatPanel({
@@ -133,7 +131,6 @@ export function PromptChatPanel({
   handleSendChat,
   addFilesFromFileList,
   chatFileInputRef,
-  formatToolsBlock,
 }: PromptChatPanelProps) {
   return (
     <>
@@ -313,32 +310,6 @@ export function PromptChatPanel({
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>Corregir contradicciones</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="inline-flex">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8 rounded-lg"
-                        disabled={
-                          !editingPrompt.trim() ||
-                          chatLoading ||
-                          promptAndChatLocked
-                        }
-                        onClick={() => {
-                          void sendMessage(
-                            `Contexto de tools:\n${formatToolsBlock()}\n\nResume qué hace cada tool.`,
-                          );
-                        }}
-                        aria-label="Resumir tools"
-                      >
-                        <ListChecksIcon className="h-4 w-4" />
-                      </Button>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>Resumir tools</TooltipContent>
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>

@@ -6,11 +6,9 @@ const PROMPT_STORAGE_KEY = "operations-prompt-designer";
 export function usePromptDesignerPreferences({
   promptModels,
   modelsLoading,
-  includeToolsContext = false,
 }: {
   promptModels: Array<{ id: string; available: boolean }>;
   modelsLoading: boolean;
-  includeToolsContext?: boolean;
 }) {
   const [promptModel, setPromptModel] = useState<PromptModelId>(() => {
     try {
@@ -43,13 +41,12 @@ export function usePromptDesignerPreferences({
         JSON.stringify({
           model: promptModel,
           mode: promptMode,
-          includeToolsContext,
         }),
       );
     } catch {
       // Ignore persistence failures.
     }
-  }, [promptModel, promptMode, includeToolsContext]);
+  }, [promptModel, promptMode]);
 
   useEffect(() => {
     if (modelsLoading || promptModels.length === 0) return;

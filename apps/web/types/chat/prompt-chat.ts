@@ -62,7 +62,6 @@ export type UsePromptChatParams = {
   getCurrentPrompt: () => string;
   model?: PromptModelId;
   mode?: PromptMode;
-  includeToolsContext?: boolean;
   agentId?: string;
   initialMessages?: ChatMessageText[];
   isAuthEnabled?: boolean;

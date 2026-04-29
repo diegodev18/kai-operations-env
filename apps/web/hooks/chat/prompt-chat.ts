@@ -39,7 +39,6 @@ export const usePromptChat = ({
   getCurrentPrompt,
   model = "gemini-3-flash",
   mode = "agent",
-  includeToolsContext = false,
   agentId,
   initialMessages,
   isAuthEnabled = false,
@@ -97,7 +96,6 @@ export const usePromptChat = ({
       agentName,
       model,
       mode,
-      includeToolsContext: includeToolsContext === true,
       agentId: agentId ?? null,
     };
     if (pdf?.mimeType === "application/pdf" && pdf.data) {
