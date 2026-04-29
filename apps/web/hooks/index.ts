@@ -47,6 +47,15 @@ export { usePromptDesignerSync } from "./agents/prompt-designer/sync";
 export { useDynamicTableSchemasList } from "./dynamic-tables/dynamic-table-schemas-list";
 export { useDynamicTableSchemaDetail } from "./dynamic-tables/dynamic-table-schema-detail";
 
+export {
+  useCrmCompanies,
+  useCrmCompanyDetail,
+} from "./crm/companies";
+export {
+  useCrmOpportunities,
+  useCrmOpportunityDetail,
+} from "./crm/opportunities";
+
 export { usePromptChat, isChatStatusMessage } from "./chat/prompt-chat";
 export { usePromptModels } from "./chat/prompt-models";
 export type {

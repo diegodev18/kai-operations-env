@@ -4,6 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   BookOpenIcon,
+  BriefcaseIcon,
+  BuildingIcon,
+  ChevronDownIcon,
   CopyIcon,
   FolderOpenIcon,
   LayoutDashboardIcon,
@@ -17,6 +20,12 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Sheet,
   SheetContent,
@@ -33,7 +42,8 @@ export function OperationsShell(props: {
   children: React.ReactNode;
 }) {
   const { session, signOut } = useAuth();
-  const { isAdmin } = useUserRole();
+  const { role, isAdmin } = useUserRole();
+  const isCommercial = role === "commercial";
   const [menuOpen, setMenuOpen] = useState(false);
   const [defaultBuilderMode] = useState<"form" | "conversational">(() => {
     if (typeof window === "undefined") return "form";
@@ -92,18 +102,45 @@ export function OperationsShell(props: {
             })}
           </nav>
         </div>
-        {session?.user ? (
-          <UserMenu
-            userName={session.user.name}
-            userEmail={session.user.email}
-            userImage={(session.user as { image?: string | null }).image}
-            onSignOut={() => void signOut()}
-          />
-        ) : (
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/">Iniciar sesión</Link>
-          </Button>
-        )}
+        <div className="flex shrink-0 items-center gap-2">
+          {(isAdmin || isCommercial) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-1.5">
+                  <BuildingIcon className="size-4" />
+                  CRM
+                  <ChevronDownIcon className="size-3 opacity-60" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <Link href="/crm/companies" className="flex items-center gap-2">
+                    <BuildingIcon className="size-4" />
+                    Empresas
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/crm/opportunities" className="flex items-center gap-2">
+                    <BriefcaseIcon className="size-4" />
+                    Oportunidades
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          {session?.user ? (
+            <UserMenu
+              userName={session.user.name}
+              userEmail={session.user.email}
+              userImage={(session.user as { image?: string | null }).image}
+              onSignOut={() => void signOut()}
+            />
+          ) : (
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/">Iniciar sesión</Link>
+            </Button>
+          )}
+        </div>
       </header>
 
       <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
@@ -145,6 +182,30 @@ export function OperationsShell(props: {
               <MegaphoneIcon className="size-4" />
               Actualidad
             </Link>
+            {(isAdmin || isCommercial) && (
+              <>
+                <div className="my-2 border-t" />
+                <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  CRM
+                </div>
+                <Link
+                  href="/crm/companies"
+                  className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <BuildingIcon className="size-4" />
+                  Empresas
+                </Link>
+                <Link
+                  href="/crm/opportunities"
+                  className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <BriefcaseIcon className="size-4" />
+                  Oportunidades
+                </Link>
+              </>
+            )}
             <div className="my-2 border-t" />
             {isAdmin && (
               <>
