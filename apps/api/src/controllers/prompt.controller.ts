@@ -458,16 +458,19 @@ export const promptChat = async (c: Context) => {
       async start(controller) {
         try {
           if (enableToolCalling) {
-            // Phase 1: stream with tool declarations to detect function calls fast.
-            // Function calls appear in the first chunk; if we see text instead, break
-            // and restart as a clean direct stream for proper streaming UX.
+            // Phase 1: non-streaming to reliably detect function calls.
+            // Streaming Phase 1 caused Gemini to emit narration text ("I'll use X")
+            // before the actual function call chunk, which we'd miss after breaking
+            // on the first text token. generateContent returns the full response
+            // synchronously so function calls are always captured.
+            // Phase 2 is still fully streaming for real-time UX.
             let detectedFunctionCall: {
               args?: Record<string, unknown>;
               name?: string;
             } | null = null;
 
             try {
-              const phase1Stream = await genAI.models.generateContentStream({
+              const phase1Response = await genAI.models.generateContent({
                 config: {
                   systemInstruction,
                   temperature: 0.2,
@@ -477,15 +480,9 @@ export const promptChat = async (c: Context) => {
                 model: modelConfig.apiModelId,
               });
 
-              for await (const chunk of phase1Stream) {
-                const fc = extractFunctionCall(chunk);
-                if (fc?.name) {
-                  detectedFunctionCall = fc;
-                  break;
-                }
-                // Text arrived before any function call — no tool needed, stop here.
-                // We'll restart as a direct stream below for proper streaming UX.
-                if ((chunk as { text?: string }).text) break;
+              const fc = extractFunctionCall(phase1Response);
+              if (fc?.name) {
+                detectedFunctionCall = fc;
               }
             } catch (phase1Err) {
               logger.warn(
