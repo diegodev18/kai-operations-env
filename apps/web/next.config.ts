@@ -4,6 +4,7 @@ const API_INTERNAL_URL =
   process.env.API_INTERNAL_URL ?? "http://localhost:3001";
 
 const nextConfig: NextConfig = {
+  devIndicators: false,
   async rewrites() {
     return [
       {

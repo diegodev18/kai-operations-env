@@ -23,12 +23,13 @@ export const metadata: Metadata = {
   description: "Entorno de operaciones KAI",
   icons: {
     icon: [
-      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico?v=4", type: "image/x-icon" },
+      { url: "/icon.png?v=3", type: "image/png" },
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
-    shortcut: ["/favicon.svg"],
+    shortcut: ["/favicon.ico?v=4"],
   },
 };
 
