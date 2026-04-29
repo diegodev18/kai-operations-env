@@ -1527,7 +1527,7 @@ export function OperationsDashboard(props: {
             </div>
             <div className="flex gap-2 items-center mt-4 mb-1">
               <span className="text-xs text-muted-foreground">
-                {agents.length} agentes
+                {orderedAgents.length} agentes
               </span>
             </div>
             {!isLoading && filteredAgents.length === 0 ? (
