@@ -16,6 +16,8 @@ import type { CrmCompany, CrmCompanyInput, CrmOpportunityInput } from "@/types";
 import {
   CRM_COMPANY_STATUS_LABELS,
   CRM_COMPANY_STATUS_COLORS,
+  CRM_OPPORTUNITY_STAGE_LABELS,
+  CRM_OPPORTUNITY_STAGE_COLORS,
 } from "@/types";
 import { useCrmCompanyDetail, useCrmCompanies, useCrmOpportunities } from "@/hooks";
 import { CompanyFormDialog } from "@/components/crm/company-form";

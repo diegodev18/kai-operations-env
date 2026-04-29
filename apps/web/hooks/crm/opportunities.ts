@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import type { CrmOpportunity } from "@/types";
+import type { CrmOpportunity, CrmOpportunityInput } from "@/types";
 import {
   fetchCrmOpportunities,
   fetchCrmOpportunity,
   createCrmOpportunity,
   updateCrmOpportunity,
   deleteCrmOpportunity,
-  type CrmOpportunityInput,
 } from "@/services/crm-api";
 
 export function useCrmOpportunities(companyId?: string) {

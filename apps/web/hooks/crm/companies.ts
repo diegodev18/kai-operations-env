@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import type { CrmCompany, CrmCompanyDetail } from "@/types";
+import type { CrmCompany, CrmCompanyDetail, CrmCompanyInput } from "@/types";
 import {
   fetchCrmCompanies,
   fetchCrmCompany,
   createCrmCompany,
   updateCrmCompany,
   deleteCrmCompany,
-  type CrmCompanyInput,
 } from "@/services/crm-api";
 
 export function useCrmCompanies() {
