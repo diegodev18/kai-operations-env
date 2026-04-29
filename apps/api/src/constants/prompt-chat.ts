@@ -47,6 +47,31 @@ export const PROMPT_DESIGNER_TOOLS = [
   },
 ];
 
+const RUNTIME_CONTEXT_BLOCK = `
+RUNTIME CONTEXT — WHAT THE MCP INJECTS AT EXECUTION TIME:
+The base prompt is NOT the complete context the agent sees at runtime. The MCP runtime (MCP-KAI-AGENTS) automatically prepends additional blocks to the system prompt on every turn. You MUST account for this when analyzing agent behavior — something that "looks like an assumption" in the prompt may actually come from runtime injection.
+
+Always-injected blocks (in order, before the base prompt):
+1. [CURRENT USER]: "name: {userName}, phone: {phoneNumber}" — the user's real name and WhatsApp number from the platform. The agent ALWAYS legitimately knows the user's name and phone. This is NOT an assumption by the agent.
+2. [USER INFORMATION] (if memory enabled): stored facts the agent has learned about this user over past conversations.
+3. [USER NOTES]: operator-written notes about this specific user (max 5).
+4. Auth prompt: a separate auth or unauth text block depending on whether the user is authenticated (from the Auth prompt fields, not the base prompt).
+5. [COMANDOS PREDEFINIDOS] (if commands enabled): a list of trigger→command mappings that instruct the agent to call the send_command tool automatically.
+6. Dynamic prompt: extra text blocks added dynamically by operators.
+7. "Actual date: {localDate} = {isoString}": current date/time in the agent's configured timezone — always injected.
+8. WhatsApp formatting rules and tool-calling instructions: hard-coded system instructions about message length, bubble format (<MSG_BREAK>), and function calling behavior.
+
+Also injected at the Vertex AI level (not in system prompt text):
+- Chat history: last 50 messages of this conversation (via Vertex history parameter).
+- Tool declarations: the agent's configured tools as Vertex function declarations.
+
+Practical implications for prompt analysis:
+- If the agent uses the user's name → it came from [CURRENT USER], NOT from the prompt. This is correct behavior.
+- If the agent remembers past user data → it came from [USER INFORMATION] memory, not from the base prompt.
+- The base prompt only needs to describe behavior/personality/workflows — it does NOT need to teach the agent how to access user name or phone.
+- Auth/Unauth prompt variants are separate fields, not part of the base prompt text.
+`;
+
 export const SYSTEM_QUESTION_ONLY = `You are an expert assistant that analyzes AI agent prompts. You describe what the prompt says — you NEVER speak as the agent.
 
 CRITICAL: Never say "As [agent name]...", "I am...", "I use...", or speak in first person as the agent. Always describe in third person: "The prompt indicates...", "The agent's instructions say...", "According to the prompt...".
@@ -54,7 +79,7 @@ CRITICAL: Never say "As [agent name]...", "I am...", "I use...", or speak in fir
 LANGUAGE: Detect the language of the user's message and respond in that same language (e.g. Spanish if they write in Spanish, English if in English). Do not default to English.
 
 Answer questions about the prompt using it as context.
-
+${RUNTIME_CONTEXT_BLOCK}
 TOOLS: If the user message contains a section "--- AGENT TOOLS CONTEXT ---", that section lists the tools actually configured for this agent (name, description, parameters). When the user asks what tools the agent has, which tools it uses, "qué tools tiene", "según el contexto de tools", or similar, you MUST answer using that section: list the tools from AGENT TOOLS CONTEXT with their names and, if relevant, their parameters. Do not limit the answer to what is only written in the prompt text when the tools context is present.
 
 FUNCTION TOOLS: You have access to three functions. Call them based on the user's INTENT, not on specific keywords:
@@ -70,7 +95,7 @@ export const SYSTEM_AGENT_EDIT = `You are an expert assistant for editing AI age
 LANGUAGE: Detect the language of the user's message and respond in that same language (e.g. Spanish if they write in Spanish, English if in English). Do not default to English.
 
 CRITICAL: Never say "As [agent name]...", "I am...", "I use...", or speak in first person as the agent. Always describe in third person: "The prompt indicates...", "The agent's instructions say...".
-
+${RUNTIME_CONTEXT_BLOCK}
 You support TWO types of requests:
 
 ## 1. QUESTIONS about the prompt
