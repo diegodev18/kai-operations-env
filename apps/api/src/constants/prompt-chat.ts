@@ -38,9 +38,13 @@ export const GET_REAL_CONVERSATIONS_DECLARATION = {
 };
 
 export const PROMPT_DESIGNER_TOOLS = [
-  GET_AGENT_TOOLS_DECLARATION,
-  GET_SIMULATOR_CONVERSATIONS_DECLARATION,
-  GET_REAL_CONVERSATIONS_DECLARATION,
+  {
+    functionDeclarations: [
+      ...GET_AGENT_TOOLS_DECLARATION.functionDeclarations,
+      ...GET_SIMULATOR_CONVERSATIONS_DECLARATION.functionDeclarations,
+      ...GET_REAL_CONVERSATIONS_DECLARATION.functionDeclarations,
+    ],
+  },
 ];
 
 export const SYSTEM_QUESTION_ONLY = `You are an expert assistant that analyzes AI agent prompts. You describe what the prompt says — you NEVER speak as the agent.
