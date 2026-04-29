@@ -48,6 +48,14 @@ const emailFieldSchema = z.object({
   filterable: z.boolean().optional(),
 });
 
+const urlFieldSchema = z.object({
+  key: z.string().min(1),
+  label: z.string().min(1),
+  type: z.literal("url"),
+  sortable: z.boolean().optional(),
+  filterable: z.boolean().optional(),
+});
+
 const enumFieldSchema = z.object({
   key: z.string().min(1),
   label: z.string().min(1),
@@ -78,6 +86,7 @@ export const dynamicTableFieldSchema = z.discriminatedUnion("type", [
   stringFieldSchema,
   numberFieldSchema,
   emailFieldSchema,
+  urlFieldSchema,
   enumFieldSchema,
   referenceFieldSchema,
   timestampFieldSchema,

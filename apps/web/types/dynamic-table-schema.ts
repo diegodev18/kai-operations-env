@@ -37,6 +37,13 @@ export type DynamicTableField =
   | {
       key: string;
       label: string;
+      type: "url";
+      sortable?: boolean;
+      filterable?: boolean;
+    }
+  | {
+      key: string;
+      label: string;
       type: "enum";
       options: DynamicTableEnumOption[];
       sortable?: boolean;
@@ -73,6 +80,7 @@ export const DYNAMIC_TABLE_FIELD_TYPES = [
   "string",
   "number",
   "email",
+  "url",
   "enum",
   "reference",
   "timestamp",

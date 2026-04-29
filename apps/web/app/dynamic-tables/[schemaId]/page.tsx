@@ -79,6 +79,8 @@ function fieldWithType(prev: DynamicTableField, type: DynamicTableFieldType): Dy
       return { key, label, type: "number", ...common };
     case "email":
       return { key, label, type: "email", ...common };
+    case "url":
+      return { key, label, type: "url", ...common };
     case "timestamp":
       return { key, label, type: "timestamp", ...common };
     case "enum":
