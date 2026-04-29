@@ -144,11 +144,11 @@ export function OperationsShell(props: {
       </header>
 
       <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-        <SheetContent side="left" className="w-64">
+        <SheetContent side="left" className="w-64 overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Menú</SheetTitle>
           </SheetHeader>
-          <nav className="mt-4 flex flex-col gap-1 px-2">
+          <nav className="mt-4 flex flex-col gap-1 px-2 pb-6">
             <Link
               href="/"
               className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
