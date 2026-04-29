@@ -4,6 +4,18 @@ export type AgentGrowerRow = { email: string; name: string };
 
 export type AgentTechLeadRow = { email: string; name: string };
 
+export type TestingAssignTargetRow = {
+  userId: string;
+  name: string;
+  email: string;
+  assignable: boolean;
+};
+
+export type TestingAssignTargetsResponse = {
+  scope: "organization" | "agent";
+  targets: TestingAssignTargetRow[];
+};
+
 export type ImplementationTaskStatus = "pending" | "completed";
 
 export type ImplementationTaskAttachment = {

@@ -1,6 +1,9 @@
 import type { Hono } from "hono";
 
-import { assignAgentToUser } from "@/controllers/agents.controller";
+import {
+  assignAgentToUser,
+  getTestingAssignTargets,
+} from "@/controllers/agents.controller";
 import {
   getAgentById,
   getAgentBuilderForm,
@@ -473,6 +476,16 @@ r.patch("/:agentId/implementation-lifecycle", async (c) => {
     return c.json({ error: "Agente no encontrado" }, 404);
   }
   return patchImplementationLifecycle(c, ctx.authCtx, agentId);
+});
+
+r.get("/:agentId/testing-assign-targets", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  const agentId = c.req.param("agentId")?.trim() ?? "";
+  if (!agentId || isReservedAgentPathSegment(agentId)) {
+    return c.json({ error: "Agente no encontrado" }, 404);
+  }
+  return getTestingAssignTargets(c, ctx.authCtx, agentId);
 });
 
 r.post("/:agentId/assign-to-user", async (c) => {

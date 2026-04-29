@@ -4,6 +4,10 @@ export {
   getAgentDeploymentFlags,
   resolveAgentWriteDatabase,
 } from "./agentAccess";
+export {
+  applyUsersBuildersTestingAssignment,
+  collectAgentStakeholderEmails,
+} from "./testing-assign";
 export { buildLightAgent } from "./buildLightAgent";
 export { userCanAddGrowerToAgent } from "./growerAccess";
 export { isGrowerCursor } from "./growersCursor";

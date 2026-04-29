@@ -15,12 +15,16 @@ import {
   agentMatchesGrowersSearchQuery,
   agentMatchesRootSearchQuery,
   agentMatchesSearchQuery,
+  applyUsersBuildersTestingAssignment,
+  collectAgentStakeholderEmails,
   fetchGrowersForAgent,
   isGrowerCursor,
   normalizeAgentsSearchQuery,
   parseAgentDoc,
   parseAgentDocFromData,
   parseBillingDoc,
+  userCanAccessAgent,
+  userCanEditAgent,
 } from "@/utils/agents";
 import { lifecycleSummaryFromFirestoreData } from "@/utils/agents/lifecycle-doc";
 import {
@@ -30,9 +34,11 @@ import {
 } from "@/utils/firestore/errors";
 import { isOperationsAdmin, isOperationsCommercial } from "@/utils/operations-access";
 import { auth } from "@/lib/auth";
+import { listUsersForOrganization } from "@/lib/invitations";
 import { db } from "@/db/client";
 import { user, userFavoriteAgents } from "@/db/schema/auth";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
+import { z } from "zod";
 
 /** Cursor legacy: path growers; nuevo: agent id. */
 function cursorToAgentIdStart(cursor: string): string {
@@ -702,9 +708,76 @@ export const getAgentsInfo = async (
   }
 };
 
+const assignToUserBodySchema = z
+  .object({
+    targetUserId: z.string().min(1).optional(),
+  })
+  .strict();
+
+export async function getTestingAssignTargets(
+  c: Context,
+  authCtx: AgentsInfoAuthContext,
+  agentId: string,
+) {
+  const firestore = getFirestore();
+  const agentSnap = await firestore.collection("agent_configurations").doc(agentId).get();
+  if (!agentSnap.exists) {
+    return ApiErrors.notFound(c, "El agente no existe");
+  }
+  const canAccess = await userCanAccessAgent(authCtx, agentId);
+  if (!canAccess) {
+    return ApiErrors.forbidden(c, "No autorizado");
+  }
+  const ops =
+    isOperationsAdmin(authCtx.userRole) || isOperationsCommercial(authCtx.userRole);
+  if (ops) {
+    const users = await listUsersForOrganization();
+    return c.json({
+      scope: "organization" as const,
+      targets: users.map((u) => ({
+        userId: u.id,
+        name: u.name,
+        email: u.email,
+        assignable: Boolean(u.phone && u.phone.trim().length > 0),
+      })),
+    });
+  }
+  const emailSet = await collectAgentStakeholderEmails(agentId);
+  const emails = [...emailSet];
+  if (emails.length === 0) {
+    return c.json({
+      scope: "agent" as const,
+      targets: [] as {
+        userId: string;
+        name: string;
+        email: string;
+        assignable: boolean;
+      }[],
+    });
+  }
+  const rows = await db
+    .select({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+    })
+    .from(user)
+    .where(sql`lower(${user.email}) in (${sql.join(emails.map((e) => sql`${e}`), sql`, `)})`);
+  return c.json({
+    scope: "agent" as const,
+    targets: rows.map((r) => ({
+      userId: r.id,
+      name: r.name,
+      email: r.email,
+      assignable: Boolean(r.phone && r.phone.trim().length > 0),
+    })),
+  });
+}
+
 export async function assignAgentToUser(
   c: Context,
-  _authCtx: AgentsInfoAuthContext,
+  authCtx: AgentsInfoAuthContext,
   agentId: string,
 ) {
   const firestore = getFirestore();
@@ -718,52 +791,81 @@ export async function assignAgentToUser(
     return ApiErrors.unauthorized(c, "No autorizado");
   }
 
-  const userId = session.user.id as string;
-  const rows = await db.select({ phone: user.phone, name: user.name }).from(user).where(eq(user.id, userId)).limit(1);
-  if (!rows[0]) {
+  const canAccess = await userCanAccessAgent(authCtx, agentId);
+  if (!canAccess) {
+    return ApiErrors.forbidden(c, "No autorizado");
+  }
+
+  let body: unknown = {};
+  const contentType = c.req.header("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    try {
+      body = await c.req.json();
+    } catch {
+      body = {};
+    }
+  }
+  const parsed = assignToUserBodySchema.safeParse(body);
+  if (!parsed.success) {
+    return ApiErrors.validation(c, "Cuerpo de solicitud inválido");
+  }
+
+  const sessionUserId = session.user.id as string;
+  const targetUserId = parsed.data.targetUserId?.trim() || sessionUserId;
+
+  const targetRows = await db
+    .select({
+      id: user.id,
+      phone: user.phone,
+      name: user.name,
+      email: user.email,
+    })
+    .from(user)
+    .where(eq(user.id, targetUserId))
+    .limit(1);
+  if (!targetRows[0]) {
     return ApiErrors.notFound(c, "Usuario no encontrado");
   }
 
-  const phone = rows[0].phone;
+  const target = targetRows[0];
+
+  if (targetUserId !== sessionUserId) {
+    const ops =
+      isOperationsAdmin(authCtx.userRole) || isOperationsCommercial(authCtx.userRole);
+    if (!ops) {
+      const canEdit = await userCanEditAgent(authCtx, agentId);
+      if (!canEdit) {
+        return ApiErrors.forbidden(c, "No autorizado");
+      }
+      const stakeholders = await collectAgentStakeholderEmails(agentId);
+      const targetEmail = (target.email ?? "").toLowerCase().trim();
+      if (!targetEmail || !stakeholders.has(targetEmail)) {
+        return ApiErrors.forbidden(c, "No autorizado");
+      }
+    }
+  }
+
+  const phone = target.phone;
   if (!phone || phone.trim().length === 0) {
     return ApiErrors.validation(c, "El usuario no tiene teléfono configurado");
   }
 
   const phoneNumber = phone.trim();
-  const userName = rows[0].name ?? session.user.name ?? "";
-  const userEmail = (session.user.email as string | undefined) ?? "";
-  const usersBuildersCollection = firestore.collection("usersBuilders");
-  const usersBuildersQuery = await usersBuildersCollection
-    .where("phoneNumber", "==", phoneNumber)
-    .limit(1)
-    .get();
+  const sessionName =
+    typeof session.user.name === "string" ? session.user.name.trim() : "";
+  const userName =
+    targetUserId === sessionUserId ? (target.name || sessionName) : target.name || "";
+  const userEmail =
+    target.email?.trim() ||
+    ((session.user.email as string | undefined) ?? "");
 
-  const now = new Date().toISOString();
-  let createdUserBuilder = false;
-
-  if (usersBuildersQuery.empty) {
-    createdUserBuilder = true;
-    await usersBuildersCollection.doc(phoneNumber).set({
-      uid: userId,
-      email: userEmail,
-      name: userName,
-      phoneNumber,
-      customAgentConfigId: agentId,
-      isTestingCustomAgent: true,
-      testingStartedAt: now,
-      lastAgentChange: now,
-      createdAt: now,
-      updatedAt: now,
-    });
-  } else {
-    await usersBuildersQuery.docs[0]!.ref.update({
-      customAgentConfigId: agentId,
-      isTestingCustomAgent: true,
-      testingStartedAt: now,
-      lastAgentChange: now,
-      updatedAt: now,
-    });
-  }
+  const { createdUserBuilder } = await applyUsersBuildersTestingAssignment({
+    agentId,
+    phoneNumber,
+    userId: target.id,
+    userName,
+    userEmail,
+  });
 
   return c.json({ ok: true, createdUserBuilder });
 }

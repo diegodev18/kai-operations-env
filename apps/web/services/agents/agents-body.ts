@@ -25,6 +25,7 @@ import type {
   AgentServerStatus,
   LifecycleUpdatedFrom,
   SimulatorStoredConversation,
+  TestingAssignTargetsResponse,
 } from "@/types";
 import { normalizeAgentStatus } from "@/services/agents/normalize";
 
@@ -1659,15 +1660,39 @@ export async function deleteSimulatorState(
   return { ok: true };
 }
 
+export async function fetchTestingAssignTargets(
+  agentId: string,
+): Promise<TestingAssignTargetsResponse | null> {
+  const res = await fetch(
+    `/api/agents/${encodeURIComponent(agentId)}/testing-assign-targets`,
+    {
+      credentials: "include",
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) return null;
+  try {
+    return (await res.json()) as TestingAssignTargetsResponse;
+  } catch {
+    return null;
+  }
+}
+
 export async function assignAgentToUser(
   agentId: string,
+  options?: { targetUserId?: string },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  const payload =
+    options?.targetUserId != null && options.targetUserId.trim() !== ""
+      ? { targetUserId: options.targetUserId.trim() }
+      : {};
   const res = await fetch(
     `/api/agents/${encodeURIComponent(agentId)}/assign-to-user`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
+      body: JSON.stringify(payload),
     },
   );
   let data: { ok?: boolean; error?: string } = {};

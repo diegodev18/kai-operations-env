@@ -1,6 +1,7 @@
 /** Barrel opcional del dominio agentes. Rutas profundas (`@/components/agents/form-builder`) siguen siendo válidas para tree-shaking fino. */
 
 export { AgentActivitySheet } from "./activity-sheet";
+export { AgentTestingAssignControl } from "./agent-testing-assign-control";
 export { AgentMissingFallback } from "./missing-fallback";
 export { PanelError, PanelLoading } from "./panel-states";
 export { AgentBuilderChatDiagram } from "./builder-chat-diagram";

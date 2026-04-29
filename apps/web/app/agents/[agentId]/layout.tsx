@@ -3,14 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import {
-  CheckCircleIcon,
-  Home,
-  PowerIcon,
-  Loader2Icon,
-  StarIcon,
-  FlaskConicalIcon,
-} from "lucide-react";
+import { CheckCircleIcon, Home, PowerIcon, Loader2Icon, StarIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,12 +13,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { AgentActivitySheet } from "@/components/agents";
+import { AgentActivitySheet, AgentTestingAssignControl } from "@/components/agents";
 import { UserMenu } from "@/components/shared";
 import { useAgentIdParam, useAuth } from "@/hooks";
 import { cn } from "@/lib/utils";
 import {
-  assignAgentToUser,
   fetchAgentById,
   fetchAssignedAgentForUser,
   fetchFavorites,
@@ -138,7 +130,6 @@ export default function AgentDetailLayout({
   const [status, setStatus] = useState<"active" | "archived" | null>(null);
   const [favoriteAgentIds, setFavoriteAgentIds] = useState<Set<string>>(new Set());
   const [togglingFavorite, setTogglingFavorite] = useState<string | null>(null);
-  const [assigningAgentId, setAssigningAgentId] = useState<string | null>(null);
   const [assignedAgentId, setAssignedAgentId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -255,48 +246,12 @@ export default function AgentDetailLayout({
         <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
           <AgentEnabledBadge enabled={enabled} status={status} />
           <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={assignedAgentId === agentId ? "secondary" : "outline"}
-                  size="icon"
-                  className="size-7 shrink-0"
-                  disabled={assigningAgentId === agentId}
-                  onClick={async () => {
-                    if (assigningAgentId === agentId) return;
-                    setAssigningAgentId(agentId);
-                    try {
-                      const result = await assignAgentToUser(agentId);
-                      if (result.ok) {
-                        setAssignedAgentId(agentId);
-                        toast.success("Agente asignado a testing");
-                      } else {
-                        toast.error(result.error);
-                      }
-                    } catch {
-                      toast.error("Error al asignar agente a testing");
-                    } finally {
-                      setAssigningAgentId(null);
-                    }
-                  }}
-                >
-                  {assigningAgentId === agentId ? (
-                    <Loader2Icon className="size-3.5 animate-spin" />
-                  ) : assignedAgentId === agentId ? (
-                    <CheckCircleIcon className="size-3.5 text-emerald-600" />
-                  ) : (
-                    <FlaskConicalIcon className="size-3.5 text-muted-foreground" />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>
-                  {assignedAgentId === agentId
-                    ? "Asignado a tu número de testing"
-                    : "Asignar a número de testing"}
-                </p>
-              </TooltipContent>
-            </Tooltip>
+            <AgentTestingAssignControl
+              agentId={agentId}
+              sessionUserId={session?.user?.id}
+              assignedAgentId={assignedAgentId}
+              onSelfAssigned={() => setAssignedAgentId(agentId)}
+            />
               <AgentActivitySheet agentId={agentId} />
               <Tooltip>
                 <TooltipTrigger asChild>
