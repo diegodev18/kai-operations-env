@@ -33,6 +33,7 @@ interface SectionToolsProps {
   toolsWarnings: string[];
   toolReasonById: Record<string, string>;
   operationalSummary: string;
+  crmRequestedFeatures?: string[];
 }
 
 function sectionTitle(id: FormSectionId): string {
@@ -54,6 +55,7 @@ export function SectionTools({
   toolsWarnings,
   toolReasonById,
   operationalSummary,
+  crmRequestedFeatures,
 }: SectionToolsProps) {
   const mandatoryToolNames = new Set<string>(
     AGENT_BUILDER_MANDATORY_TOOL_NAMES,
@@ -116,6 +118,24 @@ export function SectionTools({
           </pre>
         </div>
       ) : null}
+
+      {crmRequestedFeatures && crmRequestedFeatures.length > 0 && (
+        <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-3">
+          <p className="mb-2 text-xs font-medium text-blue-700 dark:text-blue-300">
+            Funciones solicitadas desde CRM
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {crmRequestedFeatures.map((f) => (
+              <span
+                key={f}
+                className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+              >
+                {f}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <Button

@@ -66,7 +66,7 @@ import {
   type SavedBuilderCompany,
   type ToolFlowsMarkdownPayload,
 } from "@/services/agents-api";
-import { fetchCrmCompany, updateCrmOpportunity } from "@/services/crm-api";
+import { fetchCrmCompany, fetchCrmOpportunity, updateCrmOpportunity } from "@/services/crm-api";
 import {
   PromptMarkdownEditor,
   PromptMarkdownViewToggle,
@@ -478,6 +478,7 @@ type SectionToolsProps = {
   toolsWarnings: string[];
   toolReasonById: Record<string, string>;
   operationalSummary: string;
+  crmRequestedFeatures?: string[];
 };
 
 
@@ -834,6 +835,8 @@ export function AgentFormBuilder() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [crmCompanyId, setCrmCompanyId] = useState<string | null>(null);
   const [crmOpportunityId, setCrmOpportunityId] = useState<string | null>(null);
+  const [crmCompanyName, setCrmCompanyName] = useState<string | null>(null);
+  const [crmRequestedFeatures, setCrmRequestedFeatures] = useState<string[]>([]);
 
   const [state, setState] = useState<FormBuilderState>(() => ({
     ...DEFAULT_FORM_STATE,
@@ -994,25 +997,43 @@ export function AgentFormBuilder() {
     const opportunityId = params.get("crmOpportunityId");
     if (companyId) setCrmCompanyId(companyId);
     if (opportunityId) setCrmOpportunityId(opportunityId);
-    if (!companyId) return;
+    if (!companyId && !opportunityId) return;
 
     void (async () => {
-      const res = await fetchCrmCompany(companyId);
-      if (!res.ok) return;
-      const c = res.company;
-      setState((prev) => ({
-        ...prev,
-        business_name: c.name || prev.business_name,
-        industry: c.industry || prev.industry,
-        description: c.description || prev.description,
-        target_audience: c.targetAudience || prev.target_audience,
-        agent_description: c.agentDescription || prev.agent_description,
-        escalation_rules: c.escalationRules || prev.escalation_rules,
-        country: c.country || prev.country,
-        business_timezone: c.businessTimezone || prev.business_timezone,
-        brandValues: c.brandValues ?? prev.brandValues,
-        policies: c.policies || prev.policies,
-      }));
+      const [companyRes, opportunityRes] = await Promise.all([
+        companyId ? fetchCrmCompany(companyId) : Promise.resolve(null),
+        opportunityId ? fetchCrmOpportunity(opportunityId) : Promise.resolve(null),
+      ]);
+
+      const stateUpdates: Partial<FormBuilderState> = {};
+
+      if (companyRes?.ok) {
+        const c = companyRes.company;
+        setCrmCompanyName(c.name);
+        if (c.name) stateUpdates.business_name = c.name;
+        if (c.industry) stateUpdates.industry = c.industry;
+        if (c.description) stateUpdates.description = c.description;
+        if (c.targetAudience) stateUpdates.target_audience = c.targetAudience;
+        if (c.agentDescription) stateUpdates.agent_description = c.agentDescription;
+        if (c.escalationRules) stateUpdates.escalation_rules = c.escalationRules;
+        if (c.country) stateUpdates.country = c.country;
+        if (c.businessTimezone) stateUpdates.business_timezone = c.businessTimezone;
+        if (c.brandValues?.length) stateUpdates.brandValues = c.brandValues;
+        if (c.policies) stateUpdates.policies = c.policies;
+      }
+
+      if (opportunityRes?.ok) {
+        const o = opportunityRes.opportunity;
+        if (o.name) stateUpdates.agent_name = o.name;
+        if (o.implementerName) stateUpdates.owner_name = o.implementerName;
+        if (o.featuresToImplement?.length) {
+          setCrmRequestedFeatures(o.featuresToImplement);
+        }
+      }
+
+      if (Object.keys(stateUpdates).length > 0) {
+        setState((prev) => ({ ...prev, ...stateUpdates }));
+      }
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1138,7 +1159,14 @@ export function AgentFormBuilder() {
         response_language: state.response_language,
         business_hours: "",
         require_auth: state.require_auth,
-        operational_context: buildOperationalContextNarrative(state),
+        operational_context: [
+          buildOperationalContextNarrative(state),
+          crmRequestedFeatures.length > 0
+            ? `Funciones requeridas por el cliente: ${crmRequestedFeatures.join(", ")}.`
+            : "",
+        ]
+          .filter(Boolean)
+          .join("\n\n"),
       });
 
       if (cancelled) return;
@@ -1655,6 +1683,7 @@ export function AgentFormBuilder() {
             toolsWarnings={toolsWarnings}
             toolReasonById={toolReasonById}
             operationalSummary={operationalSummary}
+            crmRequestedFeatures={crmRequestedFeatures.length > 0 ? crmRequestedFeatures : undefined}
           />
         );
       case "pipelines":
@@ -1812,6 +1841,20 @@ export function AgentFormBuilder() {
             </h2>
             <p className="text-sm text-muted-foreground">{stepDescription}</p>
           </div>
+
+          {(crmCompanyId || crmOpportunityId) && crmCompanyName && (
+            <div className="mb-5 flex flex-wrap items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/5 px-3 py-2 text-xs text-blue-700 dark:text-blue-300">
+              <span className="font-medium">Datos cargados desde CRM · {crmCompanyName}</span>
+              {crmRequestedFeatures.map((f) => (
+                <span
+                  key={f}
+                  className="rounded-full bg-blue-100 px-2 py-0.5 dark:bg-blue-900/40"
+                >
+                  {f}
+                </span>
+              ))}
+            </div>
+          )}
 
           {isLoadingCatalog &&
           currentSection === "tools" &&
