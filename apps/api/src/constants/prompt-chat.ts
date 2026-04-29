@@ -20,7 +20,7 @@ export const GET_SIMULATOR_CONVERSATIONS_DECLARATION = {
     {
       name: "get_simulator_conversations",
       description:
-        "Obtiene las conversaciones recientes del simulador de testing del agente. ALWAYS call this function when the user reports incorrect behavior in tests, asks to analyze simulator conversations, or wants to improve the prompt based on testing results (e.g. 'el bot repite la misma pregunta', 'analiza las conversaciones de prueba', '¿por qué no cierra el flow?', 'qué salió mal en testing', 'mejora según las pruebas'). Returns the actual messages from the last simulator conversations.",
+        "Fetches the agent's recent simulator/testing conversations. Call this function whenever the user's intent is to diagnose, understand, or fix bot behavior based on test runs — even if they don't use the words 'simulator' or 'conversations'. Triggers: reporting that the bot behaved incorrectly or unexpectedly in a test, asking why the bot said or did something during testing, wanting to improve the prompt based on observed test behavior, asking to review what happened in a test, mentioning that a flow didn't work as expected, or any request where seeing actual test messages would help give a more targeted answer.",
       parameters: { properties: {}, type: "object" },
     },
   ],
@@ -31,7 +31,7 @@ export const GET_REAL_CONVERSATIONS_DECLARATION = {
     {
       name: "get_real_conversations",
       description:
-        "Obtiene conversaciones reales recientes de usuarios de WhatsApp en producción. ALWAYS call this function when the user wants to analyze how the bot responds to real users, reports production issues, or asks to improve the prompt based on real conversations (e.g. 'cómo responde a los usuarios', 'el bot dice X en producción', 'mejora según conversaciones reales', 'qué le dice a los clientes').",
+        "Fetches recent real WhatsApp conversations from production users. Call this function whenever the user's intent is to understand, diagnose, or improve bot behavior based on real user interactions — even if they don't use the words 'production' or 'real conversations'. Triggers: asking how real users are interacting with the bot, reporting that users are experiencing a problem, wanting to improve the prompt based on how the bot actually responds to people, asking what the bot says to clients or customers, wanting context from actual usage to inform a prompt change, or any request where seeing real user messages would help give a more targeted answer.",
       parameters: { properties: {}, type: "object" },
     },
   ],
@@ -53,10 +53,10 @@ Answer questions about the prompt using it as context.
 
 TOOLS: If the user message contains a section "--- AGENT TOOLS CONTEXT ---", that section lists the tools actually configured for this agent (name, description, parameters). When the user asks what tools the agent has, which tools it uses, "qué tools tiene", "según el contexto de tools", or similar, you MUST answer using that section: list the tools from AGENT TOOLS CONTEXT with their names and, if relevant, their parameters. Do not limit the answer to what is only written in the prompt text when the tools context is present.
 
-FUNCTION TOOLS: You have access to three functions:
-- get_agent_tools: call when the user asks about tools or wants to improve how the prompt handles them.
-- get_simulator_conversations: call when the user reports problems in simulator tests or asks to analyze test conversations.
-- get_real_conversations: call when the user asks about real user interactions or production behavior.
+FUNCTION TOOLS: You have access to three functions. Call them based on the user's INTENT, not on specific keywords:
+- get_agent_tools: intent is about the agent's tools/integrations or improving how the prompt describes them.
+- get_simulator_conversations: intent is to diagnose or fix bot behavior based on test runs, even if the user just says "the bot did X" or "fix this issue" without saying 'simulator'.
+- get_real_conversations: intent is to understand or improve based on real user interactions, even if the user just says "users are having trouble" or "what does the bot tell clients" without saying 'production'.
 
 **Format:** Output exactly: ANSWER:\n
 Then your answer. Never output PROMPT or edit the prompt. Questions only.`;
@@ -105,7 +105,7 @@ Edit "Quita las oraciones prohibidas" → SUMMARY: Eliminé las reglas 18-19 sob
 
 No JSON, no markdown. Always output the real edited prompt for modification requests.
 
-FUNCTION TOOLS: You have access to three functions:
-- get_agent_tools: ALWAYS call when the user asks about tools or wants to improve how the prompt describes or uses them (e.g. "qué tools tiene", "añade ejemplos con las tools"). Always prefer this function over tool descriptions already in the prompt text.
-- get_simulator_conversations: ALWAYS call when the user reports incorrect behavior in simulator tests or asks to analyze test conversations (e.g. "el bot repite la misma pregunta", "analiza las pruebas", "¿por qué no cierra el flow?").
-- get_real_conversations: ALWAYS call when the user asks about real user interactions or production behavior (e.g. "cómo responde a los usuarios", "el bot dice X en producción", "mejora según conversaciones reales").`;
+FUNCTION TOOLS: You have access to three functions. Always call them based on the user's INTENT — do not require specific keywords.
+- get_agent_tools: ALWAYS call when intent is about the agent's tools/integrations or improving how the prompt describes or uses them. Prefer this over any tool descriptions already in the prompt text.
+- get_simulator_conversations: ALWAYS call when intent is to diagnose or fix bot behavior from test runs. This includes any report of unexpected behavior ("the bot is doing X wrong", "it doesn't close the flow", "fix this issue") where test data would help — even without the words 'simulator' or 'prueba'.
+- get_real_conversations: ALWAYS call when intent is to understand or improve based on real user interactions. This includes questions about how users experience the bot, reports of user-facing problems, or any improvement request where real chat data would help — even without the words 'production' or 'conversaciones reales'.`;
