@@ -296,7 +296,7 @@ export function PromptChatPanel({
                               key={i}
                               src={`data:${img.mimeType};base64,${img.data}`}
                               alt=""
-                              className="h-16 w-16 rounded object-cover"
+                              className="h-10 w-10 rounded object-cover"
                             />
                           ))}
                         </div>
