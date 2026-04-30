@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useTestingData, useTestingDiff } from "@/hooks";
+import { useTestingData, useTestingDiff, useUserRole } from "@/hooks";
 import { fetchAgentById } from "@/services/agents-api";
 import { CollectionTreeItem } from "./collection-tree";
 import { CollectionsTreeSkeleton } from "./collections-tree-skeleton";
@@ -83,6 +83,7 @@ function formatFieldValue(value: unknown): string {
 }
 
 export function TestingDataPanel({ agentId }: { agentId: string }) {
+  const { isAdmin } = useUserRole();
   const {
     data: diffData,
     isLoading: isDiffLoading,
@@ -128,6 +129,7 @@ export function TestingDataPanel({ agentId }: { agentId: string }) {
     : false;
   const hasDiff = collectionDiff.length > 0;
   const canTransfer = isSyncSupported && hasDiff && !isDiffLoading;
+  const canPromote = canTransfer && isAdmin;
   const syncCollections = useMemo(
     () => (currentCollection ? [currentCollection] : undefined),
     [currentCollection],
@@ -272,19 +274,21 @@ export function TestingDataPanel({ agentId }: { agentId: string }) {
                   <CloudDownloadIcon className="size-4" />
                   <span className="ml-1">Bajar cambios</span>
                 </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  title={transferTitle}
-                  onClick={() => {
-                    refetchDiff();
-                    setPromoteDialogOpen(true);
-                  }}
-                  disabled={!canTransfer}
-                >
-                  <RocketIcon className="size-4" />
-                  <span className="ml-1">Subir cambios</span>
-                </Button>
+                {isAdmin ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    title={transferTitle}
+                    onClick={() => {
+                      refetchDiff();
+                      setPromoteDialogOpen(true);
+                    }}
+                    disabled={!canPromote}
+                  >
+                    <RocketIcon className="size-4" />
+                    <span className="ml-1">Subir cambios</span>
+                  </Button>
+                ) : null}
                 <Button size="sm" onClick={openCreateDoc}>
                   <PlusIcon className="size-4" />
                   <span className="ml-1">Nuevo documento</span>

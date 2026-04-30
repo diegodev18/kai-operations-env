@@ -16,6 +16,7 @@ import {
   normalizeForDiff,
   testingDiffEntryKey,
 } from "@/utils/agents/agent-testing-diff";
+import { isOperationsAdmin } from "@/utils/operations-access";
 
 const syncFromProductionBodySchema = z
   .object({
@@ -218,6 +219,10 @@ export async function postPromoteToProduction(
   }
 
   try {
+    if (!isOperationsAdmin(authCtx.userRole)) {
+      return c.json({ error: "Solo admins pueden subir cambios a producción" }, 403);
+    }
+
     const ok = await userCanAccessAgent(authCtx, agentId);
     if (!ok) {
       return c.json({ error: "No autorizado para este agente" }, 403);
