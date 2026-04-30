@@ -40,7 +40,7 @@ export function testingDiffEntryKey(entry: {
 }
 
 /**
- * Granular diff: testing/data vs production root (properties + tools).
+ * Granular diff: testing/data vs production root (properties + tools + collaborators).
  * Used by GET testing/diff and promote validation.
  */
 export async function computeAgentTestingDiff(
@@ -54,12 +54,23 @@ export async function computeAgentTestingDiff(
     throw new Error("NO_TESTING_DATA");
   }
 
-  const [prodPropsSnap, testingPropsSnap, prodToolsSnap, testingToolsSnap] =
+  const [
+    prodPropsSnap,
+    testingPropsSnap,
+    prodToolsSnap,
+    testingToolsSnap,
+    prodCollaboratorsSnap,
+    prodGrowersSnap,
+    testingCollaboratorsSnap,
+  ] =
     await Promise.all([
       agentRef.collection("properties").get(),
       testingDataRef.collection("properties").get(),
       agentRef.collection("tools").get(),
       testingDataRef.collection("tools").get(),
+      agentRef.collection("collaborators").get(),
+      agentRef.collection("growers").get(),
+      testingDataRef.collection("collaborators").get(),
     ]);
 
   const diff: TestingDiffEntry[] = [];
@@ -171,6 +182,55 @@ export async function computeAgentTestingDiff(
             productionValue: pNorm,
           });
         }
+      }
+    }
+  }
+
+  // Collaborators Diff
+  const prodCollaboratorsById = new Map<string, Record<string, unknown>>();
+  for (const doc of prodGrowersSnap.docs) {
+    prodCollaboratorsById.set(doc.id, (doc.data() as Record<string, unknown>) || {});
+  }
+  for (const doc of prodCollaboratorsSnap.docs) {
+    prodCollaboratorsById.set(doc.id, (doc.data() as Record<string, unknown>) || {});
+  }
+
+  const testingCollaboratorsById = new Map<string, Record<string, unknown>>();
+  for (const doc of testingCollaboratorsSnap.docs) {
+    testingCollaboratorsById.set(doc.id, (doc.data() as Record<string, unknown>) || {});
+  }
+
+  const allCollaboratorIds = new Set([
+    ...prodCollaboratorsById.keys(),
+    ...testingCollaboratorsById.keys(),
+  ]);
+
+  for (const collaboratorId of allCollaboratorIds) {
+    const testingData = testingCollaboratorsById.get(collaboratorId) || {};
+    const prodData = prodCollaboratorsById.get(collaboratorId) || {};
+
+    const allKeys = new Set([
+      ...Object.keys(testingData),
+      ...Object.keys(prodData),
+    ]);
+
+    for (const key of allKeys) {
+      if (key.startsWith("_")) continue;
+
+      const tVal = testingData[key];
+      const pVal = prodData[key];
+
+      const tNorm = normalizeForDiff(tVal);
+      const pNorm = normalizeForDiff(pVal);
+
+      if (JSON.stringify(tNorm) !== JSON.stringify(pNorm)) {
+        diff.push({
+          collection: "collaborators",
+          documentId: collaboratorId,
+          fieldKey: key,
+          testingValue: tNorm,
+          productionValue: pNorm,
+        });
       }
     }
   }

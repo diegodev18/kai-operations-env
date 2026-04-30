@@ -46,7 +46,7 @@ import { NestedDialog } from "./nested-dialog";
 import { generateRandomDocId } from "./helpers";
 import type { FieldDisplay } from "./types";
 
-const SYNC_SUPPORTED_COLLECTIONS = new Set(["properties", "tools"]);
+const SYNC_SUPPORTED_COLLECTIONS = new Set(["properties", "tools", "collaborators"]);
 
 function getTypeIcon(type: FieldDisplay["type"]) {
   switch (type) {

@@ -105,15 +105,17 @@ export async function postSyncFromProduction(
 
     const prodPropertiesRef = prodSnap.ref.collection("properties");
     const prodToolsRef = prodSnap.ref.collection("tools");
+    const prodCollaboratorsRef = prodSnap.ref.collection("collaborators");
     const prodGrowersRef = prodSnap.ref.collection("growers");
 
     const testingPropertiesRef = testingDataRef.collection("properties");
     const testingToolsRef = testingDataRef.collection("tools");
     const testingCollaboratorsRef = testingDataRef.collection("collaborators");
 
-    const [propsSnap, toolsSnap, growersSnap] = await Promise.all([
+    const [propsSnap, toolsSnap, collaboratorsSnap, growersSnap] = await Promise.all([
       shouldSyncCollection("properties") ? prodPropertiesRef.get() : null,
       shouldSyncCollection("tools") ? prodToolsRef.get() : null,
+      shouldSyncCollection("collaborators") ? prodCollaboratorsRef.get() : null,
       shouldSyncCollection("collaborators") ? prodGrowersRef.get() : null,
     ]);
 
@@ -131,14 +133,26 @@ export async function postSyncFromProduction(
       }
     }
 
-    if (growersSnap) {
-      for (const doc of growersSnap.docs) {
+    if (collaboratorsSnap || growersSnap) {
+      const collaboratorsById = new Map<string, Record<string, unknown>>();
+      if (growersSnap) {
+        for (const doc of growersSnap.docs) {
+          collaboratorsById.set(doc.id, (doc.data() as Record<string, unknown>) || {});
+        }
+      }
+      if (collaboratorsSnap) {
+        for (const doc of collaboratorsSnap.docs) {
+          collaboratorsById.set(doc.id, (doc.data() as Record<string, unknown>) || {});
+        }
+      }
+      for (const [docId, rawData] of collaboratorsById.entries()) {
         const collaboratorData = {
-          email: doc.data()?.email,
-          name: doc.data()?.name,
+          ...rawData,
+          email: rawData.email,
+          name: rawData.name,
         };
         await testingCollaboratorsRef
-          .doc(doc.id)
+          .doc(docId)
           .set(collaboratorData, { merge: true });
       }
     }
@@ -252,7 +266,7 @@ export async function postPromoteToProduction(
       );
     }
 
-    const collectionsWithServerDiff = new Set(["properties", "tools"]);
+    const collectionsWithServerDiff = new Set(["properties", "tools", "collaborators"]);
     const fieldsToValidate = parsed.data.fields.filter((f) =>
       collectionsWithServerDiff.has(f.collection),
     );
@@ -354,7 +368,11 @@ export async function postPromoteToProduction(
         const prodToolRef = agentRef.collection("tools").doc(field.documentId);
         await prodToolRef.set({ [field.fieldKey]: fieldValue }, { merge: true });
       } else if (field.collection === "collaborators") {
+        const prodCollaboratorRef = agentRef
+          .collection("collaborators")
+          .doc(field.documentId);
         const prodGrowerRef = agentRef.collection("growers").doc(field.documentId);
+        await prodCollaboratorRef.set({ [field.fieldKey]: fieldValue }, { merge: true });
         await prodGrowerRef.set({ [field.fieldKey]: fieldValue }, { merge: true });
       }
     }
