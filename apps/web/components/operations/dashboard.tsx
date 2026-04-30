@@ -445,10 +445,10 @@ export function OperationsDashboard(props: {
   }, [mergedGrowersList]);
 
   const checkIsGrower = useCallback(
-    (u: OrganizationUser) => {
+    (u: OrgUser) => {
       const e = u.email.trim().toLowerCase();
       if (growerEmailsForUi.has(e)) return true;
-      const un = u.name.trim().toLowerCase();
+      const un = (u.name ?? "").trim().toLowerCase();
       if (!un) return false;
       return mergedGrowersList.some((g) => g.name.trim().toLowerCase() === un);
     },
@@ -456,13 +456,13 @@ export function OperationsDashboard(props: {
   );
 
   const onCheckAddGrower = useCallback(
-    async (orgUser: OrganizationUser) => {
+    async (orgUser: OrgUser) => {
       if (!growerTarget) return;
       const emailNorm = orgUser.email.trim().toLowerCase();
       if (checkIsGrower(orgUser)) return;
       setAddingGrowerUserId(orgUser.id);
       try {
-        const displayName = orgUser.name.trim() || orgUser.email.trim();
+        const displayName = (orgUser.name ?? "").trim() || orgUser.email.trim();
         const result = await postAgentGrower(growerTarget.id, {
           email: orgUser.email.trim(),
           name: displayName,
@@ -499,7 +499,7 @@ export function OperationsDashboard(props: {
   );
 
   const onUncheckRemoveGrower = useCallback(
-    async (orgUser: OrganizationUser) => {
+    async (orgUser: OrgUser) => {
       if (!growerTarget) return;
       const emailNorm = orgUser.email.trim().toLowerCase();
       if (!checkIsGrower(orgUser)) return;

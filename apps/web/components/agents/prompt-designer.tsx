@@ -244,7 +244,6 @@ export function AgentPromptDesigner({
     applySuggestion,
     resetLocal,
   } = usePromptDesignerEditorState({
-    agentId,
     agent,
     propertiesData,
     testingPropertiesData,

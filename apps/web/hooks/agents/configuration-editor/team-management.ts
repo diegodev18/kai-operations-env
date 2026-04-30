@@ -286,7 +286,10 @@ export function useConfigurationEditorTeamManagement({
   );
 
   const sortedOrgUsers = useMemo(
-    () => [...orgUsers].sort((a, b) => a.name.localeCompare(b.name, "es", { sensitivity: "base" })),
+    () =>
+      [...orgUsers].sort((a, b) =>
+        (a.name ?? "").localeCompare(b.name ?? "", "es", { sensitivity: "base" }),
+      ),
     [orgUsers],
   );
 
