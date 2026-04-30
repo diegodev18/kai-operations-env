@@ -8,6 +8,7 @@ import type {
   AgentGrowerRow,
   AgentTechLeadRow,
   ImplementationTask,
+  GlobalImplementationTasksResponse,
   ImplementationTaskStatus,
   ImplementationTaskPriority,
   ImplementationTaskAttachment,
@@ -1078,6 +1079,43 @@ export async function fetchImplementationTasks(
   if (!res.ok) return null;
   try {
     return (await res.json()) as { tasks: ImplementationTask[] };
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchGlobalImplementationTasks(options: {
+  q?: string;
+  status?: string;
+  priority?: string;
+  assignee?: string;
+  due?: string;
+  agentId?: string;
+  cursor?: string | null;
+  limit?: number;
+  archived?: "include" | "only";
+} = {}): Promise<GlobalImplementationTasksResponse | null> {
+  const params = new URLSearchParams();
+  if (options.q?.trim()) params.set("q", options.q.trim());
+  if (options.status && options.status !== "all") params.set("status", options.status);
+  if (options.priority && options.priority !== "all") params.set("priority", options.priority);
+  if (options.assignee && options.assignee !== "all") params.set("assignee", options.assignee);
+  if (options.due && options.due !== "all") params.set("due", options.due);
+  if (options.agentId?.trim()) params.set("agentId", options.agentId.trim());
+  if (options.cursor) params.set("cursor", options.cursor);
+  if (options.limit) params.set("limit", String(options.limit));
+  if (options.archived) params.set("archived", options.archived);
+  const qs = params.toString();
+  const res = await fetch(
+    `/api/agents/implementation-tasks/overview${qs ? `?${qs}` : ""}`,
+    {
+      credentials: "include",
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) return null;
+  try {
+    return (await res.json()) as GlobalImplementationTasksResponse;
   } catch {
     return null;
   }

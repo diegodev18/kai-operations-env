@@ -35,6 +35,7 @@ import {
 } from "@/controllers/agents-tech-leads.controller";
 import {
   createImplementationTask,
+  getGlobalImplementationTasksOverview,
   getImplementationTasks,
   patchImplementationTask,
 } from "@/controllers/agents-implementation-tasks.controller";
@@ -74,6 +75,12 @@ import { resolveAgentsAuthContext } from "@/routes/agents-auth";
 import { isReservedAgentPathSegment } from "./reserved";
 
 export function registerAgentsByAgentRoutes(r: Hono) {
+
+r.get("/implementation-tasks/overview", async (c) => {
+  const ctx = await resolveAgentsAuthContext(c);
+  if (!ctx.ok) return ctx.response;
+  return getGlobalImplementationTasksOverview(c, ctx.authCtx);
+});
 
 r.get("/:agentId/properties", async (c) => {
   const ctx = await resolveAgentsAuthContext(c);

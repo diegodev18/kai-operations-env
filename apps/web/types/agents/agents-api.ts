@@ -69,6 +69,22 @@ export type ImplementationTask = {
   representativePhone?: string | null;
 };
 
+export type GlobalImplementationTask = ImplementationTask & {
+  taskKey: string;
+  agentId: string;
+  agentName: string;
+  businessName: string;
+  agentStatus: "active" | "archived";
+  growers: AgentGrowerRow[];
+  lifecycleSummary?: AgentLifecycleSummary;
+};
+
+export type GlobalImplementationTasksResponse = {
+  tasks: GlobalImplementationTask[];
+  total: number;
+  nextCursor: string | null;
+};
+
 export type ImplementationActivityKind = "comment" | "system";
 
 export type ImplementationActivityEntry = {

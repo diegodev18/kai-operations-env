@@ -22,6 +22,7 @@ import {
   HelpCircleIcon,
   LayoutDashboardIcon,
   LayoutGridIcon,
+  ListTodoIcon,
   Loader2Icon,
   MegaphoneIcon,
   MenuIcon,
@@ -699,6 +700,14 @@ export function OperationsDashboard(props: {
               <SheetTitle>Menú</SheetTitle>
             </SheetHeader>
             <nav className="mt-4 flex flex-col gap-1 px-2 pb-6">
+              <Link
+                href="/tasks"
+                className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                onClick={() => setMenuOpen(false)}
+              >
+                <ListTodoIcon className="size-4" />
+                Tareas
+              </Link>
               <Link
                 href={`/agents/new?mode=${defaultBuilderMode}`}
                 className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"

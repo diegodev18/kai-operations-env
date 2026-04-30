@@ -2,12 +2,17 @@ import type { Context } from "hono";
 import {
   FieldValue,
   type Firestore,
+  type CollectionReference,
   type QueryDocumentSnapshot,
 } from "firebase-admin/firestore";
 
 import type { AgentsInfoAuthContext } from "@/types/agents-types";
+import { getFirestore } from "@/lib/firestore";
 import { resolveAgentWriteDatabase, userCanAccessAgent } from "@/utils/agents";
+import { parseAgentDocFromData } from "@/utils/agents/parseAgentDoc";
+import { lifecycleSummaryFromFirestoreData } from "@/utils/agents/lifecycle-doc";
 import { appendImplementationActivityEntry } from "@/services/implementation-activity.service";
+import { isOperationsAdmin, isOperationsCommercial } from "@/utils/operations-access";
 import {
   extractFirestoreIndexUrl,
   firestoreFailureHint,
@@ -74,6 +79,19 @@ type ImplementationTaskRow = {
   representativePhone?: string | null;
 };
 
+type GlobalImplementationTaskRow = ImplementationTaskRow & {
+  taskKey: string;
+  agentId: string;
+  agentName: string;
+  businessName: string;
+  agentStatus: "active" | "archived";
+  growers: Array<{ email: string; name: string }>;
+  lifecycleSummary?: {
+    commercialStatus: string;
+    estimatedDeliveryAt: string | null;
+  };
+};
+
 const MANDATORY_TASKS: Array<{
   id: string;
   title: string;
@@ -122,6 +140,62 @@ function getTaskItemsCollection(db: Firestore, agentId: string) {
     .collection("implementation")
     .doc("tasks")
     .collection("items");
+}
+
+async function syncMandatoryTasks(
+  itemsRef: CollectionReference,
+  existingTasks: ImplementationTaskRow[],
+): Promise<{ tasks: ImplementationTaskRow[]; changed: boolean }> {
+  const existingIds = new Set(existingTasks.map((t) => t.id));
+  const now = FieldValue.serverTimestamp();
+  const missingMandatory = MANDATORY_TASKS.filter((mt) => !existingIds.has(mt.id));
+
+  for (const mt of missingMandatory) {
+    const payload = {
+      id: mt.id,
+      title: mt.title,
+      description: mt.description,
+      status: "todo" as ImplementationTaskStatus,
+      priority: "high" as ImplementationTaskPriority,
+      dueDate: null,
+      assigneeEmails: [],
+      createdByEmail: null,
+      mandatory: true,
+      taskType: mt.taskType,
+      attachments: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+    await itemsRef.doc(mt.id).set(payload);
+  }
+
+  let templateSyncChanged = false;
+  for (const task of existingTasks) {
+    const mt = MANDATORY_BY_ID.get(task.id);
+    if (!mt) continue;
+    const desc = task.description ?? "";
+    if (task.title !== mt.title || desc !== mt.description) {
+      await itemsRef.doc(task.id).set(
+        {
+          title: mt.title,
+          description: mt.description,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+      templateSyncChanged = true;
+    }
+  }
+
+  if (missingMandatory.length === 0 && !templateSyncChanged) {
+    return { tasks: existingTasks, changed: false };
+  }
+
+  const refreshed = await itemsRef.orderBy("createdAt", "desc").get();
+  return {
+    tasks: refreshed.docs.map((doc) => mapTaskDoc(doc as QueryDocumentSnapshot)),
+    changed: true,
+  };
 }
 
 function getMetaDocRef(db: Firestore, agentId: string) {
@@ -313,6 +387,76 @@ function handleFirestoreError(c: Context, error: unknown, logPrefix: string) {
   return c.json({ error: "Error al acceder a Firestore." }, 500);
 }
 
+function normalizeAgentStatus(value: unknown): "active" | "archived" {
+  return value === "archived" ? "archived" : "active";
+}
+
+function parseCsvSet(value: string | undefined): Set<string> {
+  if (!value) return new Set();
+  return new Set(
+    value
+      .split(",")
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean),
+  );
+}
+
+function taskMatchesDueFilter(task: ImplementationTaskRow, due: string | undefined): boolean {
+  if (!due || due === "all") return true;
+  const date = task.dueDate ? new Date(task.dueDate) : null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const endOfWeek = new Date(today);
+  endOfWeek.setDate(today.getDate() + 7);
+  if (due === "none") return !date;
+  if (!date || Number.isNaN(date.getTime())) return false;
+  const taskDay = new Date(date);
+  taskDay.setHours(0, 0, 0, 0);
+  if (due === "overdue") return taskDay < today;
+  if (due === "today") return taskDay.getTime() === today.getTime();
+  if (due === "week") return taskDay >= today && taskDay <= endOfWeek;
+  return true;
+}
+
+function globalTaskMatchesQuery(task: GlobalImplementationTaskRow, q: string): boolean {
+  if (!q) return true;
+  const haystack = [
+    task.title,
+    task.description ?? "",
+    task.agentName,
+    task.businessName,
+    task.agentId,
+    task.publicId != null ? `agt-${task.publicId}` : "",
+    ...task.assigneeEmails,
+  ].join(" ").toLowerCase();
+  return haystack.includes(q);
+}
+
+function compareGlobalTasks(a: GlobalImplementationTaskRow, b: GlobalImplementationTaskRow): number {
+  const statusWeight = (task: GlobalImplementationTaskRow) => {
+    if (task.status === "blocked") return 0;
+    if (task.status === "completed" || task.status === "cancelled") return 4;
+    return 1;
+  };
+  const priorityWeight: Record<ImplementationTaskPriority, number> = {
+    urgent: 0,
+    high: 1,
+    medium: 2,
+    low: 3,
+    none: 4,
+  };
+  const sw = statusWeight(a) - statusWeight(b);
+  if (sw !== 0) return sw;
+  const pw = priorityWeight[a.priority ?? "none"] - priorityWeight[b.priority ?? "none"];
+  if (pw !== 0) return pw;
+  const aDue = a.dueDate ? new Date(a.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
+  const bDue = b.dueDate ? new Date(b.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
+  if (aDue !== bDue) return aDue - bDue;
+  const aUpdated = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+  const bUpdated = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+  return bUpdated - aUpdated;
+}
+
 async function requireAgentAccess(
   c: Context,
   authCtx: AgentsInfoAuthContext,
@@ -352,62 +496,123 @@ export async function getImplementationTasks(
       return c.json({ error: "Agente no encontrado" }, 404);
     }
 
-    let existingTasks = snap.docs.map((doc) => mapTaskDoc(doc as QueryDocumentSnapshot));
-    const existingIds = new Set(existingTasks.map((t) => t.id));
-
-    const now = FieldValue.serverTimestamp();
-    const missingMandatory = MANDATORY_TASKS.filter((mt) => !existingIds.has(mt.id));
-    for (const mt of missingMandatory) {
-      const payload = {
-        id: mt.id,
-        title: mt.title,
-        description: mt.description,
-        status: "todo" as ImplementationTaskStatus,
-        priority: "high" as ImplementationTaskPriority,
-        dueDate: null,
-        assigneeEmails: [],
-        createdByEmail: null,
-        mandatory: true,
-        taskType: mt.taskType,
-        attachments: [],
-        createdAt: now,
-        updatedAt: now,
-      };
-      await itemsRef.doc(mt.id).set(payload);
-    }
-
-    if (missingMandatory.length > 0) {
-      const refreshed = await itemsRef.orderBy("createdAt", "desc").get();
-      existingTasks = refreshed.docs.map((doc) => mapTaskDoc(doc as QueryDocumentSnapshot));
-    }
-
-    let templateSyncChanged = false;
-    for (const task of existingTasks) {
-      const mt = MANDATORY_BY_ID.get(task.id);
-      if (!mt) continue;
-      const desc = task.description ?? "";
-      if (task.title !== mt.title || desc !== mt.description) {
-        await itemsRef.doc(task.id).set(
-          {
-            title: mt.title,
-            description: mt.description,
-            updatedAt: FieldValue.serverTimestamp(),
-          },
-          { merge: true },
-        );
-        templateSyncChanged = true;
-      }
-    }
-
-    const tasks = templateSyncChanged
-      ? (await itemsRef.orderBy("createdAt", "desc").get()).docs.map((doc) =>
-          mapTaskDoc(doc as QueryDocumentSnapshot),
-        )
-      : existingTasks;
+    const existingTasks = snap.docs.map((doc) => mapTaskDoc(doc as QueryDocumentSnapshot));
+    const { tasks } = await syncMandatoryTasks(itemsRef, existingTasks);
 
     return c.json({ tasks });
   } catch (error) {
     return handleFirestoreError(c, error, "[implementation tasks GET]");
+  }
+}
+
+export async function getGlobalImplementationTasksOverview(
+  c: Context,
+  authCtx: AgentsInfoAuthContext,
+) {
+  const admin = isOperationsAdmin(authCtx.userRole);
+  const commercial = isOperationsCommercial(authCtx.userRole);
+  const isPrivileged = admin || commercial;
+  const q = c.req.query("q")?.trim().toLowerCase() ?? "";
+  const statusSet = parseCsvSet(c.req.query("status"));
+  const prioritySet = parseCsvSet(c.req.query("priority"));
+  const assignee = c.req.query("assignee")?.trim().toLowerCase();
+  const agentIdFilter = c.req.query("agentId")?.trim();
+  const dueFilter = c.req.query("due")?.trim();
+  const cursorRaw = c.req.query("cursor")?.trim();
+  const cursor = cursorRaw != null && cursorRaw !== "" ? Number(cursorRaw) : 0;
+  const limitRaw = Number(c.req.query("limit") ?? 100);
+  const limit = Math.max(1, Math.min(200, Number.isFinite(limitRaw) ? Math.floor(limitRaw) : 100));
+  const archivedMode = c.req.query("archived");
+
+  try {
+    const db = getFirestore();
+    const agentDocs = agentIdFilter
+      ? [await db.collection("agent_configurations").doc(agentIdFilter).get()]
+      : (await db.collection("agent_configurations").get()).docs;
+
+    const rows: GlobalImplementationTaskRow[] = [];
+
+    await Promise.all(
+      agentDocs.map(async (agentSnap) => {
+        if (!agentSnap.exists) return;
+        const agentId = agentSnap.id;
+        const agentData = agentSnap.data() as Record<string, unknown>;
+        const agentStatus = normalizeAgentStatus(agentData.status);
+        if (archivedMode === "only" && agentStatus !== "archived") return;
+        if (archivedMode !== "include" && archivedMode !== "only" && agentStatus === "archived") {
+          return;
+        }
+        if (!isPrivileged) {
+          const canAccess = await userCanAccessAgent(authCtx, agentId);
+          if (!canAccess) return;
+        }
+
+        const parsed = parseAgentDocFromData(agentId, agentData, false);
+        if (!parsed) return;
+
+        const agentRef = db.collection("agent_configurations").doc(agentId);
+        const [growersSnap, lifecycleSnap, tasksSnap] = await Promise.all([
+          agentRef.collection("growers").get(),
+          agentRef.collection("implementation").doc("lifecycle").get(),
+          getTaskItemsCollection(db, agentId).orderBy("createdAt", "desc").get(),
+        ]);
+        const growers = growersSnap.docs.map((doc) => {
+          const data = doc.data() as Record<string, unknown>;
+          const email = typeof data.email === "string"
+            ? data.email.trim().toLowerCase()
+            : doc.id.includes("@")
+              ? doc.id.trim().toLowerCase()
+              : "";
+          const name = typeof data.name === "string" ? data.name.trim() : "";
+          return { email, name: name || email };
+        }).filter((grower) => grower.email);
+
+        const existingTasks = tasksSnap.docs.map((doc) => mapTaskDoc(doc as QueryDocumentSnapshot));
+        const { tasks } = await syncMandatoryTasks(
+          getTaskItemsCollection(db, agentId),
+          existingTasks,
+        );
+        const lifecycleSummary = lifecycleSnap.exists
+          ? lifecycleSummaryFromFirestoreData(lifecycleSnap.data() as Record<string, unknown>)
+          : undefined;
+
+        for (const task of tasks) {
+          if (statusSet.size > 0 && !statusSet.has(task.status)) continue;
+          if (prioritySet.size > 0 && !prioritySet.has(task.priority ?? "none")) continue;
+          if (assignee === "unassigned" && task.assigneeEmails.length > 0) continue;
+          if (assignee && assignee !== "all" && assignee !== "unassigned" && !task.assigneeEmails.includes(assignee)) {
+            continue;
+          }
+          if (!taskMatchesDueFilter(task, dueFilter)) continue;
+
+          const row: GlobalImplementationTaskRow = {
+            ...task,
+            taskKey: `${agentId}:${task.id}`,
+            agentId,
+            agentName: parsed.agentName || parsed.businessName || agentId,
+            businessName: parsed.businessName || parsed.agentName || agentId,
+            agentStatus,
+            growers,
+            ...(lifecycleSummary != null ? { lifecycleSummary } : {}),
+          };
+          if (!globalTaskMatchesQuery(row, q)) continue;
+          rows.push(row);
+        }
+      }),
+    );
+
+    rows.sort(compareGlobalTasks);
+    const start = Number.isFinite(cursor) && cursor > 0 ? cursor : 0;
+    const page = rows.slice(start, start + limit);
+    const nextCursor = start + limit < rows.length ? String(start + limit) : null;
+
+    return c.json({
+      tasks: page,
+      total: rows.length,
+      nextCursor,
+    });
+  } catch (error) {
+    return handleFirestoreError(c, error, "[implementation tasks overview]");
   }
 }
 
