@@ -214,24 +214,47 @@ function PriorityColumn({
   const { setNodeRef, isOver } = useDroppable({ id: priority });
 
   return (
-    <div className="flex min-w-[300px] max-w-[340px] flex-1 flex-col gap-2.5">
+    <div
+      className={cn(
+        "flex flex-col gap-2.5 transition-all",
+        collapsed
+          ? "w-14 shrink-0"
+          : "min-w-[300px] max-w-[340px] flex-1",
+      )}
+    >
       {/* Column header */}
       <button
         type="button"
         onClick={() => setCollapsed((prev) => !prev)}
-        className="flex items-center gap-2 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-muted/40"
+        className={cn(
+          "rounded-lg text-left transition-colors hover:bg-muted/40",
+          collapsed
+            ? "flex h-full min-h-[120px] flex-col items-center gap-2 px-1 py-2"
+            : "flex items-center gap-2 px-1.5 py-1.5",
+        )}
       >
-        <Icon className={cn("size-4 shrink-0", cfg.className)} />
-        <span className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          {cfg.label}
-        </span>
-        <span className="ml-1 rounded-full bg-muted px-2 py-0 text-xs font-medium text-muted-foreground">
-          {tasks.length}
-        </span>
         {collapsed ? (
-          <ChevronRightIcon className="ml-auto size-3.5 text-muted-foreground/50" />
+          <>
+            <ChevronRightIcon className="size-3.5 text-muted-foreground/50" />
+            <Icon className={cn("size-4 shrink-0", cfg.className)} />
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground [writing-mode:vertical-rl] [text-orientation:mixed]">
+              {cfg.label}
+            </span>
+            <span className="rounded-full bg-muted px-1.5 py-0 text-[10px] font-medium text-muted-foreground">
+              {tasks.length}
+            </span>
+          </>
         ) : (
-          <ChevronDownIcon className="ml-auto size-3.5 text-muted-foreground/50" />
+          <>
+            <Icon className={cn("size-4 shrink-0", cfg.className)} />
+            <span className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              {cfg.label}
+            </span>
+            <span className="ml-1 rounded-full bg-muted px-2 py-0 text-xs font-medium text-muted-foreground">
+              {tasks.length}
+            </span>
+            <ChevronDownIcon className="ml-auto size-3.5 text-muted-foreground/50" />
+          </>
         )}
       </button>
 
