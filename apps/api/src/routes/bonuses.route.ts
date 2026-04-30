@@ -50,7 +50,7 @@ const sendTipSchema = z.object({
   recipientName: z.string().trim().min(1),
   recipientEmail: z.string().trim().email(),
   amount: z.union([z.literal(5), z.literal(10), z.literal(20)]),
-  description: z.string().trim().min(10, "La descripción debe tener al menos 10 caracteres"),
+  description: z.string().trim().min(25, "La descripción debe tener al menos 25 caracteres"),
 });
 
 const loadWalletSchema = z.object({

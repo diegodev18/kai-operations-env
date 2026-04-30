@@ -72,8 +72,8 @@ export function SendTipDialog({
       toast.error("Selecciona un monto.");
       return;
     }
-    if (description.trim().length < 10) {
-      toast.error("La descripción debe tener al menos 10 caracteres.");
+    if (description.trim().length < 25) {
+      toast.error("La descripción debe tener al menos 25 caracteres.");
       return;
     }
 
@@ -180,8 +180,8 @@ export function SendTipDialog({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
-            <p className={`text-xs ${description.trim().length < 10 ? "text-muted-foreground" : "text-emerald-600 dark:text-emerald-400"}`}>
-              {description.trim().length}/10 caracteres mínimo
+            <p className={`text-xs ${description.trim().length < 25 ? "text-muted-foreground" : "text-emerald-600 dark:text-emerald-400"}`}>
+              {description.trim().length}/25 caracteres mínimo
             </p>
           </div>
 
