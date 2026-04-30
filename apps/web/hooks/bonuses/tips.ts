@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import type { SendTipInput, TeamMember, Tip } from "@/types";
-import { fetchTeamMembers, fetchTips, sendTip } from "@/services/bonuses-api";
+import type { ActivityItem, SendTipInput, TeamMember, Tip } from "@/types";
+import { fetchActivity, fetchTeamMembers, fetchTips, sendTip } from "@/services/bonuses-api";
 
 export function useTips() {
   const [tips, setTips] = useState<Tip[]>([]);
@@ -60,4 +60,30 @@ export function useTeamMembers() {
   }, [load]);
 
   return { members, isLoading, error };
+}
+
+export function useActivity() {
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    const res = await fetchActivity();
+    if (res.ok) {
+      setActivity(res.activity);
+    } else {
+      setError(res.error);
+    }
+    setIsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void load();
+    });
+  }, [load]);
+
+  return { activity, isLoading, error, refetch: load };
 }

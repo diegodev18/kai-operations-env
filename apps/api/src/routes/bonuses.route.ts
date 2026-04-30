@@ -38,6 +38,13 @@ function userBalanceRef(userId: string) {
     .doc(userId);
 }
 
+function walletEventsCol() {
+  return getFirestore()
+    .collection(BACKOFFICE)
+    .doc(BON_DOC)
+    .collection("walletEvents");
+}
+
 const sendTipSchema = z.object({
   recipientId: z.string().trim().min(1),
   recipientName: z.string().trim().min(1),
@@ -143,7 +150,7 @@ bonusesRouter.get("/admin/wallet", async (c) => {
 bonusesRouter.post("/admin/wallet/load", async (c) => {
   const auth = await requireAdmin(c);
   if (!auth.ok) return auth.response;
-  const { userId, userEmail } = auth.authCtx;
+  const { userId, userEmail, userName } = auth.authCtx;
 
   let raw: unknown;
   try {
@@ -159,16 +166,32 @@ bonusesRouter.post("/admin/wallet/load", async (c) => {
   }
 
   try {
+    const db = getFirestore();
     const snap = await walletRef().get();
     const current = snap.exists ? ((snap.data() as Record<string, unknown>).balanceMxn as number ?? 0) : 0;
     const newBalance = current + parsed.data.amount;
+    const now = Timestamp.now();
 
-    await walletRef().set({
+    const eventId = nanoid();
+    const batch = db.batch();
+
+    batch.set(walletRef(), {
       balanceMxn: newBalance,
-      lastUpdatedAt: Timestamp.now(),
+      lastUpdatedAt: now,
       updatedByUserId: userId ?? "",
       updatedByEmail: userEmail ?? "",
     });
+
+    batch.set(walletEventsCol().doc(eventId), {
+      adminId: userId ?? "",
+      adminName: userName ?? userEmail ?? "",
+      adminEmail: userEmail ?? "",
+      amount: parsed.data.amount,
+      newBalance,
+      createdAt: now,
+    });
+
+    await batch.commit();
 
     return c.json({ ok: true, balanceMxn: newBalance });
   } catch (error) {
@@ -411,6 +434,78 @@ bonusesRouter.post("/admin/redeem", async (c) => {
     return c.json({ ok: true, previousBalance });
   } catch (error) {
     return firestoreErr(c, error, "[bonificaciones/admin/redeem POST]");
+  }
+});
+
+// ─── Activity feed (tips + wallet load events) ────────────────────────────────
+
+bonusesRouter.get("/activity", async (c) => {
+  const auth = await requireAuth(c);
+  if (!auth.ok) return auth.response;
+  const { userId, userRole } = auth.authCtx;
+  const isAdmin = isOperationsAdmin(userRole);
+
+  try {
+    // Tips: admins see all; members see only their own
+    let tipDocs: ReturnType<typeof serializeTip>[] = [];
+    if (isAdmin) {
+      const snap = await tipsCol().orderBy("createdAt", "desc").get();
+      tipDocs = snap.docs.map((d) => serializeTip(d.id, d.data() as Record<string, unknown>));
+    } else {
+      const [sentSnap, receivedSnap] = await Promise.all([
+        tipsCol().where("senderId", "==", userId).get(),
+        tipsCol().where("recipientId", "==", userId).get(),
+      ]);
+      const seen = new Set<string>();
+      const docs = [...sentSnap.docs, ...receivedSnap.docs].filter((d) => {
+        if (seen.has(d.id)) return false;
+        seen.add(d.id);
+        return true;
+      });
+      tipDocs = docs
+        .map((d) => serializeTip(d.id, d.data() as Record<string, unknown>))
+        .sort((a, b) => ((b.createdAt ?? "") > (a.createdAt ?? "") ? 1 : -1));
+    }
+
+    const tips = tipDocs.map((t) => ({ type: "tip" as const, ...t }));
+
+    // Wallet events: only admins see them
+    let walletEvents: Array<{
+      type: "walletLoad";
+      id: string;
+      adminId: string;
+      adminName: string;
+      adminEmail: string;
+      amount: number;
+      newBalance: number;
+      createdAt: string | null;
+    }> = [];
+
+    if (isAdmin) {
+      const evSnap = await walletEventsCol().orderBy("createdAt", "desc").get();
+      walletEvents = evSnap.docs.map((d) => {
+        const data = d.data() as Record<string, unknown>;
+        return {
+          type: "walletLoad" as const,
+          id: d.id,
+          adminId: (data.adminId as string) ?? "",
+          adminName: (data.adminName as string) ?? "",
+          adminEmail: (data.adminEmail as string) ?? "",
+          amount: (data.amount as number) ?? 0,
+          newBalance: (data.newBalance as number) ?? 0,
+          createdAt: tsToIso(data.createdAt),
+        };
+      });
+    }
+
+    // Merge and sort by createdAt desc
+    const activity = [...tips, ...walletEvents].sort((a, b) =>
+      (b.createdAt ?? "") > (a.createdAt ?? "") ? 1 : -1,
+    );
+
+    return c.json({ activity });
+  } catch (error) {
+    return firestoreErr(c, error, "[bonificaciones/activity GET]");
   }
 });
 

@@ -5,7 +5,7 @@ import { LoadWalletDialog } from "./load-wallet-dialog";
 import { TipsFeed } from "./tips-feed";
 import { TeamBalancesTable } from "./team-balances-table";
 import { AdminStatCards, MemberStatCards } from "./stat-cards";
-import { useAdminWallet, useAdminBalances, useTips, useTeamMembers, useMyBalance } from "@/hooks";
+import { useAdminWallet, useAdminBalances, useActivity, useTips, useTeamMembers, useMyBalance } from "@/hooks";
 import { useAuth, useUserRole } from "@/hooks";
 
 export function BonusesDashboard() {
@@ -16,6 +16,7 @@ export function BonusesDashboard() {
   const { wallet, isLoading: walletLoading, loadFunds } = useAdminWallet();
   const { balances, isLoading: balancesLoading, redeem } = useAdminBalances();
   const { tips, isLoading: tipsLoading } = useTips();
+  const { activity, isLoading: activityLoading, refetch: refetchActivity } = useActivity();
   const { members, isLoading: membersLoading } = useTeamMembers();
   const { balanceMxn: myBalance, isLoading: myBalanceLoading } = useMyBalance();
 
@@ -98,9 +99,9 @@ export function BonusesDashboard() {
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-semibold">Actividad</h2>
         <TipsFeed
-          tips={tips}
+          activity={activity}
           members={members}
-          isLoading={tipsLoading || membersLoading}
+          isLoading={activityLoading || membersLoading}
           currentUserId={currentUserId}
         />
       </section>
@@ -108,7 +109,11 @@ export function BonusesDashboard() {
       <LoadWalletDialog
         open={loadWalletOpen}
         onOpenChange={setLoadWalletOpen}
-        loadFunds={loadFunds}
+        loadFunds={async (amount) => {
+          const res = await loadFunds(amount);
+          if (res.ok) void refetchActivity();
+          return res;
+        }}
       />
     </div>
   );

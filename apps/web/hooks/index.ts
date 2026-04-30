@@ -57,7 +57,7 @@ export {
 } from "./crm/opportunities";
 
 export { useAdminWallet } from "./bonuses/wallet";
-export { useTips, useTeamMembers } from "./bonuses/tips";
+export { useTips, useTeamMembers, useActivity } from "./bonuses/tips";
 export { useMyBalance, useAdminBalances } from "./bonuses/balances";
 
 export { usePromptChat, isChatStatusMessage } from "./chat/prompt-chat";

@@ -41,3 +41,16 @@ export type SendTipInput = {
   amount: TipAmount;
   description: string;
 };
+
+export interface WalletLoadEvent {
+  type: "walletLoad";
+  id: string;
+  adminId: string;
+  adminName: string;
+  adminEmail: string;
+  amount: number;
+  newBalance: number;
+  createdAt: string | null;
+}
+
+export type ActivityItem = ({ type: "tip" } & Tip) | WalletLoadEvent;

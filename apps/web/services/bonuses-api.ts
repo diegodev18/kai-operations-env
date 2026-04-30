@@ -1,4 +1,5 @@
 import type {
+  ActivityItem,
   AdminWallet,
   SendTipInput,
   Tip,
@@ -111,4 +112,14 @@ export async function redeemBalance(userId: string): Promise<
   );
   if (!res.ok) return res;
   return { ok: true, previousBalance: res.data.previousBalance };
+}
+
+// ─── Activity feed ────────────────────────────────────────────────────────────
+
+export async function fetchActivity(): Promise<
+  { ok: true; activity: ActivityItem[] } | { ok: false; error: string }
+> {
+  const res = await bonusFetch<{ activity: ActivityItem[] }>("/activity");
+  if (!res.ok) return res;
+  return { ok: true, activity: res.data.activity };
 }
