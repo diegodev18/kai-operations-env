@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarClockIcon,
   CheckCircle2Icon,
@@ -66,6 +66,7 @@ import type {
 
 type DueFilter = "all" | "overdue" | "today" | "week" | "none";
 type DashboardView = "daily" | "agents" | "table";
+const GLOBAL_TASKS_PAGE_SIZE = 80;
 
 function isClosed(task: GlobalImplementationTask): boolean {
   const status = normalizeStatus(task.status);
@@ -103,30 +104,6 @@ function assigneeLabel(email: string, growers: AgentGrowerRow[]): string {
   return growers.find((grower) => grower.email.trim().toLowerCase() === normalized)?.name ?? email;
 }
 
-function KpiCard(props: {
-  label: string;
-  value: number;
-  tone?: "default" | "danger" | "warning" | "success";
-  featured?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-2xl border bg-card px-4 py-3 shadow-sm",
-        props.featured && "px-5 py-4",
-        props.tone === "danger" && "border-red-200 bg-red-50/50 dark:border-red-950 dark:bg-red-950/15",
-        props.tone === "warning" && "border-amber-200 bg-amber-50/50 dark:border-amber-950 dark:bg-amber-950/15",
-        props.tone === "success" && "border-emerald-200 bg-emerald-50/50 dark:border-emerald-950 dark:bg-emerald-950/15",
-      )}
-    >
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{props.label}</p>
-      <p className={cn("mt-1 font-semibold tabular-nums", props.featured ? "text-3xl" : "text-2xl")}>
-        {props.value}
-      </p>
-    </div>
-  );
-}
-
 function TaskStatusBadge({ task }: { task: GlobalImplementationTask }) {
   const status = normalizeStatus(task.status);
   const cfg = STATUS_CONFIG[status];
@@ -154,9 +131,13 @@ function TaskPriorityBadge({ task }: { task: GlobalImplementationTask }) {
 export function TasksDashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const nextCursorRef = useRef<string | null>(null);
   const [tasks, setTasks] = useState<GlobalImplementationTask[]>([]);
   const [total, setTotal] = useState(0);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [savingTaskKey, setSavingTaskKey] = useState<string | null>(null);
   const [bulkSaving, setBulkSaving] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
@@ -171,28 +152,46 @@ export function TasksDashboard() {
   );
   const [assigneeFilter, setAssigneeFilter] = useState(() => searchParams.get("assignee") ?? "all");
 
-  const loadTasks = useCallback(async () => {
-    setLoading(true);
+  const loadTasks = useCallback(async (mode: "reset" | "append" = "reset") => {
+    const cursorToLoad = mode === "append" ? nextCursorRef.current : null;
+    if (mode === "append" && !cursorToLoad) return;
+    if (mode === "reset") {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
     const response = await fetchGlobalImplementationTasks({
       q: search,
       status: statusFilter,
       priority: priorityFilter,
       due: dueFilter,
       assignee: assigneeFilter,
-      limit: 200,
+      cursor: cursorToLoad,
+      limit: GLOBAL_TASKS_PAGE_SIZE,
     });
     if (!response) {
       toast.error("No se pudieron cargar las tareas globales");
-      setLoading(false);
+      if (mode === "reset") setLoading(false);
+      else setLoadingMore(false);
       return;
     }
-    setTasks(response.tasks);
-    setTotal(response.total);
-    setSelectedKeys((prev) => {
-      const available = new Set(response.tasks.map((task) => task.taskKey));
-      return new Set([...prev].filter((key) => available.has(key)));
+    setTasks((prev) => {
+      if (mode === "reset") return response.tasks;
+      const seen = new Set(prev.map((task) => task.taskKey));
+      return [...prev, ...response.tasks.filter((task) => !seen.has(task.taskKey))];
     });
-    setLoading(false);
+    setTotal(response.total);
+    nextCursorRef.current = response.nextCursor;
+    setNextCursor(response.nextCursor);
+    if (mode === "reset") {
+      setSelectedKeys((prev) => {
+        const available = new Set(response.tasks.map((task) => task.taskKey));
+        return new Set([...prev].filter((key) => available.has(key)));
+      });
+      setLoading(false);
+    } else {
+      setLoadingMore(false);
+    }
   }, [assigneeFilter, dueFilter, priorityFilter, search, statusFilter]);
 
   useEffect(() => {
@@ -208,10 +207,27 @@ export function TasksDashboard() {
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
-      void loadTasks();
+      void loadTasks("reset");
     }, 200);
     return () => window.clearTimeout(timeout);
   }, [loadTasks]);
+
+  useEffect(() => {
+    const node = loadMoreRef.current;
+    if (!node || !nextCursor || loading || loadingMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          void loadTasks("append");
+        }
+      },
+      { rootMargin: "520px 0px" },
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [loadTasks, loading, loadingMore, nextCursor]);
 
   const selectedTask = useMemo(
     () => tasks.find((task) => task.taskKey === selectedTaskKey) ?? null,
@@ -441,7 +457,7 @@ export function TasksDashboard() {
       </div>
 
       <div className="rounded-2xl border bg-card p-2.5 shadow-sm">
-        <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_repeat(4,180px)]">
+        <div className="grid gap-3 xl:grid-cols-[minmax(220px,1fr)_repeat(5,160px)]">
           <div className="relative">
             <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -503,32 +519,17 @@ export function TasksDashboard() {
               ))}
             </SelectContent>
           </Select>
+          <Select value={activeView} onValueChange={(value) => setActiveView(value as DashboardView)}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Vista" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="daily">Seguimiento diario ({metrics.criticalToday})</SelectItem>
+              <SelectItem value="agents">Por agente ({agentSummaries.length})</SelectItem>
+              <SelectItem value="table">Todas las tareas ({total})</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        {[
-          { id: "daily" as const, label: "Seguimiento diario", count: metrics.criticalToday },
-          { id: "agents" as const, label: "Por agente", count: agentSummaries.length },
-          { id: "table" as const, label: "Todas las tareas", count: total },
-        ].map((view) => (
-          <button
-            key={view.id}
-            type="button"
-            onClick={() => setActiveView(view.id)}
-            className={cn(
-              "rounded-full border px-4 py-2 text-sm font-medium transition",
-              activeView === view.id
-                ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                : "bg-card text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-            )}
-          >
-            {view.label}
-            <span className="ml-2 rounded-full bg-background/20 px-2 py-0.5 text-xs tabular-nums">
-              {view.count}
-            </span>
-          </button>
-        ))}
       </div>
 
       {loading ? (
@@ -927,6 +928,27 @@ export function TasksDashboard() {
           </div>
         </section>
       )}
+
+      <div ref={loadMoreRef} className="flex min-h-10 items-center justify-center">
+        {loadingMore ? (
+          <div className="flex items-center gap-2 rounded-full border bg-card px-3 py-1.5 text-xs text-muted-foreground shadow-sm">
+            <Loader2Icon className="size-3.5 animate-spin" />
+            Cargando más tareas...
+          </div>
+        ) : nextCursor ? (
+          <button
+            type="button"
+            className="rounded-full border bg-card px-3 py-1.5 text-xs text-muted-foreground shadow-sm transition hover:bg-muted"
+            onClick={() => void loadTasks("append")}
+          >
+            Cargar más
+          </button>
+        ) : tasks.length > 0 ? (
+          <p className="text-xs text-muted-foreground">
+            Mostrando {tasks.length} de {total} tarea(s)
+          </p>
+        ) : null}
+      </div>
 
       <Sheet open={selectedTask !== null} onOpenChange={(open) => { if (!open) setSelectedTaskKey(null); }}>
         <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-2xl">
