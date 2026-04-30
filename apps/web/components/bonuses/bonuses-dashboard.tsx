@@ -2,34 +2,24 @@
 
 import { useMemo, useState } from "react";
 import { LoadWalletDialog } from "./load-wallet-dialog";
-import { SendTipDialog } from "./send-tip-dialog";
 import { TipsFeed } from "./tips-feed";
 import { TeamBalancesTable } from "./team-balances-table";
 import { AdminStatCards, MemberStatCards } from "./stat-cards";
 import { useAdminWallet, useAdminBalances, useTips, useTeamMembers, useMyBalance } from "@/hooks";
 import { useAuth, useUserRole } from "@/hooks";
 
-interface BonusesDashboardProps {
-  sendTipOpen?: boolean;
-  onSendTipOpenChange?: (open: boolean) => void;
-}
-
-export function BonusesDashboard({ sendTipOpen: sendTipOpenProp, onSendTipOpenChange }: BonusesDashboardProps = {}) {
+export function BonusesDashboard() {
   const { session } = useAuth();
   const { isAdmin } = useUserRole();
   const currentUserId = session?.user?.id;
 
   const { wallet, isLoading: walletLoading, loadFunds } = useAdminWallet();
-  const { balances, isLoading: balancesLoading, redeem, refetch: refetchBalances } = useAdminBalances();
-  const { tips, isLoading: tipsLoading, send } = useTips();
+  const { balances, isLoading: balancesLoading, redeem } = useAdminBalances();
+  const { tips, isLoading: tipsLoading } = useTips();
   const { members, isLoading: membersLoading } = useTeamMembers();
   const { balanceMxn: myBalance, isLoading: myBalanceLoading } = useMyBalance();
 
   const [loadWalletOpen, setLoadWalletOpen] = useState(false);
-  const [sendTipOpenLocal, setSendTipOpenLocal] = useState(false);
-
-  const sendTipOpen = sendTipOpenProp ?? sendTipOpenLocal;
-  const setSendTipOpen = onSendTipOpenChange ?? setSendTipOpenLocal;
 
   const now = new Date();
   const tipsThisMonth = useMemo(
@@ -68,7 +58,6 @@ export function BonusesDashboard({ sendTipOpen: sendTipOpenProp, onSendTipOpenCh
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold">Bonificaciones</h1>
         <p className="text-sm text-muted-foreground">
@@ -76,7 +65,6 @@ export function BonusesDashboard({ sendTipOpen: sendTipOpenProp, onSendTipOpenCh
         </p>
       </div>
 
-      {/* Stat cards */}
       {isAdmin ? (
         <AdminStatCards
           balanceMxn={wallet?.balanceMxn ?? 0}
@@ -95,7 +83,6 @@ export function BonusesDashboard({ sendTipOpen: sendTipOpenProp, onSendTipOpenCh
         />
       )}
 
-      {/* Admin: saldos del equipo */}
       {isAdmin && (
         <section className="flex flex-col gap-3">
           <h2 className="text-base font-semibold">Saldos del equipo</h2>
@@ -108,7 +95,6 @@ export function BonusesDashboard({ sendTipOpen: sendTipOpenProp, onSendTipOpenCh
         </section>
       )}
 
-      {/* Feed de actividad */}
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-semibold">Actividad</h2>
         <TipsFeed
@@ -123,18 +109,6 @@ export function BonusesDashboard({ sendTipOpen: sendTipOpenProp, onSendTipOpenCh
         open={loadWalletOpen}
         onOpenChange={setLoadWalletOpen}
         loadFunds={loadFunds}
-      />
-
-      <SendTipDialog
-        open={sendTipOpen}
-        onOpenChange={setSendTipOpen}
-        members={members}
-        currentUserId={currentUserId}
-        onSend={async (input) => {
-          const res = await send(input);
-          if (res.ok) void refetchBalances();
-          return res;
-        }}
       />
     </div>
   );

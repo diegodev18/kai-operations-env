@@ -1,6 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { SendTipDialog } from "@/components/bonuses/send-tip-dialog";
+import { useTips, useTeamMembers } from "@/hooks";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import Link from "next/link";
 import {
   BookOpenIcon,
@@ -42,12 +49,14 @@ export type BreadcrumbSegment = { label: string; href?: string };
 export function OperationsShell(props: {
   breadcrumb: BreadcrumbSegment[];
   children: React.ReactNode;
-  headerActions?: React.ReactNode;
 }) {
   const { session, signOut } = useAuth();
   const { role, isAdmin } = useUserRole();
   const isCommercial = role === "commercial";
   const [menuOpen, setMenuOpen] = useState(false);
+  const [sendTipOpen, setSendTipOpen] = useState(false);
+  const { members } = useTeamMembers();
+  const { send, refetch: refetchTips } = useTips();
   const [defaultBuilderMode] = useState<"form" | "conversational">(() => {
     if (typeof window === "undefined") return "form";
     const stored = localStorage.getItem("agent-builder-default-mode");
@@ -131,7 +140,20 @@ export function OperationsShell(props: {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          {props.headerActions}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-9"
+                onClick={() => setSendTipOpen(true)}
+              >
+                <GiftIcon className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Enviar propina</TooltipContent>
+          </Tooltip>
           {session?.user ? (
             <UserMenu
               userName={session.user.name}
@@ -299,6 +321,18 @@ export function OperationsShell(props: {
       </Sheet>
 
       <main className="flex min-h-0 flex-1 flex-col">{props.children}</main>
+
+      <SendTipDialog
+        open={sendTipOpen}
+        onOpenChange={setSendTipOpen}
+        members={members}
+        currentUserId={session?.user?.id}
+        onSend={async (input) => {
+          const res = await send(input);
+          if (res.ok) void refetchTips();
+          return res;
+        }}
+      />
     </div>
   );
 }

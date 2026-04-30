@@ -63,7 +63,8 @@ import {
   UserMenu,
 } from "@/components/shared";
 import type { OrgUser } from "@/components/shared";
-import { useUserRole } from "@/hooks";
+import { useAuth, useUserRole, useTips, useTeamMembers } from "@/hooks";
+import { SendTipDialog } from "@/components/bonuses/send-tip-dialog";
 import { Input } from "@/components/ui/input";
 import {
   Sheet,
@@ -133,6 +134,7 @@ export function OperationsDashboard(props: {
   /** Primitivos derivados: el objeto `searchParams` cambia de referencia en cada render. */
   const urlQ = searchParams.get("q") ?? "";
   const queryString = searchParams.toString();
+  const { session } = useAuth();
   const { isAdmin, role } = useUserRole();
   const isCommercial = role === "commercial";
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
@@ -140,6 +142,9 @@ export function OperationsDashboard(props: {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [billingAlertOnly, setBillingAlertOnly] = useState(false);
+  const [sendTipOpen, setSendTipOpen] = useState(false);
+  const { members: tipMembers } = useTeamMembers();
+  const { send: sendTip, refetch: refetchTips } = useTips();
   const [agents, setAgents] = useState<AgentWithOperations[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -687,12 +692,28 @@ export function OperationsDashboard(props: {
             <LayoutDashboardIcon className="size-5" />
             Operaciones
           </div>
-          <UserMenu
-            userName={props.userName}
-            userEmail={props.userEmail}
-            userImage={props.userImage}
-            onSignOut={props.onSignOut}
-          />
+          <div className="flex shrink-0 items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-9"
+                  onClick={() => setSendTipOpen(true)}
+                >
+                  <GiftIcon className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Enviar propina</TooltipContent>
+            </Tooltip>
+            <UserMenu
+              userName={props.userName}
+              userEmail={props.userEmail}
+              userImage={props.userImage}
+              onSignOut={props.onSignOut}
+            />
+          </div>
         </header>
 
         <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
@@ -1801,6 +1822,18 @@ export function OperationsDashboard(props: {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <SendTipDialog
+        open={sendTipOpen}
+        onOpenChange={setSendTipOpen}
+        members={tipMembers}
+        currentUserId={session?.user?.id}
+        onSend={async (input) => {
+          const res = await sendTip(input);
+          if (res.ok) void refetchTips();
+          return res;
+        }}
+      />
     </>
   );
 }
