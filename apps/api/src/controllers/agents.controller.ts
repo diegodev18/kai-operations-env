@@ -18,6 +18,7 @@ import {
   agentMatchesSearchQuery,
   applyUsersBuildersTestingAssignment,
   assignTestingByPhoneNumber,
+  assignTestingToUsersBuilderDocId,
   collectAgentStakeholderEmails,
   fetchGrowersForAgent,
   isGrowerCursor,
@@ -737,11 +738,18 @@ const assignToUserBodySchema = z
   .object({
     targetUserId: z.string().min(1).optional(),
     targetPhoneNumber: z.string().min(1).optional(),
+    targetUsersBuilderDocId: z.string().min(1).optional(),
     newUserBuilder: newUserBuilderSchema.optional(),
   })
   .strict()
   .refine((d) => !(d.targetUserId && d.targetPhoneNumber), {
     message: "No combines targetUserId y targetPhoneNumber",
+  })
+  .refine((d) => !(d.targetUserId && d.targetUsersBuilderDocId), {
+    message: "No combines targetUserId y targetUsersBuilderDocId",
+  })
+  .refine((d) => !(d.targetUsersBuilderDocId && d.newUserBuilder), {
+    message: "No combines targetUsersBuilderDocId con newUserBuilder",
   });
 
 async function stakeholderPhoneDigitsForAgent(agentId: string): Promise<Set<string>> {
@@ -791,6 +799,7 @@ export async function getTestingAssignTargets(
   return c.json({
     scope: "usersBuilders" as const,
     targets: hits.map((h) => ({
+      usersBuilderDocId: h.docId,
       phoneNumber: h.phoneNumber,
       name: h.name,
       email: h.email,
@@ -840,7 +849,36 @@ export async function assignAgentToUser(
   }
 
   const sessionUserId = session.user.id as string;
+  const docIdFromBody = parsed.data.targetUsersBuilderDocId?.trim();
   const rawTargetPhone = parsed.data.targetPhoneNumber?.trim();
+
+  if (docIdFromBody) {
+    const ref = firestore.collection("usersBuilders").doc(docIdFromBody);
+    const docSnap = await ref.get();
+    if (!docSnap.exists) {
+      return ApiErrors.notFound(c, "usersBuilders no encontrado");
+    }
+    if (rawTargetPhone) {
+      const phoneDigits = normalizePhoneDigits(rawTargetPhone);
+      const data = docSnap.data() as Record<string, unknown>;
+      const docPhone = normalizePhoneDigits(String(data.phoneNumber ?? ""));
+      if (docPhone !== phoneDigits) {
+        return ApiErrors.validation(
+          c,
+          "El documento no coincide con el teléfono indicado",
+        );
+      }
+    }
+    try {
+      await assignTestingToUsersBuilderDocId(docIdFromBody, agentId);
+    } catch (e: unknown) {
+      if (e instanceof Error && e.message === "USERS_BUILDERS_DOC_NOT_FOUND") {
+        return ApiErrors.notFound(c, "usersBuilders no encontrado");
+      }
+      throw e;
+    }
+    return c.json({ ok: true, createdUserBuilder: false });
+  }
 
   if (rawTargetPhone) {
     const phoneDigits = normalizePhoneDigits(rawTargetPhone);
@@ -851,19 +889,20 @@ export async function assignAgentToUser(
       );
     }
 
-    const existing = await firestore
+    const byPhone = await firestore
       .collection("usersBuilders")
       .where("phoneNumber", "==", phoneDigits)
-      .limit(1)
       .get();
 
-    if (!existing.empty) {
-      const { createdUserBuilder } = await assignTestingByPhoneNumber({
-        agentId,
-        phoneNumber: phoneDigits,
-        actorUserId: sessionUserId,
-      });
-      return c.json({ ok: true, createdUserBuilder });
+    if (!byPhone.empty) {
+      if (byPhone.size > 1) {
+        return ApiErrors.validation(
+          c,
+          "Hay varios usersBuilders con ese número. Elige una fila en la lista (cada una tiene su id de documento).",
+        );
+      }
+      await assignTestingToUsersBuilderDocId(byPhone.docs[0]!.id, agentId);
+      return c.json({ ok: true, createdUserBuilder: false });
     }
 
     const nb = parsed.data.newUserBuilder;
@@ -913,6 +952,12 @@ export async function assignAgentToUser(
         return ApiErrors.validation(
           c,
           "Faltan datos para crear usersBuilders (name).",
+        );
+      }
+      if (e instanceof Error && e.message === "USERS_BUILDERS_ALREADY_EXISTS") {
+        return ApiErrors.validation(
+          c,
+          "Ya existe usersBuilders con ese número; usa la búsqueda y elige el documento.",
         );
       }
       throw e;

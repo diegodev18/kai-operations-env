@@ -1689,13 +1689,18 @@ export async function assignAgentToUser(
   options?: {
     targetUserId?: string;
     targetPhoneNumber?: string;
+    targetUsersBuilderDocId?: string;
     newUserBuilder?: { name: string };
   },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   let payload: Record<string, unknown> = {};
+  const docId = options?.targetUsersBuilderDocId?.trim();
   const tid = options?.targetUserId?.trim();
   const tph = options?.targetPhoneNumber?.trim();
-  if (tph) {
+  if (docId) {
+    payload = { targetUsersBuilderDocId: docId };
+    if (tph) payload.targetPhoneNumber = tph;
+  } else if (tph) {
     payload = { targetPhoneNumber: tph };
     if (options?.newUserBuilder) {
       payload.newUserBuilder = {

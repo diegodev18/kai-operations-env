@@ -1,4 +1,4 @@
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, type QueryDocumentSnapshot } from "firebase-admin/firestore";
 
 import { getFirestore } from "@/lib/firestore";
 
@@ -91,14 +91,30 @@ export async function applyUsersBuildersTestingAssignment(
 }
 
 export type UsersBuilderSearchHit = {
+  /** ID del documento en Firestore (puede repetirse `phoneNumber` en varios docs). */
+  docId: string;
   phoneNumber: string;
   name: string;
   email: string;
   uid: string;
 };
 
+function hitFromDoc(doc: QueryDocumentSnapshot): UsersBuilderSearchHit | null {
+  const d = doc.data() as Record<string, unknown>;
+  const pn = String(d.phoneNumber ?? "").trim();
+  if (!pn) return null;
+  return {
+    docId: doc.id,
+    phoneNumber: pn,
+    name: typeof d.name === "string" ? d.name : "",
+    email: typeof d.email === "string" ? d.email : "",
+    uid: typeof d.uid === "string" ? d.uid : "",
+  };
+}
+
 /**
- * Busca en `usersBuilders` por `phoneNumber`: igualdad y prefijo (range).
+ * Busca en `usersBuilders` por `phoneNumber`: igualdad (todos los docs) y prefijo (range).
+ * Deduplica por **doc id**, no por teléfono, para listar varios perfiles con el mismo número.
  */
 export async function searchUsersBuildersByPhoneDigits(
   phoneDigits: string,
@@ -110,38 +126,23 @@ export async function searchUsersBuildersByPhoneDigits(
   const col = firestore.collection("usersBuilders");
   const dedupe = new Map<string, UsersBuilderSearchHit>();
 
-  const snapEq = await col.where("phoneNumber", "==", phoneDigits).limit(20).get();
+  const snapEq = await col.where("phoneNumber", "==", phoneDigits).limit(60).get();
   let exactMatchFound = !snapEq.empty;
   for (const doc of snapEq.docs) {
-    const d = doc.data() as Record<string, unknown>;
-    const pn = String(d.phoneNumber ?? doc.id).trim();
-    if (!pn) continue;
-    dedupe.set(pn, {
-      phoneNumber: pn,
-      name: typeof d.name === "string" ? d.name : "",
-      email: typeof d.email === "string" ? d.email : "",
-      uid: typeof d.uid === "string" ? d.uid : "",
-    });
+    const hit = hitFromDoc(doc);
+    if (hit) dedupe.set(doc.id, hit);
   }
 
   const end = `${phoneDigits}\uf8ff`;
   const snapPref = await col
     .where("phoneNumber", ">=", phoneDigits)
     .where("phoneNumber", "<=", end)
-    .limit(25)
+    .limit(40)
     .get();
   for (const doc of snapPref.docs) {
-    const d = doc.data() as Record<string, unknown>;
-    const pn = String(d.phoneNumber ?? doc.id).trim();
-    if (!pn) continue;
-    if (!dedupe.has(pn)) {
-      dedupe.set(pn, {
-        phoneNumber: pn,
-        name: typeof d.name === "string" ? d.name : "",
-        email: typeof d.email === "string" ? d.email : "",
-        uid: typeof d.uid === "string" ? d.uid : "",
-      });
-    }
+    if (dedupe.has(doc.id)) continue;
+    const hit = hitFromDoc(doc);
+    if (hit) dedupe.set(doc.id, hit);
   }
 
   return {
@@ -206,34 +207,50 @@ export function buildRichUsersBuilderCreatePayload(
   };
 }
 
+const testingAssignmentPatch = (agentId: string, nowIso: string) => ({
+  customAgentConfigId: agentId,
+  isTestingCustomAgent: true,
+  testingStartedAt: nowIso,
+  lastAgentChange: nowIso,
+  updatedAt: nowIso,
+});
+
 /**
- * Asigna testing por número: actualiza doc existente o crea uno completo con `identity`.
+ * Actualiza un `usersBuilders` concreto por id de documento (varios docs pueden compartir `phoneNumber`).
+ */
+export async function assignTestingToUsersBuilderDocId(
+  docId: string,
+  agentId: string,
+): Promise<void> {
+  const firestore = getFirestore();
+  const ref = firestore.collection("usersBuilders").doc(docId);
+  const snap = await ref.get();
+  if (!snap.exists) {
+    throw new Error("USERS_BUILDERS_DOC_NOT_FOUND");
+  }
+  const nowIso = new Date().toISOString();
+  await ref.update(testingAssignmentPatch(agentId, nowIso));
+}
+
+/**
+ * Crea `usersBuilders` con `identity` cuando no existe ningún doc con ese `phoneNumber`.
  */
 export async function assignTestingByPhoneNumber(params: {
   agentId: string;
   phoneNumber: string;
   actorUserId: string;
-  /** Obligatorio si no existe doc en usersBuilders. */
-  identity?: { name: string; email: string; uid: string };
+  identity: { name: string; email: string; uid: string };
 }): Promise<{ createdUserBuilder: boolean }> {
   const { agentId, phoneNumber, actorUserId, identity } = params;
   const firestore = getFirestore();
   const col = firestore.collection("usersBuilders");
   const snap = await col.where("phoneNumber", "==", phoneNumber).limit(1).get();
-  const nowIso = new Date().toISOString();
 
   if (!snap.empty) {
-    await snap.docs[0]!.ref.update({
-      customAgentConfigId: agentId,
-      isTestingCustomAgent: true,
-      testingStartedAt: nowIso,
-      lastAgentChange: nowIso,
-      updatedAt: nowIso,
-    });
-    return { createdUserBuilder: false };
+    throw new Error("USERS_BUILDERS_ALREADY_EXISTS");
   }
 
-  if (!identity?.name?.trim() || !identity.email?.trim()) {
+  if (!identity.name?.trim() || !identity.email?.trim()) {
     throw new Error("USERS_BUILDERS_CREATE_REQUIRES_IDENTITY");
   }
 

@@ -26,7 +26,7 @@ import {
   assignAgentToUser,
   fetchTestingAssignTargets,
 } from "@/services/agents-api";
-import type { TestingAssignTargetsResponse } from "@/types";
+import type { TestingAssignTargetRow, TestingAssignTargetsResponse } from "@/types";
 import { cn } from "@/lib/utils";
 
 const HOVER_MS = 1500;
@@ -180,20 +180,21 @@ export function AgentTestingAssignControl({
     [agentId, cancelScheduledClose, onSelfAssigned, sessionUserId],
   );
 
-  const runAssignByPhone = useCallback(
-    async (phoneNumber: string) => {
+  const runAssignToUsersBuilderRow = useCallback(
+    async (row: TestingAssignTargetRow) => {
       if (assigningRef.current) return;
       assigningRef.current = true;
       setAssigning(true);
       try {
         const result = await assignAgentToUser(agentId, {
-          targetPhoneNumber: phoneNumber,
+          targetUsersBuilderDocId: row.usersBuilderDocId,
+          targetPhoneNumber: row.phoneNumber,
         });
         if (!result.ok) {
           toast.error(result.error);
           return;
         }
-        toast.success("Agente asignado al número en usersBuilders");
+        toast.success("Agente asignado al documento en usersBuilders");
         setPopoverOpen(false);
         cancelScheduledClose();
       } catch {
@@ -247,6 +248,13 @@ export function AgentTestingAssignControl({
   ]);
 
   const searchDigits = useMemo(() => digitsOnly(search), [search]);
+  const duplicatePhoneInResults = useMemo(() => {
+    const list = targetsData?.targets ?? [];
+    if (list.length < 2) return false;
+    const phones = new Set(list.map((t) => t.phoneNumber));
+    return phones.size < list.length;
+  }, [targetsData?.targets]);
+
   const showCreateForm =
     searchDigits.length >= 10 &&
     !targetsLoading &&
@@ -339,6 +347,14 @@ export function AgentTestingAssignControl({
             autoComplete="tel"
           />
 
+          {duplicatePhoneInResults ? (
+            <p className="text-amber-600/90 dark:text-amber-400/90 px-2 text-[11px] leading-snug">
+              Varios documentos comparten el mismo{" "}
+              <code className="text-foreground">phoneNumber</code>. Elige la fila correcta
+              (cada una es un documento distinto en Firestore).
+            </p>
+          ) : null}
+
           <div className="max-h-52 overflow-y-auto overscroll-contain">
             {searchDigits.length === 0 ? (
               <p className="text-muted-foreground px-2 py-2 text-xs">
@@ -363,11 +379,11 @@ export function AgentTestingAssignControl({
             ) : (
               <ul className="flex flex-col gap-0.5">
                 {(targetsData?.targets ?? []).map((t) => (
-                  <li key={t.phoneNumber}>
+                  <li key={t.usersBuilderDocId}>
                     <button
                       type="button"
                       disabled={!t.assignable || assigning}
-                      onClick={() => void runAssignByPhone(t.phoneNumber)}
+                      onClick={() => void runAssignToUsersBuilderRow(t)}
                       className={cn(
                         "hover:bg-muted flex w-full flex-col rounded-md px-2 py-1.5 text-left text-xs transition-colors",
                         !t.assignable && "cursor-not-allowed text-muted-foreground",

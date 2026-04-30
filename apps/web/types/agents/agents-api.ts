@@ -5,6 +5,8 @@ export type AgentGrowerRow = { email: string; name: string };
 export type AgentTechLeadRow = { email: string; name: string };
 
 export type TestingAssignTargetRow = {
+  /** ID del documento en `usersBuilders` (único por fila; varios docs pueden tener el mismo `phoneNumber`). */
+  usersBuilderDocId: string;
   phoneNumber: string;
   name: string;
   email: string;

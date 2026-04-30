@@ -7,6 +7,7 @@ export {
 export {
   applyUsersBuildersTestingAssignment,
   assignTestingByPhoneNumber,
+  assignTestingToUsersBuilderDocId,
   buildRichUsersBuilderCreatePayload,
   collectAgentStakeholderEmails,
   normalizePhoneDigits,
