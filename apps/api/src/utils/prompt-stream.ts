@@ -77,11 +77,29 @@ export async function processPromptStream(
   chunks: AsyncIterable<unknown>,
   modelId: string,
 ): Promise<void> {
+  let cancelled = false;
+  const signal = (controller as { signal?: AbortSignal }).signal;
+  signal?.addEventListener("abort", () => {
+    cancelled = true;
+  });
+
+  const safeEnqueue = (data: Uint8Array): boolean => {
+    if (cancelled) return false;
+    try {
+      controller.enqueue(data);
+      return true;
+    } catch {
+      cancelled = true;
+      return false;
+    }
+  };
+
   try {
     let fullText = "";
     let chatSentUpTo = 0;
 
     for await (const chunk of chunks) {
+      if (cancelled) return;
       const text = (chunk as { text?: string }).text ?? "";
       fullText += text;
 
@@ -96,11 +114,15 @@ export async function processPromptStream(
           const startFrom = Math.max(chatSentUpTo, answerStart);
           const toSend = fullText.slice(startFrom);
           if (toSend.length > 0) {
-            controller.enqueue(
-              encoder.encode(
-                JSON.stringify({ t: "chunk", text: toSend }) + "\n",
-              ),
-            );
+            if (
+              !safeEnqueue(
+                encoder.encode(
+                  JSON.stringify({ t: "chunk", text: toSend }) + "\n",
+                ),
+              )
+            ) {
+              return;
+            }
           }
           chatSentUpTo = fullText.length;
         } else if (sepIdx === -1) {
@@ -111,11 +133,15 @@ export async function processPromptStream(
             else toSend = toSend.replace(SUMMARY_PREFIX_REGEX, "").trimStart();
           }
           if (toSend.length > 0) {
-            controller.enqueue(
-              encoder.encode(
-                JSON.stringify({ t: "chunk", text: toSend }) + "\n",
-              ),
-            );
+            if (
+              !safeEnqueue(
+                encoder.encode(
+                  JSON.stringify({ t: "chunk", text: toSend }) + "\n",
+                ),
+              )
+            ) {
+              return;
+            }
             chatSentUpTo = fullText.length;
           }
         } else {
@@ -124,11 +150,15 @@ export async function processPromptStream(
             toSend = toSend.replace(SUMMARY_PREFIX_REGEX, "").trimStart();
           }
           if (toSend.length > 0) {
-            controller.enqueue(
-              encoder.encode(
-                JSON.stringify({ t: "chunk", text: toSend }) + "\n",
-              ),
-            );
+            if (
+              !safeEnqueue(
+                encoder.encode(
+                  JSON.stringify({ t: "chunk", text: toSend }) + "\n",
+                ),
+              )
+            ) {
+              return;
+            }
           }
           chatSentUpTo = fullText.length;
         }
@@ -140,21 +170,25 @@ export async function processPromptStream(
           sepIdxForChunk + PROMPT_SEPARATOR.length,
         );
         if (promptSoFar.length > 0) {
-          controller.enqueue(
-            encoder.encode(
-              JSON.stringify({ prompt: promptSoFar, t: "prompt_chunk" }) + "\n",
-            ),
-          );
+          if (
+            !safeEnqueue(
+              encoder.encode(
+                JSON.stringify({ prompt: promptSoFar, t: "prompt_chunk" }) +
+                  "\n",
+              ),
+            )
+          ) {
+            return;
+          }
         }
       }
     }
 
+    if (cancelled) return;
     const multiPrompts = parseMultiBlockPrompts(fullText);
     if (multiPrompts && Object.keys(multiPrompts).length > 0) {
-      controller.enqueue(
-        encoder.encode(
-          JSON.stringify({ prompts: multiPrompts, t: "done" }) + "\n",
-        ),
+      safeEnqueue(
+        encoder.encode(JSON.stringify({ prompts: multiPrompts, t: "done" }) + "\n"),
       );
     } else {
       const sepIdx = fullText.indexOf(PROMPT_SEPARATOR);
@@ -163,10 +197,8 @@ export async function processPromptStream(
           ? fullText.slice(sepIdx + PROMPT_SEPARATOR.length).trim()
           : "";
       const target = parseTargetFromResponse(fullText);
-      controller.enqueue(
-        encoder.encode(
-          JSON.stringify({ prompt, t: "done", target }) + "\n",
-        ),
+      safeEnqueue(
+        encoder.encode(JSON.stringify({ prompt, t: "done", target }) + "\n"),
       );
     }
   } catch (err) {
@@ -174,10 +206,12 @@ export async function processPromptStream(
       error: formatError(err),
       modelId,
     });
-    controller.enqueue(
-      encoder.encode(
-        JSON.stringify({ err: streamErrorMessage(err), t: "error" }) + "\n",
-      ),
-    );
+    if (!cancelled) {
+      safeEnqueue(
+        encoder.encode(
+          JSON.stringify({ err: streamErrorMessage(err), t: "error" }) + "\n",
+        ),
+      );
+    }
   }
 }
