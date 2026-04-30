@@ -100,7 +100,7 @@ export function AgentTestingAssignControl({
           const data = await fetchTestingAssignTargets(agentId, search);
           setTargetsData(data);
           if (!data) {
-            toast.error("No se pudo buscar en usersBuilders");
+            toast.error("No se pudo completar la búsqueda");
           }
         } finally {
           setTargetsLoading(false);
@@ -194,7 +194,7 @@ export function AgentTestingAssignControl({
           toast.error(result.error);
           return;
         }
-        toast.success("Agente asignado al documento en usersBuilders");
+        toast.success("Agente asignado correctamente");
         setPopoverOpen(false);
         cancelScheduledClose();
       } catch {
@@ -231,7 +231,7 @@ export function AgentTestingAssignControl({
         toast.error(result.error);
         return;
       }
-      toast.success("usersBuilders creado y agente asignado a testing");
+      toast.success("Perfil creado y agente asignado");
       setPopoverOpen(false);
       cancelScheduledClose();
     } catch {
@@ -328,12 +328,10 @@ export function AgentTestingAssignControl({
         }}
       >
         <PopoverHeader className="border-b px-3 py-2">
-          <PopoverTitle className="text-sm">
-            Asignar agente a testing (usersBuilders)
-          </PopoverTitle>
+          <PopoverTitle className="text-sm">Asignar agente a testing</PopoverTitle>
           <p className="text-muted-foreground text-xs font-normal">
-            Busca por <code className="text-foreground">phoneNumber</code> en
-            Firestore. Si no hay documento, completa los datos para crearlo.
+            Busca por número de teléfono. Si no aparece nadie, puedes crear un perfil con
+            nombre y asignarle el agente.
           </p>
         </PopoverHeader>
 
@@ -349,32 +347,27 @@ export function AgentTestingAssignControl({
 
           {duplicatePhoneInResults ? (
             <p className="text-amber-600/90 dark:text-amber-400/90 px-2 text-[11px] leading-snug">
-              Varios documentos comparten el mismo{" "}
-              <code className="text-foreground">phoneNumber</code>. Elige la fila correcta
-              (cada una es un documento distinto en Firestore).
+              Hay varias personas con el mismo número. Elige la fila que corresponda.
             </p>
           ) : null}
 
           <div className="max-h-52 overflow-y-auto overscroll-contain">
             {searchDigits.length === 0 ? (
               <p className="text-muted-foreground px-2 py-2 text-xs">
-                Escribe dígitos del teléfono para consultar{" "}
-                <code className="text-foreground">usersBuilders</code> por{" "}
-                <code className="text-foreground">phoneNumber</code>.
+                Escribe el teléfono (solo números) para buscar coincidencias.
               </p>
             ) : targetsLoading ? (
               <div className="text-muted-foreground flex items-center gap-2 px-2 py-4 text-xs">
                 <Loader2Icon className="size-3.5 shrink-0 animate-spin" />
-                Buscando en usersBuilders…
+                Buscando…
               </div>
             ) : searchDigits.length < 3 ? (
               <p className="text-muted-foreground px-2 py-2 text-xs">
-                Escribe al menos 3 dígitos para buscar por{" "}
-                <code className="text-foreground">phoneNumber</code>.
+                Escribe al menos 3 dígitos para iniciar la búsqueda.
               </p>
             ) : targetsData != null && targetsData.targets.length === 0 ? (
               <p className="text-muted-foreground px-2 py-2 text-xs">
-                Sin coincidencias para ese prefijo o número.
+                No hay coincidencias con ese número o prefijo.
               </p>
             ) : (
               <ul className="flex flex-col gap-0.5">
@@ -406,13 +399,9 @@ export function AgentTestingAssignControl({
           {showCreateForm ? (
             <div className="border-t bg-muted/30 space-y-2 p-2">
               <p className="text-xs font-medium">
-                No existe usersBuilders para{" "}
-                <span className="font-mono">{searchDigits}</span>. El correo será{" "}
-                <span className="font-mono text-foreground">
-                  {searchDigits}@userBuilder.com
-                </span>
-                . El <code className="text-foreground">uid</code> se elige por
-                teléfono en la app o UUID.
+                No hay nadie registrado con el número{" "}
+                <span className="font-mono">{searchDigits}</span>. Indica el nombre para
+                crear un perfil de prueba; el correo se generará automáticamente.
               </p>
               <div className="space-y-1.5">
                 <Label htmlFor="ub-create-name" className="text-xs">
@@ -433,7 +422,7 @@ export function AgentTestingAssignControl({
                 disabled={assigning}
                 onClick={() => void runCreateAndAssign()}
               >
-                Crear usersBuilders y asignar
+                Crear perfil y asignar
               </Button>
             </div>
           ) : null}
