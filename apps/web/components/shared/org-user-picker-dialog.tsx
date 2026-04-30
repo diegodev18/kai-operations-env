@@ -1,8 +1,6 @@
 "use client";
 
-import { useState } from "react";
 import { Loader2Icon } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -38,21 +36,15 @@ export function OrgUserPickerDialog({
   onOpenChange: (open: boolean) => void;
   title: string;
   description?: string;
-  users: any[];
+  users: OrgUser[];
   isLoading: boolean;
-  checkIsAssigned: (user: any) => boolean;
-  onAdd: (user: any) => void | Promise<void>;
-  onRemove: (user: any) => void | Promise<void>;
+  checkIsAssigned: (user: OrgUser) => boolean;
+  onAdd: (user: OrgUser) => void | Promise<void>;
+  onRemove: (user: OrgUser) => void | Promise<void>;
   addingUserId?: string | null;
-  renderUserMeta?: (user: any) => ReactNode;
+  renderUserMeta?: (user: OrgUser) => ReactNode;
 }) {
-  const [search, setSearch] = useState("");
-
-  const filteredUsers = users.filter(
-    (u) =>
-      u.email.toLowerCase().includes(search.toLowerCase()) ||
-      (u.name && u.name.toLowerCase().includes(search.toLowerCase())),
-  );
+  const filteredUsers = users;
 
   const handleToggle = async (user: OrgUser) => {
     if (checkIsAssigned(user)) {

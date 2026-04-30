@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useRef, type RefObject } from "react";
-import ReactMarkdown from "react-markdown";
+import React, { type RefObject } from "react";
+import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,21 +58,23 @@ const FIX_CONTRADICTIONS =
   "Revisa este prompt y corrige contradicciones, ambiguedades y conflictos entre instrucciones. Devuelve una version consolidada y coherente, manteniendo la intencion original.";
 const MAX_CHAT_IMAGES = 4;
 
-const chatMarkdownComponents = {
-  a: ({ node, ...props }: any) => <a {...props} />,
-  h1: ({ node, ...props }: any) => <h1 {...props} />,
-  h2: ({ node, ...props }: any) => <h2 {...props} />,
-  h3: ({ node, ...props }: any) => <h3 {...props} />,
-  code: ({ node, inline, ...props }: any) =>
-    inline ? (
+const chatMarkdownComponents: Components = {
+  a: ({ ...props }) => <a {...props} />,
+  h1: ({ ...props }) => <h1 {...props} />,
+  h2: ({ ...props }) => <h2 {...props} />,
+  h3: ({ ...props }) => <h3 {...props} />,
+  code: ({ className, children, ...props }) =>
+    !className?.includes("language-") ? (
       <code className="bg-muted px-1 rounded text-xs" {...props} />
     ) : (
-      <code className="block bg-muted p-1 rounded text-xs overflow-x-auto" {...props} />
+      <code className="block bg-muted p-1 rounded text-xs overflow-x-auto" {...props}>
+        {children}
+      </code>
     ),
-  ol: ({ node, ...props }: any) => (
+  ol: ({ ...props }) => (
     <ol className="list-decimal list-inside" {...props} />
   ),
-  ul: ({ node, ...props }: any) => (
+  ul: ({ ...props }) => (
     <ul className="list-disc list-inside" {...props} />
   ),
 };
@@ -89,10 +91,10 @@ export interface PromptChatPanelProps {
   pendingPdf: PendingPdf | null;
   setPendingPdf: (value: PendingPdf | null) => void;
   isDraggingOverChat: boolean;
-  handleChatDragOver: (e: React.DragEvent<any>) => void;
-  handleChatDrop: (e: React.DragEvent<any>) => void;
-  handleChatDragEnter: (e: React.DragEvent<any>) => void;
-  handleChatDragLeave: (e: React.DragEvent<any>) => void;
+  handleChatDragOver: (e: React.DragEvent<HTMLElement>) => void;
+  handleChatDrop: (e: React.DragEvent<HTMLElement>) => void;
+  handleChatDragEnter: (e: React.DragEvent<HTMLElement>) => void;
+  handleChatDragLeave: (e: React.DragEvent<HTMLElement>) => void;
   chatWidth: number;
   setChatWidth: (value: number) => void;
   promptModel: PromptModelId;
@@ -125,7 +127,6 @@ export function PromptChatPanel({
   chatWidth,
   setChatWidth,
   promptModel,
-  setPromptModel,
   promptMode,
   setPromptMode,
   reset,

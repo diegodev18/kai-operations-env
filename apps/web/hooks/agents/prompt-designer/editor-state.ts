@@ -8,8 +8,26 @@ function normalizePrompt(value: string | undefined): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+type PromptAuthBlock = {
+  auth?: string;
+  unauth?: string;
+};
+
+type PromptBlock = {
+  base?: string;
+  auth?: PromptAuthBlock;
+};
+
+type PromptProperties = {
+  prompt?: PromptBlock;
+};
+
+type ProductionPromptSnapshot = {
+  prompt?: string;
+  auth?: PromptAuthBlock;
+} | null;
+
 export function usePromptDesignerEditorState({
-  agentId,
   agent,
   propertiesData,
   testingPropertiesData,
@@ -18,20 +36,18 @@ export function usePromptDesignerEditorState({
   propertiesLoading,
   testingPropertiesLoading,
   resetChat,
-  loadingProductionPrompt,
   productionPrompt,
 }: {
-  agentId: string;
   agent: { prompt?: string; inCommercial?: boolean } | null;
-  propertiesData: any;
-  testingPropertiesData: any;
-  effectiveProperties: any;
+  propertiesData: PromptProperties | null;
+  testingPropertiesData: PromptProperties | null;
+  effectiveProperties: PromptProperties | null;
   isAuthEnabled: boolean;
   propertiesLoading: boolean;
   testingPropertiesLoading: boolean;
   resetChat: () => void;
   loadingProductionPrompt: boolean;
-  productionPrompt: any;
+  productionPrompt: ProductionPromptSnapshot;
 }) {
   const [savedPrompt, setSavedPrompt] = useState("");
   const [editingPrompt, setEditingPrompt] = useState("");
@@ -136,7 +152,7 @@ export function usePromptDesignerEditorState({
       clearSuggestion,
     }: {
       hasMulti: boolean;
-      suggestedPrompts: any;
+      suggestedPrompts: Partial<Record<"base" | "auth" | "unauth", string>> | null;
       suggestedPrompt: string | null | undefined;
       suggestedTarget: Array<"base" | "auth" | "unauth"> | undefined;
       primaryTarget: "base" | "auth" | "unauth";

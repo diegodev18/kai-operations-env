@@ -11,6 +11,28 @@ function normalizePrompt(value: string | undefined): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+type PromptAuthBlock = {
+  auth?: string;
+  unauth?: string;
+};
+
+type PromptBlock = {
+  base?: string;
+  auth?: PromptAuthBlock;
+  isMultiFunctionCallingEnable?: boolean;
+  model?: string;
+  temperature?: number | string | null;
+};
+
+type PromptProperties = {
+  prompt?: PromptBlock;
+} | null;
+
+type ProductionPromptSnapshot = {
+  prompt?: string;
+  auth?: PromptAuthBlock;
+} | null;
+
 export function usePromptDesignerSync({
   agentId,
   agent,
@@ -37,16 +59,16 @@ export function usePromptDesignerSync({
   setBaseMarkdownRemount,
 }: {
   agentId: string;
-  agent: any;
-  testingPropertiesData: any;
-  productionPrompt: any;
+  agent: { prompt?: string } | null;
+  testingPropertiesData: PromptProperties;
+  productionPrompt: ProductionPromptSnapshot;
   propertiesLoading: boolean;
   testingPropertiesLoading: boolean;
   loadingProductionPrompt: boolean;
-  effectiveProperties: any;
+  effectiveProperties: PromptProperties;
   isAuthEnabled: boolean;
-  refetchTestingProperties: (opts?: { silent?: boolean }) => Promise<any> | void;
-  refetchProductionPrompt: () => Promise<any> | void;
+  refetchTestingProperties: (opts?: { silent?: boolean }) => Promise<unknown> | void;
+  refetchProductionPrompt: () => Promise<unknown> | void;
   savedPrompt: string;
   savedAuthPrompt: string;
   savedUnauthPrompt: string;
