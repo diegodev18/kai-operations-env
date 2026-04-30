@@ -26,7 +26,7 @@ function walletRef() {
   return getFirestore()
     .collection(BACKOFFICE)
     .doc(BON_DOC)
-    .collection("admin-wallet")
+    .collection("adminWallet")
     .doc("singleton");
 }
 
@@ -34,7 +34,7 @@ function userBalanceRef(userId: string) {
   return getFirestore()
     .collection(BACKOFFICE)
     .doc(BON_DOC)
-    .collection("user-balances")
+    .collection("userBalances")
     .doc(userId);
 }
 
@@ -355,7 +355,7 @@ bonusesRouter.get("/admin/balances", async (c) => {
     const snap = await getFirestore()
       .collection(BACKOFFICE)
       .doc(BON_DOC)
-      .collection("user-balances")
+      .collection("userBalances")
       .get();
 
     const balances = snap.docs.map((d) => {

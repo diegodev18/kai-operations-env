@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import confetti from "canvas-confetti";
 import { GiftIcon } from "lucide-react";
 import {
   Dialog,
@@ -83,6 +84,12 @@ export function SendTipDialog({
 
     if (res.ok) {
       toast.success(`Propina de $${amount} MXN enviada a ${recipient.name}.`);
+      void confetti({
+        particleCount: 120,
+        spread: 80,
+        origin: { y: 0.6 },
+        colors: ["#10b981", "#34d399", "#6ee7b7", "#fbbf24", "#f472b6"],
+      });
       reset();
       onOpenChange(false);
     } else {
