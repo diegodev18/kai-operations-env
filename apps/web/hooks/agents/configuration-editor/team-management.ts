@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { OrganizationUser } from "@/services/organization-api";
+import type { OrgUser } from "@/components/shared";
 import { fetchOrganizationMe, fetchOrganizationUsers } from "@/services/organization-api";
 import {
   type AgentGrowerRow,
@@ -23,7 +23,7 @@ export function useConfigurationEditorTeamManagement({
   isGrowersDialogOpen: boolean;
   isTechLeadsDialogOpen: boolean;
 }) {
-  const [orgUsers, setOrgUsers] = useState<OrganizationUser[]>([]);
+  const [orgUsers, setOrgUsers] = useState<OrgUser[]>([]);
   const [dialogGrowers, setDialogGrowers] = useState<AgentGrowerRow[]>([]);
   const [orgUsersLoading, setOrgUsersLoading] = useState(false);
   const [dialogGrowersLoading, setDialogGrowersLoading] = useState(false);
@@ -164,10 +164,10 @@ export function useConfigurationEditorTeamManagement({
   }, [dialogTechLeads]);
 
   const checkIsGrower = useCallback(
-    (u: OrganizationUser) => {
+    (u: OrgUser) => {
       const email = u.email.trim().toLowerCase();
       if (growersByEmail.has(email)) return true;
-      const name = u.name.trim().toLowerCase();
+      const name = (u.name ?? "").trim().toLowerCase();
       if (!name) return false;
       for (const g of growersByEmail.values()) {
         if (g.name.trim().toLowerCase() === name) return true;
@@ -178,10 +178,10 @@ export function useConfigurationEditorTeamManagement({
   );
 
   const checkIsTechLead = useCallback(
-    (u: OrganizationUser) => {
+    (u: OrgUser) => {
       const email = u.email.trim().toLowerCase();
       if (techLeadsByEmail.has(email)) return true;
-      const name = u.name.trim().toLowerCase();
+      const name = (u.name ?? "").trim().toLowerCase();
       if (!name) return false;
       for (const tl of techLeadsByEmail.values()) {
         if (tl.name.trim().toLowerCase() === name) return true;
@@ -192,12 +192,12 @@ export function useConfigurationEditorTeamManagement({
   );
 
   const addGrower = useCallback(
-    async (orgUser: OrganizationUser): Promise<AssignResult> => {
+    async (orgUser: OrgUser): Promise<AssignResult> => {
       if (!agentId || checkIsGrower(orgUser)) return { ok: true };
       const emailNorm = orgUser.email.trim().toLowerCase();
       setAddingGrowerUserId(orgUser.id);
       try {
-        const displayName = orgUser.name.trim() || orgUser.email.trim();
+        const displayName = (orgUser.name ?? "").trim() || orgUser.email.trim();
         const result = await postAgentGrower(agentId, {
           email: orgUser.email.trim(),
           name: displayName,
@@ -218,7 +218,7 @@ export function useConfigurationEditorTeamManagement({
   );
 
   const removeGrower = useCallback(
-    async (orgUser: OrganizationUser): Promise<AssignResult> => {
+    async (orgUser: OrgUser): Promise<AssignResult> => {
       if (!agentId || !checkIsGrower(orgUser)) return { ok: true };
       const emailNorm = orgUser.email.trim().toLowerCase();
       setAddingGrowerUserId(orgUser.id);
@@ -239,12 +239,12 @@ export function useConfigurationEditorTeamManagement({
   );
 
   const addTechLead = useCallback(
-    async (orgUser: OrganizationUser): Promise<AssignResult> => {
+    async (orgUser: OrgUser): Promise<AssignResult> => {
       if (!agentId || checkIsTechLead(orgUser)) return { ok: true };
       const emailNorm = orgUser.email.trim().toLowerCase();
       setAddingTechLeadUserId(orgUser.id);
       try {
-        const displayName = orgUser.name.trim() || orgUser.email.trim();
+        const displayName = (orgUser.name ?? "").trim() || orgUser.email.trim();
         const result = await postAgentTechLead(agentId, {
           email: orgUser.email.trim(),
           name: displayName,
@@ -265,7 +265,7 @@ export function useConfigurationEditorTeamManagement({
   );
 
   const removeTechLead = useCallback(
-    async (orgUser: OrganizationUser): Promise<AssignResult> => {
+    async (orgUser: OrgUser): Promise<AssignResult> => {
       if (!agentId || !checkIsTechLead(orgUser)) return { ok: true };
       const emailNorm = orgUser.email.trim().toLowerCase();
       setAddingTechLeadUserId(orgUser.id);

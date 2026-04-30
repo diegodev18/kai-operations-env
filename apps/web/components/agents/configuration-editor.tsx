@@ -393,7 +393,7 @@ export function AgentConfigurationEditor({
         return;
       }
       toast.success(
-        `${orgUser.name.trim() || orgUser.email.trim()} agregado como grower`,
+        `${(orgUser.name ?? "").trim() || orgUser.email.trim()} agregado como grower`,
       );
     },
     [addGrower],
@@ -419,7 +419,7 @@ export function AgentConfigurationEditor({
         return;
       }
       toast.success(
-        `${orgUser.name.trim() || orgUser.email.trim()} agregado como tech lead`,
+        `${(orgUser.name ?? "").trim() || orgUser.email.trim()} agregado como tech lead`,
       );
     },
     [addTechLead],
