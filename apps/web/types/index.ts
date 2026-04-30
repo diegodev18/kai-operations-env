@@ -18,6 +18,7 @@ export type {
 } from "./dynamic-table-schema";
 export { DYNAMIC_TABLE_FIELD_TYPES } from "./dynamic-table-schema";
 export * from "./crm";
+export * from "./bonificaciones";
 export * from "./parameter-schema/editor";
 export { EMPTY_SCHEMA, SCHEMA_TYPES } from "@/consts/parameter-schema";
 export type { SchemaType } from "@/consts/parameter-schema";

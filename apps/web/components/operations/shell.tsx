@@ -7,6 +7,7 @@ import {
   BriefcaseIcon,
   BuildingIcon,
   ChevronDownIcon,
+  GiftIcon,
   CopyIcon,
   FolderOpenIcon,
   LayoutDashboardIcon,
@@ -194,6 +195,18 @@ export function OperationsShell(props: {
             >
               <ListTodoIcon className="size-4" />
               Panel global
+            </Link>
+            <div className="my-2 border-t" />
+            <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Bonificaciones
+            </div>
+            <Link
+              href="/bonuses"
+              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+              onClick={() => setMenuOpen(false)}
+            >
+              <GiftIcon className="size-4" />
+              Propinas
             </Link>
             {(isAdmin || isCommercial) && (
               <>

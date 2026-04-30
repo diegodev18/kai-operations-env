@@ -128,6 +128,7 @@ export async function listUsersForOrganization() {
       email: user.email,
       phone: user.phone,
       role: user.role,
+      image: user.image,
       createdAt: user.createdAt,
     })
     .from(user)

@@ -60,6 +60,10 @@ const nextConfig: NextConfig = {
         source: "/api/crm/:path*",
         destination: `${API_INTERNAL_URL}/api/crm/:path*`,
       },
+      {
+        source: "/api/bonuses/:path*",
+        destination: `${API_INTERNAL_URL}/api/bonuses/:path*`,
+      },
     ];
   },
 };
