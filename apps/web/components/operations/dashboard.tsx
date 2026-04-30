@@ -701,14 +701,6 @@ export function OperationsDashboard(props: {
             </SheetHeader>
             <nav className="mt-4 flex flex-col gap-1 px-2 pb-6">
               <Link
-                href="/tasks"
-                className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-                onClick={() => setMenuOpen(false)}
-              >
-                <ListTodoIcon className="size-4" />
-                Tareas
-              </Link>
-              <Link
                 href={`/agents/new?mode=${defaultBuilderMode}`}
                 className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
                 onClick={() => setMenuOpen(false)}
@@ -732,6 +724,18 @@ export function OperationsDashboard(props: {
               >
                 <MegaphoneIcon className="size-4" />
                 Actualidad
+              </Link>
+              <div className="my-2 border-t" />
+              <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Tareas
+              </div>
+              <Link
+                href="/tasks"
+                className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                onClick={() => setMenuOpen(false)}
+              >
+                <ListTodoIcon className="size-4" />
+                Panel global
               </Link>
               {(isAdmin || isCommercial) && (
                 <>
