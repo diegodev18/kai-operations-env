@@ -9,6 +9,7 @@ import type {
   AgentTechLeadRow,
   ImplementationTask,
   ImplementationTaskStatus,
+  ImplementationTaskPriority,
   ImplementationTaskAttachment,
   ImplementationActivityEntry,
   ToolsCatalogItem,
@@ -1423,6 +1424,8 @@ export async function createImplementationTask(
     dueDate?: string | null;
     assigneeEmails?: string[];
     attachments?: ImplementationTaskAttachment[];
+    priority?: ImplementationTaskPriority;
+    parentTaskId?: string | null;
   },
 ): Promise<
   { ok: true; task: ImplementationTask } | { ok: false; error: string }
@@ -1457,12 +1460,16 @@ export async function patchImplementationTask(
   agentId: string,
   taskId: string,
   body: {
+    title?: string;
     status?: ImplementationTaskStatus;
+    priority?: ImplementationTaskPriority;
+    description?: string;
     dueDate?: string | null;
     assigneeEmails?: string[];
     attachments?: ImplementationTaskAttachment[];
     representativeEmail?: string | null;
     representativePhone?: string | null;
+    parentTaskId?: string | null;
   },
 ): Promise<
   { ok: true; task: ImplementationTask } | { ok: false; error: string }
@@ -1495,10 +1502,12 @@ export async function patchImplementationTask(
 
 export async function fetchImplementationActivity(
   agentId: string,
+  taskId?: string,
 ): Promise<{ entries: ImplementationActivityEntry[] } | null> {
-  const res = await fetch(
-    `/api/agents/${encodeURIComponent(agentId)}/implementation-activity`,
-    {
+  const url = taskId
+    ? `/api/agents/${encodeURIComponent(agentId)}/implementation-activity?taskId=${encodeURIComponent(taskId)}`
+    : `/api/agents/${encodeURIComponent(agentId)}/implementation-activity`;
+  const res = await fetch(url, {
       credentials: "include",
       cache: "no-store",
     },
@@ -1514,6 +1523,7 @@ export async function fetchImplementationActivity(
 export async function createImplementationActivityComment(
   agentId: string,
   bodyHtml: string,
+  taskId?: string,
 ): Promise<
   | { ok: true; entry: ImplementationActivityEntry }
   | { ok: false; error: string }
@@ -1524,7 +1534,7 @@ export async function createImplementationActivityComment(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ bodyHtml }),
+      body: JSON.stringify({ bodyHtml, ...(taskId ? { taskId } : {}) }),
     },
   );
   let data: { entry?: ImplementationActivityEntry; error?: string } = {};

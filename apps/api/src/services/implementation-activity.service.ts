@@ -18,7 +18,13 @@ export type ImplementationActivityAction =
   | "tool_updated"
   | "billing_config_updated"
   | "promoted_to_production"
-  | "lifecycle_updated";
+  | "lifecycle_updated"
+  | "task_status_changed"
+  | "task_priority_changed"
+  | "task_due_date_changed"
+  | "task_assignees_changed"
+  | "task_description_changed"
+  | "task_title_changed";
 
 const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
   allowedTags: [
@@ -111,6 +117,7 @@ type SystemEntryInput = {
   actorEmail: string | null;
   action: ImplementationActivityAction;
   summary: string;
+  taskId?: string;
   metadata?: Record<string, unknown>;
 };
 
@@ -129,6 +136,7 @@ export async function appendImplementationActivityEntry(
       action: input.action,
       summary: input.summary.slice(0, 2000),
       createdAt: FieldValue.serverTimestamp(),
+      ...(input.taskId ? { taskId: input.taskId } : {}),
     };
     if (input.metadata && Object.keys(input.metadata).length > 0) {
       payload.metadata = input.metadata;

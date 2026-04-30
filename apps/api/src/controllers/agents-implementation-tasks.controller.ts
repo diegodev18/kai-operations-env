@@ -7,6 +7,7 @@ import {
 
 import type { AgentsInfoAuthContext } from "@/types/agents-types";
 import { resolveAgentWriteDatabase, userCanAccessAgent } from "@/utils/agents";
+import { appendImplementationActivityEntry } from "@/services/implementation-activity.service";
 import {
   extractFirestoreIndexUrl,
   firestoreFailureHint,
@@ -14,7 +15,30 @@ import {
 } from "@/utils/firestore/errors";
 import { isValidEmail } from "@/utils/validation";
 
-type ImplementationTaskStatus = "pending" | "completed";
+type ImplementationTaskStatus =
+  | "pending"
+  | "backlog"
+  | "todo"
+  | "in_progress"
+  | "in_review"
+  | "testing"
+  | "completed"
+  | "blocked"
+  | "cancelled";
+
+type ImplementationTaskPriority = "urgent" | "high" | "medium" | "low" | "none";
+
+const VALID_STATUSES = new Set<ImplementationTaskStatus>([
+  "pending",
+  "backlog",
+  "todo",
+  "in_progress",
+  "in_review",
+  "testing",
+  "completed",
+  "blocked",
+  "cancelled",
+]);
 
 type ImplementationTaskType =
   | "connect-number"
@@ -35,6 +59,9 @@ type ImplementationTaskRow = {
   title: string;
   description?: string;
   status: ImplementationTaskStatus;
+  priority?: ImplementationTaskPriority;
+  publicId?: number;
+  parentTaskId?: string | null;
   dueDate?: string | null;
   assigneeEmails: string[];
   createdByEmail?: string;
@@ -95,6 +122,28 @@ function getTaskItemsCollection(db: Firestore, agentId: string) {
     .collection("implementation")
     .doc("tasks")
     .collection("items");
+}
+
+function getMetaDocRef(db: Firestore, agentId: string) {
+  return db
+    .collection("agent_configurations")
+    .doc(agentId)
+    .collection("implementation")
+    .doc("meta");
+}
+
+async function getNextPublicId(db: Firestore, agentId: string): Promise<number> {
+  const metaRef = getMetaDocRef(db, agentId);
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(metaRef);
+    const current =
+      snap.exists && typeof (snap.data() as Record<string, unknown>)?.taskCounter === "number"
+        ? ((snap.data() as Record<string, unknown>).taskCounter as number)
+        : 0;
+    const next = current + 1;
+    tx.set(metaRef, { taskCounter: next }, { merge: true });
+    return next;
+  });
 }
 
 function normalizeAssigneeEmails(input: unknown): string[] | null {
@@ -176,8 +225,22 @@ function toIsoOrNull(value: unknown): string | null {
 function mapTaskDoc(doc: QueryDocumentSnapshot): ImplementationTaskRow {
   const data = doc.data() as Record<string, unknown>;
   const assigneeEmails = normalizeAssigneeEmails(data.assigneeEmails) ?? [];
-  const status: ImplementationTaskStatus =
-    data.status === "completed" ? "completed" : "pending";
+  const rawStatus = typeof data.status === "string" ? data.status : "todo";
+  const status: ImplementationTaskStatus = VALID_STATUSES.has(rawStatus as ImplementationTaskStatus)
+    ? (rawStatus === "pending" ? "todo" : (rawStatus as ImplementationTaskStatus))
+    : "todo";
+
+  const VALID_PRIORITIES = new Set<ImplementationTaskPriority>(["urgent", "high", "medium", "low", "none"]);
+  const rawPriority = typeof data.priority === "string" ? data.priority : "none";
+  const priority: ImplementationTaskPriority = VALID_PRIORITIES.has(rawPriority as ImplementationTaskPriority)
+    ? (rawPriority as ImplementationTaskPriority)
+    : "none";
+
+  const publicId = typeof data.publicId === "number" ? data.publicId : undefined;
+  const parentTaskId =
+    typeof data.parentTaskId === "string" ? data.parentTaskId
+    : data.parentTaskId === null ? null
+    : undefined;
 
   const attachmentsRaw = data.attachments;
   let attachments: ImplementationTaskAttachment[] | undefined;
@@ -210,6 +273,9 @@ function mapTaskDoc(doc: QueryDocumentSnapshot): ImplementationTaskRow {
     title: typeof data.title === "string" ? data.title : "",
     description: typeof data.description === "string" ? data.description : undefined,
     status,
+    priority,
+    ...(publicId !== undefined ? { publicId } : {}),
+    ...(parentTaskId !== undefined ? { parentTaskId } : {}),
     dueDate: typeof data.dueDate === "string" ? data.dueDate : null,
     assigneeEmails,
     createdByEmail:
@@ -296,7 +362,8 @@ export async function getImplementationTasks(
         id: mt.id,
         title: mt.title,
         description: mt.description,
-        status: "pending" as ImplementationTaskStatus,
+        status: "todo" as ImplementationTaskStatus,
+        priority: "high" as ImplementationTaskPriority,
         dueDate: null,
         assigneeEmails: [],
         createdByEmail: null,
@@ -367,6 +434,8 @@ export async function createImplementationTask(
   const dueDateRaw = (body as { dueDate?: unknown }).dueDate;
   const assigneeEmailsRaw = (body as { assigneeEmails?: unknown }).assigneeEmails;
   const attachmentsRaw = (body as { attachments?: unknown }).attachments;
+  const priorityRaw = (body as { priority?: unknown }).priority;
+  const parentTaskIdRaw = (body as { parentTaskId?: unknown }).parentTaskId;
 
   const title = typeof titleRaw === "string" ? titleRaw.trim() : "";
   if (!title) return c.json({ error: "title es obligatorio" }, 400);
@@ -392,24 +461,39 @@ export async function createImplementationTask(
     return c.json({ error: "attachments debe ser un array de objetos válidos" }, 400);
   }
 
+  const VALID_PRIORITIES_SET = new Set(["urgent", "high", "medium", "low", "none"]);
+  const priority: ImplementationTaskPriority =
+    typeof priorityRaw === "string" && VALID_PRIORITIES_SET.has(priorityRaw)
+      ? (priorityRaw as ImplementationTaskPriority)
+      : "none";
+
+  const parentTaskId =
+    parentTaskIdRaw === null ? null
+    : typeof parentTaskIdRaw === "string" && parentTaskIdRaw.length > 0
+      ? parentTaskIdRaw
+      : undefined;
+
   try {
     const { db, hasTestingData, inProduction } =
       await resolveAgentWriteDatabase(agentId);
     if (!hasTestingData && !inProduction) {
       return c.json({ error: "Agente no encontrado" }, 404);
     }
-    const agentRef = db.collection("agent_configurations").doc(agentId);
+    const publicId = await getNextPublicId(db, agentId);
     const now = FieldValue.serverTimestamp();
-    const payload = {
+    const payload: Record<string, unknown> = {
       title,
       description: description || "",
-      status: "pending" as ImplementationTaskStatus,
+      status: "todo" as ImplementationTaskStatus,
+      priority,
+      publicId,
       dueDate: dueDate ?? null,
       assigneeEmails,
       createdByEmail: authCtx.userEmail?.toLowerCase().trim() || null,
       createdAt: now,
       updatedAt: now,
       ...(attachments ? { attachments } : {}),
+      ...(parentTaskId !== undefined ? { parentTaskId } : {}),
     };
     const docRef = await getTaskItemsCollection(db, agentId).add(payload);
     const created = await docRef.get();
@@ -445,10 +529,48 @@ export async function patchImplementationTask(
   const hasStatus = Object.prototype.hasOwnProperty.call(body, "status");
   if (hasStatus) {
     const statusRaw = (body as { status?: unknown }).status;
-    if (statusRaw !== "pending" && statusRaw !== "completed") {
+    if (!VALID_STATUSES.has(statusRaw as ImplementationTaskStatus)) {
       return c.json({ error: "status inválido" }, 400);
     }
     patch.status = statusRaw;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "priority")) {
+    const priorityRaw = (body as { priority?: unknown }).priority;
+    const VALID_PRIORITIES_PATCH = new Set(["urgent", "high", "medium", "low", "none"]);
+    if (priorityRaw !== undefined && !VALID_PRIORITIES_PATCH.has(priorityRaw as string)) {
+      return c.json({ error: "priority inválido" }, 400);
+    }
+    patch.priority = priorityRaw ?? "none";
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "parentTaskId")) {
+    const parentTaskIdRaw = (body as { parentTaskId?: unknown }).parentTaskId;
+    if (parentTaskIdRaw !== null && typeof parentTaskIdRaw !== "string") {
+      return c.json({ error: "parentTaskId debe ser string o null" }, 400);
+    }
+    patch.parentTaskId = typeof parentTaskIdRaw === "string" && parentTaskIdRaw.trim().length > 0
+      ? parentTaskIdRaw.trim()
+      : null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "description")) {
+    const descriptionRaw = (body as { description?: unknown }).description;
+    if (descriptionRaw !== undefined && typeof descriptionRaw !== "string") {
+      return c.json({ error: "description debe ser string" }, 400);
+    }
+    patch.description = typeof descriptionRaw === "string" ? descriptionRaw : "";
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "title")) {
+    const titleRaw = (body as { title?: unknown }).title;
+    if (typeof titleRaw !== "string") {
+      return c.json({ error: "title debe ser string" }, 400);
+    }
+    const title = titleRaw.trim();
+    if (!title) return c.json({ error: "title es obligatorio" }, 400);
+    if (title.length > 220) return c.json({ error: "title demasiado largo" }, 400);
+    patch.title = title;
   }
 
   if (Object.prototype.hasOwnProperty.call(body, "dueDate")) {
@@ -509,7 +631,7 @@ export async function patchImplementationTask(
     return c.json(
       {
         error:
-          "No hay campos para actualizar (status, dueDate, assigneeEmails, attachments, representativeEmail, representativePhone)",
+          "No hay campos para actualizar (title, status, priority, description, dueDate, assigneeEmails, attachments, representativeEmail, representativePhone, parentTaskId)",
       },
       400,
     );
@@ -560,6 +682,98 @@ export async function patchImplementationTask(
 
     await taskSnap.ref.set(patch, { merge: true });
     const updated = await taskSnap.ref.get();
+
+    // Activity logging — fire-and-forget
+    const actorEmail = authCtx.userEmail?.toLowerCase().trim() || null;
+    const STATUS_LABELS: Record<string, string> = {
+      backlog: "Backlog", todo: "Por hacer", in_progress: "En progreso",
+      in_review: "En revisión", testing: "En pruebas", completed: "Completada",
+      blocked: "Bloqueada", cancelled: "Cancelada", pending: "Por hacer",
+    };
+    const PRIORITY_LABELS: Record<string, string> = {
+      urgent: "Urgente", high: "Alta", medium: "Media", low: "Baja", none: "Sin prioridad",
+    };
+    const logBase = { kind: "system" as const, actorEmail, taskId };
+
+    if (hasStatus && patch.status !== existing.status) {
+      void appendImplementationActivityEntry(db, agentId, {
+        ...logBase, action: "task_status_changed",
+        summary: `cambió el estado de "${STATUS_LABELS[existing.status] ?? existing.status}" a "${STATUS_LABELS[patch.status as string] ?? patch.status}"`,
+        metadata: { from: existing.status, to: patch.status },
+      });
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "priority") && patch.priority !== existing.priority) {
+      void appendImplementationActivityEntry(db, agentId, {
+        ...logBase, action: "task_priority_changed",
+        summary: `cambió la prioridad de "${PRIORITY_LABELS[existing.priority ?? "none"] ?? existing.priority}" a "${PRIORITY_LABELS[patch.priority as string] ?? patch.priority}"`,
+        metadata: { from: existing.priority, to: patch.priority },
+      });
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "dueDate") && patch.dueDate !== existing.dueDate) {
+      const newDate = patch.dueDate as string | null;
+      void appendImplementationActivityEntry(db, agentId, {
+        ...logBase, action: "task_due_date_changed",
+        summary: newDate
+          ? `cambió la fecha de vencimiento a ${new Date(newDate).toLocaleDateString("es-MX", { dateStyle: "medium" })}`
+          : "eliminó la fecha de vencimiento",
+        metadata: { from: existing.dueDate, to: newDate },
+      });
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "description") && patch.description !== existing.description) {
+      const previousDescription = existing.description ?? "";
+      const nextDescription = typeof patch.description === "string" ? patch.description : "";
+      const wasEmpty = previousDescription.trim().length === 0;
+      const isEmpty = nextDescription.trim().length === 0;
+      const summary = isEmpty
+        ? "eliminó la descripción"
+        : wasEmpty
+          ? "agregó una descripción"
+          : "actualizó la descripción";
+      void appendImplementationActivityEntry(db, agentId, {
+        ...logBase,
+        action: "task_description_changed",
+        summary,
+        metadata: {
+          fromLength: previousDescription.length,
+          toLength: nextDescription.length,
+        },
+      });
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "title") && patch.title !== existing.title) {
+      const previousTitle = existing.title ?? "";
+      const nextTitle = typeof patch.title === "string" ? patch.title : "";
+      void appendImplementationActivityEntry(db, agentId, {
+        ...logBase,
+        action: "task_title_changed",
+        summary: `renombró la tarea de "${previousTitle}" a "${nextTitle}"`,
+        metadata: {
+          from: previousTitle,
+          to: nextTitle,
+        },
+      });
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "assigneeEmails")) {
+      const oldSet = new Set(existing.assigneeEmails);
+      const newEmails = patch.assigneeEmails as string[];
+      const newSet = new Set(newEmails);
+      const added = newEmails.filter((e) => !oldSet.has(e));
+      const removed = existing.assigneeEmails.filter((e) => !newSet.has(e));
+      for (const email of added) {
+        void appendImplementationActivityEntry(db, agentId, {
+          ...logBase, action: "task_assignees_changed",
+          summary: `asignó a ${email}`,
+          metadata: { added: [email] },
+        });
+      }
+      for (const email of removed) {
+        void appendImplementationActivityEntry(db, agentId, {
+          ...logBase, action: "task_assignees_changed",
+          summary: `desasignó a ${email}`,
+          metadata: { removed: [email] },
+        });
+      }
+    }
+
     return c.json({ task: mapTaskDoc(updated as QueryDocumentSnapshot) });
   } catch (error) {
     return handleFirestoreError(c, error, "[implementation tasks PATCH]");

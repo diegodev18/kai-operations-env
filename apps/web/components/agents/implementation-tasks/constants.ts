@@ -1,12 +1,27 @@
+"use client";
+
 import {
   PhoneIcon,
   FileTextIcon,
   CreditCardIcon,
   SendIcon,
   UserCircleIcon,
+  AlertCircleIcon,
+  ChevronsUpIcon,
+  ArrowRightIcon,
+  ChevronsDownIcon,
+  MinusIcon,
+  CircleDashedIcon,
+  CircleIcon,
+  TimerIcon,
+  GitBranchIcon,
+  FlaskConicalIcon,
+  CheckCircle2Icon,
+  XCircleIcon,
+  MinusCircleIcon,
 } from "lucide-react";
 import type { AgentBilling } from "@/lib/agents/agent";
-import type { AgentGrowerRow } from "@/types";
+import type { AgentGrowerRow, ImplementationTaskPriority, ImplementationTaskStatus } from "@/types";
 
 export const MANDATORY_TASK_TYPES = new Set([
   "connect-number",
@@ -53,6 +68,108 @@ export const TASK_TYPE_CONFIG: Record<
     label: "Contacto representante",
   },
 };
+
+export const PRIORITY_CONFIG: Record<
+  ImplementationTaskPriority,
+  { label: string; icon: React.ElementType; className: string }
+> = {
+  urgent: { label: "Urgente", icon: AlertCircleIcon, className: "text-red-500" },
+  high: { label: "Alta", icon: ChevronsUpIcon, className: "text-orange-500" },
+  medium: { label: "Media", icon: ArrowRightIcon, className: "text-yellow-500" },
+  low: { label: "Baja", icon: ChevronsDownIcon, className: "text-blue-400" },
+  none: { label: "Sin prioridad", icon: MinusIcon, className: "text-muted-foreground" },
+};
+
+export const PRIORITY_ORDER: ImplementationTaskPriority[] = [
+  "urgent",
+  "high",
+  "medium",
+  "low",
+  "none",
+];
+
+export const STATUS_CONFIG: Record<
+  ImplementationTaskStatus,
+  { label: string; icon: React.ElementType; iconClassName: string; badgeClassName: string }
+> = {
+  pending: {
+    label: "Por hacer",
+    icon: CircleIcon,
+    iconClassName: "text-muted-foreground",
+    badgeClassName: "border-muted-foreground/40 text-muted-foreground",
+  },
+  backlog: {
+    label: "Backlog",
+    icon: CircleDashedIcon,
+    iconClassName: "text-muted-foreground/60",
+    badgeClassName: "border-muted-foreground/30 text-muted-foreground/60",
+  },
+  todo: {
+    label: "Por hacer",
+    icon: CircleIcon,
+    iconClassName: "text-muted-foreground",
+    badgeClassName: "border-muted-foreground/40 text-muted-foreground",
+  },
+  in_progress: {
+    label: "En progreso",
+    icon: TimerIcon,
+    iconClassName: "text-blue-500",
+    badgeClassName: "border-blue-300 text-blue-600",
+  },
+  in_review: {
+    label: "En revisión",
+    icon: GitBranchIcon,
+    iconClassName: "text-purple-500",
+    badgeClassName: "border-purple-300 text-purple-600",
+  },
+  testing: {
+    label: "En pruebas",
+    icon: FlaskConicalIcon,
+    iconClassName: "text-orange-500",
+    badgeClassName: "border-orange-300 text-orange-600",
+  },
+  completed: {
+    label: "Completada",
+    icon: CheckCircle2Icon,
+    iconClassName: "text-green-500",
+    badgeClassName: "border-green-300 text-green-600",
+  },
+  blocked: {
+    label: "Bloqueada",
+    icon: XCircleIcon,
+    iconClassName: "text-red-500",
+    badgeClassName: "border-red-300 text-red-600",
+  },
+  cancelled: {
+    label: "Cancelada",
+    icon: MinusCircleIcon,
+    iconClassName: "text-muted-foreground/50",
+    badgeClassName: "border-muted-foreground/20 text-muted-foreground/50",
+  },
+};
+
+export const STATUS_ORDER: ImplementationTaskStatus[] = [
+  "backlog",
+  "todo",
+  "in_progress",
+  "in_review",
+  "testing",
+  "completed",
+  "blocked",
+  "cancelled",
+];
+
+export function normalizeStatus(status: ImplementationTaskStatus): ImplementationTaskStatus {
+  return status === "pending" ? "todo" : status;
+}
+
+export function isCompletedStatus(status: ImplementationTaskStatus): boolean {
+  return status === "completed";
+}
+
+export function isActiveStatus(status: ImplementationTaskStatus): boolean {
+  return status === "in_progress" || status === "in_review" || status === "testing";
+}
 
 export function toDateInputValue(value?: string | null): string {
   if (!value) return "";

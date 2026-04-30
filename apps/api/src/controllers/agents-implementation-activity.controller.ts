@@ -41,6 +41,7 @@ function mapActivityDoc(doc: QueryDocumentSnapshot): Record<string, unknown> {
         : data.actorEmail === null
           ? null
           : null,
+    ...(typeof data.taskId === "string" ? { taskId: data.taskId } : {}),
   };
   if (kind === "comment") {
     base.format = data.format === "html" ? "html" : "html";
@@ -113,11 +114,19 @@ export async function getImplementationActivity(
       return c.json({ error: "Agente no encontrado" }, 404);
     }
 
-    const snap = await getImplementationActivityItemsRef(db, agentId)
+    const taskIdFilter = c.req.query("taskId");
+    let query = getImplementationActivityItemsRef(db, agentId)
       .orderBy("createdAt", "desc")
-      .limit(ACTIVITY_PAGE_SIZE)
-      .get();
+      .limit(ACTIVITY_PAGE_SIZE);
 
+    if (taskIdFilter) {
+      query = getImplementationActivityItemsRef(db, agentId)
+        .where("taskId", "==", taskIdFilter)
+        .orderBy("createdAt", "desc")
+        .limit(ACTIVITY_PAGE_SIZE);
+    }
+
+    const snap = await query.get();
     const entries = snap.docs.map((d) => mapActivityDoc(d as QueryDocumentSnapshot));
     return c.json({ entries });
   } catch (error) {
@@ -149,6 +158,10 @@ export async function createImplementationActivityComment(
   if (!parsed.ok) {
     return c.json({ error: parsed.error }, 400);
   }
+  const taskIdRaw = (body as { taskId?: unknown }).taskId;
+  const taskId = typeof taskIdRaw === "string" && taskIdRaw.trim().length > 0
+    ? taskIdRaw.trim()
+    : null;
 
   try {
     const { db, hasTestingData, inProduction } = await resolveAgentWriteDatabase(agentId);
@@ -162,13 +175,14 @@ export async function createImplementationActivityComment(
 
     const actorEmail = authCtx.userEmail?.toLowerCase().trim() || null;
     const now = FieldValue.serverTimestamp();
-    const payload = {
+    const payload: Record<string, unknown> = {
       kind: "comment" as const,
       format: "html" as const,
       bodyHtml: parsed.html,
       actorEmail,
       hidden: false,
       createdAt: now,
+      ...(taskId ? { taskId } : {}),
     };
     const ref = await getImplementationActivityItemsRef(db, agentId).add(payload);
     const created = await ref.get();

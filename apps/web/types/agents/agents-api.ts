@@ -22,7 +22,18 @@ export type TestingAssignTargetsResponse = {
   minDigits?: number;
 };
 
-export type ImplementationTaskStatus = "pending" | "completed";
+export type ImplementationTaskStatus =
+  | "pending"
+  | "backlog"
+  | "todo"
+  | "in_progress"
+  | "in_review"
+  | "testing"
+  | "completed"
+  | "blocked"
+  | "cancelled";
+
+export type ImplementationTaskPriority = "urgent" | "high" | "medium" | "low" | "none";
 
 export type ImplementationTaskAttachment = {
   name: string;
@@ -43,6 +54,9 @@ export type ImplementationTask = {
   title: string;
   description?: string;
   status: ImplementationTaskStatus;
+  priority?: ImplementationTaskPriority;
+  publicId?: number;
+  parentTaskId?: string | null;
   dueDate?: string | null;
   assigneeEmails: string[];
   createdByEmail?: string;
@@ -62,6 +76,7 @@ export type ImplementationActivityEntry = {
   kind: ImplementationActivityKind;
   createdAt: string | null;
   actorEmail: string | null;
+  taskId?: string | null;
   format?: "html";
   bodyHtml?: string;
   hidden?: boolean;

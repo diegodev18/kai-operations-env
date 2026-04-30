@@ -9,6 +9,8 @@ import type {
   AgentGrowerRow,
   ImplementationTask,
   ImplementationTaskAttachment,
+  ImplementationTaskPriority,
+  ImplementationTaskStatus,
   WhatsappIntegrationStatusItem,
 } from "@/types";
 import type { AgentBilling } from "@/lib/agents/agent";
@@ -28,7 +30,7 @@ import {
   paymentDomiciliationShouldComplete,
   toDateInputValue,
   toIsoFromDateInput,
-  MANDATORY_TASK_TYPES,
+  normalizeStatus,
 } from "./constants";
 import { TaskList } from "./task-list";
 import { CreateTaskDialog } from "./create-task-dialog";
@@ -48,9 +50,7 @@ export function AgentImplementationTasksPanel({
   tasksRef.current = tasks;
   const [growers, setGrowers] = useState<AgentGrowerRow[]>([]);
   const [agentBilling, setAgentBilling] = useState<AgentBilling | null>(null);
-  const [waIntegrations, setWaIntegrations] = useState<
-    WhatsappIntegrationStatusItem[]
-  >([]);
+  const [waIntegrations, setWaIntegrations] = useState<WhatsappIntegrationStatusItem[]>([]);
 
   // ── UI state ─────────────────────────────────────────────────────────────
   const [loading, setLoading] = useState(true);
@@ -59,14 +59,13 @@ export function AgentImplementationTasksPanel({
   const [billingLoading, setBillingLoading] = useState(false);
   const [billingSaving, setBillingSaving] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createSubtaskParentId, setCreateSubtaskParentId] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   // ── Per-task draft state ──────────────────────────────────────────────────
   const [taskDueDates, setTaskDueDates] = useState<Record<string, string>>({});
   const [taskAssignees, setTaskAssignees] = useState<Record<string, string[]>>({});
-  const [repDraft, setRepDraft] = useState<
-    Record<string, { email: string; phone: string }>
-  >({});
+  const [repDraft, setRepDraft] = useState<Record<string, { email: string; phone: string }>>({});
 
   // ── Load data ─────────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
@@ -78,9 +77,7 @@ export function AgentImplementationTasksPanel({
         fetchAgentGrowers(agentId),
       ]);
       if (tasksRes == null || growersRes == null) {
-        setLoadError(
-          "No se pudieron cargar las tareas. Verifica tu conexión e intenta de nuevo.",
-        );
+        setLoadError("No se pudieron cargar las tareas. Verifica tu conexión e intenta de nuevo.");
         return;
       }
       setTasks(Array.isArray(tasksRes.tasks) ? tasksRes.tasks : []);
@@ -135,9 +132,7 @@ export function AgentImplementationTasksPanel({
       setAgentBilling(res?.billing ?? null);
       setBillingLoading(false);
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [agentId, isOperations]);
 
   // Auto-sync payment-domiciliation task status from billing
@@ -148,30 +143,21 @@ export function AgentImplementationTasksPanel({
 
   useEffect(() => {
     if (!isOperations || !agentBilling || !paymentDomiciliationTask) return;
-    const wantStatus = paymentDomiciliationShouldComplete(agentBilling)
+    const wantStatus: ImplementationTaskStatus = paymentDomiciliationShouldComplete(agentBilling)
       ? "completed"
-      : "pending";
-    if (paymentDomiciliationTask.status === wantStatus) return;
+      : "todo";
+    if (normalizeStatus(paymentDomiciliationTask.status) === wantStatus) return;
     let cancelled = false;
     const taskId = paymentDomiciliationTask.id;
     void (async () => {
-      const r = await patchImplementationTask(agentId, taskId, {
-        status: wantStatus,
-      });
+      const r = await patchImplementationTask(agentId, taskId, { status: wantStatus });
       if (!cancelled && r.ok) {
         setTasks((prev) => prev.map((t) => (t.id === taskId ? r.task : t)));
       }
     })();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    agentId,
-    isOperations,
-    agentBilling,
-    paymentDomiciliationTask?.id,
-    paymentDomiciliationTask?.status,
-  ]);
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agentId, isOperations, agentBilling, paymentDomiciliationTask?.id, paymentDomiciliationTask?.status]);
 
   // Poll WhatsApp integration status every 30s
   useEffect(() => {
@@ -183,70 +169,36 @@ export function AgentImplementationTasksPanel({
       setWaIntegrations((prev) =>
         JSON.stringify(prev) === JSON.stringify(res.items) ? prev : res.items,
       );
-      const connectTask = tasksRef.current.find(
-        (t) => t.taskType === "connect-number",
-      );
+      const connectTask = tasksRef.current.find((t) => t.taskType === "connect-number");
+      const connectStatus = connectTask ? normalizeStatus(connectTask.status) : null;
       if (
-        connectTask?.status === "pending" &&
+        (connectStatus === "todo" || connectStatus === "backlog") &&
         res.items.some((i) => i.setupStatus === "completed")
       ) {
-        const r = await patchImplementationTask(agentId, connectTask.id, {
-          status: "completed",
-        });
+        const r = await patchImplementationTask(agentId, connectTask!.id, { status: "completed" });
         if (!cancelled && r.ok) {
-          setTasks((prev) =>
-            prev.map((t) => (t.id === connectTask.id ? r.task : t)),
-          );
+          setTasks((prev) => prev.map((t) => (t.id === connectTask!.id ? r.task : t)));
         }
       }
     };
     void poll();
     const id = window.setInterval(poll, 30_000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-    };
+    return () => { cancelled = true; window.clearInterval(id); };
   }, [agentId]);
 
   // ── Computed ──────────────────────────────────────────────────────────────
   const growersByEmail = useMemo(() => {
     const map = new Map<string, string>();
-    for (const g of growers) {
-      map.set(g.email.trim().toLowerCase(), g.name);
-    }
+    for (const g of growers) map.set(g.email.trim().toLowerCase(), g.name);
     return map;
   }, [growers]);
 
-  // All tasks in display order for prev/next navigation in the sheet
   const orderedTasks = useMemo(() => {
-    const mandatory = tasks.filter(
-      (t) => t.mandatory || (t.taskType && MANDATORY_TASK_TYPES.has(t.taskType ?? "")),
-    );
-    const customPending = tasks
-      .filter(
-        (t) =>
-          !t.mandatory &&
-          !(t.taskType && MANDATORY_TASK_TYPES.has(t.taskType ?? "")) &&
-          t.status === "pending",
-      )
-      .sort((a, b) => {
-        const aTime = a.dueDate ? new Date(a.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
-        const bTime = b.dueDate ? new Date(b.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
-        return aTime - bTime;
-      });
-    const customCompleted = tasks
-      .filter(
-        (t) =>
-          !t.mandatory &&
-          !(t.taskType && MANDATORY_TASK_TYPES.has(t.taskType ?? "")) &&
-          t.status === "completed",
-      )
-      .sort((a, b) => {
-        const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-        const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
-        return bTime - aTime;
-      });
-    return [...mandatory, ...customPending, ...customCompleted];
+    return [...tasks].sort((a, b) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bTime - aTime;
+    });
   }, [tasks]);
 
   const selectedTask = useMemo(
@@ -255,13 +207,11 @@ export function AgentImplementationTasksPanel({
   );
 
   // ── Actions ───────────────────────────────────────────────────────────────
-  const onToggleTaskStatus = useCallback(
-    async (task: ImplementationTask) => {
+  const onChangeStatus = useCallback(
+    async (task: ImplementationTask, status: ImplementationTaskStatus) => {
       setSavingTaskId(task.id);
       try {
-        const result = await patchImplementationTask(agentId, task.id, {
-          status: task.status === "completed" ? "pending" : "completed",
-        });
+        const result = await patchImplementationTask(agentId, task.id, { status });
         if (!result.ok) {
           toast.error(result.error);
           return;
@@ -274,6 +224,49 @@ export function AgentImplementationTasksPanel({
     [agentId],
   );
 
+  const onChangePriority = useCallback(
+    async (task: ImplementationTask, priority: ImplementationTaskPriority) => {
+      setSavingTaskId(task.id);
+      try {
+        const result = await patchImplementationTask(agentId, task.id, { priority });
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
+        setTasks((prev) => prev.map((t) => (t.id === task.id ? result.task : t)));
+      } finally {
+        setSavingTaskId(null);
+      }
+    },
+    [agentId],
+  );
+
+  const onSaveDescription = useCallback(
+    async (taskId: string, description: string) => {
+      const result = await patchImplementationTask(agentId, taskId, { description });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? result.task : t)));
+    },
+    [agentId],
+  );
+
+  const onSaveTitle = useCallback(
+    async (taskId: string, title: string) => {
+      const trimmed = title.trim();
+      if (!trimmed) return;
+      const result = await patchImplementationTask(agentId, taskId, { title: trimmed });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? result.task : t)));
+    },
+    [agentId],
+  );
+
   const onSaveTaskDueDate = useCallback(
     async (taskId: string) => {
       const dateInput = taskDueDates[taskId] ?? "";
@@ -282,10 +275,7 @@ export function AgentImplementationTasksPanel({
         const result = await patchImplementationTask(agentId, taskId, {
           dueDate: toIsoFromDateInput(dateInput),
         });
-        if (!result.ok) {
-          toast.error(result.error);
-          return;
-        }
+        if (!result.ok) { toast.error(result.error); return; }
         setTasks((prev) => prev.map((t) => (t.id === taskId ? result.task : t)));
       } finally {
         setSavingTaskId(null);
@@ -316,10 +306,7 @@ export function AgentImplementationTasksPanel({
         const result = await patchImplementationTask(agentId, taskId, {
           assigneeEmails: taskAssignees[taskId] ?? [],
         });
-        if (!result.ok) {
-          toast.error(result.error);
-          return;
-        }
+        if (!result.ok) { toast.error(result.error); return; }
         setTasks((prev) => prev.map((t) => (t.id === taskId ? result.task : t)));
       } finally {
         setSavingTaskId(null);
@@ -368,10 +355,7 @@ export function AgentImplementationTasksPanel({
       setBillingSaving(true);
       try {
         const r = await patchAgentBillingConfig(agentId, { domiciliated: value });
-        if (!r.ok) {
-          toast.error(r.error);
-          return;
-        }
+        if (!r.ok) { toast.error(r.error); return; }
         const fresh = await fetchAgentBilling(agentId);
         if (fresh?.billing) setAgentBilling(fresh.billing);
         toast.success("Cobranza actualizada");
@@ -394,10 +378,7 @@ export function AgentImplementationTasksPanel({
           representativeEmail: email.length > 0 ? email : null,
           representativePhone: phone.length > 0 ? phone : null,
         });
-        if (!result.ok) {
-          toast.error(result.error);
-          return;
-        }
+        if (!result.ok) { toast.error(result.error); return; }
         setTasks((prev) => prev.map((t) => (t.id === taskId ? result.task : t)));
         setRepDraft((prev) => ({
           ...prev,
@@ -419,6 +400,16 @@ export function AgentImplementationTasksPanel({
     setSelectedTaskId(task.id);
   }, []);
 
+  const onCreateSubtask = useCallback((parentTaskId: string) => {
+    setCreateSubtaskParentId(parentTaskId);
+    setCreateDialogOpen(true);
+  }, []);
+
+  const handleCreateDialogClose = useCallback((open: boolean) => {
+    setCreateDialogOpen(open);
+    if (!open) setCreateSubtaskParentId(null);
+  }, []);
+
   // ── Render ────────────────────────────────────────────────────────────────
   if (loading) return <PanelLoading />;
   if (loadError) {
@@ -426,7 +417,7 @@ export function AgentImplementationTasksPanel({
   }
 
   return (
-    <div className="space-y-4 p-4 sm:p-6">
+    <div className="flex h-full min-h-0 flex-col gap-4 p-4 sm:p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-foreground">Tareas</h2>
@@ -434,7 +425,7 @@ export function AgentImplementationTasksPanel({
           size="sm"
           variant="outline"
           className="h-7 gap-1.5 text-xs"
-          onClick={() => setCreateDialogOpen(true)}
+          onClick={() => { setCreateSubtaskParentId(null); setCreateDialogOpen(true); }}
         >
           <PlusIcon className="size-3.5" />
           Nueva tarea
@@ -442,26 +433,31 @@ export function AgentImplementationTasksPanel({
       </div>
 
       {/* Task list */}
-      <TaskList
-        tasks={tasks}
-        selectedTaskId={selectedTaskId}
-        savingTaskId={savingTaskId}
-        growers={growers}
-        onSelect={setSelectedTaskId}
-        onToggleStatus={onToggleTaskStatus}
-      />
+      <div className="min-h-0 flex-1">
+        <TaskList
+          tasks={tasks}
+          selectedTaskId={selectedTaskId}
+          savingTaskId={savingTaskId}
+          growers={growers}
+          onSelect={setSelectedTaskId}
+          onChangeStatus={onChangeStatus}
+          onChangePriority={onChangePriority}
+        />
+      </div>
 
       {/* Create task dialog */}
       <CreateTaskDialog
         open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
+        onOpenChange={handleCreateDialogClose}
         agentId={agentId}
         growers={growers}
         onCreated={onTaskCreated}
+        parentTaskId={createSubtaskParentId}
       />
 
       {/* Task detail sheet */}
       <TaskDetailSheet
+        key={selectedTaskId ?? "empty"}
         task={selectedTask}
         allTasks={orderedTasks}
         agentId={agentId}
@@ -478,7 +474,10 @@ export function AgentImplementationTasksPanel({
         savingTaskId={savingTaskId}
         onClose={() => setSelectedTaskId(null)}
         onNavigate={setSelectedTaskId}
-        onToggleStatus={onToggleTaskStatus}
+        onChangeStatus={onChangeStatus}
+        onChangePriority={onChangePriority}
+        onSaveTitle={onSaveTitle}
+        onSaveDescription={onSaveDescription}
         onSaveDueDate={onSaveTaskDueDate}
         onToggleAssignee={onToggleTaskAssignee}
         onSaveAssignees={onSaveTaskAssignees}
@@ -486,6 +485,7 @@ export function AgentImplementationTasksPanel({
         onRemoveAttachment={onRemoveAttachment}
         onSaveRepresentative={onSaveRepresentative}
         onBillingDomiciliatedChange={onBillingDomiciliatedChange}
+        onCreateSubtask={onCreateSubtask}
         setTaskDueDates={setTaskDueDates}
         setRepDraft={setRepDraft}
       />

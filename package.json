@@ -18,5 +18,8 @@
   "license": "ISC",
   "devDependencies": {
     "shadcn": "^4.1.0"
+  },
+  "dependencies": {
+    "remark-breaks": "^4.0.0"
   }
 }
