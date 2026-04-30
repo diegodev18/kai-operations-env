@@ -26,6 +26,14 @@ import type { SendTipInput, TeamMember, TipAmount } from "@/types";
 import { TIP_AMOUNTS } from "@/types";
 import { UserAvatar } from "./user-avatar";
 
+const QUICK_EMOJIS = [
+  { emoji: "👏", label: "Gran trabajo" },
+  { emoji: "🙌", label: "Gracias" },
+  { emoji: "🔥", label: "Excelente" },
+  { emoji: "💡", label: "Brillante" },
+  { emoji: "⭐", label: "Destacado" },
+];
+
 interface SendTipDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -151,6 +159,20 @@ export function SendTipDialog({
             <Label htmlFor="description">
               Descripción <span className="text-destructive">*</span>
             </Label>
+            <div className="flex flex-wrap gap-1.5">
+              {QUICK_EMOJIS.map(({ emoji, label }) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() =>
+                    setDescription((prev) => (prev ? `${prev} ${emoji}` : emoji))
+                  }
+                  className="rounded-full border px-2.5 py-1 text-xs hover:bg-muted transition-colors"
+                >
+                  {emoji} {label}
+                </button>
+              ))}
+            </div>
             <Textarea
               id="description"
               placeholder="¿Por qué merece esta propina?"

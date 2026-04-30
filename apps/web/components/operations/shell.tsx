@@ -42,6 +42,7 @@ export type BreadcrumbSegment = { label: string; href?: string };
 export function OperationsShell(props: {
   breadcrumb: BreadcrumbSegment[];
   children: React.ReactNode;
+  headerActions?: React.ReactNode;
 }) {
   const { session, signOut } = useAuth();
   const { role, isAdmin } = useUserRole();
@@ -130,6 +131,7 @@ export function OperationsShell(props: {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+          {props.headerActions}
           {session?.user ? (
             <UserMenu
               userName={session.user.name}
