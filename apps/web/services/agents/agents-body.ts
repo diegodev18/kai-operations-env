@@ -950,10 +950,20 @@ export async function patchAgentAllowedDynamicTableSchemas(
 /** Producción → testing: setea datos de prod en testing/data/... (merge). */
 export async function postAgentSyncFromProduction(
   agentId: string,
+  body?: { collections?: string[] },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const res = await fetch(
     `/api/agents/${encodeURIComponent(agentId)}/sync-from-production`,
-    { method: "POST", credentials: "include" },
+    {
+      method: "POST",
+      credentials: "include",
+      ...(body
+        ? {
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          }
+        : {}),
+    },
   );
   let data: { ok?: boolean; error?: string } = {};
   try {

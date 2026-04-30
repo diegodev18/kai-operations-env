@@ -17,6 +17,19 @@ import {
   testingDiffEntryKey,
 } from "@/utils/agents/agent-testing-diff";
 
+const syncFromProductionBodySchema = z
+  .object({
+    collections: z
+      .array(z.enum(["properties", "tools", "collaborators"]))
+      .min(1)
+      .optional(),
+  })
+  .optional();
+
+type SyncFromProductionCollection = NonNullable<
+  NonNullable<z.infer<typeof syncFromProductionBodySchema>>["collections"]
+>[number];
+
 function handleError(c: Context, error: unknown, logPrefix: string) {
   if (isFirebaseConfigError(error)) {
     return c.json(
@@ -45,6 +58,30 @@ export async function postSyncFromProduction(
   authCtx: AgentsInfoAuthContext,
   agentId: string,
 ) {
+  let requestedCollections: Set<SyncFromProductionCollection> | null = null;
+  const contentType = c.req.header("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    let raw: unknown;
+    try {
+      raw = await c.req.json();
+    } catch {
+      return c.json({ error: "JSON inválido" }, 400);
+    }
+
+    const parsed = syncFromProductionBodySchema.safeParse(raw);
+    if (!parsed.success) {
+      const msg = parsed.error.issues.map((i) => i.message).join("; ");
+      return c.json({ error: msg }, 400);
+    }
+
+    if (parsed.data?.collections?.length) {
+      requestedCollections = new Set(parsed.data.collections);
+    }
+  }
+
+  const shouldSyncCollection = (collection: SyncFromProductionCollection) =>
+    requestedCollections === null || requestedCollections.has(collection);
+
   try {
     const ok = await userCanAccessAgent(authCtx, agentId);
     if (!ok) {
@@ -74,27 +111,35 @@ export async function postSyncFromProduction(
     const testingCollaboratorsRef = testingDataRef.collection("collaborators");
 
     const [propsSnap, toolsSnap, growersSnap] = await Promise.all([
-      prodPropertiesRef.get(),
-      prodToolsRef.get(),
-      prodGrowersRef.get(),
+      shouldSyncCollection("properties") ? prodPropertiesRef.get() : null,
+      shouldSyncCollection("tools") ? prodToolsRef.get() : null,
+      shouldSyncCollection("collaborators") ? prodGrowersRef.get() : null,
     ]);
 
     await testingDataRef.set({ _syncedAt: new Date().toISOString() }, { merge: true });
 
-    for (const doc of propsSnap.docs) {
-      await testingPropertiesRef.doc(doc.id).set(doc.data(), { merge: true });
+    if (propsSnap) {
+      for (const doc of propsSnap.docs) {
+        await testingPropertiesRef.doc(doc.id).set(doc.data(), { merge: true });
+      }
     }
 
-    for (const doc of toolsSnap.docs) {
-      await testingToolsRef.doc(doc.id).set(doc.data(), { merge: true });
+    if (toolsSnap) {
+      for (const doc of toolsSnap.docs) {
+        await testingToolsRef.doc(doc.id).set(doc.data(), { merge: true });
+      }
     }
 
-    for (const doc of growersSnap.docs) {
-      const collaboratorData = {
-        email: doc.data()?.email,
-        name: doc.data()?.name,
-      };
-      await testingCollaboratorsRef.doc(doc.id).set(collaboratorData, { merge: true });
+    if (growersSnap) {
+      for (const doc of growersSnap.docs) {
+        const collaboratorData = {
+          email: doc.data()?.email,
+          name: doc.data()?.name,
+        };
+        await testingCollaboratorsRef
+          .doc(doc.id)
+          .set(collaboratorData, { merge: true });
+      }
     }
 
     return c.json({ ok: true });

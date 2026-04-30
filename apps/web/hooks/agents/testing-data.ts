@@ -20,7 +20,11 @@ import {
   coerceNestedArrayFromSavePayload,
 } from "@/components/agents/testing-data/helpers";
 
-export function useTestingData(agentId: string) {
+export function useTestingData(
+  agentId: string,
+  options: { onDataChanged?: () => void } = {},
+) {
+  const { onDataChanged } = options;
   const [collectionTree, setCollectionTree] = useState<CollectionNode[]>([]);
   const [breadcrumbs, setBreadcrumbs] = useState<string[]>([]);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
@@ -132,6 +136,22 @@ export function useTestingData(agentId: string) {
     if (parsed) setFields(parsed);
   }, [loadDocument]);
 
+  const refreshCurrentCollection = useCallback(async () => {
+    await loadDocuments();
+    if (!selectedDoc) return;
+
+    const updated = await loadDocument(selectedDoc.id);
+    if (!updated) {
+      setSelectedDoc(null);
+      setFields([]);
+      return;
+    }
+
+    setSelectedDoc(updated);
+    const parsed = parseJsonToFields(JSON.stringify(updated.data, null, 2));
+    if (parsed) setFields(parsed);
+  }, [loadDocument, loadDocuments, selectedDoc]);
+
   // --- Effects ---
 
   useEffect(() => {
@@ -225,10 +245,11 @@ export function useTestingData(agentId: string) {
       setDocFields([{ key: "", value: "", type: "string" }]);
       setNewDocId("");
       void loadDocuments();
+      onDataChanged?.();
     } else {
       toast.error("Error al crear documento");
     }
-  }, [agentId, currentCollection, docFields, loadDocument, loadDocuments, newDocId]);
+  }, [agentId, currentCollection, docFields, loadDocument, loadDocuments, newDocId, onDataChanged]);
 
   const handleUpdateDocument = useCallback(async () => {
     if (!selectedDoc) return;
@@ -247,10 +268,11 @@ export function useTestingData(agentId: string) {
         if (parsed) setFields(parsed);
       }
       void loadDocuments();
+      onDataChanged?.();
     } else {
       toast.error("Error al actualizar documento");
     }
-  }, [agentId, currentCollection, docFields, loadDocument, loadDocuments, selectedDoc]);
+  }, [agentId, currentCollection, docFields, loadDocument, loadDocuments, onDataChanged, selectedDoc]);
 
   const handleDeleteDocument = useCallback(async () => {
     if (!selectedDoc) return;
@@ -261,10 +283,11 @@ export function useTestingData(agentId: string) {
       setSelectedDoc(null);
       setFields([]);
       void loadDocuments();
+      onDataChanged?.();
     } else {
       toast.error("Error al eliminar documento");
     }
-  }, [agentId, currentCollection, loadDocuments, selectedDoc]);
+  }, [agentId, currentCollection, loadDocuments, onDataChanged, selectedDoc]);
 
   const handleEditNested = useCallback((key: string, value: unknown) => {
     if (typeof value !== "object" || value === null) return;
@@ -300,6 +323,7 @@ export function useTestingData(agentId: string) {
     // Documents
     breadcrumbs, documents, selectedDoc, fields, loadingDocs,
     currentCollection, currentPath,
+    refreshCurrentCollection,
     handleSelectDocument,
     openCreateDoc, openEditDoc,
     handleCreateDocument, handleUpdateDocument, handleDeleteDocument,

@@ -53,6 +53,7 @@ export function ToolsPullFromProductionDialog({
   diff,
   isLoading,
   agentId,
+  collections,
   syncing,
   onSyncingChange,
   onSuccess,
@@ -63,6 +64,7 @@ export function ToolsPullFromProductionDialog({
   diff: TestingDiffItem[];
   isLoading?: boolean;
   agentId: string;
+  collections?: string[];
   syncing: boolean;
   onSyncingChange: (syncing: boolean) => void;
   onSuccess?: () => void;
@@ -124,7 +126,10 @@ export function ToolsPullFromProductionDialog({
     }
     onSyncingChange(true);
     try {
-      const r = await postAgentSyncFromProduction(agentId);
+      const r = await postAgentSyncFromProduction(
+        agentId,
+        collections ? { collections } : undefined,
+      );
       if (r.ok) {
         toast.success("Ambiente de pruebas actualizado con la configuración publicada");
         handleOpenChange(false);
@@ -137,7 +142,7 @@ export function ToolsPullFromProductionDialog({
     } finally {
       onSyncingChange(false);
     }
-  }, [agentId, confirmText, handleOpenChange, onSuccess, onSyncingChange]);
+  }, [agentId, collections, confirmText, handleOpenChange, onSuccess, onSyncingChange]);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>

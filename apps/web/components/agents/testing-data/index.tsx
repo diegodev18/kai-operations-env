@@ -1,8 +1,10 @@
 "use client";
 
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CalendarIcon,
   ChevronLeftIcon,
+  CloudDownloadIcon,
   DatabaseIcon,
   FileIcon,
   FolderIcon,
@@ -14,11 +16,15 @@ import {
   MapPinIcon,
   PencilIcon,
   PlusIcon,
+  RocketIcon,
   ToggleLeftIcon,
   Trash2Icon,
   TypeIcon,
   XIcon,
 } from "lucide-react";
+import { ToolsPullFromProductionDialog } from "@/components/agents/tools-pull-from-production-dialog";
+import { PromoteDiffDialog } from "@/components/prompt";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -30,7 +36,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useTestingData } from "@/hooks";
+import { useTestingData, useTestingDiff } from "@/hooks";
+import { fetchAgentById } from "@/services/agents-api";
 import { CollectionTreeItem } from "./collection-tree";
 import { CollectionsTreeSkeleton } from "./collections-tree-skeleton";
 import { DocumentsTableSkeleton } from "./documents-table-skeleton";
@@ -38,6 +45,8 @@ import { FieldEditor } from "./field-editor";
 import { NestedDialog } from "./nested-dialog";
 import { generateRandomDocId } from "./helpers";
 import type { FieldDisplay } from "./types";
+
+const SYNC_SUPPORTED_COLLECTIONS = new Set(["properties", "tools"]);
 
 function getTypeIcon(type: FieldDisplay["type"]) {
   switch (type) {
@@ -75,13 +84,27 @@ function formatFieldValue(value: unknown): string {
 
 export function TestingDataPanel({ agentId }: { agentId: string }) {
   const {
+    data: diffData,
+    isLoading: isDiffLoading,
+    refetch: refetchDiff,
+  } = useTestingDiff(agentId);
+  const [pullDialogOpen, setPullDialogOpen] = useState(false);
+  const [promoteDialogOpen, setPromoteDialogOpen] = useState(false);
+  const [syncingFromProd, setSyncingFromProd] = useState(false);
+  const [agentNameForConfirm, setAgentNameForConfirm] = useState("");
+
+  const handleTestingDataChanged = useCallback(() => {
+    refetchDiff();
+  }, [refetchDiff]);
+
+  const {
     collectionTree, loading, expandedPaths,
     loadCollectionTree, toggleExpand, navigateToCollection, navigateBack,
     handleCreateCollection, handleCreateSubcollection,
     createCollectionDialogOpen, setCreateCollectionDialogOpen,
     newCollectionName, setNewCollectionName,
     breadcrumbs, documents, selectedDoc, fields, loadingDocs,
-    currentCollection,
+    currentCollection, refreshCurrentCollection,
     handleSelectDocument,
     openCreateDoc, openEditDoc,
     handleCreateDocument, handleUpdateDocument, handleDeleteDocument,
@@ -93,9 +116,47 @@ export function TestingDataPanel({ agentId }: { agentId: string }) {
     jsonError, docIdError, setDocIdError,
     nestedDialog, setNestedDialog,
     handleEditNested, handleSaveNested,
-  } = useTestingData(agentId);
+  } = useTestingData(agentId, { onDataChanged: handleTestingDataChanged });
 
   const currentPath = breadcrumbs.join("/");
+  const collectionDiff = useMemo(
+    () => (diffData || []).filter((d) => d.collection === currentCollection),
+    [currentCollection, diffData],
+  );
+  const isSyncSupported = currentCollection
+    ? SYNC_SUPPORTED_COLLECTIONS.has(currentCollection)
+    : false;
+  const hasDiff = collectionDiff.length > 0;
+  const canTransfer = isSyncSupported && hasDiff && !isDiffLoading;
+  const syncCollections = useMemo(
+    () => (currentCollection ? [currentCollection] : undefined),
+    [currentCollection],
+  );
+  const transferTitle = !isSyncSupported
+    ? "Esta colección todavía no tiene diff de sincronización soportado"
+    : canTransfer
+      ? `Transferir diferencias de ${currentCollection}`
+      : "No hay diferencias entre pruebas y producción para esta colección";
+
+  useEffect(() => {
+    if (!agentId) return;
+    let cancelled = false;
+    (async () => {
+      const agent = await fetchAgentById(agentId);
+      if (!cancelled && agent) {
+        setAgentNameForConfirm(agent.agentName || agent.name || agentId);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [agentId]);
+
+  const handleTransferSuccess = useCallback(async () => {
+    await loadCollectionTree();
+    await refreshCurrentCollection();
+    refetchDiff();
+  }, [loadCollectionTree, refetchDiff, refreshCurrentCollection]);
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
@@ -178,11 +239,57 @@ export function TestingDataPanel({ agentId }: { agentId: string }) {
           )}
 
           {breadcrumbs.length > 0 && (
-            <div className="flex justify-end">
-              <Button size="sm" onClick={openCreateDoc}>
-                <PlusIcon className="size-4" />
-                <span className="ml-1">Nuevo documento</span>
-              </Button>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0 text-xs text-muted-foreground">
+                {isSyncSupported ? (
+                  hasDiff ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <span>
+                        {collectionDiff.length}{" "}
+                        {collectionDiff.length === 1 ? "diferencia" : "diferencias"} con producción
+                      </span>
+                      <Badge variant="secondary">{collectionDiff.length}</Badge>
+                    </span>
+                  ) : (
+                    "Sin diferencias con producción"
+                  )
+                ) : (
+                  "Sync no disponible para esta colección"
+                )}
+              </div>
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  title={transferTitle}
+                  onClick={() => {
+                    refetchDiff();
+                    setPullDialogOpen(true);
+                  }}
+                  disabled={!canTransfer || syncingFromProd}
+                >
+                  <CloudDownloadIcon className="size-4" />
+                  <span className="ml-1">Bajar cambios</span>
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  title={transferTitle}
+                  onClick={() => {
+                    refetchDiff();
+                    setPromoteDialogOpen(true);
+                  }}
+                  disabled={!canTransfer}
+                >
+                  <RocketIcon className="size-4" />
+                  <span className="ml-1">Subir cambios</span>
+                </Button>
+                <Button size="sm" onClick={openCreateDoc}>
+                  <PlusIcon className="size-4" />
+                  <span className="ml-1">Nuevo documento</span>
+                </Button>
+              </div>
             </div>
           )}
 
@@ -435,6 +542,42 @@ export function TestingDataPanel({ agentId }: { agentId: string }) {
           isArray={nestedDialog.isArray}
         />
       )}
+
+      <ToolsPullFromProductionDialog
+        open={pullDialogOpen}
+        onOpenChange={setPullDialogOpen}
+        diff={collectionDiff}
+        isLoading={isDiffLoading}
+        agentId={agentId}
+        collections={syncCollections}
+        syncing={syncingFromProd}
+        onSyncingChange={setSyncingFromProd}
+        onSuccess={handleTransferSuccess}
+        diffPreviewLabel={currentCollection || "colección"}
+      />
+
+      <PromoteDiffDialog
+        open={promoteDialogOpen}
+        onOpenChange={setPromoteDialogOpen}
+        diff={collectionDiff}
+        isLoading={isDiffLoading}
+        agentId={agentId}
+        agentNameForConfirm={agentNameForConfirm}
+        onSuccess={handleTransferSuccess}
+        dialogTitle={`Subir cambios (${currentCollection || "colección"})`}
+        dialogDescription={
+          <>
+            Solo se publican los campos de{" "}
+            <span className="font-medium text-foreground">
+              {currentCollection || "la colección seleccionada"}
+            </span>{" "}
+            que selecciones desde el estado guardado en pruebas. Escribe{" "}
+            <span className="font-medium text-foreground">CONFIRMAR</span> para
+            continuar.
+          </>
+        }
+        contentClassName="max-h-[min(90vh,48rem)] overflow-y-auto sm:max-w-3xl"
+      />
     </div>
   );
 }
