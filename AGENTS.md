@@ -1,30 +1,34 @@
-# KAI Operations — guía para agentes
+# KAI Operations — Agent Instructions
 
-Este repositorio agrupa varias apps y herramientas.
+This repository is a Bun-based monorepo with three workspaces: `apps/web` (Next.js), `apps/api` (Hono/Bun), and `packages/shared`. 
 
-- **Frontend Next.js** — convenciones detalladas (hooks, `components/`, `types/`, `services/`, exportaciones, megacomponentes, capas): **[`apps/web/AGENTS.md`](apps/web/AGENTS.md)**  
-  Antes de tocar `apps/web/`, léelo; incluye reglas de Next, changelog, hooks (sin `toast` en hooks), componentes por dominio, barrels, y cuándo partir un megacomponente en subcarpeta.
+## 🏗️ Monorepo & Build Quirks
+- **Shared Package (`@kai/shared`)**: If you modify `packages/shared/`, you MUST run `bun run build:shared` from the root before the web or api apps will pick up your changes.
+- **Run Dev**: `bun run dev` at the root starts both apps. Web runs on 3000, API on 3001. Next.js rewrites `/api/*` to the backend.
 
-- **API Bun + Hono** — capas `routes/` / `controllers/`, comandos, anti‑patrones de controladores monolíticos: **[`apps/api/AGENTS.md`](apps/api/AGENTS.md)**
+## 🕸️ Web (`apps/web`)
+- **HTTP/Fetch rules**: ALL calls to the backend API live in `services/`. NEVER put fetch calls in `lib/` or `hooks/`.
+- **`lib/`**: Used for app-local infra (auth wrappers, utility functions), not business logic.
+- **Hooks (`hooks/`)**: Custom hooks must return `error: string | null`. **Never call `toast` inside a hook.** Feedback belongs in action handlers or UI components.
+- **Components (`components/`)**:
+  - Use **named exports only** (no `export default` except for `app/` pages/layouts).
+  - Megacomponents (complex features) go in `components/<domain>/<feature>/` with their own `index.tsx`, `types.ts`, and views.
+  - Do not reorganize `components/ui/` (managed by shadcn).
 
-## Resumen ejecutivo (web)
+## 🔌 API (`apps/api`)
+- **Layer Strictness**: 
+  - `routes/`: Only Hono wiring and auth checks. Delegate everything else to controllers.
+  - `controllers/`: HTTP handlers. If a controller exceeds ~400 LOC, split it into a `controllers/<domain>/` directory and move helper logic to `utils/<domain>/`.
+- **Route Registration Order**: In `routes/agents/index.ts`, fixed routes must be registered BEFORE dynamic `/:agentId` params.
+- **Data Stores**: Firestore is the primary store for agent data. PostgreSQL (via Drizzle) handles Better Auth sessions and specific relational data.
+- **Config**: Always use `src/config.ts` for environment variables. Do not read `process.env` directly elsewhere.
 
-| Tema | Regla breve |
-|------|-------------|
-| Hooks `apps/web/hooks/` | Estado + `error`; **no** `toast` en hooks; feedback en acciones o UI. Barrel `@/hooks`. Archivos y carpetas en **kebab-case** donde aplique (ver [`apps/web/AGENTS.md`](apps/web/AGENTS.md)). |
-| `components/` | Por dominio (`agents/`, `prompt/`, …); **solo named exports** en componentes de producto. |
-| `app/` | **`export default`** en páginas/layouts cuando Next lo exige. |
-| Megacomponentes | Carpeta `dominio/feature/` con `index.tsx` + módulos por flujo (`types`, `constants`, `*-helpers`, vistas). |
-| Tipos compartidos | Preferir `@/types` (barrel), no duplicar en hooks o en features salvo tipos realmente locales. Contratos de la API del monorepo: [`apps/api/AGENTS.md`](apps/api/AGENTS.md) (`src/types/` en kebab-case). |
+## 🛠️ Key Commands
+Run these from the relevant app directory or use `--filter`:
+- **API DB**: `bun run db:push` (Postgres migrations), `bun run db:auth-schema` (Better Auth schema generation).
+- **Web E2E**: Playwright tests require `bun run test:e2e:auth` before running `bun run test:e2e:form`.
 
-## Resumen ejecutivo (api)
-
-| Tema | Regla breve |
-|------|-------------|
-| `routes/` | Solo wiring Hono + auth; delegar en controllers. |
-| `controllers/` | Handlers HTTP; si crece demasiado, carpeta + `index.ts` con reexports. |
-| Routers `routes/` | **`export const nombreRouter`**; `export const api` en `index.ts`; `import { api }` en `app.ts`. |
-| Nombres de archivo | En `apps/api/src`, módulos **`.ts`** en **`lib/`**, **`utils/`**, **`constants/`** y **`types/`**: **kebab-case** (p. ej. `session-user.ts`, `agent-property-defaults.ts`, `agents-types.ts`). Detalle en [`apps/api/AGENTS.md`](apps/api/AGENTS.md). |
-| Verificación | `bunx tsc -p apps/api/tsconfig.json --noEmit` en `apps/api/`. |
-
-Otras carpetas en la raíz del monorepo pueden tener sus propias notas (`README`, `CLAUDE.md`, etc.); para código web y API usa los `AGENTS.md` de cada app.
+## 📚 Further Reading
+Check the app-specific rule files before heavily modifying either app:
+- [`apps/web/AGENTS.md`](apps/web/AGENTS.md)
+- [`apps/api/AGENTS.md`](apps/api/AGENTS.md)
