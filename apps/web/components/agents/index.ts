@@ -8,7 +8,7 @@ export { AgentBuilderChatDiagram } from "./builder-chat-diagram";
 export { AgentBuilderFormReadonly } from "./builder-form-readonly";
 export { AgentConfigurationEditor } from "./configuration-editor";
 export { AgentFormBuilder } from "./form-builder";
-export { AgentImplementationTasksPanel } from "./implementation-tasks-panel";
+export { AgentImplementationTasksPanel } from "./implementation-tasks";
 export { AgentLifecycleStatusPanel } from "./lifecycle-status-panel";
 export { AgentPromptDesigner } from "./prompt-designer";
 export { AgentSimulator } from "./simulator";
