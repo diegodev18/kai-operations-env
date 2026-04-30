@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CalendarIcon, Loader2Icon, UsersIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -26,6 +26,7 @@ import type {
 } from "@/types";
 import { createImplementationTask } from "@/services/agents-api";
 import { AttachmentList, FileUploadButton } from "@/components/shared";
+import { cn } from "@/lib/utils";
 import { toIsoFromDateInput } from "./constants";
 
 interface CreateTaskDialogProps {
@@ -53,13 +54,16 @@ export function CreateTaskDialog({
   const [dateOpen, setDateOpen] = useState(false);
   const taskTempId = useRef(`create-task-${Date.now()}`);
 
+  useEffect(() => {
+    if (open) taskTempId.current = `create-task-${Date.now()}`;
+  }, [open]);
+
   const reset = () => {
     setTitle("");
     setDescription("");
     setDueDate("");
     setAssigneeEmails([]);
     setAttachments([]);
-    taskTempId.current = `create-task-${Date.now()}`;
   };
 
   const handleClose = () => {
@@ -168,7 +172,7 @@ export function CreateTaskDialog({
                 <Button
                   variant="outline"
                   size="sm"
-                  className={`h-7 gap-1.5 text-xs font-normal ${dueDate ? "text-foreground" : ""}`}
+                  className={cn("h-7 gap-1.5 text-xs font-normal", dueDate && "text-foreground")}
                 >
                   <CalendarIcon className="size-3.5" />
                   {dueDateLabel}
@@ -206,7 +210,7 @@ export function CreateTaskDialog({
                 <Button
                   variant="outline"
                   size="sm"
-                  className={`h-7 gap-1.5 text-xs font-normal ${assigneeEmails.length > 0 ? "text-foreground" : ""}`}
+                  className={cn("h-7 gap-1.5 text-xs font-normal", assigneeEmails.length > 0 && "text-foreground")}
                 >
                   <UsersIcon className="size-3.5" />
                   {assigneesLabel}

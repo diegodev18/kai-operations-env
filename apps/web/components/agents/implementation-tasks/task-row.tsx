@@ -34,7 +34,7 @@ export function TaskRow({
 
   const assigneeAvatars = (task.assigneeEmails ?? []).slice(0, 3).map((email) => {
     const g = growers.find((gr) => gr.email.trim().toLowerCase() === email);
-    return g ? growerInitials(g) : emailInitials(email);
+    return { initials: g ? growerInitials(g) : emailInitials(email), email };
   });
   const extraCount = Math.max(0, (task.assigneeEmails?.length ?? 0) - 3);
 
@@ -47,7 +47,7 @@ export function TaskRow({
         if (e.key === "Enter" || e.key === " ") onSelect(task.id);
       }}
       className={cn(
-        "group flex items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors cursor-pointer",
+        "flex items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors cursor-pointer",
         isSelected ? "bg-accent text-accent-foreground" : "hover:bg-muted/60",
       )}
     >
@@ -107,9 +107,9 @@ export function TaskRow({
       {/* Assignee avatars */}
       {assigneeAvatars.length > 0 && (
         <div className="flex shrink-0 -space-x-1">
-          {assigneeAvatars.map((initials, i) => (
+          {assigneeAvatars.map(({ initials, email }) => (
             <div
-              key={`${initials}-${i}`}
+              key={email}
               className="flex size-5 items-center justify-center rounded-full border border-background bg-muted text-[9px] font-medium text-muted-foreground"
             >
               {initials}

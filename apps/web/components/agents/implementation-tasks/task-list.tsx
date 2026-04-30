@@ -94,9 +94,10 @@ export function TaskList({
     [tasks],
   );
 
-  const mandatoryCompleted = mandatoryTasks.filter(
-    (t) => t.status === "completed",
-  ).length;
+  const mandatoryCompleted = useMemo(
+    () => mandatoryTasks.filter((t) => t.status === "completed").length,
+    [mandatoryTasks],
+  );
 
   const customPending = useMemo(
     () =>

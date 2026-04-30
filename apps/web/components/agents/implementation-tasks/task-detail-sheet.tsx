@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   XIcon,
   ChevronUpIcon,
@@ -72,6 +72,9 @@ interface TaskDetailSheetProps {
   >;
 }
 
+const MIN_SHEET_WIDTH = 420;
+const MAX_SHEET_WIDTH = 980;
+
 export function TaskDetailSheet({
   task,
   allTasks,
@@ -100,12 +103,10 @@ export function TaskDetailSheet({
   setTaskDueDates,
   setRepDraft,
 }: TaskDetailSheetProps) {
-  const MIN_SHEET_WIDTH = 420;
-  const MAX_SHEET_WIDTH = 980;
-
   const [sheetWidth, setSheetWidth] = useState(480);
   const [isResizing, setIsResizing] = useState(false);
   const [assigneesOpen, setAssigneesOpen] = useState(false);
+  const assigneesOnOpen = useRef<string[]>([]);
 
   const open = task !== null;
   const isSaving = task ? savingTaskId === task.id : false;
@@ -140,7 +141,15 @@ export function TaskDetailSheet({
   }, [isResizing]);
 
   const handleAssigneesOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen && task) void onSaveAssignees(task.id);
+    if (nextOpen) {
+      assigneesOnOpen.current = [...(taskAssignees[task?.id ?? ""] ?? [])];
+    } else if (task) {
+      const current = taskAssignees[task.id] ?? [];
+      const changed =
+        assigneesOnOpen.current.length !== current.length ||
+        current.some((e) => !assigneesOnOpen.current.includes(e));
+      if (changed) void onSaveAssignees(task.id);
+    }
     setAssigneesOpen(nextOpen);
   };
 
@@ -153,7 +162,7 @@ export function TaskDetailSheet({
   const isCustomTask =
     !task.mandatory && !(task.taskType && MANDATORY_TASK_TYPES.has(task.taskType));
   const showTypeAttachments =
-    Boolean(task.taskType) && TASK_TYPES_WITH_ATTACHMENTS.has(task.taskType!);
+    task.taskType != null && TASK_TYPES_WITH_ATTACHMENTS.has(task.taskType);
   const dueDateValue = taskDueDates[task.id] ?? "";
   const selectedAssignees = taskAssignees[task.id] ?? [];
   const primaryWa = waIntegrations[0];
@@ -314,7 +323,7 @@ export function TaskDetailSheet({
                   />
                   {dueDateValue && (
                     <span className="text-xs text-muted-foreground">
-                      {formatDate(new Date(`${dueDateValue}T00:00:00`).toISOString())}
+                      {formatDate(dueDateValue)}
                     </span>
                   )}
                 </div>

@@ -180,7 +180,9 @@ export function AgentImplementationTasksPanel({
     const poll = async () => {
       const res = await fetchWhatsappIntegrationStatus(agentId);
       if (cancelled || !res) return;
-      setWaIntegrations(res.items);
+      setWaIntegrations((prev) =>
+        JSON.stringify(prev) === JSON.stringify(res.items) ? prev : res.items,
+      );
       const connectTask = tasksRef.current.find(
         (t) => t.taskType === "connect-number",
       );
@@ -328,17 +330,15 @@ export function AgentImplementationTasksPanel({
 
   const onFileUploaded = useCallback(
     (taskId: string) => (attachment: ImplementationTaskAttachment) => {
-      setTasks((prev) =>
-        prev.map((t) => {
+      setTasks((prev) => {
+        const next = prev.map((t) => {
           if (t.id !== taskId) return t;
           return { ...t, attachments: [...(t.attachments ?? []), attachment] };
-        }),
-      );
-      void patchImplementationTask(agentId, taskId, {
-        attachments: [
-          ...(tasksRef.current.find((t) => t.id === taskId)?.attachments ?? []),
-          attachment,
-        ],
+        });
+        void patchImplementationTask(agentId, taskId, {
+          attachments: next.find((t) => t.id === taskId)?.attachments ?? [],
+        });
+        return next;
       });
     },
     [agentId],
@@ -346,19 +346,17 @@ export function AgentImplementationTasksPanel({
 
   const onRemoveAttachment = useCallback(
     (taskId: string, index: number) => {
-      setTasks((prev) =>
-        prev.map((t) => {
+      setTasks((prev) => {
+        const next = prev.map((t) => {
           if (t.id !== taskId) return t;
-          const next = [...(t.attachments ?? [])];
-          next.splice(index, 1);
-          return { ...t, attachments: next };
-        }),
-      );
-      void patchImplementationTask(agentId, taskId, {
-        attachments:
-          tasksRef.current
-            .find((t) => t.id === taskId)
-            ?.attachments?.filter((_, i) => i !== index) ?? [],
+          const attachments = [...(t.attachments ?? [])];
+          attachments.splice(index, 1);
+          return { ...t, attachments };
+        });
+        void patchImplementationTask(agentId, taskId, {
+          attachments: next.find((t) => t.id === taskId)?.attachments ?? [],
+        });
+        return next;
       });
     },
     [agentId],

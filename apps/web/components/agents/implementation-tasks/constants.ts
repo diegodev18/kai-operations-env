@@ -69,9 +69,13 @@ export function toIsoFromDateInput(value: string): string | null {
   return date.toISOString();
 }
 
-export function formatDate(iso?: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
+/** Accepts ISO strings or YYYY-MM-DD date-input values. */
+export function formatDate(isoOrDate?: string | null): string {
+  if (!isoOrDate) return "";
+  const normalized = isoOrDate.includes("T")
+    ? isoOrDate
+    : `${isoOrDate}T00:00:00.000Z`;
+  const d = new Date(normalized);
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleDateString("es-MX", { dateStyle: "medium" });
 }
