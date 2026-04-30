@@ -1,22 +1,34 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { LoadWalletDialog } from "./load-wallet-dialog";
 import { TipsFeed } from "./tips-feed";
 import { TeamBalancesTable } from "./team-balances-table";
 import { AdminStatCards, MemberStatCards } from "./stat-cards";
 import { useAdminWallet, useAdminBalances, useActivity, useTips, useTeamMembers, useMyBalance } from "@/hooks";
 import { useAuth, useUserRole } from "@/hooks";
+import type { Tip } from "@/types";
 
 export function BonusesDashboard() {
   const { session } = useAuth();
   const { isAdmin } = useUserRole();
   const currentUserId = session?.user?.id;
 
+  const handleNewReceivedTip = useCallback((tip: Tip & { type: "tip" }) => {
+    toast.success(`¡Recibiste una propina de $${tip.amount} MXN de ${tip.senderName}! 🎉`, {
+      description: tip.description,
+      duration: 6000,
+    });
+  }, []);
+
   const { wallet, isLoading: walletLoading, loadFunds } = useAdminWallet();
   const { balances, isLoading: balancesLoading, redeem } = useAdminBalances();
   const { tips, isLoading: tipsLoading } = useTips();
-  const { activity, isLoading: activityLoading, refetch: refetchActivity } = useActivity();
+  const { activity, isLoading: activityLoading, refetch: refetchActivity } = useActivity({
+    currentUserId,
+    onNewReceivedTip: handleNewReceivedTip,
+  });
   const { members, isLoading: membersLoading } = useTeamMembers();
   const { balanceMxn: myBalance, isLoading: myBalanceLoading } = useMyBalance();
 

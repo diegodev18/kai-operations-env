@@ -63,8 +63,9 @@ import {
   UserMenu,
 } from "@/components/shared";
 import type { OrgUser } from "@/components/shared";
-import { useAuth, useUserRole, useTips, useTeamMembers } from "@/hooks";
+import { useAuth, useUserRole, useActivity, useTips, useTeamMembers } from "@/hooks";
 import { SendTipDialog } from "@/components/bonuses/send-tip-dialog";
+import type { Tip } from "@/types";
 import { Input } from "@/components/ui/input";
 import {
   Sheet,
@@ -145,6 +146,18 @@ export function OperationsDashboard(props: {
   const [sendTipOpen, setSendTipOpen] = useState(false);
   const { members: tipMembers } = useTeamMembers();
   const { send: sendTip, refetch: refetchTips } = useTips();
+
+  const handleNewReceivedTip = useCallback((tip: Tip & { type: "tip" }) => {
+    toast.success(`¡Recibiste una propina de $${tip.amount} MXN de ${tip.senderName}! 🎉`, {
+      description: tip.description,
+      duration: 6000,
+    });
+  }, []);
+
+  useActivity({
+    currentUserId: session?.user?.id,
+    onNewReceivedTip: handleNewReceivedTip,
+  });
   const [agents, setAgents] = useState<AgentWithOperations[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);

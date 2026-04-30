@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import { toast } from "sonner";
 import { SendTipDialog } from "@/components/bonuses/send-tip-dialog";
-import { useTips, useTeamMembers } from "@/hooks";
+import { useActivity, useTips, useTeamMembers } from "@/hooks";
+import type { Tip } from "@/types";
 import {
   Tooltip,
   TooltipContent,
@@ -57,6 +59,18 @@ export function OperationsShell(props: {
   const [sendTipOpen, setSendTipOpen] = useState(false);
   const { members } = useTeamMembers();
   const { send, refetch: refetchTips } = useTips();
+
+  const handleNewReceivedTip = useCallback((tip: Tip & { type: "tip" }) => {
+    toast.success(`¡Recibiste una propina de $${tip.amount} MXN de ${tip.senderName}! 🎉`, {
+      description: tip.description,
+      duration: 6000,
+    });
+  }, []);
+
+  useActivity({
+    currentUserId: session?.user?.id,
+    onNewReceivedTip: handleNewReceivedTip,
+  });
   const [defaultBuilderMode] = useState<"form" | "conversational">(() => {
     if (typeof window === "undefined") return "form";
     const stored = localStorage.getItem("agent-builder-default-mode");

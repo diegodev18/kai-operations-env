@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ActivityItem, SendTipInput, TeamMember, Tip } from "@/types";
 import { fetchActivity, fetchTeamMembers, fetchTips, sendTip } from "@/services/bonuses-api";
+
+const POLL_INTERVAL_MS = 30_000;
 
 export function useTips() {
   const [tips, setTips] = useState<Tip[]>([]);
@@ -62,28 +64,74 @@ export function useTeamMembers() {
   return { members, isLoading, error };
 }
 
-export function useActivity() {
+interface UseActivityOptions {
+  currentUserId?: string;
+  onNewReceivedTip?: (tip: Tip & { type: "tip" }) => void;
+}
+
+export function useActivity(opts: UseActivityOptions = {}) {
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
+  // Ref so the polling closure always sees the latest callback without re-registering the interval
+  const onNewReceivedTipRef = useRef(opts.onNewReceivedTip);
+  onNewReceivedTipRef.current = opts.onNewReceivedTip;
+  const currentUserIdRef = useRef(opts.currentUserId);
+  currentUserIdRef.current = opts.currentUserId;
+
+  // Tracks IDs seen on the initial load — polling diffs against this set
+  const knownIds = useRef<Set<string> | null>(null);
+
+  const load = useCallback(async (isPoll = false) => {
+    if (!isPoll) setIsLoading(true);
     setError(null);
     const res = await fetchActivity();
-    if (res.ok) {
-      setActivity(res.activity);
-    } else {
+    if (!res.ok) {
       setError(res.error);
+      if (!isPoll) setIsLoading(false);
+      return;
     }
-    setIsLoading(false);
+
+    const incoming = res.activity;
+
+    if (knownIds.current === null) {
+      // First load: seed the known set, don't notify
+      knownIds.current = new Set(incoming.map((i) => i.id));
+    } else if (isPoll) {
+      const userId = currentUserIdRef.current;
+      const cb = onNewReceivedTipRef.current;
+      if (userId && cb) {
+        for (const item of incoming) {
+          if (!knownIds.current.has(item.id)) {
+            knownIds.current.add(item.id);
+            if (item.type === "tip" && item.recipientId === userId) {
+              cb(item as Tip & { type: "tip" });
+            }
+          }
+        }
+      } else {
+        // Still update the known set even without a callback
+        for (const item of incoming) knownIds.current.add(item.id);
+      }
+    }
+
+    setActivity(incoming);
+    if (!isPoll) setIsLoading(false);
   }, []);
 
+  // Initial fetch
   useEffect(() => {
-    queueMicrotask(() => {
-      void load();
-    });
+    queueMicrotask(() => { void load(false); });
   }, [load]);
 
-  return { activity, isLoading, error, refetch: load };
+  // Polling
+  useEffect(() => {
+    const id = setInterval(() => { void load(true); }, POLL_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [load]);
+
+  const refetch = useCallback(() => load(false), [load]);
+
+  return { activity, isLoading, error, refetch };
 }
